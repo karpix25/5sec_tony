@@ -23,8 +23,8 @@ const hookFormulas = [
     trigger: "боязнь купить пустышку или сделать хуже",
     format: "mistake-solution",
     scoreBonus: 5,
-    topic: ({ productName, pain }) => `Главная ошибка перед покупкой: ${productName}, если у вас "${pain}"`,
-    hook: ({ productName }) => `Не покупайте ${productName.toLowerCase()}, пока не проверили одну ошибку`
+    topic: ({ productName, pain }) => `Как не купить ${productName} с неверными ожиданиями, если у вас "${pain}"`,
+    hook: ({ productName }) => `Не покупайте ${productName.toLowerCase()}, пока не проверили свои ожидания`
   },
   {
     id: "curiosity-gap",
@@ -48,7 +48,7 @@ const hookFormulas = [
 
 const copyDevices = [
   { id: "contrast", label: "контраст", score: 2, pattern: /дорог|дешев|польз|маркетинг|пустыш/ },
-  { id: "simple-check", label: "простая проверка", score: 2, pattern: /проверк|пока|сначала|одну/ },
+  { id: "simple-check", label: "простая проверка", score: 2, pattern: /проверк|пока|сначала|ожидан/ },
   { id: "open-loop", label: "незакрытая петля", score: 2, pattern: /что происходит|почему|на самом деле/ },
   { id: "specific-pain", label: "узнаваемая боль", score: 2, pattern: /если|когда|повторяется|беспокоит/ }
 ];

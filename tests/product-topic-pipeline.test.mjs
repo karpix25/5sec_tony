@@ -29,8 +29,8 @@ test("wellness generation brief uses product pains and facts for topic seed", ()
     generationBrief: {}
   });
 
-  assert.match(brief.topic, /ритуал|покупк|шум|причин|мелоч/i);
-  assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того/i);
+  assert.match(brief.topic, /ритуал|покупк|шум|причин|мелоч|ожидан/i);
+  assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того|ожидан/i);
   assert.ok(brief.topicCandidate);
 });
 
@@ -78,6 +78,31 @@ test("topic candidates use psychological hook formulas", () => {
   assert.ok(candidate.formulaId);
   assert.ok(candidate.trigger);
   assert.ok(candidate.copyDevice);
-  assert.match(candidate.hook, /честно|не покуп|пустышк|провери|маркетинг/i);
+  assert.match(candidate.hook, /честно|не покуп|пустышк|провери|ожидан|маркетинг/i);
+  assert.doesNotMatch(candidate.hook, /проверили одну ошибку/i);
   assert.equal(candidate.safetyPenalty, 0);
+});
+
+test("supplement hooks check expectations instead of vague mistakes", () => {
+  const project = {
+    ...projects[0],
+    projectTheme: "коллаген как БАД без обещаний омоложения",
+    audiencePains: "кожа выглядит уставшей\nстрах купить красивую банку без смысла"
+  };
+  const product = {
+    id: "collagen-test",
+    projectId: project.id,
+    name: "Коллаген",
+    description: "БАД для beauty-рутины",
+    offer: "часть регулярной beauty-привычки",
+    components: "коллаген, витамин C",
+    pains: ["кожа выглядит уставшей", "страх купить пустышку"],
+    facts: ["важна регулярность", "без обещаний омоложения"],
+    forbidden: ["минус 10 лет", "гарантирует результат"]
+  };
+
+  const hooks = buildTopicCandidates({ project, product, existingJobs: [] }).map((item) => item.hook);
+
+  assert.ok(hooks.some((hook) => /ожидан|пустышк|маркетинг|честно/i.test(hook)));
+  assert.ok(hooks.every((hook) => !/проверили одну ошибку/i.test(hook)));
 });
