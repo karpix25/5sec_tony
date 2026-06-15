@@ -21,6 +21,8 @@ test("generation job keeps local product references for image-to-image handoff",
   assert.deepEqual(job.inputUrls, [tinyPng]);
   assert.deepEqual(job.inputRefs, [{ role: "product", title: "Реальная упаковка", isLocalData: true }]);
   assert.match(job.prompt, /Референсы продукта: Реальная упаковка: белая бутылка с зеленой этикеткой/);
+  assert.match(job.prompt, /ТОЧНЫЙ PRODUCT IMAGE-TO-IMAGE ДОСТУПЕН/);
+  assert.doesNotMatch(job.prompt, /он не передан в image-to-image/);
 });
 
 test("reference asset resolver publishes data urls through public base url", async () => {

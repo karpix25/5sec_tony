@@ -46,7 +46,7 @@ const contentLayers = [
 export function createContentLayer({ project, product, existingJobs = [] }) {
   const used = new Set(existingJobs.map((job) => job.contentLayerId || job.diversitySlot?.contentLayer?.id || ""));
   const layer = contentLayers.find((item) => !used.has(item.id)) || contentLayers[existingJobs.length % contentLayers.length];
-  const subject = getLayerSubject(project, product);
+  const subject = getLayerSubject(project, product, existingJobs);
   return {
     ...layer,
     subject,
@@ -71,24 +71,39 @@ export function getContentLayerInstruction(layer) {
   ].join(" ");
 }
 
-function getLayerSubject(project, product) {
-  return layerFirstAvailable([
-    layerFirstListItem(product.pains),
-    layerFirstLine(project.audiencePains),
-    project.projectTheme,
+function getLayerSubject(project, product, existingJobs) {
+  const subjects = uniqueLayerSubjects([
+    ...layerListItems(product.pains),
+    ...layerListItems(project.audiencePains),
     product.offer,
+    project.projectTheme,
     product.name
   ]);
+  const fallback = subjects[0] || "жизненная ситуация аудитории";
+  const usedText = existingJobs.map((job) => normalizeLayerSubject(`${job.diversitySlot?.contentLayer?.subject || ""} ${job.topic || ""} ${job.title || ""}`)).join(" ");
+  return subjects.find((subject) => !usedText.includes(normalizeLayerSubject(subject)))
+    || subjects[existingJobs.length % subjects.length]
+    || fallback;
 }
 
-function layerFirstAvailable(items) {
-  return items.map((item) => String(item || "").trim()).find(Boolean) || "жизненная ситуация аудитории";
+function uniqueLayerSubjects(items) {
+  const seen = new Set();
+  return items
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = normalizeLayerSubject(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
-function layerFirstLine(value) {
-  return String(value || "").split(/\n|;/).map((item) => item.trim()).find(Boolean) || "";
+function layerListItems(value) {
+  if (Array.isArray(value)) return value;
+  return String(value || "").split(/\n|;/).map((item) => item.trim()).filter(Boolean);
 }
 
-function layerFirstListItem(value) {
-  return Array.isArray(value) ? layerFirstAvailable(value) : layerFirstLine(value);
+function normalizeLayerSubject(value) {
+  return String(value || "").toLowerCase().replace(/[^a-zа-я0-9ё]+/gi, " ").trim();
 }

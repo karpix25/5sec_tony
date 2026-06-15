@@ -129,6 +129,7 @@ test("ai brief keeps the locked diversity slot topic", async () => {
   try {
     const slot = {
       id: "card-rejected",
+      lockTopic: true,
       topic: "Почему зарубежный сервис снова отклоняет оплату",
       hook: "Карта не проходит?",
       format: "mistake-solution",
@@ -143,6 +144,43 @@ test("ai brief keeps the locked diversity slot topic", async () => {
     });
 
     assert.equal(brief.topic, slot.topic);
+    assert.equal(brief.semanticKey, slot.id);
+    assert.equal(brief.diversitySlot.id, slot.id);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("ai brief can use generated topic for unlocked diversity slots", async () => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      draft: {
+        semanticKey: "wrong-slot",
+        topic: "Почему вечернее напряжение мешает восстановиться",
+        hook: "Вечером тело не всегда сразу выключается"
+      }
+    })
+  });
+
+  try {
+    const slot = {
+      id: "life-pain",
+      topic: "Ситуация из жизни, где боль уже видна: тяжело уснуть",
+      hook: "Вы узнаете это состояние раньше, чем проблему",
+      format: "symptoms",
+      visualObject: "вечерняя рутина"
+    };
+    const brief = await generateAiBrief({
+      project: projects.find((item) => item.id === "supplements"),
+      product: products.find((item) => item.id === "magnesium"),
+      reference: projects.find((item) => item.id === "supplements").references[0],
+      existingJobs: [],
+      diversitySlot: slot
+    });
+
+    assert.equal(brief.topic, "Почему вечернее напряжение мешает восстановиться");
     assert.equal(brief.semanticKey, slot.id);
     assert.equal(brief.diversitySlot.id, slot.id);
   } finally {

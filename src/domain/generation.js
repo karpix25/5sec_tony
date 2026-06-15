@@ -210,11 +210,14 @@ function isImageReferenceUrl(value) {
 }
 
 function getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs }) {
-  if (remoteProductRefs) {
-    return `ТОЧНЫЙ PRODUCT IMAGE-TO-IMAGE ДОСТУПЕН: передано ${remoteProductRefs} product reference image(s). Если показываешь упаковку, копируй внешний вид оттуда; не меняй форму, этикетку и бренд.`;
-  }
-  if (localProductRefs) {
-    return "PRODUCT REFERENCE ЕСТЬ ТОЛЬКО КАК ЛОКАЛЬНЫЙ ПРЕВЬЮ/ТЕКСТ: он не передан в image-to-image. Не пытайся восстановить упаковку по памяти; не рисуй крупную фронтальную бутылку/коробку/банку с выдуманной этикеткой. Если точное фото недоступно генератору, лучше не показывать упаковку вообще.";
+  const productRefCount = remoteProductRefs + localProductRefs;
+  if (productRefCount) {
+    return [
+      `ТОЧНЫЙ PRODUCT IMAGE-TO-IMAGE ДОСТУПЕН: передано ${productRefCount} product reference image(s).`,
+      "Локальные product reference images будут опубликованы как S3/public URL перед запросом к генератору; считай их доступными для image-to-image.",
+      "Если тема, хук, пункты или visualObject упоминают продукт, упаковку, состав, применение, курс, ритуал с продуктом или выбор продукта, продукт должен быть визуально виден в кадре.",
+      "Копируй внешний вид продукта из product reference: форму упаковки, цвет, этикетку, название, крышку, коробку и SKU; не заменяй его абстрактным 3D-объектом."
+    ].join(" ");
   }
   return "ТОЧНОГО PRODUCT IMAGE-TO-IMAGE НЕТ: не рисовать крупную упаковку с выдуманной этикеткой; продукт показывать через контекст, ингредиент, ритуал или маленький нейтральный объект.";
 }

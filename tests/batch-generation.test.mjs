@@ -25,3 +25,21 @@ test("batch generation assigns different semantic slots before jobs run", () => 
   assert.equal(new Set(jobs.map((job) => job.topic)).size, 3);
   assert.equal(new Set(jobs.map((job) => job.diversitySlot?.id)).size, 3);
 });
+
+test("wellness batch rotates product pains across content layers", () => {
+  const project = projects.find((item) => item.id === "supplements");
+  const product = products.find((item) => item.id === "magnesium");
+  const context = {
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0],
+    audio: project.audioLibrary[0],
+    freePrompt: ""
+  };
+  const jobs = createGenerationJobBatch({ context, existingJobs: [], count: 3 });
+  const subjects = jobs.map((job) => job.diversitySlot?.contentLayer?.subject);
+
+  assert.deepEqual(subjects, ["тяжело уснуть", "нервное напряжение", "утренняя разбитость"]);
+  assert.equal(new Set(subjects).size, 3);
+});

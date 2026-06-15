@@ -19,8 +19,11 @@ export async function generateAiBrief({ project, product, reference, existingJob
 }
 
 function normalizeAiBrief(draft, diversitySlot) {
+  const topic = diversitySlot.lockTopic
+    ? diversitySlot.topic
+    : draft.topic || diversitySlot.topic || "";
   return {
-    topic: diversitySlot.topic || draft.topic || "",
+    topic,
     hook: draft.hook || diversitySlot.hook || "",
     format: draft.format || diversitySlot.format || "",
     pointCount: draft.pointCount || "",

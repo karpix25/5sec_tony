@@ -94,7 +94,7 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.doesNotMatch(job.prompt, /Узнайте больше|Сохраните|Закажите/);
 });
 
-test("image prompt does not force packaging when exact product image is not transferable", () => {
+test("image prompt treats local product references as transferable image input", () => {
   const project = projects[0];
   const product = {
     ...products.find((item) => item.id === "magnesium"),
@@ -109,10 +109,11 @@ test("image prompt does not force packaging when exact product image is not tran
   assert.match(job.prompt, /ПРОДУКТ ПОКАЗЫВАТЬ ТОЛЬКО В ТЕМУ/);
   assert.match(job.prompt, /ПРОДУКТ В КАДРЕ НЕ РАВЕН УПАКОВКЕ/);
   assert.match(job.prompt, /Не пихать упаковку в каждую генерацию/);
-  assert.match(job.prompt, /PRODUCT REFERENCE ЕСТЬ ТОЛЬКО КАК ЛОКАЛЬНЫЙ ПРЕВЬЮ\/ТЕКСТ/);
-  assert.match(job.prompt, /Не пытайся восстановить упаковку по памяти/);
-  assert.match(job.prompt, /лучше не показывать упаковку вообще/);
-  assert.match(job.prompt, /жидкость, стакан, лист\/ингредиент, ритуал/);
+  assert.match(job.prompt, /ТОЧНЫЙ PRODUCT IMAGE-TO-IMAGE ДОСТУПЕН/);
+  assert.match(job.prompt, /Локальные product reference images будут опубликованы как S3\/public URL/);
+  assert.match(job.prompt, /Если тема, хук, пункты или visualObject упоминают продукт/);
+  assert.match(job.prompt, /продукт должен быть визуально виден в кадре/);
+  assert.match(job.prompt, /не заменяй его абстрактным 3D-объектом/);
 });
 
 test("humanizer removes disclaimer points and technical labels", () => {

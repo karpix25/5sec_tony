@@ -14,6 +14,7 @@ const genericSlots = scenarioPatterns.map((pattern) => ({
 const paymentSlots = [
   {
     id: "card-rejected",
+    lockTopic: true,
     format: "mistake-solution",
     angle: "карта снова не проходит",
     topic: "Почему зарубежный сервис снова отклоняет оплату",
@@ -22,6 +23,7 @@ const paymentSlots = [
   },
   {
     id: "subscription-deadline",
+    lockTopic: true,
     format: "checklist",
     angle: "доступ может отключиться сегодня",
     topic: "Что делать, если важная подписка вот-вот отключится",
@@ -30,6 +32,7 @@ const paymentSlots = [
   },
   {
     id: "business-tools",
+    lockTopic: true,
     format: "product-stack",
     angle: "работа встанет из-за оплаты",
     topic: "Что будет, если рабочий сервис отключится в самый неудобный момент",
@@ -38,6 +41,7 @@ const paymentSlots = [
   },
   {
     id: "travel-booking",
+    lockTopic: true,
     format: "scheme",
     angle: "бронь может слететь",
     topic: "Почему зарубежная бронь может сорваться из-за оплаты",
@@ -46,6 +50,7 @@ const paymentSlots = [
   },
   {
     id: "invoice-payment",
+    lockTopic: true,
     format: "scheme",
     angle: "счет выглядит непонятно",
     topic: "Где прячутся риски в зарубежном счете перед оплатой",
@@ -54,6 +59,7 @@ const paymentSlots = [
   },
   {
     id: "commission-terms",
+    lockTopic: true,
     format: "checklist",
     angle: "скрытые условия перед оплатой",
     topic: "Что может неприятно всплыть после зарубежной оплаты",
@@ -62,6 +68,7 @@ const paymentSlots = [
   },
   {
     id: "support-route",
+    lockTopic: true,
     format: "scheme",
     angle: "платеж завис и непонятно что дальше",
     topic: "Что происходит, когда зарубежный платеж зависает на уточнениях",
@@ -70,6 +77,7 @@ const paymentSlots = [
   },
   {
     id: "safe-boundaries",
+    lockTopic: true,
     format: "comparison",
     angle: "слишком сладкие обещания оплаты",
     topic: "Какие обещания в оплате зарубежных сервисов должны насторожить",
