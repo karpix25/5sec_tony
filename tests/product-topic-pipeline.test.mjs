@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { projects, products } from "../src/domain/entities.js";
 import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/generation.js";
+import { buildTopicCandidates } from "../src/domain/topic-candidates.js";
 
 test("wellness generation brief uses product pains and facts for topic seed", () => {
   const project = {
@@ -52,4 +53,31 @@ test("image prompt keeps product facts but does not expose deprecated product to
   assert.doesNotMatch(prompt, /Жизненные сценарии продукта/);
   assert.doesNotMatch(prompt, /Опорные факты для текста/);
   assert.doesNotMatch(prompt, /Визуальные якоря кроме упаковки/);
+});
+
+test("topic candidates use psychological hook formulas", () => {
+  const project = {
+    ...projects[0],
+    projectTheme: "хлорофилл и wellness без магии",
+    audiencePains: "усталость от блогерских обещаний\nстрах купить пустышку"
+  };
+  const product = {
+    id: "chlorophyll",
+    projectId: project.id,
+    name: "Хлорофилл",
+    description: "wellness-продукт для аккуратной ежедневной рутины",
+    offer: "понятный утренний ритуал без громких обещаний",
+    components: "жидкий формат, зеленый концентрат",
+    pains: ["страх купить пустышку", "непонятно, где польза, а где маркетинг"],
+    facts: ["важна регулярность", "без магических обещаний"],
+    forbidden: ["лечит", "гарантирует результат"]
+  };
+
+  const [candidate] = buildTopicCandidates({ project, product, existingJobs: [] });
+
+  assert.ok(candidate.formulaId);
+  assert.ok(candidate.trigger);
+  assert.ok(candidate.copyDevice);
+  assert.match(candidate.hook, /честно|не покуп|пустышк|провери|маркетинг/i);
+  assert.equal(candidate.safetyPenalty, 0);
 });

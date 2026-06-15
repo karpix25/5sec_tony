@@ -140,6 +140,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     `Запрещено обещать: ${forbidden}.`,
     `Уровень продающего текста: ${brief.salesLevel}.`,
     brief.notes ? `Комментарий к генерации: ${brief.notes}.` : "",
+    brief.aiPlan?.hookPsychology ? `Внутренняя логика хука: ${brief.aiPlan.hookPsychology}` : "",
     "Текст короткий, крупный, без мелкой каши. Не придумывай медицинские/финансовые гарантии. Не добавляй неуказанные проценты, комиссии, баланс карты или фейковые UI-данные.",
     "ПЕРЕД ОТВЕТОМ проверь: все слова, которые ты рисуешь на изображении, написаны по-русски; английский UI/text запрещен.",
     extra
