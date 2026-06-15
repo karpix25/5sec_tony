@@ -50,11 +50,22 @@ function renderQueueJob(job) {
         ${renderQueueSteps(job.stage)}
         <div class="queue-actions">
           ${renderQueueAction(job, ready, failed)}
+          ${renderDiskStatus(job)}
         </div>
       </div>
       ${renderQueuePreview(job, ready, failed, preview)}
     </article>
   `;
+}
+
+function renderDiskStatus(job) {
+  if (!job.diskStatus) return "";
+  const label = {
+    uploading: "Яндекс.Диск: сохраняем",
+    done: `Яндекс.Диск: ${job.diskPath || "сохранено"}`,
+    failed: `Яндекс.Диск: ${job.diskMessage || "ошибка сохранения"}`
+  }[job.diskStatus] || job.diskMessage || "";
+  return label ? `<span>${escapeHtml(label)}</span>` : "";
 }
 
 function renderQueueAction(job, ready, failed) {

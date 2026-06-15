@@ -1,5 +1,6 @@
-import { createGenerationJob, advanceJob, getProductsForProject } from "../domain/generation.js";
+import { advanceJob, getProductsForProject } from "../domain/generation.js";
 import { globalAudioLibrary, initialJobs, products, projects } from "../domain/entities.js";
+import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
@@ -100,6 +101,15 @@ export function createStore() {
         )
       });
     },
+    updateProjectAutomation(projectId, payload) {
+      setState({
+        projects: state.projects.map((project) =>
+          project.id === projectId
+            ? { ...project, automation: normalizeProjectAutomation({ ...(project.automation || {}), ...payload }) }
+            : project
+        )
+      });
+    },
     generateProjectField(fieldName, formPayload) {
       const project = updateProjectEntity(getProject(state, state.selectedProjectId), formPayload);
       const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
@@ -116,8 +126,10 @@ export function createStore() {
         client: "Anton Studio",
         name: payload.name || "Новый проект",
         exportFolder: payload.exportFolder || `Yandex Disk / Anton / ${payload.name || "Новый проект"} / Готовые`,
+        yandexDiskFolder: payload.yandexDiskFolder || payload.exportFolder || `disk:/Anton/${payload.name || "Новый проект"}/Готовые`,
         dailyLimit: Number(payload.dailyLimit || 20),
         usedToday: 0,
+        automation: normalizeProjectAutomation(),
         companyInfo: payload.companyInfo || "",
         companyAudience: payload.companyAudience || "",
         projectTheme: payload.projectTheme || "",
@@ -267,14 +279,20 @@ export function createStore() {
     deleteCharacter: avatarWorkflow.deleteCharacter,
     createJob() {
       const context = getContext(state);
-      const job = createGenerationJob({ ...context, existingJobs: state.jobs.filter((item) => item.projectId === context.project.id) });
-      setState({ jobs: [job, ...state.jobs] });
-      return job;
+      const jobs = createJobBatchForContext(state, context, 1);
+      setState(withCreatedJobs(state, jobs, context.project.id));
+      return jobs[0] || null;
     },
     createJobs(count) {
       const context = getContext(state);
-      const jobs = createGenerationJobBatch({ context, count, existingJobs: state.jobs.filter((item) => item.projectId === context.project.id) });
-      setState({ jobs: [...jobs, ...state.jobs] });
+      const jobs = createJobBatchForContext(state, context, count);
+      setState(withCreatedJobs(state, jobs, context.project.id));
+      return jobs;
+    },
+    createProjectJobs(projectId, count) {
+      const context = getContextForProject(state, projectId);
+      const jobs = createJobBatchForContext(state, context, count);
+      setState(withCreatedJobs(state, jobs, context.project.id));
       return jobs;
     },
     patchJob(jobId, payload) {
@@ -321,9 +339,13 @@ function getProject(state, projectId) {
 function updateProjectEntity(project, payload) {
   const value = (name, fallback = "") => Object.hasOwn(payload, name) ? payload[name] : (project[name] || fallback);
   const projectAbout = Object.hasOwn(payload, "projectTheme") ? payload.projectTheme : null;
+  const exportFolder = value("exportFolder", project.exportFolder);
+  const yandexDiskFolder = value("yandexDiskFolder", project.yandexDiskFolder || exportFolder);
   return {
     ...project,
     name: payload.name || project.name,
+    exportFolder,
+    yandexDiskFolder,
     projectTheme: value("projectTheme"),
     niche: value("niche"),
     keyScenarios: value("keyScenarios"),
@@ -338,7 +360,42 @@ function updateProjectEntity(project, payload) {
     companyAudience: value("companyAudience"),
     toneOfVoice: value("toneOfVoice"),
     restrictions: value("restrictions"),
-    style: value("style", project.style)
+    style: value("style", project.style),
+    automation: normalizeProjectAutomation(project.automation)
+  };
+}
+
+function getContextForProject(state, projectId) {
+  const fallback = getContext(state);
+  const project = getProject(state, projectId);
+  const projectProducts = getProductsForProject(state.products, project.id);
+  const product = projectProducts.find((item) => item.id === state.selectedProductId) || projectProducts[0] || fallback.product;
+  const references = getDesignReferences(project);
+  const reference = references.find((item) => item.id === state.selectedReferenceId) || references[0] || fallback.reference;
+  const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0] || fallback.character;
+  return { ...fallback, project, product, reference, character };
+}
+
+function createJobBatchForContext(state, context, count) {
+  const limitLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0));
+  const safeCount = Math.max(0, Math.min(Number(count || 1), limitLeft));
+  if (!safeCount) return [];
+  return createGenerationJobBatch({
+    context,
+    count: safeCount,
+    existingJobs: state.jobs.filter((item) => item.projectId === context.project.id)
+  });
+}
+
+function withCreatedJobs(state, jobs, projectId) {
+  if (!jobs.length) return { jobs: state.jobs };
+  return {
+    jobs: [...jobs, ...state.jobs],
+    projects: state.projects.map((project) =>
+      project.id === projectId
+        ? { ...project, usedToday: Number(project.usedToday || 0) + jobs.length }
+        : project
+    )
   };
 }
 

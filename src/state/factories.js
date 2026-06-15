@@ -1,4 +1,5 @@
 import { isDesignReference } from "../domain/references.js";
+import { normalizeProjectAutomation } from "../domain/project-automation.js";
 
 export const defaultGenerationBrief = {
   topic: "",
@@ -103,6 +104,9 @@ export function ensureProjectAssets(project) {
     contentRestrictions: project.contentRestrictions || "",
     toneOfVoice: project.toneOfVoice || "спокойный экспертный",
     restrictions: project.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
+    exportFolder: project.exportFolder || `Yandex Disk / Anton / ${project.name || "Проект"} / Готовые`,
+    yandexDiskFolder: project.yandexDiskFolder || project.exportFolder || `disk:/Anton/${project.name || "Проект"}/Готовые`,
+    automation: normalizeProjectAutomation(project.automation),
     references: references.length ? references : [createReferenceEntity({ title: "Базовый стиль проекта" })],
     audioLibrary: getAudioLibrary(project, legacyAudios),
     avatarCandidates: project.avatarCandidates || [],

@@ -5,6 +5,8 @@ export function renderProjectManagementSettings({ project }) {
     <form id="project-settings-form" class="ops-form text-editor-form project-settings-form">
       <section class="project-core-fields">
         ${projectTextField("Название проекта", "name", "Например: БАДы / Beauty / Плати по миру", project.name)}
+        ${projectTextField("Папка Яндекс.Диска", "yandexDiskFolder", "disk:/Anton/Проект/Готовые или любая папка", project.yandexDiskFolder || project.exportFolder)}
+        ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
         ${projectField("О проекте", "projectTheme", "Что это за проект, что продаем, кому помогаем, чем отличаемся, какие факты важны.", project.projectTheme || project.companyInfo, false)}
         ${projectField("ЦА компании", "companyAudience", "Кто покупает, какие сегменты важны, что уже известно об аудитории.", project.companyAudience, false)}
         ${projectField("Ограничения проекта", "restrictions", "Что нельзя обещать, юридические/медицинские/финансовые рамки.", project.restrictions, false)}

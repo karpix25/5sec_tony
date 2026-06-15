@@ -4,9 +4,8 @@ import { getAudioPayloads, renderAudioSettings } from "./audio.js";
 import { bindAvatarOverlayComposerEvents } from "./avatar-overlay-composer.js";
 import { renderAvatarSettings } from "./avatar.js";
 import { renderDesignSettings } from "./design.js";
-import { renderStudioPanel } from "./generation.js";
+import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
 import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
-import { runImageJob } from "./job-runner.js";
 import { escapeHtml } from "./infographic.js";
 import { renderAssetPreviewModal, renderAvatarPreviewModal, renderCreateProjectModal, renderDeleteProjectModal } from "./modals.js";
 import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft, productReferencesFromImages } from "./product-ai.js";
@@ -182,12 +181,7 @@ function bindEvents(root, store) {
   root.querySelector("#reference-select")?.addEventListener("change", (event) => store.selectReference(event.target.value));
   root.querySelector("#character-select")?.addEventListener("change", (event) => store.selectCharacter(event.target.value));
   root.querySelector("#audio-select")?.addEventListener("change", (event) => store.selectAudio(event.target.value));
-  root.querySelector("#create-job")?.addEventListener("click", () => {
-    const count = Math.max(1, Math.min(10, Number(root.querySelector("#generation-count")?.value || 1)));
-    const jobs = store.createJobs(count);
-    store.selectProjectTab("queue");
-    jobs.forEach((job) => runImageJob(store, job.id));
-  });
+  bindGenerationPanelEvents(root, store);
   root.querySelector("#open-project-modal")?.addEventListener("click", () => openProjectModal(root));
   root.querySelector("#open-delete-project-modal")?.addEventListener("click", () => openDeleteProjectModal(root));
   root.querySelectorAll("[data-close-delete-project-modal]").forEach((button) => {

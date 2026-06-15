@@ -3,6 +3,7 @@ import { getContext } from "../state/store.js";
 import { generateAiBrief } from "../services/brief-ai.js";
 import { humanizeGenerationPlan } from "../services/text-humanizer.js";
 import { createCompositeAvatarVideo, createImageTask, getImageTaskStatus } from "../services/kie-client.js";
+import { uploadVideoToYandexDisk } from "../services/yandex-disk.js";
 
 const successStates = ["success", "succeeded", "completed", "complete"];
 const failStates = ["fail", "failed", "error"];
@@ -151,6 +152,7 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       finalVideoHasAudio: Boolean(result.hasAudio),
       failMsg: ""
     });
+    uploadJobToYandexDisk(store, jobId, result.videoUrl);
   } catch (error) {
     if (requiresFinalVideo(job)) {
       store.patchJob(jobId, {
@@ -168,6 +170,41 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       failMsg: error.message || "Картинка готова, но финальное видео не собрано"
     });
   }
+}
+
+async function uploadJobToYandexDisk(store, jobId, finalVideoUrl) {
+  const state = store.getState();
+  const job = findJob(store, jobId);
+  const project = state.projects?.find((item) => item.id === job?.projectId);
+  if (!job || !project?.yandexDiskFolder) return;
+
+  try {
+    store.patchJob(jobId, { diskStatus: "uploading", diskMessage: "Сохраняем в Яндекс.Диск..." });
+    const result = await uploadVideoToYandexDisk({
+      fileUrl: finalVideoUrl,
+      targetFolder: project.yandexDiskFolder,
+      fileName: buildExportFileName(project, job)
+    });
+    store.patchJob(jobId, {
+      diskStatus: "done",
+      diskPath: result.diskPath,
+      diskMessage: "Сохранено в Яндекс.Диск"
+    });
+  } catch (error) {
+    store.patchJob(jobId, {
+      diskStatus: "failed",
+      diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск"
+    });
+  }
+}
+
+function buildExportFileName(project, job) {
+  const title = `${project.name || "project"}-${job.title || job.id}`
+    .toLowerCase()
+    .replace(/[^a-zа-я0-9ё]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `${title || job.id}.mp4`;
 }
 
 function requiresFinalVideo(job) {
