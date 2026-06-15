@@ -1,0 +1,388 @@
+import { createGenerationJob, advanceJob, getProductsForProject } from "../domain/generation.js";
+import { globalAudioLibrary, initialJobs, products, projects } from "../domain/entities.js";
+import { generateProjectStrategyField } from "../domain/project-strategy.js";
+import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
+import { createAvatarWorkflow } from "./avatar-workflow.js";
+import {
+  addGlobalAudioFiles,
+  deleteGlobalAudio,
+  ensureGlobalAudioLibrary,
+  getSelectedGlobalAudioId
+} from "./global-assets.js";
+import { createGenerationJobBatch } from "./job-batch.js";
+import {
+  createAudioEntity,
+  createId,
+  createProductEntity,
+  createReferenceEntity,
+  defaultGenerationBrief,
+  ensureGenerationBrief,
+  ensureProductAssets,
+  ensureProjectAssets
+} from "./factories.js";
+
+const storageKey = "anton-5-sec-state";
+
+export function createStore() {
+  let state = normalize(loadState() || {
+    projects,
+    products,
+    jobs: initialJobs,
+    audioLibrary: globalAudioLibrary,
+    selectedProjectId: projects[0].id,
+    selectedProductId: products[0].id,
+    selectedReferenceId: projects[0].references[0].id,
+    selectedCharacterId: projects[0].characters[0].id,
+    selectedAudioId: globalAudioLibrary[0].id,
+    selectedProjectTab: "project",
+    generationBrief: defaultGenerationBrief,
+    freePrompt: "Сделать спорный, но правдивый хук без репутационного риска."
+  });
+  const subscribers = new Set();
+
+  function setState(patch) {
+    state = normalize({ ...state, ...patch });
+    saveState(state);
+    subscribers.forEach((subscriber) => subscriber(state));
+  }
+
+  const avatarWorkflow = createAvatarWorkflow({
+    getState: () => state,
+    setState,
+    getProject
+  });
+
+  setTimeout(() => avatarWorkflow.resumeAvatarPolling(), 0);
+
+  return {
+    getState: () => state,
+    subscribe(callback) {
+      subscribers.add(callback);
+      return () => subscribers.delete(callback);
+    },
+    selectProject(projectId) {
+      const projectProducts = getProductsForProject(state.products, projectId);
+      setState({
+        selectedProjectId: projectId,
+        selectedProductId: projectProducts[0]?.id,
+        selectedReferenceId: getProject(state, projectId).references[0]?.id,
+        selectedCharacterId: getProject(state, projectId).characters[0]?.id,
+        selectedProjectTab: "project"
+      });
+    },
+    selectProduct(productId) {
+      setState({ selectedProductId: productId });
+    },
+    selectReference(referenceId) {
+      setState({ selectedReferenceId: referenceId });
+    },
+    selectCharacter(characterId) {
+      setState({ selectedCharacterId: characterId });
+    },
+    selectAudio(audioId) {
+      setState({ selectedAudioId: audioId });
+    },
+    selectProjectTab(tab) {
+      setState({ selectedProjectTab: tab });
+    },
+    setFreePrompt(freePrompt) {
+      setState({ freePrompt });
+    },
+    updateGenerationBrief(payload) {
+      setState({ generationBrief: ensureGenerationBrief(payload) });
+    },
+    updateProjectSettings(payload) {
+      setState({
+        projects: state.projects.map((project) =>
+          project.id === state.selectedProjectId
+            ? updateProjectEntity(project, payload)
+            : project
+        )
+      });
+    },
+    generateProjectField(fieldName, formPayload) {
+      const project = updateProjectEntity(getProject(state, state.selectedProjectId), formPayload);
+      const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
+      const value = generateProjectStrategyField(project, projectProducts, fieldName);
+      setState({
+        projects: state.projects.map((item) =>
+          item.id === state.selectedProjectId ? updateProjectEntity(item, { ...formPayload, [fieldName]: value }) : item
+        )
+      });
+    },
+    createProject(payload) {
+      const project = {
+        id: createId("project"),
+        client: "Anton Studio",
+        name: payload.name || "Новый проект",
+        exportFolder: payload.exportFolder || `Yandex Disk / Anton / ${payload.name || "Новый проект"} / Готовые`,
+        dailyLimit: Number(payload.dailyLimit || 20),
+        usedToday: 0,
+        companyInfo: payload.companyInfo || "",
+        companyAudience: payload.companyAudience || "",
+        projectTheme: payload.projectTheme || "",
+        niche: payload.niche || "",
+        keyScenarios: payload.keyScenarios || "",
+        audiencePains: payload.audiencePains || "",
+        audienceDesires: payload.audienceDesires || "",
+        audienceObjections: payload.audienceObjections || "",
+        allowedTriggers: payload.allowedTriggers || "",
+        forbiddenTriggers: payload.forbiddenTriggers || "",
+        hookAggression: payload.hookAggression || "Средняя",
+        contentRestrictions: payload.contentRestrictions || "",
+        toneOfVoice: payload.toneOfVoice || "спокойный экспертный",
+        restrictions: payload.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
+        style: payload.style || "единый проектный стиль инфографики",
+        lastReferenceUpdate: new Date().toISOString().slice(0, 10),
+        references: [createReferenceEntity({ title: "Базовый стиль проекта" })],
+        audioLibrary: [
+          createAudioEntity({ title: "Default audio 100 BPM", mood: "нейтрально", duration: "5 sec" })
+        ],
+        characters: [
+          {
+            id: createId("char"),
+            name: "Новый персонаж",
+            status: "draft",
+            prompt: "персонаж проекта, чистый фон, стабильный образ"
+          }
+        ]
+      };
+      const product = createProductEntity(project.id, payload.productName || "Первый продукт");
+      setState({
+        projects: [project, ...state.projects],
+        products: [product, ...state.products],
+        selectedProjectId: project.id,
+        selectedProductId: product.id,
+        selectedReferenceId: project.references[0].id,
+        selectedCharacterId: project.characters[0].id,
+        selectedAudioId: state.audioLibrary[0]?.id,
+        selectedProjectTab: "project"
+      });
+    },
+    deleteProject(projectId) {
+      if (state.projects.length <= 1) return;
+      const projectsNext = state.projects.filter((project) => project.id !== projectId);
+      const selectedProject = projectsNext[0];
+      setState({
+        projects: projectsNext,
+        products: state.products.filter((product) => product.projectId !== projectId),
+        jobs: state.jobs.filter((job) => job.projectId !== projectId),
+        selectedProjectId: selectedProject.id,
+        selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id
+      });
+    },
+    createProduct(payload) {
+      const product = createProductEntity(state.selectedProjectId, payload.name || "Новый продукт", payload);
+      setState({
+        products: [product, ...state.products],
+        selectedProductId: product.id
+      });
+    },
+    updateProduct(payload) {
+      setState({
+        products: state.products.map((product) =>
+          product.id === state.selectedProductId
+            ? createProductEntity(product.projectId, payload.name || product.name, { ...product, ...payload })
+            : product
+        )
+      });
+    },
+    createProductReference(payload) {
+      const reference = {
+        id: createId("product-ref"),
+        title: payload.title || "Референс продукта",
+        promptComment: payload.promptComment || "",
+        imageName: payload.imageName || "",
+        imageData: payload.imageData || "",
+        createdAt: new Date().toISOString()
+      };
+      setState({
+        products: state.products.map((product) =>
+          product.id === state.selectedProductId
+            ? { ...product, references: [reference, ...(product.references || [])] }
+            : product
+        )
+      });
+    },
+    deleteProductReference(referenceId) {
+      setState({
+        products: state.products.map((product) =>
+          product.id === state.selectedProductId
+            ? { ...product, references: (product.references || []).filter((reference) => reference.id !== referenceId) }
+            : product
+        )
+      });
+    },
+    deleteProduct(productId) {
+      const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
+      if (projectProducts.length <= 1) return;
+      const productsNext = state.products.filter((product) => product.id !== productId);
+      setState({
+        products: productsNext,
+        jobs: state.jobs.filter((job) => job.productId !== productId),
+        selectedProductId: getProductsForProject(productsNext, state.selectedProjectId)[0]?.id
+      });
+    },
+    createReference(payload) {
+      const projectsNext = state.projects.map((project) => {
+        if (project.id !== state.selectedProjectId) return project;
+        const reference = createReferenceEntity(payload);
+        return { ...project, references: [reference, ...project.references] };
+      });
+      const project = projectsNext.find((item) => item.id === state.selectedProjectId);
+      setState({
+        projects: projectsNext,
+        selectedReferenceId: project.references[0].id
+      });
+    },
+    deleteReference(referenceId) {
+      const project = getProject(state, state.selectedProjectId);
+      if (project.references.length <= 1) return;
+      setState({
+        projects: state.projects.map((item) =>
+          item.id === project.id
+            ? { ...item, references: item.references.filter((reference) => reference.id !== referenceId) }
+            : item
+        )
+      });
+    },
+    createCharacter: avatarWorkflow.createCharacter,
+    approveAvatar: avatarWorkflow.approveAvatar,
+    rejectAvatar: avatarWorkflow.rejectAvatar,
+    createAvatarVideo: avatarWorkflow.createAvatarVideo,
+    updateAvatarVideoOverlay: avatarWorkflow.updateAvatarVideoOverlay,
+    createAudio(payload) {
+      const audio = createAudioEntity(payload);
+      setState({ audioLibrary: [audio, ...state.audioLibrary], selectedAudioId: audio.id });
+    },
+    createAudioFiles(payloads) {
+      if (!payloads.length) return;
+      const audioLibrary = addGlobalAudioFiles(state.audioLibrary, payloads);
+      setState({ audioLibrary, selectedAudioId: audioLibrary[0]?.id });
+    },
+    deleteAudio(audioId) {
+      const audioLibrary = deleteGlobalAudio(state.audioLibrary, audioId);
+      setState({ audioLibrary, selectedAudioId: getSelectedGlobalAudioId(audioLibrary, state.selectedAudioId) });
+    },
+    deleteCharacter: avatarWorkflow.deleteCharacter,
+    createJob() {
+      const context = getContext(state);
+      const job = createGenerationJob({ ...context, existingJobs: state.jobs.filter((item) => item.projectId === context.project.id) });
+      setState({ jobs: [job, ...state.jobs] });
+      return job;
+    },
+    createJobs(count) {
+      const context = getContext(state);
+      const jobs = createGenerationJobBatch({ context, count, existingJobs: state.jobs.filter((item) => item.projectId === context.project.id) });
+      setState({ jobs: [...jobs, ...state.jobs] });
+      return jobs;
+    },
+    patchJob(jobId, payload) {
+      setState({
+        jobs: state.jobs.map((job) => (job.id === jobId ? { ...job, ...payload } : job))
+      });
+    },
+    replaceJob(jobId, jobNext) {
+      setState({ jobs: state.jobs.map((job) => (job.id === jobId ? jobNext : job)) });
+    },
+    advanceJob(jobId) {
+      setState({
+        jobs: state.jobs.map((job) => (job.id === jobId ? advanceJob(job) : job))
+      });
+    },
+    deleteJob(jobId) {
+      setState({ jobs: state.jobs.filter((job) => job.id !== jobId) });
+    }
+  };
+
+}
+
+export function getContext(state) {
+  const project = getProject(state, state.selectedProjectId);
+  const product = state.products.find((item) => item.id === state.selectedProductId)
+    || getProductsForProject(state.products, project.id)[0];
+  const references = getDesignReferences(project);
+  return {
+    project,
+    product,
+    reference: references.find((item) => item.id === state.selectedReferenceId) || references[0],
+    character: project.characters.find((item) => item.id === state.selectedCharacterId),
+    audio: state.audioLibrary.find((item) => item.id === state.selectedAudioId),
+    audioLibrary: state.audioLibrary,
+    generationBrief: ensureGenerationBrief(state.generationBrief),
+    freePrompt: state.freePrompt
+  };
+}
+
+function getProject(state, projectId) {
+  return state.projects.find((project) => project.id === projectId) || state.projects[0];
+}
+
+function updateProjectEntity(project, payload) {
+  const value = (name, fallback = "") => Object.hasOwn(payload, name) ? payload[name] : (project[name] || fallback);
+  const projectAbout = Object.hasOwn(payload, "projectTheme") ? payload.projectTheme : null;
+  return {
+    ...project,
+    name: payload.name || project.name,
+    projectTheme: value("projectTheme"),
+    niche: value("niche"),
+    keyScenarios: value("keyScenarios"),
+    audiencePains: value("audiencePains"),
+    audienceDesires: value("audienceDesires"),
+    audienceObjections: value("audienceObjections"),
+    allowedTriggers: value("allowedTriggers"),
+    forbiddenTriggers: value("forbiddenTriggers"),
+    hookAggression: value("hookAggression", "Средняя"),
+    contentRestrictions: value("contentRestrictions"),
+    companyInfo: Object.hasOwn(payload, "companyInfo") ? payload.companyInfo : (projectAbout ?? project.companyInfo ?? ""),
+    companyAudience: value("companyAudience"),
+    toneOfVoice: value("toneOfVoice"),
+    restrictions: value("restrictions"),
+    style: value("style", project.style)
+  };
+}
+
+function normalize(nextState) {
+  const hydratedProjects = nextState.projects.map(ensureProjectAssets);
+  const hydratedProducts = nextState.products.map(ensureProductAssets);
+  const audioLibrary = ensureGlobalAudioLibrary({ ...nextState, projects: hydratedProjects }, globalAudioLibrary);
+  const hydratedState = { ...nextState, projects: hydratedProjects, products: hydratedProducts, audioLibrary };
+  const project = getProject(hydratedState, hydratedState.selectedProjectId);
+  const projectProducts = getProductsForProject(hydratedProducts, project.id);
+  const designReferences = getDesignReferences(project);
+  const fallbackReference = getFirstDesignReference(project);
+  const selectedProductId = projectProducts.some((product) => product.id === nextState.selectedProductId)
+    ? nextState.selectedProductId
+    : projectProducts[0]?.id;
+
+  return {
+    ...hydratedState,
+    selectedProductId,
+    selectedReferenceId: designReferences.some((ref) => ref.id === nextState.selectedReferenceId)
+      ? nextState.selectedReferenceId
+      : fallbackReference?.id,
+    selectedCharacterId: project.characters.some((char) => char.id === nextState.selectedCharacterId)
+      ? nextState.selectedCharacterId
+      : project.characters[0]?.id,
+    selectedAudioId: getSelectedGlobalAudioId(audioLibrary, nextState.selectedAudioId),
+    selectedProjectTab: ["project", "product", "audio", "design", "avatars", "generation", "queue", "hooks"].includes(nextState.selectedProjectTab)
+      ? nextState.selectedProjectTab
+      : "project",
+    generationBrief: ensureGenerationBrief(nextState.generationBrief)
+  };
+}
+
+function loadState() {
+  try {
+    const text = window.localStorage.getItem(storageKey);
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveState(state) {
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(state));
+  } catch {}
+}

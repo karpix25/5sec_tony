@@ -1,0 +1,636 @@
+{
+  "modelAnalysis": "qwen/qwen3.5-9b",
+  "modelWriting": "google/gemini-3.1-flash-lite",
+  "accounts": [
+    "bodyhealth.labs",
+    "thehealthymail",
+    "finsoroka",
+    "motivate.wise"
+  ],
+  "errors": [
+    {
+      "account": "thehealthymail",
+      "error": "Profile is restricted"
+    }
+  ],
+  "videos": [
+    {
+      "id": "3667381127735183200_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 1,
+      "url": "https://www.instagram.com/reel/DLlJ7R-oIdg/",
+      "caption": "🇺🇸 @bodyhealth.labs Join the health community.🔥\n\n🦷 What’s Your Bite Type?\nNot all smiles are created equal 😬\nFrom overbite to open bite - each one affects more than just looks!\n\n📌 FACTS you should know:\n🔹 70% of people have some form of misaligned bite\n🔹 Bite issues can cause jaw pain, headaches, and even speech problems\n🔹 A healthy bite improves chewing, breathing, and facial symmetry!\n\nYour bite matters more than you think 👀\n\n#dentalfacts #bitetypes #smilecheck #orthoawareness #healthysmile #jawalignment #overbite #underbite #crossbite #openbite #confidencestartshere",
+      "transcript": "",
+      "metrics": {
+        "plays": 63529912,
+        "likes": 201045,
+        "comments": 2144
+      },
+      "topic": "Здоровье зубов и прикус",
+      "hook": "Большинство людей не знают, как выглядят их зубы на самом деле",
+      "pain": "Неосознанное наличие проблем с прикусом, которые могут вызывать боль и эстетические дефекты",
+      "scenarioPattern": "Визуальная классификация (9 типов прикуса) -> Заголовок-хук -> Факты в описании -> Призыв к действию",
+      "visualPattern": "Темный фон, 3 ряда по 3 изображения зубов с подписями. Текстовая иерархия: крупный заголовок сверху, мелкий текст под изображениями. Акцент на контрасте белого текста и темного фона.",
+      "reusableTemplate": "Использовать для визуализации сложных медицинских или биологических понятий через простые схемы/инфографику."
+    },
+    {
+      "id": "3640166241854947930_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 2,
+      "url": "https://www.instagram.com/reel/DKEd-kZIgJa/",
+      "caption": "Follow @bodyhealth.labs for more daily tips! ❤️\n💧 😨 Drinking Water Wrong? Here’s Why You Feel Bloated & Tired\n\nWater is great for detox — if you know how to drink it. Most people don’t.\n\nDrinking it wrong or at the wrong times can cause bloating, slow digestion, and no fat loss. Here’s what doctors often forget to tell you:\n\nDrink water in the morning = Helps clean your liver & kickstarts metabolism.\n\nWarm lemon water = Helps detox & reduce bloating.\n\nDrink 2L a day = Clear skin, regular digestion & more energy.\n\n#hydrationpower #detox #healthygut #diet #naturaldetox #weightloss #glow #drinkforhealth",
+      "transcript": "",
+      "metrics": {
+        "plays": 31810970,
+        "likes": 385573,
+        "comments": 461
+      },
+      "topic": "Детокс и водный баланс",
+      "hook": "Врачи избегают говорить об этом простом детоксе",
+      "pain": "Вздутие, усталость и плохое пищеварение из-за неправильного потребления воды",
+      "scenarioPattern": "Заголовок-хук (секрет/запрет) -> Визуальная схема (вода + ингредиенты) -> Объяснение в описании",
+      "visualPattern": "Светлый фон, четкая структура 'Проблема -> Решение'. Цветовые акценты: синий фон для блоков, яркие изображения фруктов/овощей. Текстовая иерархия: заголовок крупно, ингредиенты мелким шрифтом.",
+      "reusableTemplate": "Подходит для демонстрации простых рецептов или лайфхаков с использованием инфографики."
+    },
+    {
+      "id": "3651326445812425273_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 3,
+      "url": "https://www.instagram.com/reel/DKsHg6Ro6I5/",
+      "caption": "Follow @bodyhealth.labs for more daily tips! ❤️\n\nStart with these 5 proven habits 👇\n\n🥦 Eat whole foods 80% of the time\nCut back on ultra-processed snacks. Your body (and energy) will thank you.\n\n🚶‍♂️ Move your body every day (at least 30 mins)\nYes - walking counts. Consistency > intensity.\n\n💧 Hydrate like it matters\nAim for 2–3 liters a day. Bonus points: drink a glass before meals.\n\n😴 Prioritize quality sleep (7–8 hours)\nNo screens before bed = deeper sleep + better recovery.\n\n🧠 Manage stress daily\nJust 10 minutes of deep breathing or journaling can reset your mind and hormones.\n\nThese habits are simple - but they work.\n\n#healthgoals #habitsforlife #dailywellness #fitmindfitbody #healthcoachlife #feelgood #betterhabits #mindbodyreset #wellnesswins",
+      "transcript": "",
+      "metrics": {
+        "plays": 34833946,
+        "likes": 705855,
+        "comments": 430
+      },
+      "topic": "Здоровые привычки",
+      "hook": "Маленькие привычки могут полностью изменить твой день",
+      "pain": "Ощущение, что для здоровья нужно много усилий, отсутствие энергии",
+      "scenarioPattern": "Заголовок-хук -> Список привычек (визуал) -> Детализация в описании",
+      "visualPattern": "Список с цифрами (9, 8, 7...) на темном фоне. Иллюстрации к каждой привычке. Текстовая иерархия: цифры крупно, текст мелким шрифтом под ними.",
+      "reusableTemplate": "Идеально для создания чек-листов или списков полезных действий (например, '10 шагов к успеху')."
+    },
+    {
+      "id": "3917371479119033492_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 4,
+      "url": "https://www.instagram.com/reel/DZdTJrqIvSU/",
+      "caption": "⏳Your body is constantly working after every meal you eat. \nDifferent foods can move through digestion at different speeds depending on their nutrients, portion size, preparation, and your individual body.\n\nSimple carbohydrates and lighter foods may often feel easier on the stomach, while foods higher in protein, fat, and fiber can take longer to break down and may help you feel full for a longer period. ⏳ Understanding this can help you build meals that better support your energy and daily routine.\n\nDigestion is not only about time, it is also affected by sleep, hydration, stress levels, activity, and overall lifestyle. Eating slowly, chewing properly, staying hydrated, and choosing balanced meals are small habits that can support a healthier digestive system.\n\n🥗 Remember, every body is different. Listen to how foods make you feel, create a routine that works for you, and focus on long-term healthy habits instead of chasing perfection.\n\nSave this guide for your next meal and share it with someone who loves learning about health.\n\n#digestionhealth #guthealth #nutritiontips #healthyfood #wellnessjourney",
+      "transcript": "Please provide the video or the audio file you would like me to transcribe.",
+      "metrics": {
+        "plays": 1695,
+        "likes": 15,
+        "comments": 1
+      },
+      "topic": "Пищеварение",
+      "hook": "Сколько времени нужно для переваривания еды?",
+      "pain": "Тяжесть после еды, неясность в питании",
+      "scenarioPattern": "Вопрос-заголовок -> Визуальная таблица -> Объяснение в описании",
+      "visualPattern": "Светлый фон, анатомические иллюстрации желудка с едой. Текстовая иерархия: заголовок крупно, время переваривания под каждым продуктом.",
+      "reusableTemplate": "Подходит для демонстрации фактов о продуктах, времени их действия или сравнения."
+    },
+    {
+      "id": "3916644150054897194_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 5,
+      "url": "https://www.instagram.com/reel/DZatxprokYq/",
+      "caption": "💧Your health is built from the small things you repeat every single day.  A stronger body doesn’t come from one magic trick, it comes from consistent habits that support your immune system, energy, and overall wellness.\n\nSimple actions like staying hydrated, eating more whole foods, getting enough sleep, moving your body, spending time outside, and managing stress can make a big difference over time. Your daily routine is one of the biggest investments you can make in yourself.\n\nRemember that balance matters. No supplement, drink, or single food can replace the basics - nutritious meals, quality rest, exercise, and taking care of your mind all work together.\n\nStart small. Build habits you can actually keep. Protect your health before you lose it, because prevention is always easier than trying to fix problems later. 💪\n\nSave this reminder and share it with someone who wants to build a healthier lifestyle.\n\n#immunesupport #healthyhabits #wellnessjourney #healthylifestyle #naturalhealth",
+      "transcript": "",
+      "metrics": {
+        "plays": 28841,
+        "likes": 128,
+        "comments": 1
+      },
+      "topic": "Иммунитет и профилактика болезней",
+      "hook": "Никогда больше не болейте",
+      "pain": "Страх болезней, желание укрепить иммунитет",
+      "scenarioPattern": "Заголовок-обещание -> Список шагов -> Объяснение в описании",
+      "visualPattern": "Список с нумерацией (1-14) на фоне размытого изображения человека. Текстовая иерархия: заголовок крупно, пункты списка мелким шрифтом.",
+      "reusableTemplate": "Подходит для создания длинных чек-листов или гайдов по улучшению качества жизни."
+    },
+    {
+      "id": "3915908009697620285_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 6,
+      "url": "https://www.instagram.com/reel/DZYGZZjIjE9/",
+      "caption": "💧Your health is built from the small things you repeat every single day.  A stronger body doesn’t come from one magic trick, it comes from consistent habits that support your immune system, energy, and overall wellness.\n\nSimple actions like staying hydrated, eating more whole foods, getting enough sleep, moving your body, spending time outside, and managing stress can make a big difference over time. Your daily routine is one of the biggest investments you can make in yourself.\n\nRemember that balance matters. No supplement, drink, or single food can replace the basics - nutritious meals, quality rest, exercise, and taking care of your mind all work together.\n\nStart small. Build habits you can actually keep. Protect your health before you lose it, because prevention is always easier than trying to fix problems later. 💪\n\nSave this reminder and share it with someone who wants to build a healthier lifestyle.\n\n#immunesupport #healthyhabits #wellnessjourney #healthylifestyle #naturalhealth",
+      "transcript": "",
+      "metrics": {
+        "plays": 541251,
+        "likes": 579,
+        "comments": 15
+      },
+      "topic": "Здоровье женщин по возрастам (инфографика)",
+      "hook": "Жизненные изменения женщины по возрасту (заголовок на экране)",
+      "pain": "Неуверенность в том, что происходит с организмом в разные периоды жизни; страх пропустить важные симптомы.",
+      "scenarioPattern": "Статичная инфографика с разбивкой по возрастным диапазонам и списком симптомов/советов.",
+      "visualPattern": "Фон: размытая природа (вода/пляж). Текст: крупный заголовок темно-красным, списки черным. Высокая плотность текста, иерархия по возрастам.",
+      "reusableTemplate": "Шаблон 'Жизненные этапы/Возрастные изменения'. Можно использовать для: 'Здоровье мужчин по возрасту', 'Изменения кожи по годам', 'Финансовые изменения по возрасту'."
+    },
+    {
+      "id": "3915196590106757954_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 7,
+      "url": "https://www.instagram.com/reel/DZVko4bIktC/",
+      "caption": "Your freezer is powerful, but frozen food does not stay perfect forever. 🥩 Knowing how long different meats can stay stored can help you keep better quality, reduce waste, and make smarter choices in your kitchen.\n\nFreezing slows down changes in food, but storage time, packaging, freezer temperature, and how the food was handled before freezing all matter. ❄️ Proper wrapping and keeping a consistent cold temperature can help protect flavor, texture, and overall quality.\n\nChicken, beef, fish, seafood, and other meats all have different recommended freezer times. Labeling your packages with dates is a simple habit that can save you from guessing months later.\n\nFood safety starts with small daily habits. 🍽 Organize your freezer, rotate older items first, and always check smell, texture, and appearance after thawing before cooking.\n\nSave this guide for your next grocery day and share it with someone who needs a cleaner freezer routine.\n\n#foodstorage #foodsafety #freezertips #kitchenhacks #healthyeating",
+      "transcript": "Please provide the video or audio file you would like me to transcribe. Once you provide the content, I will transcribe it according to your instructions.",
+      "metrics": {
+        "plays": 333220,
+        "likes": 836,
+        "comments": 8
+      },
+      "topic": "Сроки хранения мяса в морозилке",
+      "hook": "Как долго хранится сырое мясо в морозилке? (Вопрос-заголовок)",
+      "pain": "Страх испортить продукты, трата денег на еду, которую выбросили; путаница в сроках годности.",
+      "scenarioPattern": "Список продуктов с указанием конкретного времени хранения (Турция, Свинина, Стейк и т.д.).",
+      "visualPattern": "Фон: размытая природа. Текст: название продукта и срок (месяцы). Четкая структура списка.",
+      "reusableTemplate": "Шаблон 'Сроки хранения'. Можно использовать для: 'Сроки хранения овощей', 'Сроки хранения выпечки', 'Сроки хранения лекарств'."
+    },
+    {
+      "id": "3914420922704163226_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 8,
+      "url": "https://www.instagram.com/reel/DZS0Rb3I3Ga/",
+      "caption": "🌱 Supplements can be helpful, but how you use them can make a difference in your daily routine. 💊 Many people focus only on what they take and forget about when they take it. Timing, consistency, meals, and lifestyle habits all play a role in creating a better wellness routine.\n\nSome nutrients are commonly taken with food because meals may help with absorption, while others are often included in morning or evening routines depending on personal goals and tolerance. 🕒 Everyone’s body is different, so finding what works best for you is important.\n\nRemember — supplements are called “supplements” for a reason. They are meant to support a healthy lifestyle, not replace balanced meals, quality sleep, hydration, exercise, and daily habits. 🌱 Real progress comes from small choices repeated every single day.\n\nSave this guide as a reminder, build a routine you can actually follow, and always listen to your body. If you have medical conditions or take medication, check with a healthcare professional before changing your supplement routine.\n\n#supplementtips #vitaminguide #healthroutine #nutritiontips #wellnessjourney",
+      "transcript": "",
+      "metrics": {
+        "plays": 48614,
+        "likes": 295,
+        "comments": 3
+      },
+      "topic": "Время приема добавок (Суперфуды/Витамины)",
+      "hook": "Лучшее время для приема добавок (заголовок)",
+      "pain": "Непонимание, когда принимать витамины для максимальной эффективности; страх принимать их неправильно.",
+      "scenarioPattern": "Список добавок с указанием времени приема (Утро, Перед сном, С едой).",
+      "visualPattern": "Фон: размытая природа. Текст: название добавки и время. Акцент на контрастность.",
+      "reusableTemplate": "Шаблон 'Оптимизация рутины'. Можно использовать для: 'Время приема лекарств', 'Время тренировок', 'Время для продуктивности'."
+    },
+    {
+      "id": "3913038257295879908_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 9,
+      "url": "https://www.instagram.com/reel/DZN55AWom7k/",
+      "caption": "Knowing how to recognize fresh chicken is an important kitchen skill that can help you make safer food choices. 🍗 Before cooking, always take a moment to check the appearance, smell, texture, and storage conditions of your chicken. Small signs can tell you a lot about freshness.\n\nFresh raw chicken usually has a natural pink color and a firm texture. If chicken starts looking gray, develops an unusual smell, becomes very sticky or slimy, it may be a sign that it is no longer fresh and should not be used.\n\n❄️ Proper storage is just as important as appearance. Keep raw chicken refrigerated, follow expiration dates, avoid leaving it at room temperature for too long, and always cook it to a safe internal temperature to reduce the risk of harmful bacteria.\n\nFood safety starts with simple daily habits. Clean preparation areas, wash hands after handling raw meat, separate raw chicken from other foods, and pay attention to changes before cooking. 🧼\n\nA few seconds of checking your food can prevent problems later. When in doubt, it is always safer to throw questionable food away rather than risk your health. Smart choices in the kitchen protect you and everyone you cook for.\n\n#foodsafetytips #chickenrecipes #kitchensafety #healthyfoodhabits #foodawareness",
+      "transcript": "Please provide the video or the audio file you would like me to transcribe.",
+      "metrics": {
+        "plays": 181183,
+        "likes": 381,
+        "comments": ""
+      },
+      "topic": "Определение свежести куриного мяса",
+      "hook": "Как определить свежесть курицы (заголовок)",
+      "pain": "Страх купить некачественный продукт; риск отравления; неуверенность в выборе продуктов.",
+      "scenarioPattern": "Визуальное сравнение трех состояний: Свежее, Среднее, Споевшееся (с описанием цвета и текстуры).",
+      "visualPattern": "Фон: размытая природа. Текст: три колонки с фото и описанием. Визуальный акцент на различиях цвета мяса.",
+      "reusableTemplate": "Шаблон 'Визуальное сравнение'. Можно использовать для: 'Как отличить поддельную кожу', 'Как определить свежесть рыбы', 'Как отличить оригинал от подделки'."
+    },
+    {
+      "id": "3911818655220024059_74234129583",
+      "account": "bodyhealth.labs",
+      "index": 10,
+      "url": "https://www.instagram.com/reel/DZJkldaIsL7/",
+      "caption": "🩸 Your body is constantly giving you information,  you just need to understand what to look for. Knowing your basic health numbers like blood pressure, pulse, body temperature, vitamin levels, cholesterol, and important blood markers can help you become more aware of your overall wellness.\n\nMany people focus only on how they feel, but internal health markers can sometimes change before obvious symptoms appear. Regular check-ups and understanding your personal results may help you notice patterns and make better decisions for your lifestyle.\n\n❤️ Blood pressure, heart rate, vitamins, minerals, and blood values are all connected to different functions inside the body. They can be influenced by sleep, nutrition, hydration, stress, exercise, genetics, and daily habits. Taking care of these areas consistently is one of the best ways to support long-term health.\n\nRemember that everyone is different, “normal” numbers can vary depending on age, medical history, and individual factors. A single number does not define your health, but tracking changes over time can provide useful information. 📊\n\nBuild healthy habits, listen to your body, and always speak with a healthcare professional if you have concerns about your results. Prevention and awareness are powerful tools for protecting your future health.\n\n#healthmarkers #bloodpressuretips #healthcheckup #vitaminhealth #preventivehealth",
+      "transcript": "",
+      "metrics": {
+        "plays": 43109,
+        "likes": 143,
+        "comments": ""
+      },
+      "topic": "Референсные значения анализов (Здоровье)",
+      "hook": "Проверь эти цифры: твой базовый справочник здоровья (заголовок)",
+      "pain": "Страх перед анализами; непонимание результатов; тревожность из-за непонятных цифр в бланке.",
+      "scenarioPattern": "Таблица с медицинскими показателями (Давление, Пульс, Холестерин) и их нормами.",
+      "visualPattern": "Фон: размытая природа. Текст: таблица с четкими границами. Акцент на цифрах и единицах измерения.",
+      "reusableTemplate": "Шаблон 'Справочная таблица'. Можно использовать для: 'Нормы давления', 'Нормы сахара', 'Нормы веса по росту'."
+    },
+    {
+      "id": "3905520955746737025_73479651948",
+      "account": "finsoroka",
+      "index": 1,
+      "url": "https://www.instagram.com/reel/DYzMp3uINuB/",
+      "caption": "Ты не теряешь время. Его у тебя забирают.\n\nКаждое уведомление, каждое «зайду на минуту», каждый бесконечный скролл — это не пауза. Это сделка. Ты отдаёшь часы своей жизни, а получаешь дофамин, который выветривается за секунды.\n\nГлавное — не замечать, что это сделка.\n\nСоцсети не зло. Зло — когда ты не выбираешь, сколько в них быть. Когда телефон тянется к руке сам. Когда ты открываешь приложение, забыв зачем — и закрываешь через сорок минут, не вспомнив, что увидел.\n\nВремя — единственный ресурс, который нельзя восполнить. Деньги вернёшь. Здоровье восстановишь. Связи восстановятся. Час, который ты сегодня провёл в ленте, не вернётся никогда.\n\nПопробуй простое: один день засекай, сколько ты на самом деле проводишь в каждом приложении. Не оценивай, не борись — просто посмотри.\n\nМногие после этого больше не возвращаются к прежнему режиму.\n\nПодписывайся на @finsoroka — здесь про то, как вернуть управление своим временем.",
+      "transcript": "",
+      "metrics": {
+        "plays": 21441,
+        "likes": 293,
+        "comments": 10
+      },
+      "topic": "Управление вниманием и борьба с цифровым шумом",
+      "hook": "Ты не теряешь время. Его у тебя забирают.",
+      "pain": "Ощущение, что жизнь проходит мимо, нехватка времени, зависимость от соцсетей, чувство вины за 'бесполезные' часы.",
+      "scenarioPattern": "Переворот тезиса (время не теряется, а отнимается) -> Механизм проблемы (дофаминовая ловушка, алгоритмы) -> Призыв к действию (эксперимент с таймером).",
+      "visualPattern": "Метафорическая иллюстрация: человек физически удерживает часы, пока руки с логотипами соцсетей тянут стрелки назад, растягивая циферблат. Текстовая иерархия: вопрос вверху, визуальный конфликт внизу.",
+      "reusableTemplate": "Визуализация абстрактного понятия (время, внимание) через физическое взаимодействие с конкретными объектами (телефон, уведомления). Подходит для тем про продуктивность, здоровье, финансы."
+    },
+    {
+      "id": "3892299819408147881_73479651948",
+      "account": "finsoroka",
+      "index": 2,
+      "url": "https://www.instagram.com/reel/DYEOhA_I8Wp/",
+      "caption": "Образование давно стало рынком. И как на любом рынке — здесь есть продавцы, покупатели и красивая упаковка для товара сомнительного качества.\n\nРодитель платит не за знания. Он платит за статус, за «правильное окружение», за ощущение, что сделал всё возможное. Этим и торгуют.\nВопрос не в том, стоит ли платить за хорошую школу. Вопрос — что именно ты покупаешь и получаешь ли это в итоге.\nПотому что диплом престижного заведения и реальный навык думать — это разные продукты. Иногда они совпадают. Чаще — нет.\nСамые ценные вещи, которым стоит учить ребёнка: как работать с информацией, как принимать решения, как обращаться с деньгами.\n\nПодписывайся на @finsoroka — здесь про то, за что реально стоит платить.​​​​​​​​​​​​​​​​",
+      "transcript": "Please provide the video or audio file you would like me to transcribe.",
+      "metrics": {
+        "plays": 52095,
+        "likes": 225,
+        "comments": 2
+      },
+      "topic": "Образование как бизнес-инструмент",
+      "hook": "Образование давно стало рынком.",
+      "pain": "Родители платят за статус, а не знания; страх упустить 'правильную школу'; ощущение, что деньги уходят в никуда.",
+      "scenarioPattern": "Утверждение (рынок) -> Деконструкция (что продают: статус, окружение) -> Совет (что учить: навыки работы с информацией).",
+      "visualPattern": "Сатирическая карикатура в тетради. Использование масок (анонимность/роль), табличка с ценами на 'услуги' (фон для фото, заведение на поступление), сумка с деньгами 'Прибыль'.",
+      "reusableTemplate": "Деконструкция привычной ситуации (школа, работа, медицина) через призму 'бизнеса'. Визуализация 'товаров' и 'цен' помогает показать абсурдность ситуации."
+    },
+    {
+      "id": "3891693671579554604_73479651948",
+      "account": "finsoroka",
+      "index": 3,
+      "url": "https://www.instagram.com/reel/DYCEsZ1IpMs/",
+      "caption": "ИИ — это не угроза для умных. Это реактивный двигатель для тех, кто умеет им управлять.\n\nПока одни спорят, заменит ли ИИ людей — другие уже используют его как личного аналитика, редактора, ассистента и генератора идей одновременно. Круглосуточно. Бесплатно.\nРазрыв между теми, кто освоил эти инструменты, и теми, кто нет — будет только расти. Причём быстро.\nДело не в том, интроверт ты или лидер. Дело в том, умножаешь ли ты свои усилия — или тратишь одинаковое количество энергии на одинаковое количество результата каждый день.\nОдин человек с правильными инструментами делает то, на что раньше нужна была команда.\nЭто не фантастика. Это уже происходит.\n\nПодписывайся на @finsoroka — здесь про то, как думать и работать в новой реальности.​​​​​​​​​​​​​​​​",
+      "transcript": "",
+      "metrics": {
+        "plays": 73695,
+        "likes": 479,
+        "comments": 5
+      },
+      "topic": "ИИ как инструмент эффективности",
+      "hook": "ИИ — это не угроза для умных. Это реактивный двигатель...",
+      "pain": "Страх быть замененным, ощущение, что другие работают быстрее, выгорание от рутины.",
+      "scenarioPattern": "Сравнение ролей (Босс/Лидер/Интроверт) -> Введение ИИ как переменной -> Визуализация преимущества (экспоненциальный рост).",
+      "visualPattern": "Визуальная иерархия через физический труд: от 'тянуть тележку руками' к 'лететь в истребителе'. Четкая структура рядов для сравнения.",
+      "reusableTemplate": "Сравнение 'До' и 'После' или 'Без инструмента' и 'С инструментом' через визуальную метафору усилия. Подходит для тем про технологии, спорт, обучение."
+    },
+    {
+      "id": "3890919769601381677_73479651948",
+      "account": "finsoroka",
+      "index": 4,
+      "url": "https://www.instagram.com/reel/DX_UupcopUt/",
+      "caption": "Иран обходит американскую блокаду: железная дорога в Китай и выход ОАЭ из ОПЕК",
+      "transcript": "",
+      "metrics": {
+        "plays": 842019,
+        "likes": 19542,
+        "comments": 562
+      },
+      "topic": "Геополитика и экономика (Иран, США, Китай)",
+      "hook": "Иран обходит американскую блокаду: железная дорога в Китай и выход ОАЭ из ОПЕК",
+      "pain": "Интерес к глобальным событиям, неопределенность в мире, желание понимать 'большую картину'.",
+      "scenarioPattern": "Конфликт (Блокада) -> Решение (Обход) -> Детализация (Ж/Д, ОПЕК).",
+      "visualPattern": "Макро-карта (вид сверху), наложение графических элементов (корабли с флагами, красная линия блокады) на реальную географию. Минималистичный стиль.",
+      "reusableTemplate": "Использование карт и схематичных изображений для объяснения сложных геополитических или экономических процессов. Подходит для новостей, аналитики."
+    },
+    {
+      "id": "3890839407122533435_73479651948",
+      "account": "finsoroka",
+      "index": 5,
+      "url": "https://www.instagram.com/reel/DX_CdODoUw7/",
+      "caption": "Терпение — это когда ты ждёшь результата, продолжая действовать.\n\nПотеря времени — это когда ты ждёшь, что всё решится само.\nВыглядит похоже. Ощущается одинаково. Но итог — разный.\nНастоящий навык формируется медленно. Это раздражает. Особенно когда вокруг все куда-то торопятся, что-то запускают, о чём-то отчитываются. Хочется бросить — и начать что-то новое, где снова будет ощущение движения.\nНо ощущение движения — это не движение.\nДисциплина — это не про то, чтобы делать через силу каждый день. Это про то, чтобы не останавливаться, когда перестало быть интересно. Именно здесь большинство сходит с дистанции. Не в начале, не в конце — а в середине, когда уже вложено много, а результата ещё не видно.\nЭта точка называется плато. И она — часть процесса, а не сигнал остановиться.\nОтличай: ты сейчас терпишь ради чего-то — или просто откладываешь решение, которое уже давно понятно?\nПодписывайся на @finsoroka — здесь про мышление, которое доводит до результата.​​​​​​​​​​​​​​​​",
+      "transcript": "",
+      "metrics": {
+        "plays": 27674,
+        "likes": 179,
+        "comments": 1
+      },
+      "topic": "Психология: Терпение vs Бездействие",
+      "hook": "Есть разница между терпением и потерей времени.",
+      "pain": "Ощущение застоя, страх провала, неясность, куда двигаться, выгорание от ожидания.",
+      "scenarioPattern": "Определение А (Терпение) vs Определение Б (Потеря времени) -> Визуализация процесса -> Трагический финал (скелет).",
+      "visualPattern": "Сравнительная иллюстрация в тетради. Волк и улитка. Финал с 'трупом' волка для усиления драматизма и контраста.",
+      "reusableTemplate": "Сравнительная иллюстрация двух похожих состояний с разным финалом. Подходит для тем про привычки, отношения, карьеру, здоровье."
+    },
+    {
+      "id": "3888034820833442356_73479651948",
+      "account": "finsoroka",
+      "index": 6,
+      "url": "https://www.instagram.com/reel/DX1ExHiIHo0/",
+      "caption": "Труба полная. До тебя доходят капли.\n\nЭто не метафора — это буквально описание того, как устроен найм. Ты генеришь прибыль, а получаешь ровно столько, чтобы не уйти. Не больше.\nСистема неломается — она работает именно так, как задумана.\nВопрос не в том, хороший начальник или плохой. Вопрос в том, на каком конце трубы ты находишься.\nПока ты продаёшь время — ты всегда будешь внизу. Потому что время конечно, и его цену всегда назначает кто-то другой.\nВыход один: начать строить что-то своё. Актив, который работает без тебя. Доход, который не зависит от чьей-то доброй воли.\nЭто долго. Но капли снизу — тоже не быстро заканчиваются.\nПодписывайся на @finsoroka — здесь про то, как пересесть на другой конец трубы.​​​​​​​​​​​​​​​​",
+      "transcript": "",
+      "metrics": {
+        "plays": 20580,
+        "likes": 157,
+        "comments": 4
+      },
+      "topic": "Экономика найма и разница между зарплатой и прибылью",
+      "hook": "Труба полная. До тебя доходят капли.",
+      "pain": "Ощущение несправедливости в системе найма, когда ты создаешь ценность, но получаешь минимум.",
+      "scenarioPattern": "Метафора (труба) -> Раскрытие сути системы -> Призыв к действию (строить своё).",
+      "visualPattern": "Скетч-иллюстрация с контрастом размеров (большая голова руководителя vs маленький сотрудник), четкая текстовая маркировка элементов (Прибыль, Зарплата, Руководство, Сотрудник).",
+      "reusableTemplate": "Использовать визуальную метафору для объяснения абстрактных экономических или социальных процессов, добавляя подписи к элементам для ясности."
+    },
+    {
+      "id": "3886607326225960982_73479651948",
+      "account": "finsoroka",
+      "index": 7,
+      "url": "https://www.instagram.com/reel/DXwAMVlIRAW/",
+      "caption": "КТО ЗДЕСЬ САМЫЙ ТУПОЙ?",
+      "transcript": "",
+      "metrics": {
+        "plays": 106860,
+        "likes": 228,
+        "comments": 292
+      },
+      "topic": "Интерактив / Загадка",
+      "hook": "КТО ЗДЕСЬ САМЫЙ ТУПОЙ?",
+      "pain": "Желание проверить свои знания или просто развлечься.",
+      "scenarioPattern": "Вопрос-ловушка -> Призыв к комментарию (аудитория спорит в комментариях).",
+      "visualPattern": "Простой рисунок с нумерацией персонажей, крупный заголовок, создающий интригу.",
+      "reusableTemplate": "Использовать вопросы с очевидным или скрытым подвохом для повышения вовлеченности (комментарии)."
+    },
+    {
+      "id": "3885851905834367972_73479651948",
+      "account": "finsoroka",
+      "index": 8,
+      "url": "https://www.instagram.com/reel/DXtUbhhCDvk/",
+      "caption": "Бедный одет на $10 000. Богатый — на $245.\nИ это не случайность.\n\nКогда денег мало — хочется выглядеть так, будто их много. Кроссовки за $2500, цепь, куртка с лейблом. Каждая вещь кричит: «я в порядке». Потому что внутри — неуверенность, которую нужно чем-то закрыть.\n\nКогда денег достаточно — незачем доказывать. Футболка за $35 и брюки за $70. Никаких логотипов. Просто удобно.\n\nБогатство перестаёт быть костюмом — и становится состоянием.\nЕсть простой тест: если человек носит бренды напоказ — скорее всего, он ещё на пути. Если одевается незаметно — возможно, уже пришёл.\nНастоящий капитал не виден снаружи. Он на брокерском счёте. В активах. В привычках, которые не сфотографируешь.\n\nПодписывайся на @finsoroka — здесь про деньги без понтов.​​​​​​​​​​​​​​​​",
+      "transcript": "",
+      "metrics": {
+        "plays": 221537,
+        "likes": 1619,
+        "comments": 118
+      },
+      "topic": "Психология потребления и статус",
+      "hook": "Бедный одет на $10 000. Богатый — на $245.",
+      "pain": "Неуверенность в себе, желание доказать статус через вещи, тревожность.",
+      "scenarioPattern": "Контраст (Бедный vs Богатый) -> Психологическое объяснение -> Вывод о настоящем богатстве.",
+      "visualPattern": "Сплит-экран (разделенная композиция), детальные ценники на одежде, четкое разделение на две колонки.",
+      "reusableTemplate": "Сравнивать два противоположных поведения или образа жизни, раскрывая скрытые мотивы, а не поверхностные признаки."
+    },
+    {
+      "id": "3885149508050441785_73479651948",
+      "account": "finsoroka",
+      "index": 9,
+      "url": "https://www.instagram.com/reel/DXq0uSmoVY5/",
+      "caption": "У каждого свой источник, своя глубина и своё время.\n\nКогда мы сравниваем себя с другими, особенно с теми, у кого «уже получилось»,\nэто может снижать уверенность в себе и вызывать тревогу.\n\nИсследования показывают, что частые сравнения, особенно в соцсетях,\nнапрямую связаны с ростом тревожности у молодых людей.\n\n👉 Не сравнивай свою жизнь с чужой.\nТы просто на своём этапе.",
+      "transcript": "Hold me like the river",
+      "metrics": {
+        "plays": 87033,
+        "likes": 607,
+        "comments": 3
+      },
+      "topic": "Психология сравнения и тревожность",
+      "hook": "У каждого свой источник, своя глубина и своё время.",
+      "pain": "Тревога от сравнения себя с другими, чувство отставания.",
+      "scenarioPattern": "Визуальная метафора (разная глубина колодцев) -> Факты/Исследования -> Совет.",
+      "visualPattern": "Классическая иллюстрация с колодцами разной глубины, текст поверх изображения, спокойная цветовая гамма.",
+      "reusableTemplate": "Использовать визуальные метафоры (природа, вода, строительство) для объяснения психологических состояний."
+    },
+    {
+      "id": "3883677429384026204_73479651948",
+      "account": "finsoroka",
+      "index": 10,
+      "url": "https://www.instagram.com/reel/DXlmAugoxhc/",
+      "caption": "Он лезет вверх. А к ногам привязаны камни.\nСтрах. Сомнение. Чужое мнение. Неудачи. Люди, которые не верят.\n\nЗнакомо?\nВот в чём правда: груз никуда не девается. Ты не ждёшь, пока станет легче — ты учишься лезть с весом. Потому что «легче» не наступит. Наступит только «привык».\nБольшинство останавливается не потому что не могут. А потому что не находят ни одной причины продолжать прямо сейчас.\nОдна причина — это достаточно.\nНе вдохновение. Не уверенность. Не поддержка окружения. Просто одна мысль, за которую можно держаться, пока руки не окрепнут.\nЧто это для тебя?\n\nПодписывайся на @finsoroka — здесь про то, что держит тебя в движении.​​​​​​​​​​​​​​​​",
+      "transcript": "",
+      "metrics": {
+        "plays": 44652,
+        "likes": 817,
+        "comments": 10
+      },
+      "topic": "Мотивация и преодоление трудностей",
+      "hook": "Он лезет вверх. А к ногам привязаны камни.",
+      "pain": "Ощущение тяжести, груза прошлого, страха и сомнений, мешающих двигаться вперед.",
+      "scenarioPattern": "Визуальная метафора (мальчик с камнями) -> Описание проблемы -> Философский вывод/цитата.",
+      "visualPattern": "Детальный рисунок с подписями на камнях (Страх, Сомнение, Люди), контраст между тяжестью внизу и мечтами (кокосы) вверху.",
+      "reusableTemplate": "Использовать образ 'борьбы с грузом' для описания внутренних препятствий, предлагая зрителю найти свою точку опоры."
+    },
+    {
+      "id": "3886768123528230050_70987436248",
+      "account": "motivate.wise",
+      "index": 1,
+      "url": "https://www.instagram.com/reel/DXwkwPvNjSi/",
+      "caption": "Nothing in life is free.\n\nNot success.\nNot respect.\nNot the life you dream of.\n\nEverything has a price…\nAnd discipline is the currency.\n\nPay the price now,\nOr regret it later.\n\n#ReelsViral #reelsinstgram #reels",
+      "transcript": "Please provide the video or the audio file you would like me to transcribe. You haven't attached or linked any content yet.",
+      "metrics": {
+        "plays": 18647,
+        "likes": 197,
+        "comments": 8
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Nothing in life is free",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3884530576099505734_70987436248",
+      "account": "motivate.wise",
+      "index": 2,
+      "url": "https://www.instagram.com/reel/DXon_pTjfZG/",
+      "caption": "Power isn’t loud.\nIt’s controlled.\n\nThe most dangerous person in the room…\nIs the one who speaks less, observes more, and moves smart.\n\nMaster these moves—\nAnd you won’t need to prove anything.\n\n👉 Follow more @motivate.wise for real power mindset 🚀\n#reels #reelsinstagram #Viralreel",
+      "transcript": "",
+      "metrics": {
+        "plays": 84068,
+        "likes": 554,
+        "comments": 3
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Power isn’t loud",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3883844015544733025_70987436248",
+      "account": "motivate.wise",
+      "index": 3,
+      "url": "https://www.instagram.com/reel/DXmL439kg1h/",
+      "caption": "Rich people don’t chase money…\nThey build assets.\n\nDiscipline. Skills. Mindset.\nThat’s the real wealth.\n\nIf you master these 10…\nMoney will follow you automatically.\n\n👉 Follow more @motivate.wise for daily success mindset 🚀\n\n#reels #reelsinstagram #ReelsViral",
+      "transcript": "",
+      "metrics": {
+        "plays": 16530,
+        "likes": 249,
+        "comments": 5
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Rich people don’t chase money…",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3882389182664752774_70987436248",
+      "account": "motivate.wise",
+      "index": 4,
+      "url": "https://www.instagram.com/reel/DXhBGRQjT6G/",
+      "caption": "Not everyone deserves your energy.\nSome people just need silence… and truth.\n\nThese lines don’t argue.\nThey expose.\n\nUse wisely. 💯\n\n👉 Follow more @motivate.wise for real mindset shifts 🚀\n\n#reelsinstagram #reels #reelsvideo",
+      "transcript": "",
+      "metrics": {
+        "plays": 32957,
+        "likes": 225,
+        "comments": ""
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Not everyone deserves your energy",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3880905383703594048_70987436248",
+      "account": "motivate.wise",
+      "index": 5,
+      "url": "https://www.instagram.com/reel/DXbvuJyjcRA/",
+      "caption": "Not everything needs to be shared.\nSome moments are meant to be lived… not posted.\n\nMove in silence. Protect your peace. 🧠\n\nFollow 👉 @motivate.wise for real mindset content\n\n#reels #reelsinstgram #motivation",
+      "transcript": "",
+      "metrics": {
+        "plays": 172299,
+        "likes": 1585,
+        "comments": 22
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Not everything needs to be shared",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3880832956336252462_70987436248",
+      "account": "motivate.wise",
+      "index": 6,
+      "url": "https://www.instagram.com/reel/DXbfQMjDSYu/",
+      "caption": "Not every insult deserves a reaction.\nSome deserve silence… and a cold reply. ❄️\n\nLevel up your mindset. Stay unbothered.\n\nFollow 👉 @motivate.wise for more 🔥\n\n#reels #reelsinstagram #motivation",
+      "transcript": "",
+      "metrics": {
+        "plays": 70252,
+        "likes": 418,
+        "comments": 4
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Not every insult deserves a reaction",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3849886989441735536_70987436248",
+      "account": "motivate.wise",
+      "index": 7,
+      "url": "https://www.instagram.com/reel/DVti9G_Eptw/",
+      "caption": "How to increase your value instantly:\n\n• Walk slow.\n• Stay calm.\n• Respect, but don't flatter.\nIt’s not arrogance—it’s self-respect. Which point do you struggle with the most? 👇\nFollow @motivate.wise for daily wisdom. 🧠\n\n#reels #philosophy #howtobemoreattractive #manners #emotionalintelligence maturemindset wisdomquotes respect calm instareels instagramreels2026",
+      "transcript": "",
+      "metrics": {
+        "plays": 31225,
+        "likes": 186,
+        "comments": 2
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "How to increase your value instantly:",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3844604048410783287_70987436248",
+      "account": "motivate.wise",
+      "index": 8,
+      "url": "https://www.instagram.com/reel/DVaxwMvja43/",
+      "caption": "Read this if people doubt you.\n\nCritics are loud.\nWinners are silent.\n\nWhile they talk… you build.\nWhile they judge… you grow.\nWhile they hate… you dominate.\n\nThe truth?\nHaters are free marketing.\nYour success is the real revenge.\n\n💬 Comment “IRON FRAME” if you stay unshaken.\n📌 Save this for the next time someone doubts you.\n🚀 Follow @motivate.wise for daily mindset domination.\n\n#MindsetShift #SuccessMentality #NoMoreExcuses #SelfImprovementDaily #reels",
+      "transcript": "",
+      "metrics": {
+        "plays": 9177,
+        "likes": 28,
+        "comments": ""
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Read this if people doubt you",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3819873560408470879_70987436248",
+      "account": "motivate.wise",
+      "index": 9,
+      "url": "https://www.instagram.com/reel/DUC6sO_DbVf/",
+      "caption": "If you want a strong mind, read this slowly.\n\nMental strength isn’t about pretending everything is okay —\nit’s about self-control, self-respect, and self-belief.\n\nStop expecting.\nStop begging.\nStop reacting to everything.\n\n💭 Stay calm in chaos.\n🚫 Walk away from toxic people.\n🎯 Focus on solutions, not excuses.\n\nThis mindset will change how you handle life, people, and problems.\n\n👉 Follow @motivate.wise for daily mindset upgrades\n💾 Save this — your future self will thank you.\n\n#MentalStrength\n#reelsinstagram\n#SelfDiscipline\n#MindsetReels\n#MotivationDaily",
+      "transcript": "",
+      "metrics": {
+        "plays": 98401,
+        "likes": 1536,
+        "comments": 22
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "If you want a strong mind, read this slowly",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    },
+    {
+      "id": "3817148966786387491_70987436248",
+      "account": "motivate.wise",
+      "index": 10,
+      "url": "https://www.instagram.com/reel/DT5PMLcDU4j/",
+      "caption": "Your life right now is not luck… it’s karma. ⚖️✨\nEvery thought you think, every action you take, and every choice you make is shaping your future silently.\n\nThese 6 Laws of Karma are not philosophy — they are LIFE RULES.\nMaster them, and watch your mindset, habits, and results transform.\n\n🔥 Save this\n🔥 Share with someone who needs this reminder\n🔥 Follow for daily growth & wisdom\n\n👉 Follow @motivate.wise for powerful mindset shifts every day 💡\n\n#LawOfKarma\n#MindsetShift\n#SelfImprovementDaily\n#instagramreels\n#MotivationReels",
+      "transcript": "",
+      "metrics": {
+        "plays": 30534,
+        "likes": 287,
+        "comments": 3
+      },
+      "topic": "Тема требует ручной проверки",
+      "hook": "Your life right now is not luck… it’s karma",
+      "pain": "",
+      "scenarioPattern": "",
+      "visualPattern": "",
+      "reusableTemplate": ""
+    }
+  ],
+  "summary": {
+    "hookPatterns": [
+      "Контраст: 'Бедный vs Богатый' (ожидание vs реальность)",
+      "Провокация: 'Ты не теряешь время, его у тебя забирают' (смена парадигмы)",
+      "Загадка: 'Кто здесь самый тупой?' (интерактив)",
+      "Секрет/Запрет: 'Врачи избегают говорить об этом'",
+      "Метафора: 'Труба полная, а до тебя доходят капли'"
+    ],
+    "scenarioPatterns": [
+      "Проблема -> Деконструкция мифа -> Практический совет",
+      "Визуальная классификация (списки/таблицы) -> Заголовок-хук -> Детализация",
+      "Метафорический сторителлинг (путь героя/борьба с грузом) -> Философский вывод",
+      "Сравнение 'До' и 'После' (или 'Без инструмента' vs 'С инструментом')"
+    ],
+    "visualPatterns": [
+      "Сплит-экран (разделение на две колонки для сравнения)",
+      "Инфографика в тетради (скетч-стиль, рукописные подписи)",
+      "Минималистичные списки с крупной нумерацией",
+      "Макро-карты с наложением графических элементов",
+      "Темный фон с яркими акцентами (для экспертного контента)"
+    ],
+    "topicAngles": [
+      "Финансовая грамотность через призму психологии",
+      "Биохакинг и привычки: просто о сложном",
+      "Геополитика как понятная схема",
+      "Развенчание мифов об образовании и успехе",
+      "Управление вниманием в эпоху цифрового шума"
+    ],
+    "generatorRules": [
+      "Использовать правило 'один экран — одна мысль'",
+      "Текстовая иерархия: заголовок должен быть читаем за 1 секунду",
+      "Визуализация метафор (не просто текст, а образ)",
+      "Призыв к действию (CTA) в конце каждого сценария",
+      "Минимализм: не более 3-4 ключевых тезисов на слайд"
+    ],
+    "reusableHooks": [
+      "Ты не теряешь [ресурс], его у тебя забирают.",
+      "Если ты хочешь [результат], перестань делать [ошибка].",
+      "Бедный [действие], богатый [действие].",
+      "Врачи/Эксперты избегают говорить об этом простом [метод].",
+      "Твой [ресурс] — это не удача, это [причина].",
+      "Как [результат] за [время]: пошаговый план.",
+      "Большинство людей не знают, как [процесс] на самом деле.",
+      "Это не [угроза], это [инструмент] для тех, кто умеет им пользоваться.",
+      "Никогда больше не [проблема].",
+      "Маленькие [действие], которые изменят твой [результат]."
+    ]
+  }
+}
