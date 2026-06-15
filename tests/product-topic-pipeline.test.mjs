@@ -30,7 +30,7 @@ test("wellness generation brief uses product pains and facts for topic seed", ()
   });
 
   assert.match(brief.topic, /ритуал|покупк|шум|причин|мелоч|ожидан/i);
-  assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того|ожидан/i);
+  assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того|ожидан|красный флаг/i);
   assert.ok(brief.topicCandidate);
 });
 
@@ -55,7 +55,7 @@ test("image prompt keeps product facts but does not expose deprecated product to
   assert.doesNotMatch(prompt, /Визуальные якоря кроме упаковки/);
 });
 
-test("topic candidates use psychological hook formulas", () => {
+test("topic candidates pass psychology strategy without canned hook text", () => {
   const project = {
     ...projects[0],
     projectTheme: "хлорофилл и wellness без магии",
@@ -75,15 +75,16 @@ test("topic candidates use psychological hook formulas", () => {
 
   const [candidate] = buildTopicCandidates({ project, product, existingJobs: [] });
 
-  assert.ok(candidate.formulaId);
+  assert.ok(candidate.strategyId);
   assert.ok(candidate.trigger);
-  assert.ok(candidate.copyDevice);
-  assert.match(candidate.hook, /честно|не покуп|пустышк|провери|ожидан|маркетинг/i);
+  assert.ok(candidate.promptInstruction);
+  assert.equal(candidate.hook, "");
+  assert.match(`${candidate.topic} ${candidate.promptInstruction}`, /шум|пустышк|провер|ожидан|маркетинг|цены|пользы/i);
   assert.doesNotMatch(candidate.hook, /проверили одну ошибку/i);
   assert.equal(candidate.safetyPenalty, 0);
 });
 
-test("supplement hooks check expectations instead of vague mistakes", () => {
+test("supplement strategy names concrete check instead of vague mistake hook", () => {
   const project = {
     ...projects[0],
     projectTheme: "коллаген как БАД без обещаний омоложения",
@@ -101,8 +102,10 @@ test("supplement hooks check expectations instead of vague mistakes", () => {
     forbidden: ["минус 10 лет", "гарантирует результат"]
   };
 
-  const hooks = buildTopicCandidates({ project, product, existingJobs: [] }).map((item) => item.hook);
+  const candidates = buildTopicCandidates({ project, product, existingJobs: [] });
+  const strategyText = candidates.map((item) => `${item.topic} ${item.promptInstruction}`).join("\n");
 
-  assert.ok(hooks.some((hook) => /ожидан|пустышк|маркетинг|честно/i.test(hook)));
-  assert.ok(hooks.every((hook) => !/проверили одну ошибку/i.test(hook)));
+  assert.ok(candidates.every((item) => item.hook === ""));
+  assert.match(strategyText, /ожидан|пустышк|провер|регулярн|маркетинг/i);
+  assert.doesNotMatch(strategyText, /проверили одну ошибку/i);
 });

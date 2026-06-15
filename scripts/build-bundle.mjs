@@ -11,7 +11,6 @@ const files = [
   "src/domain/content-rotation.js",
   "src/domain/hook-library.js",
   "src/domain/product-profile.js",
-  "src/domain/hook-psychology.js",
   "src/domain/topic-candidates.js",
   "src/domain/meaning-engine.js",
   "src/domain/payment-plan.js",
