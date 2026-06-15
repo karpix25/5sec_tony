@@ -1,10 +1,10 @@
 import { escapeHtml } from "./infographic.js";
 
-const defaultOverlay = { x: 50, y: 70, scale: 100, opacity: 100 };
+const defaultOverlay = { x: 50, y: 98, scale: 96, opacity: 100 };
 const overlayPresets = [
-  { id: "lower-center", label: "Снизу центр", settings: { x: 50, y: 70, scale: 100, opacity: 100 } },
-  { id: "lower-left", label: "Снизу слева", settings: { x: 30, y: 70, scale: 96, opacity: 100 } },
-  { id: "lower-right", label: "Снизу справа", settings: { x: 70, y: 70, scale: 96, opacity: 100 } }
+  { id: "lower-center", label: "Снизу центр", settings: { x: 50, y: 98, scale: 96, opacity: 100 } },
+  { id: "lower-left", label: "Снизу слева", settings: { x: 32, y: 98, scale: 92, opacity: 100 } },
+  { id: "lower-right", label: "Снизу справа", settings: { x: 68, y: 98, scale: 92, opacity: 100 } }
 ];
 
 export function renderAvatarOverlayComposer(character) {
@@ -30,7 +30,7 @@ export function renderAvatarOverlayComposer(character) {
         <form class="avatar-overlay-controls" data-avatar-overlay-form="${escapeHtml(video.id)}">
           ${renderPresetButtons(video.id)}
           ${renderRange("x", "Горизонталь", overlay.x, 15, 85)}
-          ${renderRange("y", "Вертикаль", overlay.y, 45, 88)}
+          ${renderRange("y", "Вертикаль", overlay.y, 45, 100)}
           ${renderRange("scale", "Размер", overlay.scale, 60, 150)}
           ${renderRange("opacity", "Прозрачность", overlay.opacity, 30, 100)}
         </form>
@@ -52,7 +52,11 @@ export function bindAvatarOverlayComposerEvents(root, store) {
   root.querySelectorAll("[data-avatar-overlay-preset]").forEach((button) => {
     button.addEventListener("click", () => {
       const preset = overlayPresets.find((item) => item.id === button.dataset.avatarOverlayPreset);
-      if (preset) store.updateAvatarVideoOverlay(button.dataset.avatarVideoId, preset.settings);
+      if (!preset) return;
+      const form = button.closest("[data-avatar-overlay-form]");
+      setOverlayFormPayload(form, preset.settings);
+      applyOverlayPreview(form);
+      store.updateAvatarVideoOverlay(button.dataset.avatarVideoId, preset.settings);
     });
   });
 }
@@ -68,6 +72,14 @@ function applyOverlayPreview(form) {
   video.style.width = `${overlay.scale}%`;
   video.style.opacity = String(overlay.opacity / 100);
   updateRangeLabels(form, overlay);
+}
+
+function setOverlayFormPayload(form, overlay) {
+  if (!form) return;
+  Object.entries(normalizeOverlay(overlay)).forEach(([name, value]) => {
+    const input = form.querySelector(`input[name="${name}"]`);
+    if (input) input.value = String(value);
+  });
 }
 
 function updateRangeLabels(form, overlay) {
@@ -131,7 +143,7 @@ function getAlphaNote(video) {
 function normalizeOverlay(payload = {}) {
   return {
     x: clampOverlayNumber(payload.x, defaultOverlay.x, 15, 85),
-    y: clampOverlayNumber(payload.y, defaultOverlay.y, 45, 88),
+    y: clampOverlayNumber(payload.y, defaultOverlay.y, 45, 100),
     scale: clampOverlayNumber(payload.scale, defaultOverlay.scale, 60, 150),
     opacity: clampOverlayNumber(payload.opacity, defaultOverlay.opacity, 30, 100)
   };

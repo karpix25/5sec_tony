@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAvatarChromaImagePrompt, buildAvatarVideoPrompt } from "../src/domain/avatar-video.js";
+import { buildAvatarChromaImagePrompt, buildAvatarVideoPrompt, createAvatarVideoRecord } from "../src/domain/avatar-video.js";
 import { createStore } from "../src/state/store.js";
 import { buildAvatarAlphaFfmpegArgs } from "../scripts/avatar-alpha-video.mjs";
 
@@ -34,6 +34,34 @@ test("avatar alpha ffmpeg args keep webm transparency", () => {
   assert.equal(args.includes("yuva420p"), true);
   assert.equal(args.includes("-an"), true);
   assert.equal(args.at(-1), "output.webm");
+});
+
+test("avatar overlay defaults anchor video near the bottom", () => {
+  const video = createAvatarVideoRecord({ name: "Overlay Avatar" });
+
+  assert.deepEqual(video.overlay, { x: 50, y: 98, scale: 96, opacity: 100 });
+});
+
+test("store keeps bottom avatar overlay preset values", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = getSelectedProject(store);
+  const video = {
+    id: "avatar-video-overlay-test",
+    status: "ready",
+    videoUrl: "https://cdn.example.com/avatar-green.mp4",
+    overlay: { x: 50, y: 70, scale: 100, opacity: 100 }
+  };
+  state.projects = state.projects.map((item) =>
+    item.id === project.id
+      ? { ...item, characters: [{ ...item.characters[0], avatarVideos: [video] }] }
+      : item
+  );
+
+  store.updateAvatarVideoOverlay(video.id, { x: 50, y: 100, scale: 92, opacity: 100 });
+
+  const [updated] = getProjectAvatarVideos(store);
+  assert.deepEqual(updated.overlay, { x: 50, y: 100, scale: 92, opacity: 100 });
 });
 
 test("store saves transparent avatar video after chroma video is ready", async () => {

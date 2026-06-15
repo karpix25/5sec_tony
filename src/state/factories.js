@@ -125,7 +125,7 @@ function ensureAvatarVideoAssets(video) {
     alphaVideoUrl: video.alphaVideoUrl || "",
     alphaStatus: video.alphaStatus || "idle",
     alphaFailMsg: video.alphaFailMsg || "",
-    overlay: video.overlay || { x: 50, y: 70, scale: 100, opacity: 100 }
+    overlay: video.overlay || { x: 50, y: 98, scale: 96, opacity: 100 }
   };
 }
 
