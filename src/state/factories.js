@@ -76,9 +76,6 @@ export function createProductEntity(projectId, name, payload = {}) {
     components: payload.components || "",
     pains: asList(payload.pains || "ключевая боль"),
     facts: asList(payload.facts || "только проверяемые факты"),
-    useCases: asList(payload.useCases || payload.pains || "жизненная ситуация, где продукт уместен"),
-    proofPoints: asList(payload.proofPoints || payload.facts || "проверяемая деталь без магии"),
-    visualAnchors: asList(payload.visualAnchors || payload.components || "ритуал, предмет или сцена, связанные с продуктом"),
     forbidden: asList(payload.forbidden || "нельзя обещать недоказанный результат"),
     references: payload.references || []
   };
@@ -150,9 +147,6 @@ export function ensureProductAssets(product) {
     components: product.components || "",
     pains: asList(product.pains || product.audience || "ключевая боль"),
     facts: asList(product.facts || "только проверяемые факты"),
-    useCases: asList(product.useCases || product.pains || "жизненная ситуация, где продукт уместен"),
-    proofPoints: asList(product.proofPoints || product.facts || "проверяемая деталь без магии"),
-    visualAnchors: asList(product.visualAnchors || product.components || "ритуал, предмет или сцена, связанные с продуктом"),
     forbidden: asList(product.forbidden || "нельзя обещать недоказанный результат"),
     references: product.references || []
   };

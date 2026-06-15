@@ -77,9 +77,7 @@ function renderProductSummary(product, ready) {
           ${summaryItem("Что это", product.description || "не заполнено")}
           ${summaryItem("Когда нужно", listValue(product.pains) || "не заполнено")}
           ${summaryItem("Что можно обещать", product.offer || "не заполнено")}
-          ${summaryItem("Сценарии", listValue(product.useCases) || "не заполнено")}
-          ${summaryItem("Опорные факты", listValue(product.proofPoints) || "не заполнено")}
-          ${summaryItem("Что показывать", listValue(product.visualAnchors) || "не заполнено")}
+          ${summaryItem("Факты", listValue(product.facts) || "не заполнено")}
         </div>
       ` : `<div class="locked-note">Универсальная анкета появится после загрузки фото и анализа продукта.</div>`}
     </section>
@@ -100,9 +98,6 @@ function renderProductFieldsModal(product, ready) {
           ${productField("Когда нужно?", "pains", "Каждый пункт с новой строки: ситуации, задачи, симптомы, желания или рабочие сценарии аудитории.", "textarea", listValue(product.pains))}
           ${productField("Что можно обещать?", "offer", "Аккуратное обещание без гарантий: результат, польза, формат помощи, отличие от альтернатив.", "textarea", product.offer)}
           ${productField("Факты", "facts", "Каждый пункт с новой строки: состав, этапы услуги, формат, ограничения, видимые надписи, проверяемые детали.", "textarea", listValue(product.facts))}
-          ${productField("Сценарии для тем", "useCases", "Каждый пункт с новой строки: бытовые ситуации, где человек узнает себя и где продукт вообще уместен.", "textarea", listValue(product.useCases))}
-          ${productField("Опорные факты для хуков", "proofPoints", "Каждый пункт с новой строки: конкретные, проверяемые и безопасные детали, из которых можно собирать сильный хук.", "textarea", listValue(product.proofPoints))}
-          ${productField("Визуальные якоря", "visualAnchors", "Каждый пункт с новой строки: ритуал, предмет, сцена, интерфейс, ингредиент или действие, которые можно показать в дизайне.", "textarea", listValue(product.visualAnchors))}
           ${productField("Что нельзя обещать?", "forbidden", "Каждый пункт с новой строки: лечение, гарантии, диагнозы, сроки результата, запрещенные заявления.", "textarea", listValue(product.forbidden))}
           <button class="secondary-btn" form="product-settings-form" type="submit">Сохранить анкету</button>
         ` : `<div class="locked-note">Сначала загрузите фото продукта и запустите анализ.</div>`}

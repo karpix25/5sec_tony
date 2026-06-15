@@ -13,16 +13,18 @@ function first(items) {
 
 export function buildProductProfile({ project, product }) {
   const useCases = unique([
-    ...asLines(product.useCases),
-    ...asLines(product.pains)
+    ...asLines(product.pains),
+    ...asLines(project.keyScenarios),
+    ...asLines(project.audiencePains)
   ]);
   const proofPoints = unique([
-    ...asLines(product.proofPoints),
-    ...asLines(product.facts)
+    ...asLines(product.facts),
+    ...asLines(product.components),
+    ...asLines(product.offer)
   ]);
   const visualAnchors = unique([
-    ...asLines(product.visualAnchors),
-    ...asLines(product.components)
+    ...asLines(product.components),
+    ...productReferences(product).map((item) => item.title || item.promptComment || item.imageName)
   ]);
   const audienceSignals = unique([
     ...asLines(project.audiencePains),
@@ -59,4 +61,8 @@ export function buildProductProfile({ project, product }) {
     primaryProof: first(proofPoints) || product.description || product.name,
     primaryVisual: first(visualAnchors) || product.name
   };
+}
+
+function productReferences(product) {
+  return Array.isArray(product.references) ? product.references : [];
 }

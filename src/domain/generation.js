@@ -71,9 +71,6 @@ export function getProductsForProject(products, projectId) {
 export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [] }) {
   const pains = product.pains.join(", ");
   const facts = product.facts.join("; ");
-  const useCases = (product.useCases || []).join("; ");
-  const proofPoints = (product.proofPoints || []).join("; ");
-  const visualAnchors = (product.visualAnchors || []).join("; ");
   const forbidden = product.forbidden.join("; ");
   const productRefs = (product.references || []).map((item) => `${item.title}: ${item.promptComment || item.imageName}`).join("; ");
   const remoteProductRefs = (product.references || []).filter((item) => isRemoteImageUrl(item.imageData)).length;
@@ -139,9 +136,6 @@ export function buildImagePrompt({ project, product, reference, character, gener
     product.components ? `Состав или активные компоненты: ${product.components}.` : "",
     productRefs ? `Референсы продукта: ${productRefs}.` : "",
     `Боли: ${pains}. Оффер: ${product.offer}.`,
-    useCases ? `Жизненные сценарии продукта: ${useCases}.` : "",
-    proofPoints ? `Опорные факты для текста: ${proofPoints}.` : "",
-    visualAnchors ? `Визуальные якоря кроме упаковки: ${visualAnchors}.` : "",
     `Факты, которые можно использовать: ${facts}.`,
     `Запрещено обещать: ${forbidden}.`,
     `Уровень продающего текста: ${brief.salesLevel}.`,

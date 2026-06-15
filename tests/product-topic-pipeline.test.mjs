@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { projects, products } from "../src/domain/entities.js";
 import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/generation.js";
 
-test("wellness generation brief uses use cases and proof points for stronger topic seed", () => {
+test("wellness generation brief uses product pains and facts for topic seed", () => {
   const project = {
     ...projects[0],
     projectTheme: "понятные wellness-ритуалы без магии",
@@ -16,11 +16,8 @@ test("wellness generation brief uses use cases and proof points for stronger top
     description: "wellness-продукт для аккуратной ежедневной рутины",
     offer: "мягкий продукт для понятного утреннего ритуала",
     components: "жидкий формат, зеленый концентрат",
-    pains: ["к вечеру нет ощущения легкости", "хаос в wellness-рутине"],
+    pains: ["человек пьет кофе утром, но к середине дня уже сдувается", "хаос в wellness-рутине"],
     facts: ["без магических обещаний", "важна регулярность"],
-    useCases: ["человек пьет кофе утром, но к середине дня уже сдувается", "хочется один повторяемый healthy-ритуал без перегруза"],
-    proofPoints: ["жидкий формат легко встроить в утренний стакан воды", "продукт логичнее подавать как часть ритуала, а не как чудо-средство"],
-    visualAnchors: ["стакан воды утром", "зеленая капля", "чистый стол и понятный ритуал"],
     forbidden: ["лечит", "гарантирует результат"]
   };
 
@@ -36,7 +33,7 @@ test("wellness generation brief uses use cases and proof points for stronger top
   assert.ok(brief.topicCandidate);
 });
 
-test("image prompt includes use cases proof points and visual anchors", () => {
+test("image prompt keeps product facts but does not expose deprecated product topic fields", () => {
   const project = projects[0];
   const product = {
     ...products.find((item) => item.id === "magnesium"),
@@ -51,10 +48,8 @@ test("image prompt includes use cases proof points and visual anchors", () => {
     character: project.characters[0]
   });
 
-  assert.match(prompt, /Жизненные сценарии продукта/);
-  assert.match(prompt, /вечером трудно остановиться после перегруза/);
-  assert.match(prompt, /Опорные факты для текста/);
-  assert.match(prompt, /вечерний формат приема/);
-  assert.match(prompt, /Визуальные якоря кроме упаковки/);
-  assert.match(prompt, /стакан воды на тумбочке/);
+  assert.match(prompt, /Факты, которые можно использовать/);
+  assert.doesNotMatch(prompt, /Жизненные сценарии продукта/);
+  assert.doesNotMatch(prompt, /Опорные факты для текста/);
+  assert.doesNotMatch(prompt, /Визуальные якоря кроме упаковки/);
 });
