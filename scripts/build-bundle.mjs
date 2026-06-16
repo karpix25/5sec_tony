@@ -48,6 +48,8 @@ const files = [
   "src/ui/avatar.js",
   "src/ui/modals.js",
   "src/ui/preview-modal.js",
+  "src/ui/product-analysis-merge.js",
+  "src/ui/transient-ui-state.js",
   "src/ui/design.js",
   "src/ui/hooks.js",
   "src/ui/generation.js",

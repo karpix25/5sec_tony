@@ -5,6 +5,7 @@ import { resumeRunningImageJobs } from "./ui/job-runner.js";
 import { getContext } from "./state/store.js";
 import { getOpenMediaPreviewState, restoreMediaPreviewState } from "./ui/preview-modal.js";
 import { updateQueuePanel } from "./ui/queue.js";
+import { captureTransientUiState, restoreTransientUiState } from "./ui/transient-ui-state.js";
 
 const root = document.querySelector("#app");
 const store = createStore();
@@ -37,8 +38,10 @@ function flushRender() {
 
 function renderAppPreservingPreview() {
   const preview = getOpenMediaPreviewState(root);
+  const transientUiState = captureTransientUiState(root);
   renderApp(root, store);
   restoreMediaPreviewState(root, preview);
+  restoreTransientUiState(root, transientUiState);
 }
 
 function isJobsOnlyPatch(patch) {

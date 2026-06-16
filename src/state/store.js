@@ -96,7 +96,7 @@ export function createStore() {
       });
     },
     selectProduct(productId) {
-      setState({ selectedProductId: productId, generationBrief: ensureGenerationBrief({}) });
+      setState({ selectedProductId: productId });
     },
     selectReference(referenceId) {
       setState({ selectedReferenceId: referenceId });
@@ -227,8 +227,7 @@ export function createStore() {
       const product = createProductEntity(state.selectedProjectId, payload.name || "Новый продукт", payload);
       setState({
         products: [product, ...state.products],
-        selectedProductId: product.id,
-        generationBrief: ensureGenerationBrief({})
+        selectedProductId: product.id
       });
     },
     updateProduct(payload) {
@@ -237,8 +236,7 @@ export function createStore() {
           product.id === state.selectedProductId
             ? createProductEntity(product.projectId, payload.name || product.name, { ...product, ...payload })
             : product
-        ),
-        generationBrief: ensureGenerationBrief({})
+        )
       });
     },
     createProductReference(payload) {

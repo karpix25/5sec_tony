@@ -75,5 +75,22 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
 function isUserEditing() {
   if (typeof document === "undefined") return false;
   const element = document.activeElement;
-  return Boolean(element?.matches?.("input, textarea, select, [contenteditable='true']"));
+  return Boolean(element?.matches?.("input, textarea, select, [contenteditable='true']")) || hasDirtyFormControls(document);
+}
+
+function hasDirtyFormControls(root) {
+  return [...(root?.querySelectorAll?.("input, textarea, select") || [])].some(isDirtyControl);
+}
+
+function isDirtyControl(control) {
+  if (control.matches?.("textarea")) return control.value !== control.defaultValue;
+  if (control.matches?.("select")) return control.value !== getDefaultSelectValue(control);
+  if (control.matches?.('input[type="checkbox"], input[type="radio"]')) return control.checked !== control.defaultChecked;
+  if (control.matches?.('input[type="file"]')) return Number(control.files?.length || 0) > 0;
+  return control.value !== control.defaultValue;
+}
+
+function getDefaultSelectValue(control) {
+  const selected = [...(control.options || [])].find((option) => option.defaultSelected) || control.options?.[0];
+  return selected?.value || "";
 }

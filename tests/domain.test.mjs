@@ -347,7 +347,7 @@ test("store updates product content and generation brief for prompt assembly", (
   assert.doesNotMatch(prompt, /Подобрать курс/);
 });
 
-test("product save clears stale generation topic and placeholder data", () => {
+test("product save keeps generation brief intact for current product session", () => {
   const store = createStore();
   store.updateGenerationBrief({
     topic: "7 признаков проблем с кишечником",
@@ -367,11 +367,25 @@ test("product save clears stale generation topic and placeholder data", () => {
   const state = store.getState();
   const job = store.createJob();
 
-  assert.equal(state.generationBrief.topic, "");
-  assert.doesNotMatch(job.topic, /кишечник/i);
-  assert.doesNotMatch(job.prompt, /ключевая боль|только проверяемые факты|оффер продукта/i);
+  assert.equal(state.generationBrief.topic, "7 признаков проблем с кишечником");
+  assert.match(job.topic, /кишечник/i);
   assert.match(job.prompt, /Коллаген БАД/);
-  assert.match(job.prompt, /ломкость ногтей|тусклая кожа/);
+});
+
+test("product switching keeps current generation brief until operator changes it", () => {
+  const store = createStore();
+  store.updateGenerationBrief({
+    topic: "Как не бросить вечерний ритуал",
+    hook: "Вечерний ритуал без срывов",
+    visualObject: "стакан воды и мягкий вечерний свет"
+  });
+  store.createProduct({ name: "Второй продукт" });
+
+  const nextProductId = store.getState().selectedProductId;
+  store.selectProduct(nextProductId);
+
+  assert.equal(store.getState().generationBrief.topic, "Как не бросить вечерний ритуал");
+  assert.equal(store.getState().generationBrief.hook, "Вечерний ритуал без срывов");
 });
 
 test("store creates and deletes product inside selected project", () => {

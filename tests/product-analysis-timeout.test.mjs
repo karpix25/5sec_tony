@@ -12,3 +12,14 @@ test("product photo analysis has server and client timeouts", () => {
   assert.match(clientSource, /productAnalysisTimeoutMs/);
   assert.match(clientSource, /Анализ фото занял слишком много времени/);
 });
+
+test("product photo analysis merges ai draft with live form state", () => {
+  const renderSource = readFileSync(new URL("../src/ui/render.js", import.meta.url), "utf8");
+  const mergeSource = readFileSync(new URL("../src/ui/product-analysis-merge.js", import.meta.url), "utf8");
+
+  assert.match(renderSource, /getLiveProductDraft/);
+  assert.match(renderSource, /mergeAnalyzedProductDraft/);
+  assert.match(mergeSource, /manualOverrides/);
+  assert.match(mergeSource, /initialProduct/);
+  assert.match(mergeSource, /liveProduct/);
+});

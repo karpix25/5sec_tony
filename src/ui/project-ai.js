@@ -42,8 +42,11 @@ export async function runAudienceExpertAi(button, store) {
   setStatus(status, "Обновляем память для будущих генераций...", "loading");
   try {
     const draft = await requestAudienceExpertDraft(store, snapshot);
-    applyAudienceExpertDraft(form, draft);
-    store.updateProjectSettings({ ...formSnapshot(form), ...draft });
+    const liveForm = getLiveProjectForm(form);
+    const liveSnapshot = formSnapshot(liveForm);
+    const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft);
+    applyAudienceExpertDraft(liveForm, mergedDraft);
+    store.updateProjectSettings({ ...formSnapshot(liveForm), ...mergedDraft });
     setStatus(status, "AI-память обновлена и будет использоваться в генерациях.", "success");
   } catch (error) {
     setStatus(status, humanizeError(error), "error");
@@ -68,8 +71,11 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
   setStatus(status, "Обновляем AI-память для будущих генераций...", "loading");
   try {
     const draft = await requestAudienceExpertDraft(store, snapshot);
-    applyAudienceExpertDraft(form, draft);
-    store.updateProjectSettings(formSnapshot(form));
+    const liveForm = getLiveProjectForm(form);
+    const liveSnapshot = formSnapshot(liveForm);
+    const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft);
+    applyAudienceExpertDraft(liveForm, mergedDraft);
+    store.updateProjectSettings(formSnapshot(liveForm));
     setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
   } catch (error) {
     setStatus(status, `Проект сохранен. ${humanizeMemoryError(error)}`, "error");
@@ -93,8 +99,12 @@ export async function runProjectFieldAi(button, store) {
   setStatus(status, "Генерируем с учетом текущих несохраненных полей...", "loading");
   try {
     const payload = await requestProjectFieldDraft(store, snapshot, fieldName);
-    if (field && payload.value) field.value = payload.value;
-    store.updateProjectSettings({ ...snapshot, [fieldName]: payload.value || snapshot[fieldName] || "" });
+    const liveForm = getLiveProjectForm(form);
+    const liveSnapshot = formSnapshot(liveForm);
+    const liveField = liveForm?.querySelector(`[name="${fieldName}"]`) || field;
+    const nextValue = shouldKeepLiveValue(snapshot[fieldName], liveSnapshot[fieldName]) ? liveSnapshot[fieldName] : (payload.value || snapshot[fieldName] || "");
+    if (liveField && nextValue) liveField.value = nextValue;
+    store.updateProjectSettings({ ...liveSnapshot, [fieldName]: nextValue });
     setStatus(status, "Готово. Проверьте текст и сохраните настройки.", "success");
   } catch (error) {
     const message = humanizeError(error);
@@ -151,6 +161,28 @@ async function requestProjectFieldDraft(store, snapshot, fieldName) {
 
 function formSnapshot(form) {
   return form ? Object.fromEntries(new FormData(form).entries()) : {};
+}
+
+function getLiveProjectForm(form) {
+  if (typeof document === "undefined") return form;
+  return document.querySelector("#project-settings-form") || form;
+}
+
+function mergeAudienceDraft(snapshot, liveSnapshot, draft) {
+  return audienceExpertFields.reduce((acc, fieldName) => {
+    if (!draft[fieldName]) return acc;
+    if (shouldKeepLiveValue(snapshot[fieldName], liveSnapshot[fieldName])) return acc;
+    acc[fieldName] = draft[fieldName];
+    return acc;
+  }, {});
+}
+
+function shouldKeepLiveValue(initialValue, liveValue) {
+  return normalizeProjectComparableValue(initialValue) !== normalizeProjectComparableValue(liveValue);
+}
+
+function normalizeProjectComparableValue(value) {
+  return String(value || "").trim();
 }
 
 function setStatus(status, text, tone) {

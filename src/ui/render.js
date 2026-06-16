@@ -9,6 +9,7 @@ import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
 import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewModal } from "./modals.js";
 import { bindPreviewModalEvents } from "./preview-modal.js";
+import { getLiveProductDraft, mergeAnalyzedProductDraft } from "./product-analysis-merge.js";
 import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft, productReferencesFromImages } from "./product-ai.js";
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
@@ -371,6 +372,7 @@ async function runProductPhotoAnalysis(root, store, form) {
   const productForm = root.querySelector("#product-settings-form");
   const state = store.getState();
   const context = getContext(state);
+  const productId = context.product.id;
   let product = context.product;
   let references = [];
   try {
@@ -379,9 +381,14 @@ async function runProductPhotoAnalysis(root, store, form) {
     product = { ...context.product, ...getFormSnapshot(productForm) };
     references = productReferencesFromImages(images);
     const result = await analyzeProductPhotos({ project: context.project, product, images });
-    store.updateProduct(productPayloadFromDraft(product, result.draft || {}, references));
+    const liveProduct = getLiveProductDraft(root, store, productId, getFormSnapshot, product);
+    const payload = mergeAnalyzedProductDraft(productPayloadFromDraft, product, liveProduct, result.draft || {}, references);
+    if (store.getState().selectedProductId === productId) store.updateProduct(payload);
   } catch (error) {
-    if (references.length) store.updateProduct(productPayloadFromDraft(product, {}, references));
+    if (references.length && store.getState().selectedProductId === productId) {
+      const liveProduct = getLiveProductDraft(root, store, productId, getFormSnapshot, product);
+      store.updateProduct(productPayloadFromDraft(liveProduct, {}, references));
+    }
     if (status) status.textContent = error.message || "Не удалось проанализировать фото.";
   }
 }
