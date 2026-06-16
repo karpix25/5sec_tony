@@ -84,3 +84,10 @@ test("preview modal survives app rerenders during generation", () => {
   assert.match(queueSource, /bindQueuePanelEvents/);
   assert.match(queueSource, /renderQueueList/);
 });
+
+test("preview modal closes on click outside content", () => {
+  const previewSource = readFileSync(new URL("../src/ui/preview-modal.js", import.meta.url), "utf8");
+
+  assert.match(previewSource, /isPreviewBackdropClick/);
+  assert.match(previewSource, /#media-preview-modal, #media-preview-modal > \.modal-backdrop/);
+});

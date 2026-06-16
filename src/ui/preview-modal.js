@@ -10,6 +10,10 @@ export function bindPreviewModalEvents(root) {
       openMediaPreview(root, trigger);
       return;
     }
+    if (isPreviewBackdropClick(event)) {
+      closeMediaPreview(root);
+      return;
+    }
     if (event.target.closest("[data-close-preview-media]")) closeMediaPreview(root);
   });
 
@@ -96,4 +100,11 @@ function renderPreviewVideo(src) {
 
 function guessPreviewType(src) {
   return /\.(mp4|webm|mov)(\?|#|$)/i.test(src) ? "video" : "image";
+}
+
+function isPreviewBackdropClick(event) {
+  const target = event.target;
+  return Boolean(
+    target?.matches?.("#media-preview-modal, #media-preview-modal > .modal-backdrop")
+  );
 }
