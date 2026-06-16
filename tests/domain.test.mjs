@@ -74,6 +74,7 @@ test("generation job starts as queued and advances through pipeline", () => {
   const next = advanceJob(job);
 
   assert.equal(job.status, "queued");
+  assert.equal(job.characterId, project.characters[0].id);
   assert.deepEqual(job.inputUrls, ["data:image/png;base64,style"]);
   assert.deepEqual(job.inputRefs, [{ role: "design", title: project.references[0].title, isLocalData: true }]);
   assert.equal(next.status, "running");

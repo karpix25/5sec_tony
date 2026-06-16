@@ -109,9 +109,10 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
   const state = store.getState();
   const job = findJob(store, jobId);
   const project = state.projects?.find((item) => item.id === job?.projectId);
-  const avatarVideo = getReusableAvatarVideo(project);
+  const avatarVideo = getReusableAvatarVideo(project, job?.characterId || state.selectedCharacterId);
+  const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
   if (!job) return;
-  if (!avatarVideo?.videoUrl) {
+  if (!avatarVideoUrl) {
     if (requiresFinalVideo(job)) {
       store.patchJob(jobId, {
         status: "failed",
@@ -140,9 +141,10 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       failMsg: "Собираем финальное видео с аватаром и аудио..."
     });
     const result = await createCompositeAvatarVideo({
-      avatarVideoUrl: avatarVideo.videoUrl,
+      avatarVideoUrl,
       backgroundImageUrl,
-      audioData: audio?.fileData || ""
+      audioData: audio?.fileData || "",
+      overlay: avatarVideo.overlay || {}
     });
     store.patchJob(jobId, {
       status: "done",
@@ -211,10 +213,19 @@ function requiresFinalVideo(job) {
   return job?.outputType !== "image" && job?.requiresFinalVideo !== false;
 }
 
-function getReusableAvatarVideo(project) {
-  return project?.characters
-    ?.flatMap((character) => character.avatarVideos || [])
-    .find((video) => video.status === "ready" && video.videoUrl);
+function getReusableAvatarVideo(project, characterId) {
+  const characters = project?.characters || [];
+  const selectedCharacter = characters.find((character) => character.id === characterId);
+  const preferredVideo = findReusableAvatarVideo(selectedCharacter);
+  return preferredVideo || characters.map(findReusableAvatarVideo).find(Boolean);
+}
+
+function getCompositeAvatarVideoUrl(video) {
+  return video?.alphaVideoUrl || video?.videoUrl || "";
+}
+
+function findReusableAvatarVideo(character) {
+  return (character?.avatarVideos || []).find((video) => video.status === "ready" && getCompositeAvatarVideoUrl(video));
 }
 
 async function startImageTask(store, jobId, job, provider, progress) {

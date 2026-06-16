@@ -154,6 +154,7 @@ export function createGenerationJob({ project, product, reference, character, au
     id: `job-${Math.floor(200 + Math.random() * 700)}`,
     projectId: project.id,
     productId: product.id,
+    characterId: character?.id || "",
     status: "queued",
     stage: generationStages[0],
     progress: 6,

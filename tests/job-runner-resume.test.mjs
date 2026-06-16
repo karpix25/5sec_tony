@@ -137,6 +137,18 @@ test("image job assembles final 5 second video with reusable avatar video and li
   const project = {
     ...projects.find((item) => item.id === "supplements"),
     characters: [{
+      id: "char-other",
+      name: "Other Avatar",
+      status: "approved",
+      imageData: "https://cdn.example.com/other-avatar.png",
+      avatarVideos: [{
+        id: "avatar-video-other",
+        status: "ready",
+        videoUrl: "https://cdn.example.com/other-avatar-green.mp4",
+        alphaVideoUrl: "https://cdn.example.com/other-avatar-alpha.webm",
+        overlay: { x: 20, y: 60, scale: 140, opacity: 50 }
+      }]
+    }, {
       id: "char-ready",
       name: "Ready Avatar",
       status: "approved",
@@ -144,7 +156,9 @@ test("image job assembles final 5 second video with reusable avatar video and li
       avatarVideos: [{
         id: "avatar-video-ready",
         status: "ready",
-        videoUrl: "https://cdn.example.com/avatar-green.mp4"
+        videoUrl: "https://cdn.example.com/avatar-green.mp4",
+        alphaVideoUrl: "https://cdn.example.com/avatar-alpha.webm",
+        overlay: { x: 68, y: 95, scale: 82, opacity: 75 }
       }]
     }]
   };
@@ -162,6 +176,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
     stage: "idea",
     progress: 6,
     outputType: "final-video",
+    characterId: "char-ready",
     referenceTitle: project.references[0].title
   };
   const state = {
@@ -171,7 +186,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
     selectedProjectId: project.id,
     selectedProductId: product.id,
     selectedReferenceId: project.references[0].id,
-    selectedCharacterId: "char-ready",
+    selectedCharacterId: "char-other",
     selectedAudioId: audio.id,
     audioLibrary: [audio]
   };
@@ -202,9 +217,10 @@ test("image job assembles final 5 second video with reusable avatar video and li
       return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/background.png" }) };
     }
     if (String(url).includes("/api/avatar-videos/composite")) {
-      assert.equal(body.avatarVideoUrl, "https://cdn.example.com/avatar-green.mp4");
+      assert.equal(body.avatarVideoUrl, "https://cdn.example.com/avatar-alpha.webm");
       assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
       assert.equal(body.audioData, audio.fileData);
+      assert.deepEqual(body.overlay, { x: 68, y: 95, scale: 82, opacity: 75 });
       return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-with-audio.mp4", hasAudio: true }) };
     }
     return { ok: true, json: async () => ({}) };

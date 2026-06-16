@@ -44,6 +44,7 @@ export function bindAvatarOverlayComposerEvents(root, store) {
     form.addEventListener("submit", (event) => event.preventDefault());
     form.addEventListener("input", () => {
       applyOverlayPreview(form);
+      store.updateAvatarVideoOverlay(form.dataset.avatarOverlayForm, getOverlayPayload(form));
     });
     form.addEventListener("change", () => {
       store.updateAvatarVideoOverlay(form.dataset.avatarOverlayForm, getOverlayPayload(form));

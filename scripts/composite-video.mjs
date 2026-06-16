@@ -20,7 +20,8 @@ export async function handleCompositeVideoApi(request, response, url) {
     const result = await createCompositeVideo({
       avatarVideoUrl: body.avatarVideoUrl,
       backgroundImageUrl: body.backgroundImageUrl,
-      audioUrl: body.audioUrl || body.audioData || ""
+      audioUrl: body.audioUrl || body.audioData || "",
+      overlay: body.overlay || body.placement || {}
     });
     return sendJson(response, 200, result);
   } catch (error) {
@@ -28,7 +29,7 @@ export async function handleCompositeVideoApi(request, response, url) {
   }
 }
 
-export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl, audioUrl = "" }) {
+export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl, audioUrl = "", overlay = {} }) {
   await mkdir(outputDir, { recursive: true });
   const runId = createRunId(`${avatarVideoUrl}|${backgroundImageUrl}|${Date.now()}`);
   const tempDir = join(tmpdir(), `anton-avatar-composite-${runId}`);
@@ -43,23 +44,18 @@ export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl,
     await writeFile(backgroundPath, await readSourceBytes(backgroundImageUrl));
     await writeFile(avatarPath, await readSourceBytes(avatarVideoUrl));
     if (audioPath) await writeFile(audioPath, await readSourceBytes(audioUrl));
-    await composeWithFfmpeg({ backgroundPath, avatarPath, audioPath, outputPath });
+    await composeWithFfmpeg({ backgroundPath, avatarPath, audioPath, outputPath, overlay });
     const videoUrl = isS3AssetStorageConfigured()
       ? await uploadFileToS3(outputPath, { prefix: "avatar-videos/composite", contentType: "video/mp4" })
       : `/${outputPath}`;
-    return { videoUrl, duration: "5", placement: "lower-left-safe-zone", hasAudio: Boolean(audioPath) };
+    return { videoUrl, duration: "5", placement: normalizeAvatarOverlay(overlay), hasAudio: Boolean(audioPath) };
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
 }
 
-async function composeWithFfmpeg({ backgroundPath, avatarPath, audioPath, outputPath }) {
-  const filter = [
-    "[0:v]scale=1024:1792:force_original_aspect_ratio=increase,crop=1024:1792,setsar=1,format=rgba[bg]",
-    "[1:v]trim=duration=5,setpts=PTS-STARTPTS,fps=30,scale=460:-2:force_original_aspect_ratio=decrease,chromakey=0x00FF00:0.18:0.08,format=rgba[avatar]",
-    "[bg][avatar]overlay=x=72:y=1360-h:format=auto,format=yuv420p[out]"
-  ].join(";");
-
+async function composeWithFfmpeg({ backgroundPath, avatarPath, audioPath, outputPath, overlay }) {
+  const filter = buildAvatarOverlayFilter(overlay);
   const args = [
     "-y",
     "-loop", "1",
@@ -79,6 +75,36 @@ async function composeWithFfmpeg({ backgroundPath, avatarPath, audioPath, output
   await execFileAsync("ffmpeg", args, { timeout: 120000 });
 }
 
+export function buildAvatarOverlayFilter(overlay = {}) {
+  const placement = normalizeAvatarOverlay(overlay);
+  const avatarWidth = Math.round(1024 * (placement.scale / 100));
+  const anchorX = Math.round(1024 * (placement.x / 100));
+  const anchorY = Math.round(1792 * (placement.y / 100));
+  const alpha = placement.opacity / 100;
+  const alphaFilter = alpha < 1 ? `,colorchannelmixer=aa=${alpha.toFixed(2)}` : "";
+
+  return [
+    "[0:v]scale=1024:1792:force_original_aspect_ratio=increase,crop=1024:1792,setsar=1,format=rgba[bg]",
+    `[1:v]trim=duration=5,setpts=PTS-STARTPTS,fps=30,scale=${avatarWidth}:-2:force_original_aspect_ratio=decrease,chromakey=0x00FF00:0.18:0.08,format=rgba${alphaFilter}[avatar]`,
+    `[bg][avatar]overlay=x=${anchorX}-w/2:y=${anchorY}-h:format=auto,format=yuv420p[out]`
+  ].join(";");
+}
+
+function normalizeAvatarOverlay(payload = {}) {
+  return {
+    x: clampOverlayNumber(payload.x, 50, 15, 85),
+    y: clampOverlayNumber(payload.y, 98, 45, 100),
+    scale: clampOverlayNumber(payload.scale, 96, 60, 150),
+    opacity: clampOverlayNumber(payload.opacity, 100, 30, 100)
+  };
+}
+
+function clampOverlayNumber(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(number)));
+}
+
 async function readSourceBytes(source) {
   const value = String(source || "");
   if (value.startsWith("data:")) return dataUrlToBuffer(value);
@@ -88,7 +114,7 @@ async function readSourceBytes(source) {
     return Buffer.from(await result.arrayBuffer());
   }
   if (value.startsWith("/")) return readFile(value.replace(/^\/+/, ""));
-  throw new Error("Поддерживаются только http(s), data URL или локальный путь внутри проекта");
+  return readFile(value);
 }
 
 function dataUrlToBuffer(value) {
