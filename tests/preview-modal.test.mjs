@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { projects } from "../src/domain/entities.js";
+import { readFileSync } from "node:fs";
+import { products, projects } from "../src/domain/entities.js";
 import { renderMediaPreviewModal } from "../src/ui/modals.js";
 import { renderPreviewTrigger } from "../src/ui/preview-modal.js";
 import { renderQueuePanel } from "../src/ui/queue.js";
@@ -31,9 +32,11 @@ test("preview trigger keeps media url title and type", () => {
 test("queue previews open both generated images and final videos", () => {
   const project = projects[0];
   const html = renderQueuePanel({
+    products,
     jobs: [{
       id: "job-image",
       projectId: project.id,
+      productId: "magnesium",
       status: "review",
       stage: "approval",
       progress: 80,
@@ -46,6 +49,7 @@ test("queue previews open both generated images and final videos", () => {
     }, {
       id: "job-video",
       projectId: project.id,
+      productId: "magnesium",
       status: "done",
       stage: "export",
       progress: 100,
@@ -62,4 +66,17 @@ test("queue previews open both generated images and final videos", () => {
   assert.match(html, /data-preview-type="image"/);
   assert.match(html, /data-preview-media="\/generated\/avatar-videos\/final\.mp4"/);
   assert.match(html, /data-preview-type="video"/);
+  assert.match(html, /Продукт: Магний вечерний/);
+});
+
+test("preview modal survives app rerenders during generation", () => {
+  const previewSource = readFileSync(new URL("../src/ui/preview-modal.js", import.meta.url), "utf8");
+  const mainSource = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+
+  assert.match(previewSource, /dataset\.previewModalBound/);
+  assert.match(previewSource, /getOpenMediaPreviewState/);
+  assert.match(previewSource, /restoreMediaPreviewState/);
+  assert.match(mainSource, /renderAppPreservingPreview/);
+  assert.match(mainSource, /getOpenMediaPreviewState\(root\)/);
+  assert.match(mainSource, /restoreMediaPreviewState\(root, preview\)/);
 });

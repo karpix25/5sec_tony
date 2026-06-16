@@ -1,6 +1,8 @@
 import { escapeHtml } from "./infographic.js";
 
 export function bindPreviewModalEvents(root) {
+  if (root.dataset.previewModalBound === "true") return;
+  root.dataset.previewModalBound = "true";
   root.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-preview-media]");
     if (trigger) {
@@ -14,6 +16,21 @@ export function bindPreviewModalEvents(root) {
   root.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeMediaPreview(root);
   });
+}
+
+export function getOpenMediaPreviewState(root) {
+  const modal = root.querySelector("#media-preview-modal");
+  if (!modal || modal.hidden) return null;
+  return {
+    src: modal.dataset.previewMedia || "",
+    type: modal.dataset.previewType || "",
+    title: root.querySelector("#media-preview-title")?.textContent || "Превью"
+  };
+}
+
+export function restoreMediaPreviewState(root, state) {
+  if (!state?.src) return;
+  openMediaPreviewFromState(root, state);
 }
 
 export function renderPreviewTrigger({ src, title, type = "image", className = "", label = "Открыть превью", content = "" }) {
@@ -40,6 +57,20 @@ function openMediaPreview(root, trigger) {
   if (!modal || !body || !title || !src) return;
 
   title.textContent = trigger.dataset.previewTitle || "Превью";
+  openMediaPreviewFromState(root, { src, type, title: title.textContent });
+}
+
+function openMediaPreviewFromState(root, state) {
+  const modal = root.querySelector("#media-preview-modal");
+  const body = root.querySelector("#media-preview-body");
+  const title = root.querySelector("#media-preview-title");
+  const src = state.src || "";
+  const type = state.type || guessPreviewType(src);
+  if (!modal || !body || !title || !src) return;
+
+  title.textContent = state.title || "Превью";
+  modal.dataset.previewMedia = src;
+  modal.dataset.previewType = type;
   body.innerHTML = type === "video" ? renderPreviewVideo(src) : renderPreviewImage(src);
   modal.hidden = false;
 }
@@ -47,7 +78,11 @@ function openMediaPreview(root, trigger) {
 function closeMediaPreview(root) {
   const modal = root.querySelector("#media-preview-modal");
   const body = root.querySelector("#media-preview-body");
-  if (modal) modal.hidden = true;
+  if (modal) {
+    modal.hidden = true;
+    delete modal.dataset.previewMedia;
+    delete modal.dataset.previewType;
+  }
   if (body) body.innerHTML = "";
 }
 

@@ -13,19 +13,20 @@ const queueStageLabels = {
 
 export function renderQueuePanel(state, context) {
   const projectJobs = state.jobs.filter((job) => job.projectId === context.project.id);
+  const productNames = new Map((state.products || []).map((product) => [product.id, product.name]));
   return `
     <section class="embedded-panel queue-panel">
       <div class="panel-head">
         <div><span class="eyebrow">Очередь генерации</span><h2>Статус задач</h2></div>
       </div>
       <div class="queue-list">
-        ${projectJobs.map(renderQueueJob).join("") || "<p class='empty'>Пока нет задач. Запустите генерацию из вкладки «Генерация».</p>"}
+        ${projectJobs.map((job) => renderQueueJob(job, productNames.get(job.productId))).join("") || "<p class='empty'>Пока нет задач. Запустите генерацию из вкладки «Генерация».</p>"}
       </div>
     </section>
   `;
 }
 
-function renderQueueJob(job) {
+function renderQueueJob(job, productName = "") {
   const ready = isQueueJobReady(job);
   const preview = job.imageData || job.imageUrl || "";
   const failed = job.status === "failed";
@@ -44,6 +45,7 @@ function renderQueueJob(job) {
         </div>
         <div class="queue-meta">
           <span>${escapeHtml(queueStageLabels[job.stage] || job.stage)}</span>
+          <span>Продукт: ${escapeHtml(productName || "не указан")}</span>
           <span>${escapeHtml(job.topic || job.title)}</span>
           <span>${escapeHtml(job.music || "аудио проекта")}</span>
           <span>${Number(job.inputUrls?.length || 0)} реф.</span>

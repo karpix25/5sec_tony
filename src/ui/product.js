@@ -22,12 +22,12 @@ export function renderProductSettings({ product }) {
             ${productField("Название продукта", "name", "Например: Пептидная сыворотка", "input", product.name, true)}
           </section>
           ${renderProductSummary(product, ready)}
-          ${renderProductFieldsModal(product, ready)}
           <div class="form-actions">
             <button class="secondary-btn" type="submit">Сохранить изменения</button>
             <button class="danger-btn" id="open-delete-product-modal" type="button">Удалить продукт</button>
           </div>
         </form>
+        ${renderProductFieldsModal(product, ready)}
         <aside class="product-side">
           ${renderPhotoAnalysis()}
         </aside>
@@ -95,11 +95,11 @@ function renderProductFieldsModal(product, ready) {
           <button class="danger-icon" data-close-product-fields-modal type="button" aria-label="Закрыть">×</button>
         </div>
         ${ready ? `
-          ${productField("Что это за продукт?", "description", "Одно человеческое описание: категория, формат, для чего он в жизни человека.", "textarea", product.description)}
-          ${productField("Зачем покупают?", "pains", "Боль и желание в одном поле: что человек хочет решить или почувствовать.", "textarea", listValue(product.pains))}
-          ${productField("Роль продукта", "offer", "Например: часть утренней рутины, понятный сервис оплаты, простой шаг в уходе.", "textarea", product.offer)}
-          ${productField("Можно говорить", "facts", "Безопасные факты: состав, формат, реальные свойства, видимые детали, сценарий использования.", "textarea", listValue(product.facts))}
-          ${productField("Что нельзя обещать?", "forbidden", "Самые важные запреты: лечение, гарантии, диагнозы, сроки результата, обход правил.", "textarea", listValue(product.forbidden))}
+          ${productField("Что это за продукт?", "description", "Одно человеческое описание: категория, формат, для чего он в жизни человека.", "textarea", product.description, false, "product-settings-form")}
+          ${productField("Зачем покупают?", "pains", "Боль и желание в одном поле: что человек хочет решить или почувствовать.", "textarea", listValue(product.pains), false, "product-settings-form")}
+          ${productField("Роль продукта", "offer", "Например: часть утренней рутины, понятный сервис оплаты, простой шаг в уходе.", "textarea", product.offer, false, "product-settings-form")}
+          ${productField("Можно говорить", "facts", "Безопасные факты: состав, формат, реальные свойства, видимые детали, сценарий использования.", "textarea", listValue(product.facts), false, "product-settings-form")}
+          ${productField("Что нельзя обещать?", "forbidden", "Самые важные запреты: лечение, гарантии, диагнозы, сроки результата, обход правил.", "textarea", listValue(product.forbidden), false, "product-settings-form")}
           <button class="secondary-btn" form="product-settings-form" type="submit">Сохранить анкету</button>
         ` : `<div class="locked-note">Сначала загрузите фото продукта и запустите анализ.</div>`}
       </section>
@@ -214,12 +214,13 @@ function renderProductReference(reference) {
   `;
 }
 
-function productField(label, name, placeholder, type = "input", value = "", required = false) {
+function productField(label, name, placeholder, type = "input", value = "", required = false, formId = "") {
   const requiredAttr = required ? "required" : "";
+  const formAttr = formId ? `form="${escapeHtml(formId)}"` : "";
   const escapedValue = escapeHtml(value || "");
   const control = type === "textarea"
-    ? `<textarea name="${name}" class="textarea editor-textarea" placeholder="${escapeHtml(placeholder)}" ${requiredAttr}>${escapedValue}</textarea>`
-    : `<input name="${name}" class="text-input" value="${escapedValue}" placeholder="${escapeHtml(placeholder)}" ${requiredAttr} />`;
+    ? `<textarea name="${name}" class="textarea editor-textarea" placeholder="${escapeHtml(placeholder)}" ${requiredAttr} ${formAttr}>${escapedValue}</textarea>`
+    : `<input name="${name}" class="text-input" value="${escapedValue}" placeholder="${escapeHtml(placeholder)}" ${requiredAttr} ${formAttr} />`;
 
   return `<label class="stacked-field"><span>${escapeHtml(label)}</span>${control}</label>`;
 }
