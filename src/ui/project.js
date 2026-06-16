@@ -23,9 +23,9 @@ export function renderProjectManagementSettings({ project }) {
 
 export function renderYandexFolderOptions(folders = [], selectedPath = "") {
   const selected = selectedPath || yandexDiskRoot;
-  const values = [...new Set([selected, ...folders].filter(Boolean))];
-  return values.map((folder) =>
-    `<option value="${escapeHtml(folder)}" ${folder === selected ? "selected" : ""}>${escapeHtml(folder)}</option>`
+  const options = normalizeYandexFolderOptions(folders, selected);
+  return options.map((folder) =>
+    `<option value="${escapeHtml(folder.path)}" ${folder.path === selected ? "selected" : ""}>${escapeHtml(formatYandexFolderLabel(folder))}</option>`
   ).join("");
 }
 
@@ -54,6 +54,22 @@ function projectYandexFolderField(value = "") {
       <small class="ai-field-status" data-yandex-folder-status>Загружаем папки из ${escapeHtml(yandexDiskRoot)}</small>
     </label>
   `;
+}
+
+function normalizeYandexFolderOptions(folders, selected) {
+  const byPath = new Map([[selected, { path: selected, label: selected, depth: 0 }]]);
+  folders.filter(Boolean).forEach((folder) => {
+    const option = typeof folder === "string"
+      ? { path: folder, label: folder, depth: 0 }
+      : { path: folder.path, label: folder.label || folder.path, depth: Number(folder.depth) || 0 };
+    if (option.path) byPath.set(option.path, option);
+  });
+  return [...byPath.values()];
+}
+
+function formatYandexFolderLabel(folder) {
+  const indent = "  ".repeat(Math.max(0, folder.depth || 0));
+  return `${indent}${folder.label || folder.path}`;
 }
 
 function projectField(label, name, placeholder, value = "", showAi = true) {

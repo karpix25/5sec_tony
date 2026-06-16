@@ -60,8 +60,15 @@ async function fetchKie(path, options) {
   try {
     return await fetch(path, options);
   } catch (error) {
-    throw new Error(`${getApiConnectionMessage()} (${error.message || "network error"})`);
+    const connectionError = new Error(`${getApiConnectionMessage()} (${error.message || "network error"})`);
+    connectionError.name = "KieConnectionError";
+    connectionError.cause = error;
+    throw connectionError;
   }
+}
+
+export function isKieConnectionError(error) {
+  return error?.name === "KieConnectionError";
 }
 
 async function readKieJson(response) {
@@ -74,5 +81,8 @@ async function readKieJson(response) {
 
 function getApiConnectionMessage() {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
-  return `Нет соединения с локальным API. Откройте студию через http://127.0.0.1:4190 или запустите npm run start. Текущий адрес: ${origin || "unknown"}`;
+  if (origin && !origin.includes("127.0.0.1") && !origin.includes("localhost")) {
+    return `Нет соединения с API студии на текущем домене. Проверьте, что контейнер не перезапускается. Текущий адрес: ${origin}`;
+  }
+  return `Нет соединения с локальным API. Откройте студию через http://127.0.0.1:4173 или запустите npm run start. Текущий адрес: ${origin || "unknown"}`;
 }

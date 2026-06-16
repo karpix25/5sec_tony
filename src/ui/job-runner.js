@@ -2,13 +2,14 @@ import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } fr
 import { getContext } from "../state/store.js";
 import { generateAiBrief } from "../services/brief-ai.js";
 import { humanizeGenerationPlan } from "../services/text-humanizer.js";
-import { createCompositeAvatarVideo, createImageTask, getImageTaskStatus } from "../services/kie-client.js";
+import { createCompositeAvatarVideo, createImageTask, getImageTaskStatus, isKieConnectionError } from "../services/kie-client.js";
 import { uploadVideoToYandexDisk } from "../services/yandex-disk.js";
 
 const successStates = ["success", "succeeded", "completed", "complete"];
 const failStates = ["fail", "failed", "error"];
 const primaryProvider = "gpt-image-2";
 const fallbackProvider = "nano-banana-2";
+const maxTransientImageStatusErrors = 8;
 const resumedImagePolls = new Set();
 
 export async function runImageJob(store, jobId) {
@@ -53,7 +54,7 @@ function resumeImageJob(store, job) {
   return pollImageJob(store, job.id, job.imageTaskId, provider);
 }
 
-async function pollImageJob(store, jobId, taskId, provider, attempt = 0) {
+async function pollImageJob(store, jobId, taskId, provider, attempt = 0, transientErrors = 0) {
   if (attempt >= 75) {
     const job = findJob(store, jobId);
     if (provider === primaryProvider && job) {
@@ -95,8 +96,18 @@ async function pollImageJob(store, jobId, taskId, provider, attempt = 0) {
       stage: "image",
       progress: Math.min(72, 24 + attempt * 4)
     });
-    pollImageJob(store, jobId, taskId, provider, attempt + 1);
+    pollImageJob(store, jobId, taskId, provider, attempt + 1, 0);
   } catch (error) {
+    if (isKieConnectionError(error) && transientErrors < maxTransientImageStatusErrors) {
+      store.patchJob(jobId, {
+        status: "running",
+        stage: "image",
+        progress: Math.min(72, Math.max(job.progress || 0, 24 + attempt * 4)),
+        failMsg: "API студии кратко недоступен, продолжаем ждать уже запущенную генерацию..."
+      });
+      pollImageJob(store, jobId, taskId, provider, attempt + 1, transientErrors + 1);
+      return;
+    }
     if (provider === primaryProvider) {
       await startFallbackImageTask(store, jobId, job, error.message || "не удалось проверить основную генерацию");
       return;

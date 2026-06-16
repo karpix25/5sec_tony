@@ -9,8 +9,9 @@ export async function uploadVideoToYandexDisk({ fileUrl, targetFolder, fileName 
   return payload;
 }
 
-export async function listYandexDiskFolders({ root = "disk:/ВИДЕО" } = {}) {
-  const response = await fetch(`/api/yandex-disk/folders?root=${encodeURIComponent(root)}`);
+export async function listYandexDiskFolders({ root = "disk:/ВИДЕО", depth = 4, max = 500 } = {}) {
+  const params = new URLSearchParams({ root, depth: String(depth), max: String(max) });
+  const response = await fetch(`/api/yandex-disk/folders?${params}`);
   const payload = await readYandexJson(response);
   if (!response.ok) throw new Error(payload.error || "Не удалось получить папки Яндекс.Диска");
   return payload;

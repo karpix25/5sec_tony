@@ -42,6 +42,54 @@ test("image polling resumes for running jobs after page reload", async () => {
   globalThis.setTimeout = originalSetTimeout;
 });
 
+test("image polling keeps the same task after a transient API disconnect", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const job = {
+    id: "job-transient-status",
+    status: "running",
+    stage: "image",
+    progress: 44,
+    imageTaskId: "task-transient",
+    imageProvider: "gpt-image-2",
+    outputType: "image",
+    failMsg: ""
+  };
+  const store = {
+    getState: () => ({ jobs: [job] }),
+    patchJob: (jobId, payload) => {
+      if (jobId === job.id) Object.assign(job, payload);
+    }
+  };
+  let statusCalls = 0;
+
+  globalThis.window = { location: { origin: "https://n8n-5sec.ap2dy7.easypanel.host" } };
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url) => {
+    assert.match(String(url), /task-transient/);
+    statusCalls += 1;
+    if (statusCalls === 1) throw new TypeError("Failed to fetch");
+    return {
+      ok: true,
+      json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/transient-result.png" })
+    };
+  };
+
+  try {
+    await resumeRunningImageJobs(store);
+    await waitFor(() => job.status === "review");
+
+    assert.equal(statusCalls, 2);
+    assert.equal(job.stage, "approval");
+    assert.equal(job.imageUrl, "https://cdn.example.com/transient-result.png");
+    assert.equal(job.imageProvider, "gpt-image-2");
+  } finally {
+    delete globalThis.window;
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
 test("running jobs without task id fail instead of hanging after reload", async () => {
   const job = {
     id: "job-stale",
