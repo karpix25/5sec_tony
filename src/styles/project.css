@@ -16,10 +16,38 @@
 }
 
 .project-actions {
-  display: grid;
-  grid-template-columns: auto auto minmax(180px, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
+}
+
+.project-actions .ai-field-status {
+  flex-basis: 100%;
+}
+
+.yandex-folder-picker {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.yandex-folder-levels {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.yandex-folder-level {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.yandex-folder-level small {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 760;
+  text-transform: uppercase;
 }
 
 .ai-field-head {
@@ -75,6 +103,11 @@
 
 @media (max-width: 760px) {
   .project-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .yandex-folder-level {
     grid-template-columns: 1fr;
   }
 }

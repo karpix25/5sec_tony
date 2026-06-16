@@ -40,6 +40,7 @@ export function createAvatarVideoRecord(character, payload = {}) {
     compositeVideoUrl: "",
     backgroundImageUrl: payload.backgroundImageUrl || "",
     overlay: normalizeAvatarVideoRecordOverlay(payload.overlay),
+    isActive: payload.isActive !== false,
     failMsg: "",
     createdAt: new Date().toISOString(),
     settings: {

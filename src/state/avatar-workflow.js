@@ -3,7 +3,7 @@ import { createAvatarTask, getAvatarTaskStatus } from "../services/kie-client.js
 import { createAvatarVideoWorkflow } from "./avatar-video-workflow.js";
 
 export function createAvatarWorkflow({ getState, setState, getProject }) {
-  const avatarVideoWorkflow = createAvatarVideoWorkflow({ getState, getProject, patchCharacter, replaceProjectAvatarVideo });
+  const avatarVideoWorkflow = createAvatarVideoWorkflow({ getState, getProject, patchCharacter, addProjectAvatarVideo });
 
   return {
     async createCharacter(payload) {
@@ -68,6 +68,16 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     },
     createAvatarVideo: avatarVideoWorkflow.createAvatarVideo,
     updateAvatarVideoOverlay: avatarVideoWorkflow.updateAvatarVideoOverlay,
+    setAvatarVideoActive: avatarVideoWorkflow.setAvatarVideoActive,
+    markAvatarVideoUsed(characterId, videoId, nextIndex) {
+      patchCharacter(characterId, (character) => ({
+        ...character,
+        avatarVideoRoundRobinIndex: Math.max(0, Math.round(Number(nextIndex) || 0)),
+        avatarVideos: (character.avatarVideos || []).map((video) =>
+          video.id === videoId ? { ...video, lastUsedAt: new Date().toISOString() } : video
+        )
+      }));
+    },
     resumeAvatarPolling() {
       const state = getState();
       const project = getProject(state, state.selectedProjectId);
@@ -105,17 +115,18 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     });
   }
 
-  function replaceProjectAvatarVideo(characterId, video) {
+  function addProjectAvatarVideo(characterId, video) {
     const state = getState();
     setState({
       projects: state.projects.map((project) =>
         project.id === state.selectedProjectId
           ? {
               ...project,
-              characters: project.characters.map((character) => ({
-                ...character,
-                avatarVideos: character.id === characterId ? [video] : []
-              }))
+              characters: project.characters.map((character) =>
+                character.id === characterId
+                  ? { ...character, avatarVideos: [video, ...(character.avatarVideos || [])] }
+                  : character
+              )
             }
           : project
       )

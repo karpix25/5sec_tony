@@ -279,6 +279,7 @@ export function createStore() {
     rejectAvatar: avatarWorkflow.rejectAvatar,
     createAvatarVideo: avatarWorkflow.createAvatarVideo,
     updateAvatarVideoOverlay: avatarWorkflow.updateAvatarVideoOverlay,
+    setAvatarVideoActive: avatarWorkflow.setAvatarVideoActive,
     createAudio(payload) {
       const audio = createAudioEntity(payload);
       setState({ audioLibrary: [audio, ...state.audioLibrary], selectedAudioId: audio.id });
@@ -293,6 +294,7 @@ export function createStore() {
       setState({ audioLibrary, selectedAudioId: getSelectedGlobalAudioId(audioLibrary, state.selectedAudioId) });
     },
     deleteCharacter: avatarWorkflow.deleteCharacter,
+    markAvatarVideoUsed: avatarWorkflow.markAvatarVideoUsed,
     createJob() {
       const context = getContext(state);
       const jobs = createJobBatchForContext(state, context, 1);

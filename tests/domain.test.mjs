@@ -10,6 +10,7 @@ import {
   getLimitState,
   getProductsForProject
 } from "../src/domain/generation.js";
+import { ensureProjectAssets } from "../src/state/factories.js";
 import { createStore } from "../src/state/store.js";
 
 test("products are scoped by project", () => {
@@ -262,22 +263,10 @@ test("store updates project settings and uses them in prompt", () => {
 });
 
 test("store migrates legacy Yandex Disk folder paths to video root", () => {
-  const store = createStore({
-    projects: [{
-      ...projects[0],
-      yandexDiskFolder: "Yandex Disk / Anton / БАДы / Готовые"
-    }],
-    products,
-    jobs: [],
-    audioLibrary: [],
-    selectedProjectId: projects[0].id,
-    selectedProductId: products[0].id,
-    selectedReferenceId: projects[0].references[0].id,
-    selectedCharacterId: projects[0].characters[0].id,
-    selectedProjectTab: "project"
+  const project = ensureProjectAssets({
+    ...projects[0],
+    yandexDiskFolder: "Yandex Disk / Anton / БАДы / Готовые"
   });
-
-  const project = store.getState().projects[0];
 
   assert.equal(project.yandexDiskFolder, "disk:/ВИДЕО/БАДы/Готовые");
 });

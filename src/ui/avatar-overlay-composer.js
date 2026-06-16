@@ -126,7 +126,8 @@ function getOverlayPayload(form) {
 }
 
 function getLatestAvatarVideo(character) {
-  return (character?.avatarVideos || [])[0];
+  const videos = character?.avatarVideos || [];
+  return videos.find((video) => video.isActive !== false) || videos[0];
 }
 
 function getOverlayVideoUrl(video) {

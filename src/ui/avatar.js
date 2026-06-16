@@ -101,7 +101,7 @@ function renderAvatarVideoPanel(character) {
         <div>
           <span class="eyebrow">Хромакей</span>
           <strong>Видео активного аватара</strong>
-          <small>Один reusable ролик на проект: 9:16, по пояс, чистый #00FF00. Потом он накладывается на генерации.</small>
+          <small>Reusable ролики 9:16, по пояс, чистый #00FF00.</small>
         </div>
       </div>
       <form id="avatar-video-form" class="ops-form text-editor-form avatar-video-form">
@@ -131,16 +131,32 @@ function renderAvatarVideoList(videos) {
           <div>
             <strong>${escapeHtml(getVideoStatus(video))}</strong>
             <small>${escapeHtml(video.failMsg || video.motionPrompt)}</small>
+            <small>${escapeHtml(getVideoActiveLabel(video))}</small>
             ${video.chromaImageUrl ? `<small>Кадр подготовлен</small>` : ""}
             ${video.alphaStatus === "ready" ? "<small>Прозрачный слой сохранен</small>" : ""}
             ${video.alphaStatus === "converting" ? "<small>Удаляем зеленый фон...</small>" : ""}
             ${video.alphaStatus === "failed" ? `<small>${escapeHtml(video.alphaFailMsg || "Прозрачный слой не создан")}</small>` : ""}
           </div>
+          ${video.status === "ready" ? renderAvatarVideoActiveButton(video) : ""}
           ${isVideoLoading(video) ? "<div class=\"avatar-loader\" aria-label=\"Ожидание видео\"><span></span><span></span><span></span></div>" : ""}
         </article>
       `).join("")}
     </div>
   `;
+}
+
+function renderAvatarVideoActiveButton(video) {
+  const isActive = video.isActive !== false;
+  return `
+    <button class="ghost-btn" data-avatar-video-active="${escapeHtml(video.id)}" data-avatar-video-next-active="${isActive ? "false" : "true"}" type="button">
+      ${isActive ? "Выключить" : "Активировать"}
+    </button>
+  `;
+}
+
+function getVideoActiveLabel(video) {
+  if (video.status !== "ready") return "Не участвует в round robin";
+  return video.isActive === false ? "Выключено" : "Активно в round robin";
 }
 
 function getVideoStatus(video) {

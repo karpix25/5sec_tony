@@ -145,6 +145,7 @@ function normalizeProjectYandexFolder(value, projectName = "Проект") {
 function ensureCharacterAssets(character) {
   return {
     ...character,
+    avatarVideoRoundRobinIndex: normalizeFactoryRoundRobinIndex(character.avatarVideoRoundRobinIndex),
     avatarVideos: (character.avatarVideos || []).map(ensureAvatarVideoAssets)
   };
 }
@@ -155,8 +156,15 @@ function ensureAvatarVideoAssets(video) {
     alphaVideoUrl: video.alphaVideoUrl || "",
     alphaStatus: video.alphaStatus || "idle",
     alphaFailMsg: video.alphaFailMsg || "",
+    isActive: video.isActive !== false,
     overlay: video.overlay || { x: 50, y: 98, scale: 96, opacity: 100 }
   };
+}
+
+function normalizeFactoryRoundRobinIndex(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.round(number));
 }
 
 function ensureProjectReferenceDefaults(project) {

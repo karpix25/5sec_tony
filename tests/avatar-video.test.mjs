@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildAvatarChromaImagePrompt, buildAvatarVideoPrompt, createAvatarVideoRecord } from "../src/domain/avatar-video.js";
+import { pickAvatarVideoRoundRobin } from "../src/domain/avatar-video-rotation.js";
 import { createStore } from "../src/state/store.js";
 import { buildAvatarAlphaFfmpegArgs } from "../scripts/avatar-alpha-video.mjs";
 
@@ -40,6 +41,7 @@ test("avatar overlay defaults anchor video near the bottom", () => {
   const video = createAvatarVideoRecord({ name: "Overlay Avatar" });
 
   assert.deepEqual(video.overlay, { x: 50, y: 98, scale: 96, opacity: 100 });
+  assert.equal(video.isActive, true);
 });
 
 test("store keeps bottom avatar overlay preset values", () => {
@@ -62,6 +64,70 @@ test("store keeps bottom avatar overlay preset values", () => {
 
   const [updated] = getProjectAvatarVideos(store);
   assert.deepEqual(updated.overlay, { x: 50, y: 100, scale: 92, opacity: 100 });
+});
+
+test("store toggles reusable avatar videos for round robin", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = getSelectedProject(store);
+  const video = {
+    id: "avatar-video-active-test",
+    status: "ready",
+    videoUrl: "https://cdn.example.com/avatar-green.mp4",
+    isActive: true
+  };
+  state.projects = state.projects.map((item) =>
+    item.id === project.id
+      ? { ...item, characters: [{ ...item.characters[0], avatarVideos: [video] }] }
+      : item
+  );
+
+  store.setAvatarVideoActive(video.id, false);
+  assert.equal(getProjectAvatarVideos(store)[0].isActive, false);
+
+  store.setAvatarVideoActive(video.id, true);
+  assert.equal(getProjectAvatarVideos(store)[0].isActive, true);
+});
+
+test("avatar video round robin skips inactive videos", () => {
+  const project = {
+    characters: [{
+      id: "char-round-robin",
+      avatarVideoRoundRobinIndex: 1,
+      avatarVideos: [
+        { id: "inactive", status: "ready", videoUrl: "https://cdn.example.com/inactive.mp4", isActive: false },
+        { id: "first", status: "ready", videoUrl: "https://cdn.example.com/first.mp4", isActive: true },
+        { id: "second", status: "ready", alphaVideoUrl: "https://cdn.example.com/second.webm", isActive: true }
+      ]
+    }]
+  };
+
+  const pick = pickAvatarVideoRoundRobin(project, "char-round-robin");
+
+  assert.equal(pick.video.id, "second");
+  assert.equal(pick.nextIndex, 0);
+});
+
+test("store persists avatar video round robin index after use", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = getSelectedProject(store);
+  const character = {
+    ...project.characters[0],
+    avatarVideos: [
+      { id: "first", status: "ready", videoUrl: "https://cdn.example.com/first.mp4", isActive: true },
+      { id: "second", status: "ready", videoUrl: "https://cdn.example.com/second.mp4", isActive: true }
+    ]
+  };
+  state.projects = state.projects.map((item) =>
+    item.id === project.id ? { ...item, characters: [character] } : item
+  );
+
+  store.markAvatarVideoUsed(character.id, "first", 1);
+
+  const updated = getSelectedProject(store).characters[0];
+  assert.equal(updated.avatarVideoRoundRobinIndex, 1);
+  assert.ok(updated.avatarVideos[0].lastUsedAt);
 });
 
 test("store saves transparent avatar video after chroma video is ready", async () => {
@@ -240,7 +306,7 @@ test("store shows avatar video error when active avatar has no image", async () 
   assert.match(video.failMsg, /нет изображения/);
 });
 
-test("store keeps only one reusable avatar video per project", async () => {
+test("store keeps multiple reusable avatar videos for one avatar", async () => {
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;
   let videoIndex = 0;
@@ -277,11 +343,13 @@ test("store keeps only one reusable avatar video per project", async () => {
     await store.createAvatarVideo({ motionPrompt: "first motion" });
     await waitFor(() => getProjectAvatarVideos(store).length === 1 && getProjectAvatarVideos(store)[0].alphaStatus === "ready");
     await store.createAvatarVideo({ motionPrompt: "second motion" });
-    await waitFor(() => getProjectAvatarVideos(store).length === 1 && getProjectAvatarVideos(store)[0].alphaVideoUrl === "/generated/avatar-videos/avatar-2-alpha.webm");
+    await waitFor(() => getProjectAvatarVideos(store).length === 2 && getProjectAvatarVideos(store)[0].alphaVideoUrl === "/generated/avatar-videos/avatar-2-alpha.webm");
 
     const videos = getProjectAvatarVideos(store);
-    assert.equal(videos.length, 1);
+    assert.equal(videos.length, 2);
     assert.equal(videos[0].motionPrompt, "second motion");
+    assert.equal(videos[1].motionPrompt, "first motion");
+    assert.equal(videos.every((video) => video.isActive !== false), true);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

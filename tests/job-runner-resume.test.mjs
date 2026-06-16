@@ -238,6 +238,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
     selectedAudioId: audio.id,
     audioLibrary: [audio]
   };
+  let markedVideo = null;
   const store = {
     getState: () => state,
     patchJob: (jobId, payload) => {
@@ -246,6 +247,9 @@ test("image job assembles final 5 second video with reusable avatar video and li
     },
     replaceJob: (jobId, jobNext) => {
       state.jobs = state.jobs.map((item) => (item.id === jobId ? jobNext : item));
+    },
+    markAvatarVideoUsed: (characterId, videoId, nextIndex) => {
+      markedVideo = { characterId, videoId, nextIndex };
     }
   };
 
@@ -282,6 +286,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
     assert.equal(state.jobs[0].finalVideoHasAudio, true);
     assert.equal(state.jobs[0].stage, "export");
     assert.equal(state.jobs[0].status, "done");
+    assert.deepEqual(markedVideo, { characterId: "char-ready", videoId: "avatar-video-ready", nextIndex: 0 });
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

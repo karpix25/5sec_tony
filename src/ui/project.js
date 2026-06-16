@@ -25,19 +25,6 @@ export function renderProjectManagementSettings({ project }) {
   `;
 }
 
-export function renderYandexFolderOptions(folders = [], selectedPath = "") {
-  const selected = selectedPath || yandexDiskRoot;
-  const options = normalizeYandexFolderOptions(folders, selected);
-  return options.map((folder) =>
-    `<option value="${escapeHtml(folder.path)}" ${folder.path === selected ? "selected" : ""}>${escapeHtml(formatYandexFolderLabel(folder))}</option>`
-  ).join("");
-}
-
-export function setYandexFolderOptions(select, folders = []) {
-  if (!select) return;
-  select.innerHTML = renderYandexFolderOptions(folders, select.value || yandexDiskRoot);
-}
-
 function projectTextField(label, name, placeholder, value = "") {
   return `
     <label class="stacked-field">
@@ -61,28 +48,13 @@ function projectYandexFolderField(value = "") {
   return `
     <label class="stacked-field">
       <span>Папка Яндекс.Диска</span>
-      <select name="yandexDiskFolder" class="select" data-yandex-folder-select data-yandex-root="${escapeHtml(yandexDiskRoot)}" required>
-        ${renderYandexFolderOptions([], selected)}
-      </select>
+      <div class="yandex-folder-picker" data-yandex-folder-picker data-yandex-root="${escapeHtml(yandexDiskRoot)}">
+        <input name="yandexDiskFolder" type="hidden" value="${escapeHtml(selected)}" data-yandex-folder-value>
+        <div class="yandex-folder-levels" data-yandex-folder-levels></div>
+      </div>
       <small class="ai-field-status" data-yandex-folder-status>Загружаем папки из ${escapeHtml(yandexDiskRoot)}</small>
     </label>
   `;
-}
-
-function normalizeYandexFolderOptions(folders, selected) {
-  const byPath = new Map([[selected, { path: selected, label: selected, depth: 0 }]]);
-  folders.filter(Boolean).forEach((folder) => {
-    const option = typeof folder === "string"
-      ? { path: folder, label: folder, depth: 0 }
-      : { path: folder.path, label: folder.label || folder.path, depth: Number(folder.depth) || 0 };
-    if (option.path) byPath.set(option.path, option);
-  });
-  return [...byPath.values()];
-}
-
-function formatYandexFolderLabel(folder) {
-  const indent = "  ".repeat(Math.max(0, folder.depth || 0));
-  return `${indent}${folder.label || folder.path}`;
 }
 
 function projectField(label, name, placeholder, value = "", showAi = true) {

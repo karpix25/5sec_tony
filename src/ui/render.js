@@ -1,5 +1,4 @@
 import { getLimitState, getProductsForProject } from "../domain/generation.js";
-import { listYandexDiskFolders } from "../services/yandex-disk.js";
 import { getContext } from "../state/store.js";
 import { getAudioPayloads, renderAudioSettings } from "./audio.js";
 import { bindAvatarOverlayComposerEvents } from "./avatar-overlay-composer.js";
@@ -13,8 +12,9 @@ import { bindPreviewModalEvents } from "./preview-modal.js";
 import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft, productReferencesFromImages } from "./product-ai.js";
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
-import { renderProjectManagementSettings, setYandexFolderOptions } from "./project.js";
+import { renderProjectManagementSettings } from "./project.js";
 import { renderQueuePanel } from "./queue.js";
+import { bindYandexFolderPickers } from "./yandex-folder-picker.js";
 
 export function renderApp(root, store) {
   const state = store.getState();
@@ -194,7 +194,7 @@ function bindEvents(root, store) {
   root.querySelectorAll("[data-select-reference]").forEach((button) => {
     button.addEventListener("click", () => store.selectReference(button.dataset.selectReference));
   });
-  loadYandexFolderSelect(root);
+  bindYandexFolderPickers(root);
   root.querySelectorAll("[data-close-project-modal]").forEach((button) => {
     button.addEventListener("click", () => closeProjectModal(root));
   });
@@ -264,6 +264,11 @@ function bindEvents(root, store) {
     event.preventDefault();
     store.createAvatarVideo(getFormPayload(event.currentTarget));
   });
+  root.querySelectorAll("[data-avatar-video-active]").forEach((button) => {
+    button.addEventListener("click", () => {
+      store.setAvatarVideoActive(button.dataset.avatarVideoActive, button.dataset.avatarVideoNextActive === "true");
+    });
+  });
   root.querySelector("#audio-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     getAudioPayloads(event.currentTarget).then((payloads) => store.createAudioFiles(payloads));
@@ -316,21 +321,6 @@ function bindEvents(root, store) {
   });
   bindAvatarOverlayComposerEvents(root, store);
   bindHooksEvents(root, () => renderApp(root, store));
-}
-
-async function loadYandexFolderSelect(root) {
-  const select = root.querySelector("[data-yandex-folder-select]");
-  const status = root.querySelector("[data-yandex-folder-status]");
-  if (!select) return;
-  try {
-    const payload = await listYandexDiskFolders({ root: select.dataset.yandexRoot || "disk:/ВИДЕО" });
-    setYandexFolderOptions(select, payload.folders || []);
-    if (status) status.textContent = payload.truncated
-      ? `Показаны первые ${(payload.folders || []).length} папок`
-      : `${(payload.folders || []).length} папок`;
-  } catch (error) {
-    if (status) status.textContent = error.message || "Не удалось загрузить папки";
-  }
 }
 
 function getFormPayload(form) {

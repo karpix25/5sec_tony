@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { listYandexFolders } from "../scripts/yandex-disk-api.mjs";
 import { listYandexDiskFolders } from "../src/services/yandex-disk.js";
-import { renderYandexFolderOptions } from "../src/ui/project.js";
+import { renderProjectManagementSettings } from "../src/ui/project.js";
 
 test("yandex folder API lists nested folders from video root", async () => {
   const previousFetch = globalThis.fetch;
@@ -103,13 +103,20 @@ test("yandex folder client requests the video root by default", async () => {
   }
 });
 
-test("yandex folder select displays hierarchy but keeps full disk paths", () => {
-  const html = renderYandexFolderOptions([
-    { path: "disk:/ВИДЕО", depth: 0, label: "disk:/ВИДЕО" },
-    { path: "disk:/ВИДЕО/Клиент", depth: 1, label: "Клиент" },
-    { path: "disk:/ВИДЕО/Клиент/Проект", depth: 2, label: "Клиент/Проект" }
-  ], "disk:/ВИДЕО/Клиент/Проект");
+test("yandex folder field uses level picker and keeps full disk path", () => {
+  const html = renderProjectManagementSettings({
+    project: {
+      id: "project",
+      name: "Проект",
+      exportFolder: "Готовые",
+      yandexDiskFolder: "disk:/ВИДЕО/Клиент/Проект",
+      dailyLimit: 20,
+      projectLimit: 100
+    }
+  });
 
-  assert.match(html, /value="disk:\/ВИДЕО\/Клиент\/Проект" selected/);
-  assert.match(html, />    Клиент\/Проект</);
+  assert.match(html, /data-yandex-folder-picker/);
+  assert.match(html, /data-yandex-folder-levels/);
+  assert.match(html, /name="yandexDiskFolder" type="hidden" value="disk:\/ВИДЕО\/Клиент\/Проект"/);
+  assert.doesNotMatch(html, /<select name="yandexDiskFolder"/);
 });

@@ -6,6 +6,7 @@ const files = [
   "src/domain/entities.js",
   "src/domain/avatar.js",
   "src/domain/avatar-video.js",
+  "src/domain/avatar-video-rotation.js",
   "src/domain/creative-patterns.js",
   "src/domain/content-layers.js",
   "src/domain/content-rotation.js",
@@ -49,6 +50,7 @@ const files = [
   "src/ui/project.js",
   "src/ui/research.js",
   "src/ui/queue.js",
+  "src/ui/yandex-folder-picker.js",
   "src/ui/render.js",
   "src/main.js"
 ];

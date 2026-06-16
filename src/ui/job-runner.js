@@ -1,4 +1,5 @@
 import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } from "../domain/generation.js";
+import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../domain/avatar-video-rotation.js";
 import { getContext } from "../state/store.js";
 import { generateAiBrief } from "../services/brief-ai.js";
 import { humanizeGenerationPlan } from "../services/text-humanizer.js";
@@ -120,7 +121,8 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
   const state = store.getState();
   const job = findJob(store, jobId);
   const project = state.projects?.find((item) => item.id === job?.projectId);
-  const avatarVideo = getReusableAvatarVideo(project, job?.characterId || state.selectedCharacterId);
+  const avatarVideoPick = pickAvatarVideoRoundRobin(project, job?.characterId || state.selectedCharacterId);
+  const avatarVideo = avatarVideoPick?.video;
   const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
   if (!job) return;
   if (!avatarVideoUrl) {
@@ -157,6 +159,7 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       audioData: audio?.fileData || "",
       overlay: avatarVideo.overlay || {}
     });
+    store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex);
     store.patchJob(jobId, {
       status: "done",
       stage: "export",
@@ -222,21 +225,6 @@ function buildExportFileName(project, job) {
 
 function requiresFinalVideo(job) {
   return job?.outputType !== "image" && job?.requiresFinalVideo !== false;
-}
-
-function getReusableAvatarVideo(project, characterId) {
-  const characters = project?.characters || [];
-  const selectedCharacter = characters.find((character) => character.id === characterId);
-  const preferredVideo = findReusableAvatarVideo(selectedCharacter);
-  return preferredVideo || characters.map(findReusableAvatarVideo).find(Boolean);
-}
-
-function getCompositeAvatarVideoUrl(video) {
-  return video?.alphaVideoUrl || video?.videoUrl || "";
-}
-
-function findReusableAvatarVideo(character) {
-  return (character?.avatarVideos || []).find((video) => video.status === "ready" && getCompositeAvatarVideoUrl(video));
 }
 
 async function startImageTask(store, jobId, job, provider, progress) {

@@ -13,7 +13,7 @@ import {
   getImageTaskStatus
 } from "../services/kie-client.js";
 
-export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter, replaceProjectAvatarVideo }) {
+export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter, addProjectAvatarVideo }) {
   return {
     async createAvatarVideo(payload) {
       const state = getState();
@@ -22,7 +22,7 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       if (!character) return;
 
       const video = createAvatarVideoRecord(character, payload);
-      replaceProjectAvatarVideo(character.id, video);
+      addProjectAvatarVideo(character.id, video);
       if (!character.imageData) {
         patchAvatarVideo(character.id, video.id, (item) => ({
           ...item,
@@ -53,6 +53,13 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
         ...item,
         overlay: normalizeAvatarVideoOverlay({ ...(item.overlay || {}), ...payload })
       }));
+    },
+    setAvatarVideoActive(videoId, isActive) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
+      if (!character) return;
+      patchAvatarVideo(character.id, videoId, (item) => ({ ...item, isActive: Boolean(isActive) }));
     },
     resumeAvatarVideoPolling(project) {
       project.characters.forEach((character) => {
