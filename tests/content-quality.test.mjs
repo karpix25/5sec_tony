@@ -47,6 +47,11 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /минимальных входных данных оператора/);
   assert.match(source, /shareable value/);
   assert.match(source, /Финальная самопроверка маркетолога/);
+  assert.match(source, /триггерный, актуальный, спорный/);
+  assert.match(source, /не порочащий репутацию автора/);
+  assert.match(source, /Правда, реальные факты, без лжи/);
+  assert.match(source, /миф против факта/);
+  assert.match(source, /нельзя защитить фактами/);
 });
 
 test("content layers rotate beyond direct product ads", () => {
@@ -88,6 +93,9 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН/);
   assert.match(job.prompt, /КОРОТКИЙ ЗАГОЛОВОК/);
   assert.match(job.prompt, /ЛОГИКА ТЕКСТА/);
+  assert.match(job.prompt, /РЕДАКЦИОННЫЙ СТАНДАРТ/);
+  assert.match(job.prompt, /Только правдивая информация, реальные факты, без лжи/);
+  assert.match(job.prompt, /миф против факта/);
   assert.match(job.prompt, /НЕ ПЕРЕГРУЖАТЬ МАКЕТ/);
   assert.match(job.prompt, /количество видимых пунктов: 3/);
   assert.match(job.prompt, /Дисклеймеры не являются контентом/);
