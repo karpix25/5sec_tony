@@ -2,23 +2,30 @@ import { isPostgresConfigured, queryPostgres } from "./postgres-client.mjs";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
 
-export async function handleStateApi(request, response, url) {
-  if (request.method === "GET" && url.pathname === "/api/state") {
-    return handleLoadState(response);
-  }
-  if (request.method === "POST" && url.pathname === "/api/state") {
-    return handleSaveState(request, response);
-  }
-  return false;
+export const handleStateApi = createStateApiHandler();
+
+export function createStateApiHandler(deps = {}) {
+  const isConfigured = deps.isPostgresConfigured || isPostgresConfigured;
+  const query = deps.queryPostgres || queryPostgres;
+
+  return async function handleStateApi(request, response, url) {
+    if (request.method === "GET" && url.pathname === "/api/state") {
+      return handleLoadState(response, { isConfigured, query });
+    }
+    if (request.method === "POST" && url.pathname === "/api/state") {
+      return handleSaveState(request, response, { isConfigured, query });
+    }
+    return false;
+  };
 }
 
-async function handleLoadState(response) {
-  if (!isPostgresConfigured()) {
+async function handleLoadState(response, deps) {
+  if (!deps.isConfigured()) {
     return sendJson(response, 200, { state: null, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    await ensureStateTable();
-    const result = await queryPostgres(
+    await ensureStateTable(deps.query);
+    const result = await deps.query(
       "select data, updated_at from app_state where id = $1 limit 1",
       [appStateKey]
     );
@@ -33,17 +40,17 @@ async function handleLoadState(response) {
   }
 }
 
-async function handleSaveState(request, response) {
-  if (!isPostgresConfigured()) {
+async function handleSaveState(request, response, deps) {
+  if (!deps.isConfigured()) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   }
   try {
     const body = await readJsonBody(request);
-    if (!body.state || typeof body.state !== "object") {
+    if (!isPlainStateObject(body.state)) {
       return sendJson(response, 400, { error: "state object is required" });
     }
-    await ensureStateTable();
-    const result = await queryPostgres(
+    await ensureStateTable(deps.query);
+    const result = await deps.query(
       `insert into app_state (id, data, updated_at)
        values ($1, $2::jsonb, now())
        on conflict (id)
@@ -57,8 +64,8 @@ async function handleSaveState(request, response) {
   }
 }
 
-async function ensureStateTable() {
-  await queryPostgres(`
+async function ensureStateTable(query) {
+  await query(`
     create table if not exists app_state (
       id text primary key,
       data jsonb not null,
@@ -92,4 +99,8 @@ function sendJson(response, status, payload) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(payload));
   return true;
+}
+
+function isPlainStateObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

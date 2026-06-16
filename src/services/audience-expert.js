@@ -4,7 +4,7 @@ export async function generateAudienceExpertDraft({ project, draft, products }) 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project, draft, products })
   });
-  const payload = await response.json();
+  const payload = await readAudiencePayload(response);
   if (!response.ok) throw new Error(payload.error || "OpenRouter audience expert failed");
   return normalizeAudienceDraft(payload.draft || {});
 }
@@ -33,4 +33,13 @@ function audienceLines(value) {
 
 function audienceClean(value) {
   return String(value || "").trim();
+}
+
+async function readAudiencePayload(response) {
+  if (typeof response.json === "function") {
+    try { return await response.json(); } catch {}
+  }
+  const raw = typeof response.text === "function" ? await response.text().catch(() => "") : "";
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return { error: raw.trim() || "API вернул некорректный JSON." }; }
 }

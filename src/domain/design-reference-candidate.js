@@ -66,7 +66,7 @@ export function updateDesignReferenceCandidate(candidate, status = {}) {
     };
   }
 
-  if (status.state === "fail" || status.state === "failed") {
+  if (["fail", "failed", "error"].includes(status.state)) {
     return {
       ...candidate,
       status: "failed",

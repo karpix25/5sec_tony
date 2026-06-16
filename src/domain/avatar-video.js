@@ -77,7 +77,7 @@ export function updateAvatarVideoRecord(video, status) {
     return { ...video, status: "ready", videoUrl: status.videoUrl, failMsg: "" };
   }
 
-  if (status.state === "fail" || status.state === "failed") {
+  if (["fail", "failed", "error"].includes(status.state)) {
     return { ...video, status: "failed", failMsg: status.failMsg || "Kie.ai video generation failed" };
   }
 

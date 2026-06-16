@@ -1,0 +1,80 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { bindQueuePanelEvents, updateQueuePanel } from "../src/ui/queue.js";
+import { FakeElement } from "./helpers/fake-ui-dom.mjs";
+
+test("queue delete buttons bind once and rebind after partial list rerender", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  const firstButton = new FakeElement({ dataset: { deleteJob: "job-1" } });
+  const deleted = [];
+  const store = {
+    deleteJob(id) {
+      deleted.push(id);
+    }
+  };
+
+  root.append(panel);
+  panel.append(list);
+  list.append(firstButton);
+
+  bindQueuePanelEvents(root, store);
+  bindQueuePanelEvents(root, store);
+  firstButton.dispatchEvent({ type: "click", target: firstButton });
+  assert.deepEqual(deleted, ["job-1"]);
+
+  const secondButton = new FakeElement({ dataset: { deleteJob: "job-2" } });
+  list.children = [secondButton];
+  secondButton.parentNode = list;
+
+  const updated = updateQueuePanel(root, {
+    jobs: [{
+      id: "job-2",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "review",
+      stage: "approval",
+      outputType: "image",
+      imageUrl: "https://cdn.example.com/image.png",
+      title: "Новая задача"
+    }],
+    products: [{ id: "product-1", name: "Продукт" }]
+  }, {
+    project: { id: "project-1" }
+  }, store);
+
+  assert.equal(updated, true);
+  assert.match(list.innerHTML, /Новая задача/);
+  secondButton.dispatchEvent({ type: "click", target: secondButton });
+  assert.deepEqual(deleted, ["job-1", "job-2"]);
+});
+
+test("queue final video waiting state keeps preview disabled until video is ready", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  root.append(panel);
+  panel.append(list);
+
+  updateQueuePanel(root, {
+    jobs: [{
+      id: "job-video",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "processing",
+      stage: "assembly",
+      outputType: "final-video",
+      requiresFinalVideo: true,
+      imageUrl: "https://cdn.example.com/frame.png",
+      title: "Видео в сборке"
+    }],
+    products: [{ id: "product-1", name: "Продукт" }]
+  }, {
+    project: { id: "project-1" }
+  }, { deleteJob() {} });
+
+  assert.match(list.innerHTML, /queue-preview" type="button" disabled/);
+  assert.match(list.innerHTML, /Картинка готова, собираем финальное видео/);
+  assert.match(list.innerHTML, /Собираем видео/);
+});
