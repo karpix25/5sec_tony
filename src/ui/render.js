@@ -245,7 +245,7 @@ function bindEvents(root, store) {
   });
   root.querySelector("#product-settings-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    store.updateProduct(getFormPayload(event.currentTarget));
+    store.updateProduct(getFormSnapshot(event.currentTarget));
   });
   root.querySelector("#product-photo-analysis-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
