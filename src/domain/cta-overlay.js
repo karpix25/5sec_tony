@@ -38,12 +38,39 @@ export function createCtaBadgeCandidate(input = {}) {
   const style = badgeStyles[Math.abs(hashCtaText(text)) % badgeStyles.length];
   return {
     id: `cta-badge-${Date.now().toString(36)}`,
-    status: "review",
+    status: input.status || "submitting",
     text,
     prompt: input.prompt || "",
+    finalPrompt: buildCtaBadgePrompt({ text, prompt: input.prompt }),
+    taskId: input.taskId || "",
+    imageUrl: input.imageUrl || "",
+    failMsg: "",
     ...style,
     createdAt: new Date().toISOString()
   };
+}
+
+export function attachCtaBadgeTask(candidate, taskId) {
+  return { ...candidate, taskId, status: "generating", failMsg: "" };
+}
+
+export function attachCtaBadgeImage(candidate, imageUrl) {
+  return { ...candidate, imageUrl, status: "review", failMsg: "" };
+}
+
+export function failCtaBadgeCandidate(candidate, message) {
+  return { ...candidate, status: "failed", failMsg: message || "Не удалось сгенерировать плашку" };
+}
+
+export function buildCtaBadgePrompt({ text, prompt } = {}) {
+  return [
+    "GPT Image 2: create one standalone CTA sticker/badge asset for a vertical Reels video overlay.",
+    "Generate only the badge, not a poster, not a full frame, no avatar, no background scene.",
+    "The badge must be centered, isolated, large, readable, with clean edges and transparent or plain neutral background.",
+    "Use bold Russian text exactly as provided. Do not add extra words, logos, icons, handles, prices or disclaimers.",
+    `Text: ${normalizeCtaText(text)}.`,
+    prompt ? `Style: ${normalizeCtaPrompt(prompt)}.` : "Style: stylish, modern, high-contrast social media sticker."
+  ].join(" ");
 }
 
 export function approveCtaBadgeCandidate(overlay = {}) {

@@ -103,6 +103,8 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /СОХРАНЯЕМЫЙ СКРИН/);
   assert.match(job.prompt, /4-6 коротких смысловых блоков/);
   assert.match(job.prompt, /количество видимых пунктов: [4-6]/);
+  assert.match(job.prompt, /НИЖНИЕ ЗАЩИТНЫЕ ПОДПИСИ ЗАПРЕЩЕНЫ/);
+  assert.match(job.prompt, /без футера и без нижней рекламной или защитной плашки/);
   assert.match(job.prompt, /Дисклеймеры не являются контентом/);
   assert.match(job.prompt, /ТОЧНОСТЬ ПРОДУКТА/);
   assert.match(job.prompt, /не менять форму упаковки, цвет, этикетку/);
@@ -115,6 +117,34 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.doesNotMatch(job.prompt, /Дисклеймер:/);
   assert.doesNotMatch(job.prompt, /Дисклеймер: Не обещать лечение/);
   assert.doesNotMatch(job.prompt, /Узнайте больше|Сохраните|Закажите/);
+});
+
+test("image prompt never renders plan disclaimer as bottom text", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.id === "magnesium");
+  const job = createGenerationJob({
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0],
+    generationBrief: {
+      aiPlan: {
+        headline: "Сон не восстанавливает утром",
+        subhead: "Проверьте рутину перед сном",
+        points: [
+          "Свет: экран держит мозг в рабочем режиме",
+          "Еда: поздний ужин мешает спокойному засыпанию",
+          "Режим: разное время сбивает привычку",
+          "Ритуал: повторяемые действия помогают телу замедлиться"
+        ],
+        disclaimer: "Информация не заменяет консультацию специалиста"
+      }
+    }
+  });
+
+  assert.doesNotMatch(job.prompt, /Дисклеймер:/);
+  assert.doesNotMatch(job.prompt, /Информация не заменяет консультацию специалиста/);
+  assert.match(job.prompt, /НИЖНИЕ ЗАЩИТНЫЕ ПОДПИСИ ЗАПРЕЩЕНЫ/);
 });
 
 test("image prompt treats local product references as transferable image input", () => {

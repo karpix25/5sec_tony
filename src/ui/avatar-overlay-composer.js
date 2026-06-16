@@ -137,6 +137,11 @@ function renderCtaOverlayPreview(ctaOverlay) {
     badge?.border ? `--cta-border:${badge.border}` : "",
     badge?.radius ? `--cta-radius:${badge.radius}px` : ""
   ].filter(Boolean).join(";");
+  if (badge?.imageUrl) {
+    return `
+      <img class="avatar-cta-overlay badge image-badge ${ctaOverlay.enabled ? "" : "disabled"}" src="${escapeHtml(badge.imageUrl)}" alt="${escapeHtml(ctaOverlay.text)}" style="${style}">
+    `;
+  }
   return `
     <div class="avatar-cta-overlay ${ctaOverlay.mode} ${ctaOverlay.enabled ? "" : "disabled"}" style="${style}">
       ${escapeHtml(ctaOverlay.text)}
@@ -169,11 +174,18 @@ function renderCtaOverlayControls(videoId, ctaOverlay) {
       ${renderRange("opacity", "CTA прозрачность", ctaOverlay.opacity, 20, 100)}
       <div class="avatar-cta-actions">
         <button class="ghost-btn" data-avatar-cta-generate="${escapeHtml(videoId)}" type="button">Сгенерировать плашку</button>
-        ${ctaOverlay.candidate ? `<button class="secondary-btn" data-avatar-cta-approve="${escapeHtml(videoId)}" type="button">Апрув плашки</button>` : ""}
+        ${ctaOverlay.candidate?.status === "review" ? `<button class="secondary-btn" data-avatar-cta-approve="${escapeHtml(videoId)}" type="button">Апрув плашки</button>` : ""}
       </div>
-      ${ctaOverlay.candidate ? "<small>Плашка на проверке. Нажмите апрув, чтобы использовать ее в видео.</small>" : ""}
+      ${renderCtaCandidateStatus(ctaOverlay.candidate)}
     </form>
   `;
+}
+
+function renderCtaCandidateStatus(candidate) {
+  if (!candidate) return "";
+  if (candidate.status === "failed") return `<small>Ошибка плашки: ${escapeHtml(candidate.failMsg || "не удалось сгенерировать")}</small>`;
+  if (candidate.status === "review") return "<small>AI-плашка готова. Нажмите апрув, чтобы использовать ее в видео.</small>";
+  return "<small>Генерируем AI-плашку. После готовности появится апрув.</small>";
 }
 
 function renderModeRadio(value, label, mode) {
@@ -218,7 +230,7 @@ function applyAvatarCtaOverlayPreview(form) {
   const stage = form.closest(".avatar-overlay-workbench")?.querySelector(".avatar-overlay-stage");
   const preview = stage?.querySelector(".avatar-cta-overlay");
   if (!preview) return;
-  preview.textContent = ctaOverlay.text;
+  if (preview.tagName !== "IMG") preview.textContent = ctaOverlay.text;
   preview.classList.toggle("disabled", !ctaOverlay.enabled);
   preview.classList.toggle("text", ctaOverlay.mode === "text");
   preview.classList.toggle("badge", ctaOverlay.mode === "badge");

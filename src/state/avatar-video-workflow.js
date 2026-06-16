@@ -5,7 +5,14 @@ import {
   createAvatarVideoRecord,
   updateAvatarVideoRecord
 } from "../domain/avatar-video.js";
-import { approveCtaBadgeCandidate, createCtaBadgeCandidate, normalizeCtaOverlay } from "../domain/cta-overlay.js";
+import {
+  approveCtaBadgeCandidate,
+  attachCtaBadgeImage,
+  attachCtaBadgeTask,
+  createCtaBadgeCandidate,
+  failCtaBadgeCandidate,
+  normalizeCtaOverlay
+} from "../domain/cta-overlay.js";
 import {
   createAvatarAlphaVideo,
   createAvatarVideoTask,
@@ -65,15 +72,31 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
         ctaOverlay: normalizeCtaOverlay({ ...(item.ctaOverlay || {}), ...payload })
       }));
     },
-    createAvatarVideoCtaCandidate(videoId, payload) {
+    async createAvatarVideoCtaCandidate(videoId, payload) {
       const state = getState();
       const project = getProject(state, state.selectedProjectId);
       const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
       if (!character) return;
+      let candidateId = "";
       patchAvatarVideo(character.id, videoId, (item) => {
         const ctaOverlay = normalizeCtaOverlay({ ...(item.ctaOverlay || {}), ...payload });
-        return { ...item, ctaOverlay: { ...ctaOverlay, candidate: createCtaBadgeCandidate(ctaOverlay) } };
+        const candidate = createCtaBadgeCandidate(ctaOverlay);
+        candidateId = candidate.id;
+        return { ...item, ctaOverlay: { ...ctaOverlay, mode: "badge", candidate } };
       });
+      const candidate = getCharacterVideo(character.id, videoId)?.ctaOverlay?.candidate;
+      if (!candidate) return;
+      try {
+        const result = await createImageTask(candidate.finalPrompt, [], "gpt-image-2", [], {
+          aspectRatio: "1:1",
+          resolution: "1K",
+          outputFormat: "png"
+        });
+        patchCtaCandidate(character.id, videoId, candidateId, (item) => attachCtaBadgeTask(item, result.taskId));
+        pollCtaBadgeImage(character.id, videoId, candidateId, result.taskId);
+      } catch (error) {
+        patchCtaCandidate(character.id, videoId, candidateId, (item) => failCtaBadgeCandidate(item, error.message || "Kie.ai badge image request failed"));
+      }
     },
     approveAvatarVideoCtaCandidate(videoId) {
       const state = getState();
@@ -113,6 +136,9 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
         (character.avatarVideos || [])
           .filter((video) => video.videoUrl && video.alphaStatus === "converting")
           .forEach((video) => convertAvatarAlphaVideo(character.id, video.id, video.videoUrl));
+        (character.avatarVideos || [])
+          .filter((video) => video.ctaOverlay?.candidate?.taskId && video.ctaOverlay.candidate.status === "generating")
+          .forEach((video) => pollCtaBadgeImage(character.id, video.id, video.ctaOverlay.candidate.id, video.ctaOverlay.candidate.taskId));
       });
     }
   };
@@ -122,6 +148,14 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       ...character,
       avatarVideos: (character.avatarVideos || []).map((video) => video.id === videoId ? updater(video) : video)
     }));
+  }
+
+  function patchCtaCandidate(characterId, videoId, candidateId, updater) {
+    patchAvatarVideo(characterId, videoId, (video) => {
+      const ctaOverlay = normalizeCtaOverlay(video.ctaOverlay);
+      if (ctaOverlay.candidate?.id !== candidateId) return video;
+      return { ...video, ctaOverlay: { ...ctaOverlay, candidate: updater(ctaOverlay.candidate) } };
+    });
   }
 
   async function pollAvatarChromaImage(characterId, videoId, taskId, attempt = 0) {
@@ -162,6 +196,33 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       pollAvatarVideo(characterId, videoId, result.taskId);
     } catch (error) {
       patchAvatarVideo(characterId, videoId, (item) => failAvatarVideoItem(item, error, "Kie.ai video request failed"));
+    }
+  }
+
+  async function pollCtaBadgeImage(characterId, videoId, candidateId, taskId, attempt = 0) {
+    if (attempt >= 75) {
+      patchCtaCandidate(characterId, videoId, candidateId, (item) => failCtaBadgeCandidate(item, "Kie.ai не вернул плашку за 5 минут. Попробуйте еще раз."));
+      return;
+    }
+
+    await delayAvatarVideoPoll(attempt === 0 ? 6000 : 4000);
+
+    const candidate = getCharacterVideo(characterId, videoId)?.ctaOverlay?.candidate;
+    if (!candidate || candidate.id !== candidateId || candidate.status === "review" || candidate.status === "failed") return;
+
+    try {
+      const status = await getImageTaskStatus(taskId);
+      if (["success", "succeeded", "completed", "complete"].includes(status.state) && status.imageUrl) {
+        patchCtaCandidate(characterId, videoId, candidateId, (item) => attachCtaBadgeImage(item, status.imageUrl));
+        return;
+      }
+      if (["fail", "failed", "error"].includes(status.state)) {
+        patchCtaCandidate(characterId, videoId, candidateId, (item) => failCtaBadgeCandidate(item, status.failMsg || "Kie.ai badge image generation failed"));
+        return;
+      }
+      pollCtaBadgeImage(characterId, videoId, candidateId, taskId, attempt + 1);
+    } catch (error) {
+      patchCtaCandidate(characterId, videoId, candidateId, (item) => failCtaBadgeCandidate(item, error.message || "Kie.ai badge image status request failed"));
     }
   }
 

@@ -97,7 +97,22 @@ test("store toggles reusable avatar videos for round robin", () => {
   assert.equal(getProjectAvatarVideos(store)[0].isActive, true);
 });
 
-test("store updates and approves avatar video cta badge", () => {
+test("store updates and approves avatar video cta badge", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/api/images/generate")) {
+      const body = JSON.parse(options.body);
+      assert.equal(body.aspectRatio, "1:1");
+      assert.match(body.prompt, /standalone CTA sticker\/badge asset/);
+      return { ok: true, json: async () => ({ taskId: "task_cta_badge" }) };
+    }
+    if (String(url).includes("/api/images/status")) {
+      return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/cta-badge.png" }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
   const store = createStore();
   const state = store.getState();
   const project = getSelectedProject(store);
@@ -112,14 +127,20 @@ test("store updates and approves avatar video cta badge", () => {
       : item
   );
 
-  store.updateAvatarVideoCtaOverlay(video.id, { mode: "text", text: "Подпишись", enabled: true });
-  store.createAvatarVideoCtaCandidate(video.id, { text: "Подпишись" });
-  assert.equal(getProjectAvatarVideos(store)[0].ctaOverlay.candidate.status, "review");
+  try {
+    store.updateAvatarVideoCtaOverlay(video.id, { mode: "text", text: "Подпишись", enabled: true });
+    await store.createAvatarVideoCtaCandidate(video.id, { text: "Подпишись" });
+    await waitFor(() => getProjectAvatarVideos(store)[0].ctaOverlay.candidate?.status === "review");
 
-  store.approveAvatarVideoCtaCandidate(video.id);
-  const updated = getProjectAvatarVideos(store)[0].ctaOverlay;
-  assert.equal(updated.mode, "badge");
-  assert.equal(updated.badge.status, "approved");
+    store.approveAvatarVideoCtaCandidate(video.id);
+    const updated = getProjectAvatarVideos(store)[0].ctaOverlay;
+    assert.equal(updated.mode, "badge");
+    assert.equal(updated.badge.status, "approved");
+    assert.equal(updated.badge.imageUrl, "https://cdn.example.com/cta-badge.png");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
 });
 
 test("avatar video round robin skips inactive videos", () => {

@@ -6,15 +6,15 @@ export async function getAvatarTaskStatus(taskId) {
   return getKieStatus("/api/avatars/status", taskId);
 }
 
-export async function createImageTask(prompt, inputUrls = [], provider = "gpt-image-2", inputRefs = []) {
+export async function createImageTask(prompt, inputUrls = [], provider = "gpt-image-2", inputRefs = [], options = {}) {
   return createKieTask("/api/images/generate", {
     prompt,
     inputUrls,
     inputRefs,
     provider,
-    aspectRatio: "9:16",
-    resolution: "1K",
-    outputFormat: "png"
+    aspectRatio: options.aspectRatio || "9:16",
+    resolution: options.resolution || "1K",
+    outputFormat: options.outputFormat || "png"
   });
 }
 

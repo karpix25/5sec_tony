@@ -78,6 +78,16 @@
   text-shadow: none;
 }
 
+.avatar-cta-overlay.image-badge {
+  width: 220px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  object-fit: contain;
+}
+
 .avatar-cta-overlay.disabled {
   display: none;
 }

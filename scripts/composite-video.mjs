@@ -39,14 +39,17 @@ export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl,
 
   const backgroundPath = join(tempDir, `background${getSourceExt(backgroundImageUrl, ".png")}`);
   const avatarPath = join(tempDir, `avatar${getSourceExt(avatarVideoUrl, ".mp4")}`);
+  const ctaImageUrl = getCtaBadgeImageUrl(ctaOverlay);
+  const ctaBadgePath = ctaImageUrl ? join(tempDir, `cta-badge${getSourceExt(ctaImageUrl, ".png")}`) : "";
   const audioPath = audioUrl ? join(tempDir, `audio${getSourceExt(audioUrl, ".mp3")}`) : "";
   const outputPath = join(outputDir, `avatar-composite-${runId}.mp4`);
 
   try {
     await writeFile(backgroundPath, await readSourceBytes(backgroundImageUrl));
     await writeFile(avatarPath, await readSourceBytes(avatarVideoUrl));
+    if (ctaBadgePath) await writeFile(ctaBadgePath, await readSourceBytes(ctaImageUrl));
     if (audioPath) await writeFile(audioPath, await readSourceBytes(audioUrl));
-    await composeWithFfmpeg({ backgroundPath, avatarPath, audioPath, outputPath, overlay, ctaOverlay });
+    await composeWithFfmpeg({ backgroundPath, avatarPath, ctaBadgePath, audioPath, outputPath, overlay, ctaOverlay });
     const videoUrl = isS3AssetStorageConfigured()
       ? await uploadFileToS3(outputPath, { prefix: "avatar-videos/composite", contentType: "video/mp4" })
       : `/${outputPath}`;
@@ -56,18 +59,20 @@ export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl,
   }
 }
 
-async function composeWithFfmpeg({ backgroundPath, avatarPath, audioPath, outputPath, overlay, ctaOverlay }) {
-  const filter = buildCompositeVideoFilter({ overlay, ctaOverlay });
+async function composeWithFfmpeg({ backgroundPath, avatarPath, ctaBadgePath, audioPath, outputPath, overlay, ctaOverlay }) {
+  const filter = buildCompositeVideoFilter({ overlay, ctaOverlay, hasCtaBadgeInput: Boolean(ctaBadgePath) });
+  const audioInputIndex = ctaBadgePath ? 3 : 2;
   const args = [
     "-y",
     "-loop", "1",
     "-t", "5",
     "-i", backgroundPath,
     "-i", avatarPath,
+    ...(ctaBadgePath ? ["-loop", "1", "-t", "5", "-i", ctaBadgePath] : []),
     ...(audioPath ? ["-stream_loop", "-1", "-i", audioPath] : []),
     "-filter_complex", filter,
     "-map", "[out]",
-    ...(audioPath ? ["-map", "2:a:0", "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2"] : ["-an"]),
+    ...(audioPath ? ["-map", `${audioInputIndex}:a:0`, "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2"] : ["-an"]),
     "-t", "5",
     "-r", "30",
     "-movflags", "+faststart",
@@ -81,7 +86,7 @@ export function buildAvatarOverlayFilter(overlay = {}) {
   return buildCompositeVideoFilter({ overlay, ctaOverlay: { enabled: false } });
 }
 
-export function buildCompositeVideoFilter({ overlay = {}, ctaOverlay = {} } = {}) {
+export function buildCompositeVideoFilter({ overlay = {}, ctaOverlay = {}, hasCtaBadgeInput = false } = {}) {
   const placement = normalizeAvatarOverlay(overlay);
   const cta = normalizeCtaOverlay(ctaOverlay);
   const avatarWidth = Math.round(1024 * (placement.scale / 100));
@@ -95,15 +100,19 @@ export function buildCompositeVideoFilter({ overlay = {}, ctaOverlay = {} } = {}
     `[1:v]trim=duration=5,setpts=PTS-STARTPTS,fps=30,scale=${avatarWidth}:-2:force_original_aspect_ratio=decrease,chromakey=0x00FF00:0.18:0.08,format=rgba${alphaFilter}[avatar]`,
     `[bg][avatar]overlay=x=${anchorX}-w/2:y=${anchorY}-h:format=auto[base]`
   ];
-  return [...base, buildCtaOverlayFilter(cta)].join(";");
+  return [...base, buildCtaOverlayFilter(cta, { hasCtaBadgeInput })].join(";");
 }
 
-function buildCtaOverlayFilter(cta) {
+function buildCtaOverlayFilter(cta, { hasCtaBadgeInput = false } = {}) {
   if (!cta.enabled) return "[base]format=yuv420p[out]";
-  const fontSize = Math.round(58 * (cta.scale / 100));
   const x = Math.round(1024 * (cta.x / 100));
   const y = Math.round(1792 * (cta.y / 100));
   const opacity = (cta.opacity / 100).toFixed(2);
+  if (hasCtaBadgeInput && cta.mode === "badge" && cta.badge?.imageUrl) {
+    const width = Math.round(320 * (cta.scale / 100));
+    return `[2:v]scale=${width}:-1:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa=${opacity}[cta];[base][cta]overlay=x=${x}-w/2:y=${y}-h/2:enable='gte(t,3)',format=yuv420p[out]`;
+  }
+  const fontSize = Math.round(58 * (cta.scale / 100));
   const styleParts = [
     `[base]drawtext=text='${escapeFfmpegText(cta.text)}'`,
     `x=${x}-text_w/2`,
@@ -118,6 +127,11 @@ function buildCtaOverlayFilter(cta) {
   }
   styleParts.push("enable='gte(t,3)'");
   return `${styleParts.join(":")},format=yuv420p[out]`;
+}
+
+function getCtaBadgeImageUrl(ctaOverlay = {}) {
+  const cta = normalizeCtaOverlay(ctaOverlay);
+  return cta.enabled && cta.mode === "badge" ? cta.badge?.imageUrl || "" : "";
 }
 
 function getCtaBoxColor(cta) {
