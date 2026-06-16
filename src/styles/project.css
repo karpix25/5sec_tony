@@ -31,23 +31,8 @@
   gap: var(--space-2);
 }
 
-.yandex-folder-levels {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.yandex-folder-level {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.yandex-folder-level small {
-  color: var(--color-muted);
-  font-size: 12px;
-  font-weight: 760;
-  text-transform: uppercase;
+.yandex-folder-levels select {
+  width: 100%;
 }
 
 .ai-field-head {

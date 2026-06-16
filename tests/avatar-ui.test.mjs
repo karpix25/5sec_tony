@@ -26,3 +26,28 @@ test("avatar settings sort creation first and hide sections in toggles", () => {
   assert.match(html, /name="prompt"/);
   assert.match(html, /яркая плашка в стиле проекта/);
 });
+
+test("avatar cta badge generation shows busy feedback", () => {
+  const project = {
+    ...projects[0],
+    characters: [{
+      ...projects[0].characters[0],
+      avatarVideos: [{
+        id: "avatar-video-busy",
+        status: "ready",
+        videoUrl: "https://cdn.example.com/avatar.mp4",
+        ctaOverlay: {
+          mode: "badge",
+          text: "ЖМИ",
+          candidate: { id: "candidate-busy", status: "generating" }
+        }
+      }]
+    }]
+  };
+  const html = renderAvatarSettings({ project, character: project.characters[0] });
+
+  assert.match(html, /data-avatar-cta-generate="avatar-video-busy" type="button" disabled/);
+  assert.match(html, /Генерируем\.\.\./);
+  assert.match(html, /avatar-cta-status loading/);
+  assert.doesNotMatch(html, /Апрув плашки/);
+});

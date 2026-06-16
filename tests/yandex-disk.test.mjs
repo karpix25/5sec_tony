@@ -103,7 +103,7 @@ test("yandex folder client requests the video root by default", async () => {
   }
 });
 
-test("yandex folder field uses level picker and keeps full disk path", () => {
+test("yandex folder field uses one tree dropdown and keeps full disk path", () => {
   const html = renderProjectManagementSettings({
     project: {
       id: "project",
@@ -118,5 +118,6 @@ test("yandex folder field uses level picker and keeps full disk path", () => {
   assert.match(html, /data-yandex-folder-picker/);
   assert.match(html, /data-yandex-folder-levels/);
   assert.match(html, /name="yandexDiskFolder" type="hidden" value="disk:\/ВИДЕО\/Клиент\/Проект"/);
+  assert.doesNotMatch(html, /Уровень 1/);
   assert.doesNotMatch(html, /<select name="yandexDiskFolder"/);
 });

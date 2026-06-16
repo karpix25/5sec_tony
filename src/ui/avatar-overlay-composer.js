@@ -75,6 +75,7 @@ export function bindAvatarOverlayComposerEvents(root, store) {
   root.querySelectorAll("[data-avatar-cta-generate]").forEach((button) => {
     button.addEventListener("click", () => {
       const form = button.closest("[data-avatar-cta-overlay-form]");
+      setCtaGenerateButtonBusy(button, form);
       store.createAvatarVideoCtaCandidate(button.dataset.avatarCtaGenerate, getAvatarCtaOverlayPayload(form));
     });
   });
@@ -150,6 +151,7 @@ function renderCtaOverlayPreview(ctaOverlay) {
 }
 
 function renderCtaOverlayControls(videoId, ctaOverlay) {
+  const isGeneratingBadge = ["submitting", "generating"].includes(ctaOverlay.candidate?.status);
   return `
     <form class="avatar-cta-controls" data-avatar-cta-overlay-form="${escapeHtml(videoId)}">
       <div class="avatar-cta-head">
@@ -173,12 +175,22 @@ function renderCtaOverlayControls(videoId, ctaOverlay) {
       ${renderRange("scale", "CTA размер", ctaOverlay.scale, 60, 150)}
       ${renderRange("opacity", "CTA прозрачность", ctaOverlay.opacity, 20, 100)}
       <div class="avatar-cta-actions">
-        <button class="ghost-btn" data-avatar-cta-generate="${escapeHtml(videoId)}" type="button">Сгенерировать плашку</button>
+        <button class="ghost-btn" data-avatar-cta-generate="${escapeHtml(videoId)}" type="button" ${isGeneratingBadge ? "disabled" : ""}>
+          ${isGeneratingBadge ? "Генерируем..." : "Сгенерировать плашку"}
+        </button>
         ${ctaOverlay.candidate?.status === "review" ? `<button class="secondary-btn" data-avatar-cta-approve="${escapeHtml(videoId)}" type="button">Апрув плашки</button>` : ""}
+        ${renderCtaStatusPill(ctaOverlay.candidate)}
       </div>
       ${renderCtaCandidateStatus(ctaOverlay.candidate)}
     </form>
   `;
+}
+
+function renderCtaStatusPill(candidate) {
+  if (!candidate) return "";
+  if (candidate.status === "failed") return "<span class=\"avatar-cta-status failed\">Ошибка</span>";
+  if (candidate.status === "review") return "<span class=\"avatar-cta-status ready\">Готово</span>";
+  return "<span class=\"avatar-cta-status loading\">Генерация...</span>";
 }
 
 function renderCtaCandidateStatus(candidate) {
@@ -223,6 +235,25 @@ function getOverlayPayload(form) {
 function getAvatarCtaOverlayPayload(form) {
   const payload = Object.fromEntries(new FormData(form).entries());
   return { ...payload, enabled: payload.enabled === "on" };
+}
+
+function setCtaGenerateButtonBusy(button, form) {
+  button.disabled = true;
+  button.textContent = "Генерируем...";
+  const actions = button.closest(".avatar-cta-actions");
+  const status = actions?.querySelector(".avatar-cta-status");
+  if (status) {
+    status.className = "avatar-cta-status loading";
+    status.textContent = "Генерация...";
+  } else {
+    actions?.insertAdjacentHTML("beforeend", "<span class=\"avatar-cta-status loading\">Генерация...</span>");
+  }
+  const note = form?.querySelector("[data-avatar-cta-status-note]");
+  if (note) {
+    note.textContent = "Генерируем AI-плашку. После готовности появится апрув.";
+  } else {
+    form?.insertAdjacentHTML("beforeend", "<small data-avatar-cta-status-note>Генерируем AI-плашку. После готовности появится апрув.</small>");
+  }
 }
 
 function applyAvatarCtaOverlayPreview(form) {
