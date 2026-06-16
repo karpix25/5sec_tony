@@ -105,7 +105,7 @@ export function ensureProjectAssets(project) {
     toneOfVoice: project.toneOfVoice || "спокойный экспертный",
     restrictions: project.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
     exportFolder: project.exportFolder || `Yandex Disk / Anton / ${project.name || "Проект"} / Готовые`,
-    yandexDiskFolder: project.yandexDiskFolder || `disk:/ВИДЕО/${project.name || "Проект"}/Готовые`,
+    yandexDiskFolder: normalizeProjectYandexFolder(project.yandexDiskFolder, project.name),
     dailyLimit: normalizeAssetLimit(project.dailyLimit, 20),
     usedToday: normalizeAssetUsage(project.usedToday),
     projectLimit: normalizeAssetLimit(project.projectLimit, 500),
@@ -130,6 +130,16 @@ function normalizeAssetUsage(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return 0;
   return Math.max(0, Math.round(number));
+}
+
+function normalizeProjectYandexFolder(value, projectName = "Проект") {
+  const raw = String(value || "").trim();
+  if (/^disk:\//i.test(raw)) return raw;
+  const legacy = raw.match(/^Yandex Disk\s*\/\s*Anton\s*\/\s*(.+)$/i);
+  if (legacy) {
+    return `disk:/ВИДЕО/${legacy[1].split("/").map((part) => part.trim()).filter(Boolean).join("/")}`;
+  }
+  return `disk:/ВИДЕО/${projectName || "Проект"}/Готовые`;
 }
 
 function ensureCharacterAssets(character) {

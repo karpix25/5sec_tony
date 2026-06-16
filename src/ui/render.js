@@ -325,7 +325,9 @@ async function loadYandexFolderSelect(root) {
   try {
     const payload = await listYandexDiskFolders({ root: select.dataset.yandexRoot || "disk:/ВИДЕО" });
     setYandexFolderOptions(select, payload.folders || []);
-    if (status) status.textContent = `${(payload.folders || []).length} папок`;
+    if (status) status.textContent = payload.truncated
+      ? `Показаны первые ${(payload.folders || []).length} папок`
+      : `${(payload.folders || []).length} папок`;
   } catch (error) {
     if (status) status.textContent = error.message || "Не удалось загрузить папки";
   }

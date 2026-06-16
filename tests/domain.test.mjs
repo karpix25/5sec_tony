@@ -261,6 +261,27 @@ test("store updates project settings and uses them in prompt", () => {
   assert.match(prompt, /Визуальный стиль брать из выбранного дизайн-референса/);
 });
 
+test("store migrates legacy Yandex Disk folder paths to video root", () => {
+  const store = createStore({
+    projects: [{
+      ...projects[0],
+      yandexDiskFolder: "Yandex Disk / Anton / БАДы / Готовые"
+    }],
+    products,
+    jobs: [],
+    audioLibrary: [],
+    selectedProjectId: projects[0].id,
+    selectedProductId: products[0].id,
+    selectedReferenceId: projects[0].references[0].id,
+    selectedCharacterId: projects[0].characters[0].id,
+    selectedProjectTab: "project"
+  });
+
+  const project = store.getState().projects[0];
+
+  assert.equal(project.yandexDiskFolder, "disk:/ВИДЕО/БАДы/Готовые");
+});
+
 test("store generates project strategy fields from current project context", () => {
   const store = createStore();
   store.generateProjectField("niche", {

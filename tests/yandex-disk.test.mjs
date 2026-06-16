@@ -44,8 +44,7 @@ test("yandex folder API lists nested folders from video root", async () => {
     ]);
     assert.deepEqual(requestedPaths, [
       "disk:/ВИДЕО",
-      "disk:/ВИДЕО/Клиент",
-      "disk:/ВИДЕО/Клиент/Проект"
+      "disk:/ВИДЕО/Клиент"
     ]);
   } finally {
     globalThis.fetch = previousFetch;
@@ -96,8 +95,8 @@ test("yandex folder client requests the video root by default", async () => {
     const payload = await listYandexDiskFolders();
 
     assert.equal(new URL(requestedUrl, "http://local").searchParams.get("root"), "disk:/ВИДЕО");
-    assert.equal(new URL(requestedUrl, "http://local").searchParams.get("depth"), "4");
-    assert.equal(new URL(requestedUrl, "http://local").searchParams.get("max"), "500");
+    assert.equal(new URL(requestedUrl, "http://local").searchParams.get("depth"), "2");
+    assert.equal(new URL(requestedUrl, "http://local").searchParams.get("max"), "120");
     assert.deepEqual(payload.folders, ["disk:/ВИДЕО"]);
   } finally {
     globalThis.fetch = previousFetch;

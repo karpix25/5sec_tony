@@ -3,9 +3,9 @@ import { basename, extname } from "node:path";
 
 const yandexApiUrl = "https://cloud-api.yandex.net/v1/disk/resources";
 const defaultFoldersRoot = "disk:/ВИДЕО";
-const defaultFolderDepth = 4;
+const defaultFolderDepth = 2;
 const maxFolderDepth = 6;
-const defaultFolderCount = 500;
+const defaultFolderCount = 120;
 const folderPageSize = 200;
 const folderRequestTimeoutMs = 20000;
 const folderFields = "_embedded.items.name,_embedded.items.path,_embedded.items.type,_embedded.limit,_embedded.offset,_embedded.total,path,name,type";

@@ -9,7 +9,7 @@ export async function uploadVideoToYandexDisk({ fileUrl, targetFolder, fileName 
   return payload;
 }
 
-export async function listYandexDiskFolders({ root = "disk:/ВИДЕО", depth = 4, max = 500 } = {}) {
+export async function listYandexDiskFolders({ root = "disk:/ВИДЕО", depth = 2, max = 120 } = {}) {
   const params = new URLSearchParams({ root, depth: String(depth), max: String(max) });
   const response = await fetch(`/api/yandex-disk/folders?${params}`);
   const payload = await readYandexJson(response);
