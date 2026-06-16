@@ -78,6 +78,8 @@ test("preview modal survives app rerenders during generation", () => {
   assert.match(previewSource, /dataset\.previewModalBound/);
   assert.match(previewSource, /getOpenMediaPreviewState/);
   assert.match(previewSource, /restoreMediaPreviewState/);
+  assert.match(previewSource, /previewDismissedKey/);
+  assert.match(previewSource, /getPreviewStateKey/);
   assert.match(mainSource, /scheduleRender/);
   assert.match(mainSource, /renderAppSafely/);
   assert.match(mainSource, /renderApp\(root, store, \{ rerender: renderAppSafely \}\)/);
@@ -94,4 +96,5 @@ test("preview modal closes on click outside content", () => {
 
   assert.match(previewSource, /isPreviewBackdropClick/);
   assert.match(previewSource, /#media-preview-modal, #media-preview-modal > \.modal-backdrop/);
+  assert.match(previewSource, /previewDismissedKey/);
 });

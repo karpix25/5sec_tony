@@ -28,12 +28,18 @@ export function getOpenMediaPreviewState(root) {
   return {
     src: modal.dataset.previewMedia || "",
     type: modal.dataset.previewType || "",
-    title: root.querySelector("#media-preview-title")?.textContent || "Превью"
+    title: root.querySelector("#media-preview-title")?.textContent || "Превью",
+    key: getPreviewStateKey({
+      src: modal.dataset.previewMedia || "",
+      type: modal.dataset.previewType || "",
+      title: root.querySelector("#media-preview-title")?.textContent || "Превью"
+    })
   };
 }
 
 export function restoreMediaPreviewState(root, state) {
   if (!state?.src) return;
+  if (root.dataset.previewDismissedKey === getPreviewStateKey(state)) return;
   openMediaPreviewFromState(root, state);
 }
 
@@ -73,6 +79,7 @@ function openMediaPreviewFromState(root, state) {
   if (!modal || !body || !title || !src) return;
 
   title.textContent = state.title || "Превью";
+  delete root.dataset.previewDismissedKey;
   modal.dataset.previewMedia = src;
   modal.dataset.previewType = type;
   body.innerHTML = type === "video" ? renderPreviewVideo(src) : renderPreviewImage(src);
@@ -83,6 +90,11 @@ function closeMediaPreview(root) {
   const modal = root.querySelector("#media-preview-modal");
   const body = root.querySelector("#media-preview-body");
   if (modal) {
+    root.dataset.previewDismissedKey = getPreviewStateKey({
+      src: modal.dataset.previewMedia || "",
+      type: modal.dataset.previewType || "",
+      title: root.querySelector("#media-preview-title")?.textContent || "Превью"
+    });
     modal.hidden = true;
     delete modal.dataset.previewMedia;
     delete modal.dataset.previewType;
@@ -107,4 +119,8 @@ function isPreviewBackdropClick(event) {
   return Boolean(
     target?.matches?.("#media-preview-modal, #media-preview-modal > .modal-backdrop")
   );
+}
+
+function getPreviewStateKey(state) {
+  return [state?.src || "", state?.type || "", state?.title || ""].join("|");
 }
