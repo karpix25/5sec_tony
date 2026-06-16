@@ -184,6 +184,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
   const originalSetTimeout = globalThis.setTimeout;
   const project = {
     ...projects.find((item) => item.id === "supplements"),
+    avatarRoundRobinIndex: 1,
     characters: [{
       id: "char-other",
       name: "Other Avatar",
@@ -206,7 +207,8 @@ test("image job assembles final 5 second video with reusable avatar video and li
         status: "ready",
         videoUrl: "https://cdn.example.com/avatar-green.mp4",
         alphaVideoUrl: "https://cdn.example.com/avatar-alpha.webm",
-        overlay: { x: 68, y: 95, scale: 82, opacity: 75 }
+        overlay: { x: 68, y: 95, scale: 82, opacity: 75 },
+        ctaOverlay: { enabled: true, mode: "text", text: "ЖМИ", x: 52, y: 82, scale: 90, opacity: 85 }
       }]
     }]
   };
@@ -248,8 +250,8 @@ test("image job assembles final 5 second video with reusable avatar video and li
     replaceJob: (jobId, jobNext) => {
       state.jobs = state.jobs.map((item) => (item.id === jobId ? jobNext : item));
     },
-    markAvatarVideoUsed: (characterId, videoId, nextIndex) => {
-      markedVideo = { characterId, videoId, nextIndex };
+    markAvatarVideoUsed: (characterId, videoId, nextIndex, nextCharacterIndex) => {
+      markedVideo = { characterId, videoId, nextIndex, nextCharacterIndex };
     }
   };
 
@@ -273,6 +275,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
       assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
       assert.equal(body.audioData, audio.fileData);
       assert.deepEqual(body.overlay, { x: 68, y: 95, scale: 82, opacity: 75 });
+      assert.deepEqual(body.ctaOverlay, { enabled: true, mode: "text", text: "ЖМИ", x: 52, y: 82, scale: 90, opacity: 85 });
       return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-with-audio.mp4", hasAudio: true }) };
     }
     return { ok: true, json: async () => ({}) };
@@ -286,7 +289,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
     assert.equal(state.jobs[0].finalVideoHasAudio, true);
     assert.equal(state.jobs[0].stage, "export");
     assert.equal(state.jobs[0].status, "done");
-    assert.deepEqual(markedVideo, { characterId: "char-ready", videoId: "avatar-video-ready", nextIndex: 0 });
+    assert.deepEqual(markedVideo, { characterId: "char-ready", videoId: "avatar-video-ready", nextIndex: 0, nextCharacterIndex: 0 });
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

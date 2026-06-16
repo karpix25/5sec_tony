@@ -46,6 +46,7 @@ export function approveAvatarCandidate(projectId, candidate) {
     id: createAvatarId("char"),
     name: candidate.name,
     status: "approved",
+    isActive: true,
     prompt: candidate.prompt,
     imageData: candidate.imageUrl || candidate.imageData,
     provider: candidate.provider,

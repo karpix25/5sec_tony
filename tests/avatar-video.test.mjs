@@ -41,6 +41,8 @@ test("avatar overlay defaults anchor video near the bottom", () => {
   const video = createAvatarVideoRecord({ name: "Overlay Avatar" });
 
   assert.deepEqual(video.overlay, { x: 50, y: 98, scale: 96, opacity: 100 });
+  assert.equal(video.ctaOverlay.text, "ПОДПИШИСЬ");
+  assert.equal(video.ctaOverlay.enabled, true);
   assert.equal(video.isActive, true);
 });
 
@@ -89,6 +91,31 @@ test("store toggles reusable avatar videos for round robin", () => {
   assert.equal(getProjectAvatarVideos(store)[0].isActive, true);
 });
 
+test("store updates and approves avatar video cta badge", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = getSelectedProject(store);
+  const video = {
+    id: "avatar-video-cta-test",
+    status: "ready",
+    videoUrl: "https://cdn.example.com/avatar-green.mp4"
+  };
+  state.projects = state.projects.map((item) =>
+    item.id === project.id
+      ? { ...item, characters: [{ ...item.characters[0], avatarVideos: [video] }] }
+      : item
+  );
+
+  store.updateAvatarVideoCtaOverlay(video.id, { mode: "text", text: "Подпишись", enabled: true });
+  store.createAvatarVideoCtaCandidate(video.id, { text: "Подпишись" });
+  assert.equal(getProjectAvatarVideos(store)[0].ctaOverlay.candidate.status, "review");
+
+  store.approveAvatarVideoCtaCandidate(video.id);
+  const updated = getProjectAvatarVideos(store)[0].ctaOverlay;
+  assert.equal(updated.mode, "badge");
+  assert.equal(updated.badge.status, "approved");
+});
+
 test("avatar video round robin skips inactive videos", () => {
   const project = {
     characters: [{
@@ -106,6 +133,56 @@ test("avatar video round robin skips inactive videos", () => {
 
   assert.equal(pick.video.id, "second");
   assert.equal(pick.nextIndex, 0);
+});
+
+test("avatar round robin skips inactive avatars", () => {
+  const project = {
+    avatarRoundRobinIndex: 0,
+    characters: [{
+      id: "disabled-char",
+      isActive: false,
+      avatarVideos: [
+        { id: "disabled-video", status: "ready", videoUrl: "https://cdn.example.com/disabled.mp4", isActive: true }
+      ]
+    }, {
+      id: "active-char",
+      isActive: true,
+      avatarVideos: [
+        { id: "active-video", status: "ready", videoUrl: "https://cdn.example.com/active.mp4", isActive: true }
+      ]
+    }]
+  };
+
+  const pick = pickAvatarVideoRoundRobin(project);
+
+  assert.equal(pick.characterId, "active-char");
+  assert.equal(pick.video.id, "active-video");
+  assert.equal(pick.nextCharacterIndex, 0);
+});
+
+test("avatar round robin rotates active avatars", () => {
+  const project = {
+    avatarRoundRobinIndex: 1,
+    characters: [{
+      id: "first-char",
+      isActive: true,
+      avatarVideos: [
+        { id: "first-video", status: "ready", videoUrl: "https://cdn.example.com/first.mp4", isActive: true }
+      ]
+    }, {
+      id: "second-char",
+      isActive: true,
+      avatarVideos: [
+        { id: "second-video", status: "ready", videoUrl: "https://cdn.example.com/second.mp4", isActive: true }
+      ]
+    }]
+  };
+
+  const pick = pickAvatarVideoRoundRobin(project);
+
+  assert.equal(pick.characterId, "second-char");
+  assert.equal(pick.video.id, "second-video");
+  assert.equal(pick.nextCharacterIndex, 0);
 });
 
 test("store persists avatar video round robin index after use", () => {

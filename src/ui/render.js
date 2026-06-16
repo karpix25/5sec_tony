@@ -256,6 +256,10 @@ function bindEvents(root, store) {
     event.preventDefault();
     getAssetPayload(event.currentTarget).then((payload) => store.createReference(payload));
   });
+  root.querySelector("#reference-template-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    store.createDesignReferenceTemplate(getFormPayload(event.currentTarget));
+  });
   root.querySelector("#avatar-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     store.createCharacter(getFormPayload(event.currentTarget));
@@ -267,6 +271,11 @@ function bindEvents(root, store) {
   root.querySelectorAll("[data-avatar-video-active]").forEach((button) => {
     button.addEventListener("click", () => {
       store.setAvatarVideoActive(button.dataset.avatarVideoActive, button.dataset.avatarVideoNextActive === "true");
+    });
+  });
+  root.querySelectorAll("[data-avatar-active]").forEach((button) => {
+    button.addEventListener("click", () => {
+      store.setCharacterActive(button.dataset.avatarActive, button.dataset.avatarNextActive === "true");
     });
   });
   root.querySelector("#audio-form")?.addEventListener("submit", (event) => {
@@ -293,6 +302,12 @@ function bindEvents(root, store) {
   });
   root.querySelectorAll("[data-delete-reference]").forEach((button) => {
     button.addEventListener("click", () => store.deleteReference(button.dataset.deleteReference));
+  });
+  root.querySelectorAll("[data-approve-design-reference]").forEach((button) => {
+    button.addEventListener("click", () => store.approveDesignReference(button.dataset.approveDesignReference));
+  });
+  root.querySelectorAll("[data-reject-design-reference]").forEach((button) => {
+    button.addEventListener("click", () => store.rejectDesignReference(button.dataset.rejectDesignReference));
   });
   root.querySelectorAll("[data-reset-project-usage]").forEach((button) => {
     button.addEventListener("click", () => store.resetProjectDailyUsage(button.dataset.resetProjectUsage));

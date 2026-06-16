@@ -28,6 +28,40 @@
   position: absolute;
   max-width: none;
   pointer-events: none;
+  z-index: 1;
+}
+
+.avatar-cta-overlay {
+  --cta-bg: #111111;
+  --cta-color: #ffffff;
+  --cta-border: #ffffff;
+  --cta-radius: 8px;
+  position: absolute;
+  z-index: 2;
+  max-width: 82%;
+  padding: 10px 22px;
+  color: var(--cta-color);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-transform: uppercase;
+  pointer-events: none;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.38);
+}
+
+.avatar-cta-overlay.badge {
+  background: var(--cta-bg);
+  border: 2px solid var(--cta-border);
+  border-radius: var(--cta-radius);
+  box-shadow: 0 10px 22px rgba(31, 37, 40, 0.22);
+  text-shadow: none;
+}
+
+.avatar-cta-overlay.disabled {
+  display: none;
 }
 
 .avatar-overlay-empty {
@@ -44,6 +78,35 @@
   display: grid;
   gap: var(--space-3);
   min-width: 0;
+}
+
+.avatar-cta-controls {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.avatar-cta-head,
+.avatar-cta-mode,
+.avatar-cta-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.avatar-cta-head {
+  justify-content: space-between;
+}
+
+.avatar-cta-controls small {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .avatar-overlay-presets {

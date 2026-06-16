@@ -62,21 +62,46 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
         projects: state.projects.map((item) =>
           item.id === project.id
             ? { ...item, characters: item.characters.filter((character) => character.id !== characterId) }
-            : item
+          : item
         )
       });
     },
-    createAvatarVideo: avatarVideoWorkflow.createAvatarVideo,
-    updateAvatarVideoOverlay: avatarVideoWorkflow.updateAvatarVideoOverlay,
-    setAvatarVideoActive: avatarVideoWorkflow.setAvatarVideoActive,
-    markAvatarVideoUsed(characterId, videoId, nextIndex) {
+    setCharacterActive(characterId, isActive) {
       patchCharacter(characterId, (character) => ({
         ...character,
-        avatarVideoRoundRobinIndex: Math.max(0, Math.round(Number(nextIndex) || 0)),
-        avatarVideos: (character.avatarVideos || []).map((video) =>
-          video.id === videoId ? { ...video, lastUsedAt: new Date().toISOString() } : video
-        )
+        isActive: Boolean(isActive)
       }));
+    },
+    createAvatarVideo: avatarVideoWorkflow.createAvatarVideo,
+    updateAvatarVideoOverlay: avatarVideoWorkflow.updateAvatarVideoOverlay,
+    updateAvatarVideoCtaOverlay: avatarVideoWorkflow.updateAvatarVideoCtaOverlay,
+    createAvatarVideoCtaCandidate: avatarVideoWorkflow.createAvatarVideoCtaCandidate,
+    approveAvatarVideoCtaCandidate: avatarVideoWorkflow.approveAvatarVideoCtaCandidate,
+    setAvatarVideoActive: avatarVideoWorkflow.setAvatarVideoActive,
+    markAvatarVideoUsed(characterId, videoId, nextIndex, nextCharacterIndex) {
+      const state = getState();
+      const nextProjectIndex = Math.max(0, Math.round(Number(nextCharacterIndex) || 0));
+      setState({
+        projects: state.projects.map((project) =>
+          project.characters.some((character) => character.id === characterId)
+            ? {
+                ...project,
+                avatarRoundRobinIndex: nextProjectIndex,
+                characters: project.characters.map((character) =>
+                  character.id === characterId
+                    ? {
+                        ...character,
+                        avatarVideoRoundRobinIndex: Math.max(0, Math.round(Number(nextIndex) || 0)),
+                        avatarVideos: (character.avatarVideos || []).map((video) =>
+                          video.id === videoId ? { ...video, lastUsedAt: new Date().toISOString() } : video
+                        )
+                      }
+                    : character
+                )
+              }
+            : project
+        )
+      });
     },
     resumeAvatarPolling() {
       const state = getState();

@@ -30,8 +30,8 @@ export async function getAvatarVideoTaskStatus(taskId) {
   return getKieStatus("/api/avatar-videos/status", taskId);
 }
 
-export async function createCompositeAvatarVideo({ avatarVideoUrl, backgroundImageUrl, audioData = "", overlay = {} }) {
-  return createKieTask("/api/avatar-videos/composite", { avatarVideoUrl, backgroundImageUrl, audioData, overlay });
+export async function createCompositeAvatarVideo({ avatarVideoUrl, backgroundImageUrl, audioData = "", overlay = {}, ctaOverlay = {} }) {
+  return createKieTask("/api/avatar-videos/composite", { avatarVideoUrl, backgroundImageUrl, audioData, overlay, ctaOverlay });
 }
 
 export async function createAvatarAlphaVideo(videoUrl) {

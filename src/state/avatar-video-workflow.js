@@ -5,6 +5,7 @@ import {
   createAvatarVideoRecord,
   updateAvatarVideoRecord
 } from "../domain/avatar-video.js";
+import { approveCtaBadgeCandidate, createCtaBadgeCandidate, normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import {
   createAvatarAlphaVideo,
   createAvatarVideoTask,
@@ -52,6 +53,36 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       patchAvatarVideo(character.id, videoId, (item) => ({
         ...item,
         overlay: normalizeAvatarVideoOverlay({ ...(item.overlay || {}), ...payload })
+      }));
+    },
+    updateAvatarVideoCtaOverlay(videoId, payload) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
+      if (!character) return;
+      patchAvatarVideo(character.id, videoId, (item) => ({
+        ...item,
+        ctaOverlay: normalizeCtaOverlay({ ...(item.ctaOverlay || {}), ...payload })
+      }));
+    },
+    createAvatarVideoCtaCandidate(videoId, payload) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
+      if (!character) return;
+      patchAvatarVideo(character.id, videoId, (item) => {
+        const ctaOverlay = normalizeCtaOverlay({ ...(item.ctaOverlay || {}), ...payload });
+        return { ...item, ctaOverlay: { ...ctaOverlay, candidate: createCtaBadgeCandidate(ctaOverlay) } };
+      });
+    },
+    approveAvatarVideoCtaCandidate(videoId) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
+      if (!character) return;
+      patchAvatarVideo(character.id, videoId, (item) => ({
+        ...item,
+        ctaOverlay: approveCtaBadgeCandidate(item.ctaOverlay)
       }));
     },
     setAvatarVideoActive(videoId, isActive) {

@@ -157,9 +157,10 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       avatarVideoUrl,
       backgroundImageUrl,
       audioData: audio?.fileData || "",
-      overlay: avatarVideo.overlay || {}
+      overlay: avatarVideo.overlay || {},
+      ctaOverlay: avatarVideo.ctaOverlay || {}
     });
-    store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex);
+    store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex, avatarVideoPick.nextCharacterIndex);
     store.patchJob(jobId, {
       status: "done",
       stage: "export",

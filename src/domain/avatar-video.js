@@ -1,3 +1,5 @@
+import { normalizeCtaOverlay } from "./cta-overlay.js";
+
 const CHROMA_KEY_CONTRACT = [
   "Create a vertical 9:16 chroma key video.",
   "The same avatar from the reference image is shown from the waist up only, medium shot, centered in frame.",
@@ -40,6 +42,7 @@ export function createAvatarVideoRecord(character, payload = {}) {
     compositeVideoUrl: "",
     backgroundImageUrl: payload.backgroundImageUrl || "",
     overlay: normalizeAvatarVideoRecordOverlay(payload.overlay),
+    ctaOverlay: normalizeCtaOverlay(payload.ctaOverlay),
     isActive: payload.isActive !== false,
     failMsg: "",
     createdAt: new Date().toISOString(),

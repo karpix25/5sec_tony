@@ -1,4 +1,5 @@
 import { isDesignReference } from "../domain/references.js";
+import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 
 export const defaultGenerationBrief = {
@@ -111,9 +112,11 @@ export function ensureProjectAssets(project) {
     projectLimit: normalizeAssetLimit(project.projectLimit, 500),
     usedTotal: normalizeAssetUsage(project.usedTotal),
     automation: normalizeProjectAutomation(project.automation),
+    avatarRoundRobinIndex: normalizeFactoryRoundRobinIndex(project.avatarRoundRobinIndex),
     references: references.length ? references : [createReferenceEntity({ title: "Базовый стиль проекта" })],
     audioLibrary: getAudioLibrary(project, legacyAudios),
     avatarCandidates: project.avatarCandidates || [],
+    designReferenceCandidates: project.designReferenceCandidates || [],
     characters: project.characters?.length
       ? project.characters.map(ensureCharacterAssets)
       : [ensureCharacterAssets({ id: createId("char"), name: "Новый персонаж", status: "draft", prompt: "стабильный персонаж проекта" })]
@@ -145,6 +148,7 @@ function normalizeProjectYandexFolder(value, projectName = "Проект") {
 function ensureCharacterAssets(character) {
   return {
     ...character,
+    isActive: character.isActive !== false,
     avatarVideoRoundRobinIndex: normalizeFactoryRoundRobinIndex(character.avatarVideoRoundRobinIndex),
     avatarVideos: (character.avatarVideos || []).map(ensureAvatarVideoAssets)
   };
@@ -157,7 +161,8 @@ function ensureAvatarVideoAssets(video) {
     alphaStatus: video.alphaStatus || "idle",
     alphaFailMsg: video.alphaFailMsg || "",
     isActive: video.isActive !== false,
-    overlay: video.overlay || { x: 50, y: 98, scale: 96, opacity: 100 }
+    overlay: video.overlay || { x: 50, y: 98, scale: 96, opacity: 100 },
+    ctaOverlay: normalizeCtaOverlay(video.ctaOverlay)
   };
 }
 

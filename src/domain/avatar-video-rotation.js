@@ -1,10 +1,13 @@
 export function pickAvatarVideoRoundRobin(project, characterId) {
-  const characters = project?.characters || [];
-  const selectedCharacter = characters.find((character) => character.id === characterId);
-  const selectedPick = pickCharacterAvatarVideo(selectedCharacter);
-  if (selectedPick) return selectedPick;
-
-  return characters.map(pickCharacterAvatarVideo).find(Boolean) || null;
+  const picks = getActiveCharacters(project)
+    .map(pickCharacterAvatarVideo)
+    .filter(Boolean);
+  if (!picks.length) return null;
+  const index = normalizeAvatarVideoRotationIndex(project?.avatarRoundRobinIndex, picks.length);
+  return {
+    ...picks[index],
+    nextCharacterIndex: (index + 1) % picks.length
+  };
 }
 
 export function getCompositeAvatarVideoUrl(video) {
@@ -20,6 +23,10 @@ function pickCharacterAvatarVideo(character) {
     video: videos[index],
     nextIndex: (index + 1) % videos.length
   };
+}
+
+function getActiveCharacters(project) {
+  return (project?.characters || []).filter((character) => character.isActive !== false);
 }
 
 function getActiveReusableAvatarVideos(character) {

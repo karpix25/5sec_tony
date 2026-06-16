@@ -78,18 +78,33 @@ function renderApprovedAvatars(items, selectedId) {
   return `
     <div class="avatar-list">
       ${items.map((item) => `
-        <article class="avatar-item ${item.id === selectedId ? "active" : ""}">
+        <article class="avatar-item ${item.id === selectedId ? "active" : ""} ${item.isActive === false ? "disabled" : ""}">
           ${item.imageData ? renderPreviewButton(item.imageData, item.name) : `<span class="asset-thumb">${escapeHtml(item.name.slice(0, 1))}</span>`}
           <div>
             <strong>${escapeHtml(item.name)}</strong>
-            <small>${escapeHtml(item.id === selectedId ? "Используется в проекте" : "Аватар проекта")}</small>
+            <small>${escapeHtml(getAvatarActiveLabel(item, item.id === selectedId))}</small>
           </div>
           ${item.id === selectedId ? "" : `<button class="secondary-btn" data-select-character="${item.id}" type="button">Выбрать</button>`}
+          ${renderAvatarActiveButton(item)}
           <button class="danger-icon" data-delete-character="${item.id}" type="button" ${canDelete ? "" : "disabled"} aria-label="Удалить аватар">×</button>
         </article>
       `).join("")}
     </div>
   `;
+}
+
+function renderAvatarActiveButton(item) {
+  const isActive = item.isActive !== false;
+  return `
+    <button class="ghost-btn" data-avatar-active="${escapeHtml(item.id)}" data-avatar-next-active="${isActive ? "false" : "true"}" type="button">
+      ${isActive ? "Выключить" : "Активировать"}
+    </button>
+  `;
+}
+
+function getAvatarActiveLabel(item, isSelected) {
+  if (item.isActive === false) return "Выключен из avatar round robin";
+  return isSelected ? "Выбран и активен в avatar round robin" : "Активен в avatar round robin";
 }
 
 function renderAvatarVideoPanel(character) {

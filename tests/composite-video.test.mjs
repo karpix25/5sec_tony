@@ -17,3 +17,9 @@ test("composite filter clamps unsafe overlay values", () => {
   assert.match(filter, /colorchannelmixer=aa=0\.30/);
   assert.match(filter, /overlay=x=870-w\/2:y=806-h/);
 });
+
+test("composite filter allows compact avatar overlay", () => {
+  const filter = buildAvatarOverlayFilter({ scale: 35 });
+
+  assert.match(filter, /scale=358:-2/);
+});

@@ -10,25 +10,88 @@ export function renderDesignSettings({ project, reference }) {
         <div class="panel-head compact">
           <div><span class="eyebrow">Референсы</span><h2>Библиотека стиля</h2></div>
         </div>
+        ${renderDesignReferenceCandidate(project.designReferenceCandidates?.[0])}
         <div class="reference-grid">
           ${references.map((item) => renderReferenceCard(item, reference?.id)).join("")}
         </div>
       </section>
-      <form id="reference-form" class="ops-form text-editor-form reference-editor">
-        <div class="panel-head compact">
-          <div><span class="eyebrow">Новый референс</span><h2>Добавить дизайн-референс</h2></div>
-        </div>
-        ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
-        ${designFileField("Картинка-референс", "imageFile")}
-        ${designField("Шрифт / типографика стиля", "fontStyle", "Например: крупный белый bold sans с черной обводкой; вторичный тезис — контрастный serif. Будет фиксироваться во всех генерациях этого стиля.", "textarea")}
-        ${designField("Доп. промт к копированию дизайна", "takeaways", "Например: усилить glow-заголовок, сохранить сетку карточек, оставить больше воздуха снизу, держать весь контент в safe zone.", "textarea")}
-        <div class="form-actions">
-          <button class="secondary-btn" type="submit">+ Добавить референс</button>
-          <button class="ghost-btn" data-delete-reference="${reference?.id || ""}" type="button">Удалить выбранный</button>
-        </div>
-      </form>
+      <div class="reference-editor">
+        ${renderGeneratedReferenceForm()}
+        ${renderManualReferenceForm(reference)}
+      </div>
     </div>
   `;
+}
+
+function renderDesignReferenceCandidate(candidate) {
+  if (!candidate) return "";
+  return `
+    <article class="avatar-review">
+      ${candidate.imageData ? renderPreviewTrigger({
+        src: candidate.imageData,
+        title: candidate.title,
+        className: "avatar-preview-trigger",
+        label: "Открыть дизайн-шаблон"
+      }) : `<div class="avatar-pending">...</div>`}
+      <div>
+        <span>${escapeHtml(getDesignCandidateStatus(candidate))}</span>
+        <strong>${escapeHtml(candidate.title)}</strong>
+        <small>${escapeHtml(candidate.failMsg || candidate.takeaways || "дизайн-шаблон")}</small>
+      </div>
+      <div class="avatar-review-actions">
+        ${candidate.status === "review" ? `<button class="secondary-btn" data-approve-design-reference="${candidate.id}" type="button">Одобрить</button>` : ""}
+        ${isDesignCandidateLoading(candidate) ? "<div class=\"avatar-loader\" aria-label=\"Ожидание результата\"><span></span><span></span><span></span></div>" : ""}
+        ${!isDesignCandidateLoading(candidate) ? `<button class="ghost-btn" data-reject-design-reference="${candidate.id}" type="button">${candidate.status === "failed" ? "Убрать ошибку" : "Отклонить"}</button>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderGeneratedReferenceForm() {
+  return `
+    <form id="reference-template-form" class="ops-form text-editor-form">
+      <div class="panel-head compact">
+        <div><span class="eyebrow">Предгенерация</span><h2>Сгенерировать дизайн-шаблон</h2></div>
+      </div>
+      ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
+      ${designField("Шрифт / типографика стиля", "fontStyle", "Например: крупный белый bold sans с черной обводкой; вторичный тезис — контрастный serif.", "textarea")}
+      ${designField("Доп. промт к дизайну", "takeaways", "Например: усилить glow-заголовок, сохранить сетку карточек, оставить больше воздуха снизу, держать весь контент в safe zone.", "textarea")}
+      <button class="secondary-btn" type="submit">Сгенерировать шаблон</button>
+    </form>
+  `;
+}
+
+function renderManualReferenceForm(reference) {
+  return `
+    <form id="reference-form" class="ops-form text-editor-form">
+      <div class="panel-head compact">
+        <div><span class="eyebrow">Новый референс</span><h2>Добавить вручную</h2></div>
+      </div>
+      ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
+      ${designFileField("Картинка-референс", "imageFile")}
+      ${designField("Шрифт / типографика стиля", "fontStyle", "Например: крупный белый bold sans с черной обводкой; вторичный тезис — контрастный serif. Будет фиксироваться во всех генерациях этого стиля.", "textarea")}
+      ${designField("Доп. промт к копированию дизайна", "takeaways", "Например: усилить glow-заголовок, сохранить сетку карточек, оставить больше воздуха снизу, держать весь контент в safe zone.", "textarea")}
+      <div class="form-actions">
+        <button class="secondary-btn" type="submit">+ Добавить референс</button>
+        <button class="ghost-btn" data-delete-reference="${reference?.id || ""}" type="button">Удалить выбранный</button>
+      </div>
+    </form>
+  `;
+}
+
+function getDesignCandidateStatus(candidate) {
+  const labels = {
+    submitting: "Запускаем создание",
+    waiting: "Задача создана",
+    generating: "Генерируем шаблон",
+    review: "Шаблон готов",
+    failed: "Ошибка создания"
+  };
+  return labels[candidate.status] || "В работе";
+}
+
+function isDesignCandidateLoading(candidate) {
+  return ["submitting", "waiting", "generating"].includes(candidate.status);
 }
 
 function renderReferenceCard(reference, selectedId) {

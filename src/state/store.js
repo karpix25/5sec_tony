@@ -4,6 +4,7 @@ import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
+import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import {
   addGlobalAudioFiles,
   deleteGlobalAudio,
@@ -52,8 +53,14 @@ export function createStore() {
     setState,
     getProject
   });
+  const designReferenceWorkflow = createDesignReferenceWorkflow({
+    getState: () => state,
+    setState,
+    getProject
+  });
 
   setTimeout(() => avatarWorkflow.resumeAvatarPolling(), 0);
+  setTimeout(() => designReferenceWorkflow.resumeDesignReferencePolling(), 0);
 
   return {
     getState: () => state,
@@ -263,6 +270,9 @@ export function createStore() {
         selectedReferenceId: project.references[0].id
       });
     },
+    createDesignReferenceTemplate: designReferenceWorkflow.createDesignReferenceTemplate,
+    approveDesignReference: designReferenceWorkflow.approveDesignReference,
+    rejectDesignReference: designReferenceWorkflow.rejectDesignReference,
     deleteReference(referenceId) {
       const project = getProject(state, state.selectedProjectId);
       if (project.references.length <= 1) return;
@@ -277,6 +287,7 @@ export function createStore() {
     createCharacter: avatarWorkflow.createCharacter,
     approveAvatar: avatarWorkflow.approveAvatar,
     rejectAvatar: avatarWorkflow.rejectAvatar,
+    setCharacterActive: avatarWorkflow.setCharacterActive,
     createAvatarVideo: avatarWorkflow.createAvatarVideo,
     updateAvatarVideoOverlay: avatarWorkflow.updateAvatarVideoOverlay,
     setAvatarVideoActive: avatarWorkflow.setAvatarVideoActive,
@@ -295,6 +306,9 @@ export function createStore() {
     },
     deleteCharacter: avatarWorkflow.deleteCharacter,
     markAvatarVideoUsed: avatarWorkflow.markAvatarVideoUsed,
+    updateAvatarVideoCtaOverlay: avatarWorkflow.updateAvatarVideoCtaOverlay,
+    createAvatarVideoCtaCandidate: avatarWorkflow.createAvatarVideoCtaCandidate,
+    approveAvatarVideoCtaCandidate: avatarWorkflow.approveAvatarVideoCtaCandidate,
     createJob() {
       const context = getContext(state);
       const jobs = createJobBatchForContext(state, context, 1);

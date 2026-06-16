@@ -75,6 +75,18 @@ test("avatar status treats completed Kie.ai response as ready for review", () =>
   assert.equal(updated.imageData, "https://cdn.example.com/avatar-completed.png");
 });
 
+test("store toggles approved avatars for round robin", () => {
+  const store = createStore();
+  const project = getSelectedProject(store);
+  const characterId = project.characters[0].id;
+
+  store.setCharacterActive(characterId, false);
+  assert.equal(getSelectedProject(store).characters[0].isActive, false);
+
+  store.setCharacterActive(characterId, true);
+  assert.equal(getSelectedProject(store).characters[0].isActive, true);
+});
+
 function getSelectedProject(store) {
   const state = store.getState();
   return state.projects.find((item) => item.id === state.selectedProjectId);
