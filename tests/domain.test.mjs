@@ -198,10 +198,12 @@ test("image prompt includes a coherent semantic plan for payment projects", () =
 });
 
 test("limit state reports remaining quota", () => {
-  const limit = getLimitState({ dailyLimit: 30, usedToday: 18 });
-  assert.equal(limit.remaining, 12);
-  assert.equal(limit.percent, 60);
-  assert.equal(limit.isNearLimit, false);
+  const limit = getLimitState({ dailyLimit: 30, usedToday: 18, projectLimit: 100, usedTotal: 92 });
+  assert.equal(limit.remaining, 8);
+  assert.equal(limit.percent, 92);
+  assert.equal(limit.isNearLimit, true);
+  assert.equal(limit.daily.remaining, 12);
+  assert.equal(limit.total.remaining, 8);
 });
 
 test("store creates a project with a starter product", () => {

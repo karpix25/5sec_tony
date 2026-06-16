@@ -153,9 +153,9 @@ function renderLimit(project) {
   const limit = getLimitState(project);
   return `
     <div class="limit-card ${limit.isNearLimit ? "warn" : ""}">
-      <div><span>Лимит дня</span><strong>${project.usedToday}/${project.dailyLimit}</strong></div>
+      <div><span>Лимит дня</span><strong>${limit.daily.used}/${limit.daily.limit}</strong></div>
       <div class="meter"><i style="width:${limit.percent}%"></i></div>
-      <small>Осталось генераций: ${limit.remaining}</small>
+      <small>Проект: ${limit.total.used}/${limit.total.limit}. Осталось генераций: ${limit.remaining}</small>
     </div>
   `;
 }
@@ -291,6 +291,9 @@ function bindEvents(root, store) {
   });
   root.querySelectorAll("[data-reset-project-usage]").forEach((button) => {
     button.addEventListener("click", () => store.resetProjectDailyUsage(button.dataset.resetProjectUsage));
+  });
+  root.querySelectorAll("[data-reset-project-total-usage]").forEach((button) => {
+    button.addEventListener("click", () => store.resetProjectTotalUsage(button.dataset.resetProjectTotalUsage));
   });
   root.querySelectorAll("[data-delete-character]").forEach((button) => {
     button.addEventListener("click", () => store.deleteCharacter(button.dataset.deleteCharacter));

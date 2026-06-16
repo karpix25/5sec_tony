@@ -24,15 +24,17 @@ export function getProjectAutomationState({ project, jobs = [] }) {
   const activeJobs = projectJobs.filter((job) => ["queued", "running"].includes(job.status)).length;
   const completedJobs = projectJobs.filter((job) => job.status === "done").length;
   const remainingDaily = Math.max(0, Number(project?.dailyLimit || 0) - Number(project?.usedToday || 0));
+  const remainingProject = Math.max(0, Number(project?.projectLimit || 0) - Number(project?.usedTotal || 0));
   const remainingTarget = Math.max(0, automation.targetCount - completedJobs - activeJobs);
   const availableSlots = Math.max(0, automation.concurrency - activeJobs);
-  const nextCount = Math.min(automation.batchSize, availableSlots, remainingDaily, remainingTarget);
+  const nextCount = Math.min(automation.batchSize, availableSlots, remainingDaily, remainingProject, remainingTarget);
 
   return {
     automation,
     activeJobs,
     completedJobs,
     remainingDaily,
+    remainingProject,
     remainingTarget,
     availableSlots,
     nextCount,

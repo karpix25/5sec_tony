@@ -308,9 +308,19 @@ export function advanceJob(job) {
 }
 
 export function getLimitState(project) {
-  const remaining = Math.max(0, project.dailyLimit - project.usedToday);
-  const percent = Math.round((project.usedToday / project.dailyLimit) * 100);
-  return { remaining, percent, isNearLimit: percent >= 80 };
+  const daily = getSingleLimitState(project.dailyLimit, project.usedToday);
+  const total = getSingleLimitState(project.projectLimit ?? project.dailyLimit, project.usedTotal ?? project.usedToday);
+  const remaining = Math.min(daily.remaining, total.remaining);
+  const percent = Math.max(daily.percent, total.percent);
+  return { remaining, percent, isNearLimit: percent >= 80, daily, total };
+}
+
+function getSingleLimitState(limitValue, usedValue) {
+  const limit = Math.max(1, Number(limitValue || 0));
+  const used = Math.max(0, Number(usedValue || 0));
+  const remaining = Math.max(0, limit - used);
+  const percent = Math.min(100, Math.round((used / limit) * 100));
+  return { limit, used, remaining, percent, isNearLimit: percent >= 80 };
 }
 
 function pickHook(productName) {

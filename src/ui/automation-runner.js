@@ -18,6 +18,7 @@ function scheduleAutomation(store) {
     if (!automationState.canRun) {
       if (automationState.activeJobs > 0) return;
       if (!automationState.remainingDaily) markAutomation(store, project.id, "paused", "Дневной лимит исчерпан.");
+      if (!automationState.remainingProject) markAutomation(store, project.id, "paused", "Лимит проекта исчерпан.");
       if (!automationState.remainingTarget) markAutomation(store, project.id, "done", "Цель авторежима выполнена.");
       return;
     }

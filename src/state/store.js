@@ -117,6 +117,13 @@ export function createStore() {
         )
       });
     },
+    resetProjectTotalUsage(projectId = state.selectedProjectId) {
+      setState({
+        projects: state.projects.map((project) =>
+          project.id === projectId ? { ...project, usedTotal: 0 } : project
+        )
+      });
+    },
     generateProjectField(fieldName, formPayload) {
       const project = updateProjectEntity(getProject(state, state.selectedProjectId), formPayload);
       const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
@@ -136,6 +143,8 @@ export function createStore() {
         yandexDiskFolder: payload.yandexDiskFolder || `disk:/ВИДЕО/${payload.name || "Новый проект"}/Готовые`,
         dailyLimit: Number(payload.dailyLimit || 20),
         usedToday: 0,
+        projectLimit: Number(payload.projectLimit || 500),
+        usedTotal: 0,
         automation: normalizeProjectAutomation(),
         companyInfo: payload.companyInfo || "",
         companyAudience: payload.companyAudience || "",
@@ -354,6 +363,7 @@ function updateProjectEntity(project, payload) {
     exportFolder,
     yandexDiskFolder,
     dailyLimit: normalizeProjectDailyLimit(value("dailyLimit", project.dailyLimit || 20)),
+    projectLimit: normalizeProjectTotalLimit(value("projectLimit", project.projectLimit || 500)),
     projectTheme: value("projectTheme"),
     niche: value("niche"),
     keyScenarios: value("keyScenarios"),
@@ -379,6 +389,12 @@ function normalizeProjectDailyLimit(value) {
   return Math.min(500, Math.max(1, Math.round(number)));
 }
 
+function normalizeProjectTotalLimit(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 500;
+  return Math.min(10000, Math.max(1, Math.round(number)));
+}
+
 function getContextForProject(state, projectId) {
   const fallback = getContext(state);
   const project = getProject(state, projectId);
@@ -391,8 +407,9 @@ function getContextForProject(state, projectId) {
 }
 
 function createJobBatchForContext(state, context, count) {
-  const limitLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0));
-  const safeCount = Math.max(0, Math.min(Number(count || 1), limitLeft));
+  const dailyLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0));
+  const totalLeft = Math.max(0, Number(context.project.projectLimit || 0) - Number(context.project.usedTotal || 0));
+  const safeCount = Math.max(0, Math.min(Number(count || 1), dailyLeft, totalLeft));
   if (!safeCount) return [];
   return createGenerationJobBatch({
     context,
@@ -407,7 +424,11 @@ function withCreatedJobs(state, jobs, projectId) {
     jobs: [...jobs, ...state.jobs],
     projects: state.projects.map((project) =>
       project.id === projectId
-        ? { ...project, usedToday: Number(project.usedToday || 0) + jobs.length }
+        ? {
+          ...project,
+          usedToday: Number(project.usedToday || 0) + jobs.length,
+          usedTotal: Number(project.usedTotal || 0) + jobs.length
+        }
         : project
     )
   };

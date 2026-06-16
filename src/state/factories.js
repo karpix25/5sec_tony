@@ -106,6 +106,10 @@ export function ensureProjectAssets(project) {
     restrictions: project.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
     exportFolder: project.exportFolder || `Yandex Disk / Anton / ${project.name || "Проект"} / Готовые`,
     yandexDiskFolder: project.yandexDiskFolder || `disk:/ВИДЕО/${project.name || "Проект"}/Готовые`,
+    dailyLimit: normalizeAssetLimit(project.dailyLimit, 20),
+    usedToday: normalizeAssetUsage(project.usedToday),
+    projectLimit: normalizeAssetLimit(project.projectLimit, 500),
+    usedTotal: normalizeAssetUsage(project.usedTotal),
     automation: normalizeProjectAutomation(project.automation),
     references: references.length ? references : [createReferenceEntity({ title: "Базовый стиль проекта" })],
     audioLibrary: getAudioLibrary(project, legacyAudios),
@@ -114,6 +118,18 @@ export function ensureProjectAssets(project) {
       ? project.characters.map(ensureCharacterAssets)
       : [ensureCharacterAssets({ id: createId("char"), name: "Новый персонаж", status: "draft", prompt: "стабильный персонаж проекта" })]
   };
+}
+
+function normalizeAssetLimit(value, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(10000, Math.max(1, Math.round(number)));
+}
+
+function normalizeAssetUsage(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.round(number));
 }
 
 function ensureCharacterAssets(character) {

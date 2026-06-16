@@ -10,6 +10,7 @@ export function renderProjectManagementSettings({ project }) {
         ${projectYandexFolderField(project.yandexDiskFolder || yandexDiskRoot)}
         ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
         ${projectNumberField("Дневной лимит генераций", "dailyLimit", project.dailyLimit || 20, 1, 500)}
+        ${projectNumberField("Лимит на весь проект", "projectLimit", project.projectLimit || 500, 1, 10000)}
         ${projectField("О проекте", "projectTheme", "Что это за проект, что продаем, кому помогаем, чем отличаемся, какие факты важны.", project.projectTheme || project.companyInfo, false)}
         ${projectField("ЦА компании", "companyAudience", "Кто покупает, какие сегменты важны, что уже известно об аудитории.", project.companyAudience, false)}
         ${projectField("Ограничения проекта", "restrictions", "Что нельзя обещать, юридические/медицинские/финансовые рамки.", project.restrictions, false)}
@@ -17,6 +18,7 @@ export function renderProjectManagementSettings({ project }) {
       <div class="project-actions">
         <button id="save-project-settings" class="primary-btn" type="submit">Сохранить проект</button>
         <button class="ghost-btn" data-reset-project-usage="${escapeHtml(project.id)}" type="button">Сбросить счетчик дня (${Number(project.usedToday || 0)})</button>
+        <button class="ghost-btn" data-reset-project-total-usage="${escapeHtml(project.id)}" type="button">Сбросить счетчик проекта (${Number(project.usedTotal || 0)})</button>
         <small id="audience-expert-status" class="ai-field-status">После сохранения AI сам обновит память проекта.</small>
       </div>
     </form>

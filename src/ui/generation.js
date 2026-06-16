@@ -87,7 +87,7 @@ function renderAudioSelect({ audioLibrary, audio }) {
 }
 
 function renderAutomationControls(project, automationState) {
-  const { automation, activeJobs, completedJobs, remainingDaily, remainingTarget } = automationState;
+  const { automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget } = automationState;
   return `
     <form id="automation-form" class="automation-card">
       <input type="hidden" name="projectId" value="${escapeHtml(project.id)}">
@@ -101,7 +101,7 @@ function renderAutomationControls(project, automationState) {
         ${automationNumberField("concurrency", "Параллельно", automation.concurrency, 1, 5)}
       </div>
       <small>
-        Готово: ${completedJobs}. В работе: ${activeJobs}. До цели: ${remainingTarget}. Дневной остаток: ${remainingDaily}.
+        Готово: ${completedJobs}. В работе: ${activeJobs}. До цели: ${remainingTarget}. Дневной остаток: ${remainingDaily}. Остаток проекта: ${remainingProject}.
         ${escapeHtml(automation.lastMessage || "")}
       </small>
       <button class="secondary-btn" type="submit">${automation.enabled ? "Сохранить авторежим" : "Включить авторежим"}</button>
