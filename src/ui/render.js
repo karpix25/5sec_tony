@@ -20,12 +20,13 @@ export function renderApp(root, store) {
   const state = store.getState();
   const context = getContext(state);
   const projectProducts = getProductsForProject(state.products, context.project.id);
+  const persistenceStatus = store.getPersistenceStatus?.() || {};
 
   root.innerHTML = `
     <main class="shell">
       ${renderSidebar(state, context, projectProducts)}
       <section class="workspace">
-        ${renderHeader(context)}
+        ${renderHeader(context, persistenceStatus)}
         ${renderOperationsPanel(state, context)}
       </section>
     </main>
@@ -76,7 +77,7 @@ function sidebarNavButton(tab, label, active) {
   return `<button class="sidebar-nav-btn ${tab === active ? "active" : ""}" data-project-tab="${tab}" type="button">${label}</button>`;
 }
 
-function renderHeader({ project }) {
+function renderHeader({ project }, persistenceStatus) {
   return `
     <header class="topbar">
       <div>
@@ -86,9 +87,16 @@ function renderHeader({ project }) {
       <div class="export-box">
         <span>Экспорт</span>
         <strong>${escapeHtml(project.exportFolder)}</strong>
+        ${renderPersistenceStatus(persistenceStatus)}
       </div>
     </header>
   `;
+}
+
+function renderPersistenceStatus(status = {}) {
+  const tone = ["saved", "saving", "loading", "error", "local"].includes(status.status) ? status.status : "local";
+  const label = status.message || "Локальный кэш";
+  return `<small class="persistence-status ${tone}">${escapeHtml(label)}</small>`;
 }
 
 function renderOperationsPanel(state, context) {

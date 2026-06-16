@@ -1,5 +1,5 @@
 import { advanceJob, getProductsForProject } from "../domain/generation.js";
-import { globalAudioLibrary, initialJobs, products, projects } from "../domain/entities.js";
+import { globalAudioLibrary } from "../domain/entities.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
@@ -13,12 +13,13 @@ import {
   getSelectedGlobalAudioId
 } from "./global-assets.js";
 import { createGenerationJobBatch } from "./job-batch.js";
+import { createInitialState } from "./initial-state.js";
+import { createStatePersistence } from "./state-persistence.js";
 import {
   createAudioEntity,
   createId,
   createProductEntity,
   createReferenceEntity,
-  defaultGenerationBrief,
   ensureGenerationBrief,
   ensureProductAssets,
   ensureProjectAssets
@@ -28,25 +29,26 @@ const storageKey = "anton-5-sec-state";
 const storageVersion = 1;
 
 export function createStore() {
-  let state = normalize(loadState() || {
-    projects,
-    products,
-    jobs: initialJobs,
-    audioLibrary: globalAudioLibrary,
-    selectedProjectId: projects[0].id,
-    selectedProductId: products[0].id,
-    selectedReferenceId: projects[0].references[0].id,
-    selectedCharacterId: projects[0].characters[0].id,
-    selectedAudioId: globalAudioLibrary[0].id,
-    selectedProjectTab: "project",
-    generationBrief: defaultGenerationBrief,
-    freePrompt: "Сделать спорный, но правдивый хук без репутационного риска."
-  });
+  let state = normalize(readJsonStorage(storageKey, { fallback: null, version: storageVersion }) || createInitialState());
+  let persistenceStatus = { status: "local", message: "Локальный кэш" };
+  let statePersistence = null;
   const subscribers = new Set();
 
   function setState(patch) {
     state = normalize({ ...state, ...patch });
-    saveState(state);
+    writeJsonStorage(storageKey, state, { version: storageVersion });
+    statePersistence?.scheduleSave();
+    subscribers.forEach((subscriber) => subscriber(state));
+  }
+
+  function replaceState(nextState) {
+    state = normalize(nextState);
+    writeJsonStorage(storageKey, state, { version: storageVersion });
+    subscribers.forEach((subscriber) => subscriber(state));
+  }
+
+  function setPersistenceStatus(status) {
+    persistenceStatus = { ...persistenceStatus, ...status };
     subscribers.forEach((subscriber) => subscriber(state));
   }
 
@@ -60,12 +62,19 @@ export function createStore() {
     setState,
     getProject
   });
+  statePersistence = createStatePersistence({
+    getState: () => state,
+    replaceState,
+    notifyStatus: setPersistenceStatus
+  });
 
+  setTimeout(() => statePersistence.hydrate(), 0);
   setTimeout(() => avatarWorkflow.resumeAvatarPolling(), 0);
   setTimeout(() => designReferenceWorkflow.resumeDesignReferencePolling(), 0);
 
   return {
     getState: () => state,
+    getPersistenceStatus: () => persistenceStatus,
     subscribe(callback) {
       subscribers.add(callback);
       return () => subscribers.delete(callback);
@@ -481,12 +490,4 @@ function normalize(nextState) {
       : "project",
     generationBrief: ensureGenerationBrief(nextState.generationBrief)
   };
-}
-
-function loadState() {
-  return readJsonStorage(storageKey, { fallback: null, version: storageVersion });
-}
-
-function saveState(state) {
-  writeJsonStorage(storageKey, state, { version: storageVersion });
 }

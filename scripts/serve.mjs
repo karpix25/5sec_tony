@@ -8,6 +8,7 @@ import { handleCompositeVideoApi } from "./composite-video.mjs";
 import { handleAvatarAlphaVideoApi } from "./avatar-alpha-video.mjs";
 import { handleReferenceAssetsApi } from "./reference-assets.mjs";
 import { handleReelsResearchApi } from "./reels-research-api.mjs";
+import { handleStateApi } from "./state-api.mjs";
 import { handleYandexDiskApi } from "./yandex-disk-api.mjs";
 
 const root = process.cwd();
@@ -33,6 +34,7 @@ const server = createServer(async (request, response) => {
   if (await handleKieApi(request, response, url)) return;
   if (await handleOpenRouterApi(request, response, url)) return;
   if (await handleReelsResearchApi(request, response, url)) return;
+  if (await handleStateApi(request, response, url)) return;
   if (await handleYandexDiskApi(request, response, url)) return;
 
   const safePath = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
