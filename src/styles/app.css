@@ -348,7 +348,6 @@ h2 {
 
 .studio-layout {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) minmax(220px, 280px);
   gap: var(--space-4);
   min-width: 0;
   overflow: clip;
@@ -391,17 +390,8 @@ h2 {
   margin-bottom: var(--space-3);
 }
 
-.preview-wrap {
-  display: grid;
-  gap: var(--space-3);
-  justify-items: center;
-  min-width: 0;
-  overflow: clip;
-}
-
 @media (max-width: 1080px) {
   .shell,
-  .studio-layout,
   .ops-panel {
     grid-template-columns: 1fr;
   }

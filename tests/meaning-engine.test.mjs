@@ -323,6 +323,23 @@ test("generation style selector hides CTA references", () => {
   assert.doesNotMatch(html, /CTA 4 сек/);
 });
 
+test("generation panel does not render static preview mockup", () => {
+  const project = projects[0];
+  const html = renderStudioPanel({ jobs: [] }, {
+    project,
+    product: products[0],
+    reference: project.references[0],
+    character: project.characters[0],
+    audioLibrary: [],
+    audio: null,
+    generationBrief: {}
+  });
+
+  assert.doesNotMatch(html, /phone-preview/);
+  assert.doesNotMatch(html, /preview-wrap/);
+  assert.doesNotMatch(html, /Открыть превью/);
+});
+
 test("generation operation panels hide provider and task identifiers", () => {
   const project = projects[2];
   const html = [

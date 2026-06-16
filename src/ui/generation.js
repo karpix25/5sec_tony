@@ -1,4 +1,4 @@
-import { escapeHtml, renderInfographicPreview } from "./infographic.js";
+import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
 import { getProjectAutomationState } from "../domain/project-automation.js";
 import { runImageJob } from "./job-runner.js";
@@ -24,13 +24,6 @@ export function renderStudioPanel(state, context) {
             <input id="generation-count" class="text-input" type="number" min="1" max="10" value="1" />
           </label>
           ${renderAutomationControls(context.project, automationState)}
-        </div>
-        <div class="preview-wrap">
-          ${renderInfographicPreview(context)}
-          <div class="approval-row">
-            <button class="secondary-btn" type="button">Открыть превью</button>
-            <button class="ghost-btn" type="button">Повторить</button>
-          </div>
         </div>
       </div>
     </section>
