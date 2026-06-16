@@ -79,3 +79,31 @@ test("scheduleSave stays inert before hydrate and saves after remote state is re
     globalThis.fetch = originalFetch;
   }
 });
+
+test("hydrate restores local fallback when remote state is disabled", async () => {
+  const originalFetch = globalThis.fetch;
+  const replaceCalls = [];
+  const modeChanges = [];
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({ state: null, disabled: true })
+  });
+
+  const persistence = createStatePersistence({
+    getState: () => ({ selectedProjectId: "initial" }),
+    replaceState: (state) => replaceCalls.push(state),
+    notifyStatus: () => {},
+    getLocalFallbackState: () => ({ selectedProjectId: "fallback" }),
+    onRemoteModeChange: (mode) => modeChanges.push(mode)
+  });
+
+  try {
+    await persistence.hydrate();
+    assert.equal(replaceCalls.length, 1);
+    assert.equal(replaceCalls[0].selectedProjectId, "fallback");
+    assert.deepEqual(modeChanges, ["local"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

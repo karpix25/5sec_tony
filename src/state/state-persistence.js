@@ -2,7 +2,13 @@ import { loadRemoteState, saveRemoteState } from "../services/state-sync.js";
 
 const saveDelayMs = 700;
 
-export function createStatePersistence({ getState, replaceState, notifyStatus }) {
+export function createStatePersistence({
+  getState,
+  replaceState,
+  notifyStatus,
+  getLocalFallbackState,
+  onRemoteModeChange
+}) {
   let timer = null;
   let saveInFlight = false;
   let pendingSave = false;
@@ -17,9 +23,12 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
         const result = await loadRemoteState();
         hydrated = true;
         if (result.disabled) {
+          onRemoteModeChange?.("local");
+          await restoreLocalFallbackState();
           notifyStatus({ status: "local", message: "БД не настроена" });
           return;
         }
+        onRemoteModeChange?.("remote");
         if (result.state) {
           await replaceStateWhenSafe(result.state);
           notifyStatus({ status: "saved", message: "Загружено из БД", updatedAt: result.updatedAt });
@@ -29,6 +38,8 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
         notifyStatus({ status: "saving", message: "Создаем запись в БД" });
       } catch (error) {
         hydrated = true;
+        onRemoteModeChange?.("error");
+        await restoreLocalFallbackState();
         notifyStatus({ status: "error", message: error.message || "Ошибка БД" });
       }
     })();
@@ -63,6 +74,11 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
   }
 
   return { hydrate, scheduleSave, whenHydrated: () => hydratePromise || Promise.resolve() };
+
+  async function restoreLocalFallbackState() {
+    const fallbackState = getLocalFallbackState?.();
+    if (fallbackState) await replaceStateWhenSafe(fallbackState);
+  }
 
   function replaceStateWhenSafe(nextState) {
     if (!isUserEditing()) {

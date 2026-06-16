@@ -1,4 +1,4 @@
-import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
+import { readJsonStorage, removeJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
 
 export function readStateFromLocalCache(storageKey, storageVersion, fallbackState) {
   return readJsonStorage(storageKey, {
@@ -12,6 +12,10 @@ export function saveStateToLocalCache(storageKey, storageVersion, state) {
     version: storageVersion,
     compactValue: compactStateForLocalCache
   });
+}
+
+export function clearStateFromLocalCache(storageKey) {
+  removeJsonStorage(storageKey);
 }
 
 export function compactStateForLocalCache(state) {

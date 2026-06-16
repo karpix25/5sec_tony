@@ -12,11 +12,11 @@ import {
   getSelectedGlobalAudioId
 } from "./global-assets.js";
 import { createGenerationJobBatch } from "./job-batch.js";
-import { createInitialState } from "./initial-state.js";
-import { readStateFromLocalCache, saveStateToLocalCache } from "./local-cache-state.js";
 import { normalizeProjectDailyLimit, normalizeProjectTotalLimit } from "./store-normalizers.js";
+import { createStoreCache } from "./store-cache.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
 import { createStatePersistence } from "./state-persistence.js";
+import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
   createAudioEntity,
   createId,
@@ -27,11 +27,9 @@ import {
   ensureProjectAssets
 } from "./factories.js";
 
-const storageKey = "anton-5-sec-state";
-const storageVersion = 1;
-
 export function createStore() {
-  let state = normalize(readStateFromLocalCache(storageKey, storageVersion, null) || createInitialState());
+  const storeCache = createStoreCache(normalize);
+  let state = storeCache.createInitialStoreState();
   let persistenceStatus = { status: "local", message: "Локальный кэш" };
   let statePersistence = null;
   const subscribers = new Set();
@@ -41,7 +39,7 @@ export function createStore() {
     const previousState = state;
     const nextState = normalize({ ...state, ...patch });
     state = nextState;
-    saveStateToLocalCache(storageKey, storageVersion, state);
+    storeCache.persist(state);
     if (shouldScheduleRemoteSave(previousState, nextState, patch)) {
       statePersistence?.scheduleSave();
     }
@@ -49,8 +47,8 @@ export function createStore() {
   }
 
   function replaceState(nextState) {
-    state = normalize(nextState);
-    saveStateToLocalCache(storageKey, storageVersion, state);
+    state = normalize(mergeHydratedStateWithUiState(nextState, state));
+    storeCache.persist(state);
     subscribers.forEach((subscriber) => subscriber(state, null));
   }
 
@@ -72,7 +70,12 @@ export function createStore() {
   statePersistence = createStatePersistence({
     getState: () => state,
     replaceState,
-    notifyStatus: setPersistenceStatus
+    notifyStatus: setPersistenceStatus,
+    getLocalFallbackState: () => storeCache.getFallbackProjectState(),
+    onRemoteModeChange(mode) {
+      if (mode === "remote") storeCache.markRemoteHealthy();
+      else storeCache.markRemoteUnavailable(state);
+    }
   });
   const hydrationPromise = new Promise((resolve) => setTimeout(() => resolve(statePersistence.hydrate()), 0));
   hydrationPromise.then(() => {
@@ -466,7 +469,10 @@ function normalize(nextState) {
   const hydratedProducts = nextState.products.map(ensureProductAssets);
   const audioLibrary = ensureGlobalAudioLibrary({ ...nextState, projects: hydratedProjects }, globalAudioLibrary);
   const hydratedState = { ...nextState, projects: hydratedProjects, products: hydratedProducts, audioLibrary };
-  const project = getProject(hydratedState, hydratedState.selectedProjectId);
+  const selectedProjectId = hydratedProjects.some((project) => project.id === nextState.selectedProjectId)
+    ? nextState.selectedProjectId
+    : hydratedProjects[0]?.id;
+  const project = getProject(hydratedState, selectedProjectId);
   const projectProducts = getProductsForProject(hydratedProducts, project.id);
   const designReferences = getDesignReferences(project);
   const fallbackReference = getFirstDesignReference(project);
@@ -476,6 +482,7 @@ function normalize(nextState) {
 
   return {
     ...hydratedState,
+    selectedProjectId,
     selectedProductId,
     selectedReferenceId: designReferences.some((ref) => ref.id === nextState.selectedReferenceId)
       ? nextState.selectedReferenceId
