@@ -72,11 +72,15 @@ test("queue previews open both generated images and final videos", () => {
 test("preview modal survives app rerenders during generation", () => {
   const previewSource = readFileSync(new URL("../src/ui/preview-modal.js", import.meta.url), "utf8");
   const mainSource = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const queueSource = readFileSync(new URL("../src/ui/queue.js", import.meta.url), "utf8");
 
   assert.match(previewSource, /dataset\.previewModalBound/);
   assert.match(previewSource, /getOpenMediaPreviewState/);
   assert.match(previewSource, /restoreMediaPreviewState/);
-  assert.match(mainSource, /renderAppPreservingPreview/);
-  assert.match(mainSource, /getOpenMediaPreviewState\(root\)/);
-  assert.match(mainSource, /restoreMediaPreviewState\(root, preview\)/);
+  assert.match(mainSource, /scheduleRender/);
+  assert.match(mainSource, /isJobsOnlyPatch/);
+  assert.match(mainSource, /requestRenderFrame/);
+  assert.match(mainSource, /updateQueuePanel\(root, pendingState/);
+  assert.match(queueSource, /bindQueuePanelEvents/);
+  assert.match(queueSource, /renderQueueList/);
 });

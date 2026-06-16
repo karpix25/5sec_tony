@@ -12,18 +12,36 @@ const queueStageLabels = {
 };
 
 export function renderQueuePanel(state, context) {
-  const projectJobs = state.jobs.filter((job) => job.projectId === context.project.id);
-  const productNames = new Map((state.products || []).map((product) => [product.id, product.name]));
   return `
     <section class="embedded-panel queue-panel">
       <div class="panel-head">
         <div><span class="eyebrow">Очередь генерации</span><h2>Статус задач</h2></div>
       </div>
-      <div class="queue-list">
-        ${projectJobs.map((job) => renderQueueJob(job, productNames.get(job.productId))).join("") || "<p class='empty'>Пока нет задач. Запустите генерацию из вкладки «Генерация».</p>"}
-      </div>
+      <div class="queue-list">${renderQueueList(state, context)}</div>
     </section>
   `;
+}
+
+export function updateQueuePanel(root, state, context, store) {
+  const list = root.querySelector(".queue-panel .queue-list");
+  if (!list) return false;
+  list.innerHTML = renderQueueList(state, context);
+  bindQueuePanelEvents(root, store);
+  return true;
+}
+
+export function bindQueuePanelEvents(root, store) {
+  root.querySelectorAll("[data-delete-job]:not([data-queue-bound])").forEach((button) => {
+    button.dataset.queueBound = "true";
+    button.addEventListener("click", () => store.deleteJob(button.dataset.deleteJob));
+  });
+}
+
+function renderQueueList(state, context) {
+  const projectJobs = state.jobs.filter((job) => job.projectId === context.project.id);
+  const productNames = new Map((state.products || []).map((product) => [product.id, product.name]));
+  return projectJobs.map((job) => renderQueueJob(job, productNames.get(job.productId))).join("")
+    || "<p class='empty'>Пока нет задач. Запустите генерацию из вкладки «Генерация».</p>";
 }
 
 function renderQueueJob(job, productName = "") {

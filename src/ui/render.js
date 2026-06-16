@@ -13,7 +13,7 @@ import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft,
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
 import { renderProjectManagementSettings } from "./project.js";
-import { renderQueuePanel } from "./queue.js";
+import { bindQueuePanelEvents, renderQueuePanel } from "./queue.js";
 import { bindYandexFolderPickers } from "./yandex-folder-picker.js";
 
 export function renderApp(root, store) {
@@ -305,6 +305,7 @@ function bindEvents(root, store) {
   root.querySelectorAll("[data-advance]").forEach((button) => {
     button.addEventListener("click", () => store.advanceJob(button.dataset.advance));
   });
+  bindQueuePanelEvents(root, store);
   root.querySelectorAll("[data-delete-project]").forEach((button) => {
     button.addEventListener("click", () => {
       store.deleteProject(button.dataset.deleteProject);
@@ -350,9 +351,6 @@ function bindEvents(root, store) {
   bindPreviewModalEvents(root);
   root.querySelectorAll("[data-delete-audio]").forEach((button) => {
     button.addEventListener("click", () => store.deleteAudio(button.dataset.deleteAudio));
-  });
-  root.querySelectorAll("[data-delete-job]").forEach((button) => {
-    button.addEventListener("click", () => store.deleteJob(button.dataset.deleteJob));
   });
   bindAvatarOverlayComposerEvents(root, store);
   bindHooksEvents(root, () => renderApp(root, store));

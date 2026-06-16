@@ -39,13 +39,13 @@ export function createStore() {
     state = normalize({ ...state, ...patch });
     writeJsonStorage(storageKey, state, { version: storageVersion });
     statePersistence?.scheduleSave();
-    subscribers.forEach((subscriber) => subscriber(state));
+    subscribers.forEach((subscriber) => subscriber(state, patch));
   }
 
   function replaceState(nextState) {
     state = normalize(nextState);
     writeJsonStorage(storageKey, state, { version: storageVersion });
-    subscribers.forEach((subscriber) => subscriber(state));
+    subscribers.forEach((subscriber) => subscriber(state, null));
   }
 
   function setPersistenceStatus(status) {
