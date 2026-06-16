@@ -1,3 +1,5 @@
+import { getOpenRouterErrorMessage, parseJsonDraft, readOpenRouterPayload } from "./openrouter-response.mjs";
+
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -104,7 +106,7 @@ async function generateProjectField(request, response) {
       { role: "system", content: "Ты стратег контента. Пиши по-русски, конкретно, без выдуманных фактов и запрещенных обещаний. Верни только JSON вида {\"value\":\"...\"}." },
       { role: "user", content: projectFieldInstruction(body) }
     ]);
-    const draft = parseJsonDraft(content);
+    const draft = parseJsonDraft(content, { strict: false });
     return sendJson(response, 200, { model: writingModel, value: draft.value || String(content).trim() });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "OpenRouter request failed" });
@@ -439,8 +441,8 @@ async function callOpenRouter(token, model, messages, options = {}) {
       body: JSON.stringify({ model, messages, temperature: 0.25 }),
       signal: controller.signal
     });
-    const payload = await result.json().catch(() => ({}));
-    if (!result.ok) throw new Error(payload.error?.message || "OpenRouter request failed");
+    const payload = await readOpenRouterPayload(result);
+    if (!result.ok) throw new Error(getOpenRouterErrorMessage(payload, "OpenRouter request failed"));
     return payload.choices?.[0]?.message?.content || "";
   } catch (error) {
     if (error.name === "AbortError") {
@@ -451,16 +453,6 @@ async function callOpenRouter(token, model, messages, options = {}) {
     clearTimeout(timer);
   }
 }
-
-function parseJsonDraft(text) {
-  const json = String(text).match(/\{[\s\S]*\}/)?.[0] || "{}";
-  try {
-    return JSON.parse(json);
-  } catch {
-    return {};
-  }
-}
-
 function readJson(request) {
   return new Promise((resolve, reject) => {
     let data = "";

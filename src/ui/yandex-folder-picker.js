@@ -3,6 +3,7 @@ import { listYandexDiskFolders } from "../services/yandex-disk.js";
 const defaultYandexRoot = "disk:/ВИДЕО";
 const folderTreeMax = 500;
 const folderTreeDepth = 4;
+const yandexFolderTreeCache = new Map();
 
 export function bindYandexFolderPickers(root) {
   root.querySelectorAll("[data-yandex-folder-picker]").forEach((picker) => {
@@ -20,14 +21,34 @@ async function initYandexFolderPicker(picker) {
   const selectedPath = normalizeYandexPickerPath(valueInput.value || rootPath);
   valueInput.value = selectedPath;
   tree.innerHTML = "";
-  setYandexPickerStatus(status, "Загружаем папки...");
 
   try {
-    const payload = await listYandexDiskFolders({ root: rootPath, depth: folderTreeDepth, max: folderTreeMax });
+    const payload = await getCachedYandexFolderTree(rootPath, status);
     renderYandexFolderTree({ tree, valueInput, status, rootPath, selectedPath, payload });
   } catch (error) {
     setYandexPickerStatus(status, error.message || "Не удалось загрузить папки");
   }
+}
+
+async function getCachedYandexFolderTree(rootPath, status) {
+  const cacheKey = normalizeYandexPickerPath(rootPath);
+  const cached = yandexFolderTreeCache.get(cacheKey);
+  if (cached?.payload) return cached.payload;
+  if (!cached) {
+    setYandexPickerStatus(status, "Загружаем папки...");
+    const request = listYandexDiskFolders({ root: rootPath, depth: folderTreeDepth, max: folderTreeMax })
+      .then((payload) => {
+        yandexFolderTreeCache.set(cacheKey, { payload });
+        return payload;
+      })
+      .catch((error) => {
+        yandexFolderTreeCache.delete(cacheKey);
+        throw error;
+      });
+    yandexFolderTreeCache.set(cacheKey, { request });
+    return request;
+  }
+  return cached.request;
 }
 
 function renderYandexFolderTree({ tree, valueInput, status, rootPath, selectedPath, payload }) {

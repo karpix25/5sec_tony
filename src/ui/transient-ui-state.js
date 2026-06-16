@@ -1,15 +1,51 @@
+const transientControlSelectors = [
+  "#generation-count",
+  "#hook-version-title",
+  "#hook-text-input"
+];
+
 export function captureTransientUiState(root) {
   return {
-    generationCount: root.querySelector("#generation-count")?.value || "",
-    automationDraft: captureFormDraft(root.querySelector("#automation-form"))
+    controls: captureTransientControls(root),
+    forms: captureTransientForms(root)
   };
 }
 
 export function restoreTransientUiState(root, snapshot) {
   if (!snapshot) return;
-  const generationCount = root.querySelector("#generation-count");
-  if (generationCount && snapshot.generationCount) generationCount.value = snapshot.generationCount;
-  restoreFormDraft(root.querySelector("#automation-form"), snapshot.automationDraft);
+  restoreTransientControls(root, snapshot.controls);
+  restoreTransientForms(root, snapshot.forms);
+}
+
+function captureTransientControls(root) {
+  return transientControlSelectors.reduce((controls, selector) => {
+    const field = root.querySelector(selector);
+    if (!field) return controls;
+    controls[selector] = captureFieldValue(field);
+    return controls;
+  }, {});
+}
+
+function restoreTransientControls(root, controls = {}) {
+  Object.entries(controls).forEach(([selector, value]) => {
+    const field = root.querySelector(selector);
+    if (!field) return;
+    restoreFieldValue(field, value);
+  });
+}
+
+function captureTransientForms(root) {
+  const forms = {};
+  root.querySelectorAll("form[id]").forEach((form) => {
+    forms[form.id] = captureFormDraft(form);
+  });
+  return forms;
+}
+
+function restoreTransientForms(root, forms = {}) {
+  Object.entries(forms).forEach(([formId, draft]) => {
+    restoreFormDraft(root.querySelector(`#${formId}`), draft);
+  });
 }
 
 function captureFormDraft(form) {
@@ -26,7 +62,15 @@ function restoreFormDraft(form, draft) {
   if (!form || !draft) return;
   [...form.elements].forEach((field) => {
     if (!field?.name || !Object.hasOwn(draft, field.name)) return;
-    if (field.type === "checkbox") field.checked = Boolean(draft[field.name]);
-    else field.value = draft[field.name];
+    restoreFieldValue(field, draft[field.name]);
   });
+}
+
+function captureFieldValue(field) {
+  return field.type === "checkbox" ? field.checked : field.value;
+}
+
+function restoreFieldValue(field, value) {
+  if (field.type === "checkbox") field.checked = Boolean(value);
+  else if (value !== undefined && value !== null) field.value = value;
 }

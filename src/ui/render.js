@@ -17,7 +17,7 @@ import { renderProjectManagementSettings } from "./project.js";
 import { bindQueuePanelEvents, renderQueuePanel } from "./queue.js";
 import { bindYandexFolderPickers } from "./yandex-folder-picker.js";
 
-export function renderApp(root, store) {
+export function renderApp(root, store, options = {}) {
   const state = store.getState();
   const context = getContext(state);
   const projectProducts = getProductsForProject(state.products, context.project.id);
@@ -36,7 +36,7 @@ export function renderApp(root, store) {
     ${renderMediaPreviewModal()}
   `;
 
-  bindEvents(root, store);
+  bindEvents(root, store, options);
 }
 
 export function updatePersistenceStatus(root, status) {
@@ -197,7 +197,7 @@ function field(label, name, placeholder, type = "input", required = false) {
   return `<label class="stacked-field"><span>${escapedLabel}</span>${control}</label>`;
 }
 
-function bindEvents(root, store) {
+function bindEvents(root, store, options = {}) {
   root.querySelector("#project-select")?.addEventListener("change", (event) => store.selectProject(event.target.value));
   root.querySelector("#product-select")?.addEventListener("change", (event) => store.selectProduct(event.target.value));
   root.querySelector("#reference-select")?.addEventListener("change", (event) => store.selectReference(event.target.value));
@@ -354,7 +354,7 @@ function bindEvents(root, store) {
     button.addEventListener("click", () => store.deleteAudio(button.dataset.deleteAudio));
   });
   bindAvatarOverlayComposerEvents(root, store);
-  bindHooksEvents(root, () => renderApp(root, store));
+  bindHooksEvents(root, options.rerender || (() => renderApp(root, store, options)));
 }
 
 function getFormPayload(form) {

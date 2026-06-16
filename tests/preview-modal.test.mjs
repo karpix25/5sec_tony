@@ -73,14 +73,18 @@ test("preview modal survives app rerenders during generation", () => {
   const previewSource = readFileSync(new URL("../src/ui/preview-modal.js", import.meta.url), "utf8");
   const mainSource = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
   const queueSource = readFileSync(new URL("../src/ui/queue.js", import.meta.url), "utf8");
+  const renderSource = readFileSync(new URL("../src/ui/render.js", import.meta.url), "utf8");
 
   assert.match(previewSource, /dataset\.previewModalBound/);
   assert.match(previewSource, /getOpenMediaPreviewState/);
   assert.match(previewSource, /restoreMediaPreviewState/);
   assert.match(mainSource, /scheduleRender/);
+  assert.match(mainSource, /renderAppSafely/);
+  assert.match(mainSource, /renderApp\(root, store, \{ rerender: renderAppSafely \}\)/);
   assert.match(mainSource, /isJobsOnlyPatch/);
   assert.match(mainSource, /requestRenderFrame/);
   assert.match(mainSource, /updateQueuePanel\(root, pendingState/);
+  assert.match(renderSource, /bindHooksEvents\(root, options\.rerender/);
   assert.match(queueSource, /bindQueuePanelEvents/);
   assert.match(queueSource, /renderQueueList/);
 });

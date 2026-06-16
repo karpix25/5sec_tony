@@ -7,27 +7,32 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
   let saveInFlight = false;
   let pendingSave = false;
   let hydrated = false;
+  let hydratePromise = null;
 
   async function hydrate() {
+    if (hydratePromise) return hydratePromise;
     notifyStatus({ status: "loading", message: "Загружаем из БД" });
-    try {
-      const result = await loadRemoteState();
-      hydrated = true;
-      if (result.disabled) {
-        notifyStatus({ status: "local", message: "БД не настроена" });
-        return;
+    hydratePromise = (async () => {
+      try {
+        const result = await loadRemoteState();
+        hydrated = true;
+        if (result.disabled) {
+          notifyStatus({ status: "local", message: "БД не настроена" });
+          return;
+        }
+        if (result.state) {
+          await replaceStateWhenSafe(result.state);
+          notifyStatus({ status: "saved", message: "Загружено из БД", updatedAt: result.updatedAt });
+          return;
+        }
+        scheduleSave();
+        notifyStatus({ status: "saving", message: "Создаем запись в БД" });
+      } catch (error) {
+        hydrated = true;
+        notifyStatus({ status: "error", message: error.message || "Ошибка БД" });
       }
-      if (result.state) {
-        replaceStateWhenSafe(result.state);
-        notifyStatus({ status: "saved", message: "Загружено из БД", updatedAt: result.updatedAt });
-        return;
-      }
-      scheduleSave();
-      notifyStatus({ status: "saving", message: "Создаем запись в БД" });
-    } catch (error) {
-      hydrated = true;
-      notifyStatus({ status: "error", message: error.message || "Ошибка БД" });
-    }
+    })();
+    return hydratePromise;
   }
 
   function scheduleSave() {
@@ -57,18 +62,24 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
     }
   }
 
-  return { hydrate, scheduleSave };
+  return { hydrate, scheduleSave, whenHydrated: () => hydratePromise || Promise.resolve() };
 
   function replaceStateWhenSafe(nextState) {
     if (!isUserEditing()) {
       replaceState(nextState);
-      return;
+      return Promise.resolve();
     }
-    const retry = () => {
-      if (!isUserEditing()) replaceState(nextState);
-      else setTimeout(retry, 400);
-    };
-    setTimeout(retry, 400);
+    return new Promise((resolve) => {
+      const retry = () => {
+        if (!isUserEditing()) {
+          replaceState(nextState);
+          resolve();
+          return;
+        }
+        setTimeout(retry, 400);
+      };
+      setTimeout(retry, 400);
+    });
   }
 }
 

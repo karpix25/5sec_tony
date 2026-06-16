@@ -71,9 +71,8 @@ export function scoreMeaningBrief({ brief, project }) {
   const text = `${brief.hook || ""} ${brief.topic || ""} ${brief.visualObject || ""}`.toLowerCase();
   const hasConflict = /ошиб|красн|риск|проверь|не делайте|лома|норма|миф|застрев/.test(text);
   const hasVisual = Boolean(brief.visualObject);
-  const hasRestrictionRisk = project.forbiddenTriggers
-    ? text.includes(project.forbiddenTriggers.toLowerCase())
-    : false;
+  const hasRestrictionRisk = splitMeaningLines(project.forbiddenTriggers)
+    .some((item) => item && text.includes(item));
   return {
     score: [hasConflict, hasVisual, !hasRestrictionRisk].filter(Boolean).length,
     hasConflict,
@@ -206,4 +205,11 @@ function meaningFirstLine(value) {
 
 function meaningFirstListItem(value) {
   return Array.isArray(value) ? value.find(Boolean) || "" : meaningFirstLine(value);
+}
+
+function splitMeaningLines(value) {
+  return String(value || "")
+    .split(/\n|;/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
 }

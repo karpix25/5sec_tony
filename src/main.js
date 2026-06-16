@@ -15,9 +15,13 @@ let pendingState = store.getState();
 
 store.subscribe((state, patch) => scheduleRender(state, patch));
 store.subscribePersistence((status) => updatePersistenceStatus(root, status));
-renderAppPreservingPreview();
-setTimeout(() => resumeRunningImageJobs(store), 0);
-startAutomationRunner(store);
+renderAppSafely();
+Promise.resolve(store.whenHydrated?.())
+  .catch(() => null)
+  .finally(() => {
+    resumeRunningImageJobs(store);
+    startAutomationRunner(store);
+  });
 
 function scheduleRender(state, patch) {
   pendingState = state;
@@ -33,13 +37,13 @@ function flushRender() {
     return;
   }
   needsFullRender = false;
-  renderAppPreservingPreview();
+  renderAppSafely();
 }
 
-function renderAppPreservingPreview() {
+function renderAppSafely() {
   const preview = getOpenMediaPreviewState(root);
   const transientUiState = captureTransientUiState(root);
-  renderApp(root, store);
+  renderApp(root, store, { rerender: renderAppSafely });
   restoreMediaPreviewState(root, preview);
   restoreTransientUiState(root, transientUiState);
 }

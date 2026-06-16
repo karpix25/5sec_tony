@@ -105,11 +105,12 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     },
     resumeAvatarPolling() {
       const state = getState();
-      const project = getProject(state, state.selectedProjectId);
-      (project.avatarCandidates || [])
-        .filter((candidate) => candidate.taskId && ["waiting", "generating"].includes(candidate.status))
-        .forEach((candidate) => pollAvatar(candidate.id, candidate.taskId));
-      avatarVideoWorkflow.resumeAvatarVideoPolling(project);
+      state.projects.forEach((project) => {
+        (project.avatarCandidates || [])
+          .filter((candidate) => candidate.taskId && ["waiting", "generating"].includes(candidate.status))
+          .forEach((candidate) => pollAvatar(candidate.id, candidate.taskId));
+      });
+      avatarVideoWorkflow.resumeAvatarVideoPolling();
     }
   };
 
@@ -117,7 +118,7 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     const state = getState();
     setState({
       projects: state.projects.map((project) =>
-        project.id === state.selectedProjectId
+        (project.avatarCandidates || []).some((candidate) => candidate.id === candidateId)
           ? {
               ...project,
               avatarCandidates: (project.avatarCandidates || []).map((candidate) =>
@@ -133,7 +134,7 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     const state = getState();
     setState({
       projects: state.projects.map((project) =>
-        project.id === state.selectedProjectId
+        project.characters.some((character) => character.id === characterId)
           ? { ...project, characters: project.characters.map((character) => character.id === characterId ? updater(character) : character) }
           : project
       )
@@ -144,7 +145,7 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     const state = getState();
     setState({
       projects: state.projects.map((project) =>
-        project.id === state.selectedProjectId
+        project.characters.some((character) => character.id === characterId)
           ? {
               ...project,
               characters: project.characters.map((character) =>
@@ -167,8 +168,7 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     await delay(attempt === 0 ? 6000 : 4000);
 
     const state = getState();
-    const project = getProject(state, state.selectedProjectId);
-    const candidate = (project.avatarCandidates || []).find((item) => item.id === candidateId);
+    const candidate = findAvatarCandidate(state, candidateId);
     if (!candidate || candidate.status === "review" || candidate.status === "failed") return;
 
     try {
@@ -180,6 +180,14 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     }
   }
 
+}
+
+function findAvatarCandidate(state, candidateId) {
+  for (const project of state.projects || []) {
+    const candidate = (project.avatarCandidates || []).find((item) => item.id === candidateId);
+    if (candidate) return candidate;
+  }
+  return null;
 }
 
 function failItem(item, error, fallback) {

@@ -116,7 +116,8 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       patchAvatarVideo(character.id, videoId, (item) => ({ ...item, isActive: Boolean(isActive) }));
     },
     resumeAvatarVideoPolling(project) {
-      project.characters.forEach((character) => {
+      const projects = project ? [project] : getState().projects;
+      projects.forEach((item) => item.characters.forEach((character) => {
         (character.avatarVideos || [])
           .filter((video) => video.imageTaskId && ["preparing-image", "generating-image"].includes(video.status))
           .forEach((video) => pollAvatarChromaImage(character.id, video.id, video.imageTaskId));
@@ -139,7 +140,7 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
         (character.avatarVideos || [])
           .filter((video) => video.ctaOverlay?.candidate?.taskId && video.ctaOverlay.candidate.status === "generating")
           .forEach((video) => pollCtaBadgeImage(character.id, video.id, video.ctaOverlay.candidate.id, video.ctaOverlay.candidate.taskId));
-      });
+      }));
     }
   };
 
@@ -255,9 +256,12 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
 
   function getCharacterVideo(characterId, videoId) {
     const state = getState();
-    const project = getProject(state, state.selectedProjectId);
-    const character = project.characters.find((item) => item.id === characterId);
-    return (character?.avatarVideos || []).find((video) => video.id === videoId);
+    for (const project of state.projects || []) {
+      const character = project.characters.find((item) => item.id === characterId);
+      const video = (character?.avatarVideos || []).find((item) => item.id === videoId);
+      if (video) return video;
+    }
+    return null;
   }
 
   async function convertAvatarAlphaVideo(characterId, videoId, videoUrl) {

@@ -73,10 +73,11 @@ async function createAvatarTask(request, response) {
     body: JSON.stringify(createKieTaskPayload({ provider, prompt, inputUrls, body }))
   });
 
-  const payload = await result.json().catch(() => ({}));
+  const payload = await readUpstreamJson(result);
   if (!result.ok || payload.code !== 200) {
-    console.log("[kie:image:error]", JSON.stringify({ provider, status: result.status, message: payload.msg || "" }));
-    return sendJson(response, 502, { error: payload.msg || "Kie.ai task creation failed", payload });
+    const errorMessage = getKieErrorMessage(payload, "Kie.ai task creation failed");
+    console.log("[kie:image:error]", JSON.stringify({ provider, status: result.status, message: errorMessage }));
+    return sendJson(response, 502, { error: errorMessage, payload });
   }
 
   console.log("[kie:image:created]", JSON.stringify({ provider, taskId: payload.data?.taskId || "" }));
@@ -122,10 +123,11 @@ async function createAvatarVideoTask(request, response) {
     })
   });
 
-  const payload = await result.json().catch(() => ({}));
+  const payload = await readUpstreamJson(result);
   if (!result.ok || payload.code !== 200) {
-    console.log("[kie:avatar-video:error]", JSON.stringify({ status: result.status, message: payload.msg || "" }));
-    return sendJson(response, 502, { error: payload.msg || "Kie.ai avatar video task creation failed", payload });
+    const errorMessage = getKieErrorMessage(payload, "Kie.ai avatar video task creation failed");
+    console.log("[kie:avatar-video:error]", JSON.stringify({ status: result.status, message: errorMessage }));
+    return sendJson(response, 502, { error: errorMessage, payload });
   }
 
   console.log("[kie:avatar-video:created]", JSON.stringify({ taskId: payload.data?.taskId || "" }));
@@ -164,18 +166,18 @@ async function getAvatarTask(response, taskId) {
   const result = await fetch(`${getBaseUrl()}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  const payload = await result.json().catch(() => ({}));
-  if (!result.ok) return sendJson(response, 502, { error: payload.msg || "Kie.ai status request failed", payload });
+  const payload = await readUpstreamJson(result);
+  if (!result.ok) return sendJson(response, 502, { error: getKieErrorMessage(payload, "Kie.ai status request failed"), payload });
 
   const data = payload.data || {};
   const resultJson = parseResultJson(data.resultJson);
-  const imageUrl = await persistKieAsset(getKieImageUrl(data, resultJson), { prefix: "avatars", fallbackExt: ".png" });
+  const imageAsset = await persistKieAsset(getKieImageUrl(data, resultJson), { prefix: "avatars", fallbackExt: ".png" });
   return sendJson(response, 200, {
     taskId,
-    state: data.state,
+    state: imageAsset.error ? "failed" : data.state,
     progress: data.progress || 0,
-    imageUrl,
-    failMsg: data.failMsg || "",
+    imageUrl: imageAsset.url,
+    failMsg: imageAsset.error || data.failMsg || "",
     payload
   });
 }
@@ -188,30 +190,30 @@ async function getAvatarVideoTask(response, taskId) {
   const result = await fetch(`${getBaseUrl()}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  const payload = await result.json().catch(() => ({}));
-  if (!result.ok) return sendJson(response, 502, { error: payload.msg || "Kie.ai avatar video status request failed", payload });
+  const payload = await readUpstreamJson(result);
+  if (!result.ok) return sendJson(response, 502, { error: getKieErrorMessage(payload, "Kie.ai avatar video status request failed"), payload });
 
   const data = payload.data || {};
   const resultJson = parseResultJson(data.resultJson);
   const responseJson = parseResultJson(data.response);
-  const videoUrl = await persistKieAsset(getKieVideoUrl(data, resultJson, responseJson), { prefix: "avatar-videos", fallbackExt: ".mp4" });
+  const videoAsset = await persistKieAsset(getKieVideoUrl(data, resultJson, responseJson), { prefix: "avatar-videos", fallbackExt: ".mp4" });
   return sendJson(response, 200, {
     taskId,
-    state: data.state,
+    state: videoAsset.error ? "failed" : data.state,
     progress: data.progress || 0,
-    videoUrl,
-    failMsg: data.failMsg || data.errorMessage || "",
+    videoUrl: videoAsset.url,
+    failMsg: videoAsset.error || data.failMsg || data.errorMessage || "",
     payload
   });
 }
 
 async function persistKieAsset(url, options) {
-  if (!url || !isS3AssetStorageConfigured()) return url;
+  if (!url || !isS3AssetStorageConfigured()) return { url, error: "" };
   try {
-    return await uploadRemoteAssetToS3(url, options);
+    return { url: await uploadRemoteAssetToS3(url, options), error: "" };
   } catch (error) {
     console.log("[s3:asset:error]", JSON.stringify({ url: url.slice(0, 80), message: error.message || "" }));
-    return url;
+    return { url: "", error: error.message || "Не удалось сохранить asset в S3" };
   }
 }
 
@@ -256,6 +258,20 @@ function parseResultJson(value) {
   } catch {
     return {};
   }
+}
+
+async function readUpstreamJson(response) {
+  const raw = await response.text().catch(() => "");
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { error: raw.trim() || "Kie.ai вернул некорректный JSON." };
+  }
+}
+
+function getKieErrorMessage(payload, fallback) {
+  return payload.msg || payload.error?.message || payload.error || fallback;
 }
 
 function readJson(request) {

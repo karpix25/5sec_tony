@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { listYandexFolders } from "../scripts/yandex-disk-api.mjs";
 import { listYandexDiskFolders } from "../src/services/yandex-disk.js";
 import { renderProjectManagementSettings } from "../src/ui/project.js";
@@ -120,4 +121,13 @@ test("yandex folder field uses one tree dropdown and keeps full disk path", () =
   assert.match(html, /name="yandexDiskFolder" type="hidden" value="disk:\/ВИДЕО\/Клиент\/Проект"/);
   assert.doesNotMatch(html, /Уровень 1/);
   assert.doesNotMatch(html, /<select name="yandexDiskFolder"/);
+});
+
+test("yandex picker reuses cached folder tree across rerenders", () => {
+  const source = readFileSync(new URL("../src/ui/yandex-folder-picker.js", import.meta.url), "utf8");
+
+  assert.match(source, /const yandexFolderTreeCache = new Map\(\)/);
+  assert.match(source, /getCachedYandexFolderTree/);
+  assert.match(source, /cached\?\.payload/);
+  assert.match(source, /cached\.request/);
 });

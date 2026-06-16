@@ -60,10 +60,11 @@ export function createDesignReferenceWorkflow({ getState, setState, getProject }
     },
     resumeDesignReferencePolling() {
       const state = getState();
-      const project = getProject(state, state.selectedProjectId);
-      (project.designReferenceCandidates || [])
-        .filter((candidate) => candidate.taskId && ["waiting", "generating"].includes(candidate.status))
-        .forEach((candidate) => pollDesignReferenceCandidate(candidate.id, candidate.taskId));
+      state.projects.forEach((project) => {
+        (project.designReferenceCandidates || [])
+          .filter((candidate) => candidate.taskId && ["waiting", "generating"].includes(candidate.status))
+          .forEach((candidate) => pollDesignReferenceCandidate(candidate.id, candidate.taskId));
+      });
     }
   };
 
@@ -71,7 +72,7 @@ export function createDesignReferenceWorkflow({ getState, setState, getProject }
     const state = getState();
     setState({
       projects: state.projects.map((project) =>
-        project.id === state.selectedProjectId
+        (project.designReferenceCandidates || []).some((candidate) => candidate.id === candidateId)
           ? {
               ...project,
               designReferenceCandidates: (project.designReferenceCandidates || []).map((candidate) =>
@@ -96,8 +97,7 @@ export function createDesignReferenceWorkflow({ getState, setState, getProject }
     await delayDesignReferencePoll(attempt === 0 ? 6000 : 4000);
 
     const state = getState();
-    const project = getProject(state, state.selectedProjectId);
-    const candidate = (project.designReferenceCandidates || []).find((item) => item.id === candidateId);
+    const candidate = findDesignReferenceCandidate(state, candidateId);
     if (!candidate || candidate.status === "review" || candidate.status === "failed") return;
 
     try {
@@ -110,6 +110,14 @@ export function createDesignReferenceWorkflow({ getState, setState, getProject }
       patchDesignReferenceCandidate(candidateId, (item) => failDesignReferenceItem(item, error, "Design reference status request failed"));
     }
   }
+}
+
+function findDesignReferenceCandidate(state, candidateId) {
+  for (const project of state.projects || []) {
+    const candidate = (project.designReferenceCandidates || []).find((item) => item.id === candidateId);
+    if (candidate) return candidate;
+  }
+  return null;
 }
 
 function failDesignReferenceItem(item, error, fallback) {

@@ -14,6 +14,8 @@ import {
 } from "./global-assets.js";
 import { createGenerationJobBatch } from "./job-batch.js";
 import { createInitialState } from "./initial-state.js";
+import { normalizeProjectDailyLimit, normalizeProjectTotalLimit } from "./store-normalizers.js";
+import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
 import { createStatePersistence } from "./state-persistence.js";
 import {
   createAudioEntity,
@@ -36,9 +38,13 @@ export function createStore() {
   const persistenceSubscribers = new Set();
 
   function setState(patch) {
-    state = normalize({ ...state, ...patch });
+    const previousState = state;
+    const nextState = normalize({ ...state, ...patch });
+    state = nextState;
     writeJsonStorage(storageKey, state, { version: storageVersion });
-    statePersistence?.scheduleSave();
+    if (shouldScheduleRemoteSave(previousState, nextState, patch)) {
+      statePersistence?.scheduleSave();
+    }
     subscribers.forEach((subscriber) => subscriber(state, patch));
   }
 
@@ -68,14 +74,16 @@ export function createStore() {
     replaceState,
     notifyStatus: setPersistenceStatus
   });
-
-  setTimeout(() => statePersistence.hydrate(), 0);
-  setTimeout(() => avatarWorkflow.resumeAvatarPolling(), 0);
-  setTimeout(() => designReferenceWorkflow.resumeDesignReferencePolling(), 0);
+  const hydrationPromise = new Promise((resolve) => setTimeout(() => resolve(statePersistence.hydrate()), 0));
+  hydrationPromise.then(() => {
+    avatarWorkflow.resumeAvatarPolling();
+    designReferenceWorkflow.resumeDesignReferencePolling();
+  });
 
   return {
     getState: () => state,
     getPersistenceStatus: () => persistenceStatus,
+    whenHydrated: () => hydrationPromise,
     subscribe(callback) {
       subscribers.add(callback);
       return () => subscribers.delete(callback);
@@ -411,18 +419,6 @@ function updateProjectEntity(project, payload) {
     style: value("style", project.style),
     automation: normalizeProjectAutomation(project.automation)
   };
-}
-
-function normalizeProjectDailyLimit(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return 20;
-  return Math.min(500, Math.max(1, Math.round(number)));
-}
-
-function normalizeProjectTotalLimit(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return 500;
-  return Math.min(10000, Math.max(1, Math.round(number)));
 }
 
 function getContextForProject(state, projectId) {

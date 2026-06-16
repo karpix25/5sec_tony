@@ -40,6 +40,8 @@ const files = [
   "src/state/design-reference-workflow.js",
   "src/state/avatar-video-workflow.js",
   "src/state/avatar-workflow.js",
+  "src/state/store-normalizers.js",
+  "src/state/store-persistence-policy.js",
   "src/state/store.js",
   "src/ui/infographic.js",
   "src/ui/audio.js",

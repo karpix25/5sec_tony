@@ -6,7 +6,7 @@ export async function extractHooksFromImage({ imageData, title }) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ imageData, title })
   });
-  const payload = await response.json();
+  const payload = await readHookPayload(response);
   if (!response.ok) throw new Error(payload.error || "Не удалось извлечь хуки");
   return createHookDraft({
     title: title || "Хуки со скрина",
@@ -21,7 +21,7 @@ export async function extractHooksFromPdf({ pdfData, title, fileName }) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pdfData, title, fileName })
   });
-  const payload = await response.json();
+  const payload = await readHookPayload(response);
   if (!response.ok) throw new Error(payload.error || "Не удалось прочитать PDF");
   const draft = createHookDraft({
     title: title || "Хуки из PDF",
@@ -30,4 +30,13 @@ export async function extractHooksFromPdf({ pdfData, title, fileName }) {
   });
   if (!draft.hooks.length) throw new Error("В PDF не нашлись отдельные хуки.");
   return draft;
+}
+
+async function readHookPayload(response) {
+  if (typeof response.json === "function") {
+    try { return await response.json(); } catch {}
+  }
+  const raw = typeof response.text === "function" ? await response.text().catch(() => "") : "";
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return { error: raw.trim() || "API вернул некорректный JSON." }; }
 }

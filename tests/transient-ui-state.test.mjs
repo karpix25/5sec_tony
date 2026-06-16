@@ -5,22 +5,43 @@ import { captureTransientUiState, restoreTransientUiState } from "../src/ui/tran
 
 test("transient generation controls survive full rerender restore", () => {
   const generationCount = { value: "7" };
+  const hookTitle = { value: "Хуки июнь" };
+  const hookText = { value: "Первый хук\nВторой хук" };
   const enabled = { name: "enabled", type: "checkbox", checked: true };
   const targetCount = { name: "targetCount", type: "number", value: "42" };
-  const form = { elements: [enabled, targetCount] };
-  const root = createRoot({ generationCount, form });
+  const projectName = { name: "name", type: "text", value: "Новый проект" };
+  const yandexDiskFolder = { name: "yandexDiskFolder", type: "hidden", value: "disk:/ВИДЕО/Клиент/Проект" };
+  const automationForm = { id: "automation-form", elements: [enabled, targetCount] };
+  const projectForm = { id: "project-settings-form", elements: [projectName, yandexDiskFolder] };
+  const root = createRoot({
+    generationCount,
+    hookTitle,
+    hookText,
+    forms: {
+      "automation-form": automationForm,
+      "project-settings-form": projectForm
+    }
+  });
 
   const snapshot = captureTransientUiState(root);
 
   generationCount.value = "1";
+  hookTitle.value = "";
+  hookText.value = "";
   enabled.checked = false;
   targetCount.value = "10";
+  projectName.value = "Старое имя";
+  yandexDiskFolder.value = "disk:/ВИДЕО";
 
   restoreTransientUiState(root, snapshot);
 
   assert.equal(generationCount.value, "7");
+  assert.equal(hookTitle.value, "Хуки июнь");
+  assert.equal(hookText.value, "Первый хук\nВторой хук");
   assert.equal(enabled.checked, true);
   assert.equal(targetCount.value, "42");
+  assert.equal(projectName.value, "Новый проект");
+  assert.equal(yandexDiskFolder.value, "disk:/ВИДЕО/Клиент/Проект");
 });
 
 test("state persistence guards against blurred dirty form controls", () => {
@@ -32,12 +53,18 @@ test("state persistence guards against blurred dirty form controls", () => {
   assert.match(source, /files\?\.length/);
 });
 
-function createRoot({ generationCount, form }) {
+function createRoot({ generationCount, hookTitle, hookText, forms = {} }) {
   return {
     querySelector(selector) {
       if (selector === "#generation-count") return generationCount;
-      if (selector === "#automation-form") return form;
+      if (selector === "#hook-version-title") return hookTitle;
+      if (selector === "#hook-text-input") return hookText;
+      if (selector.startsWith("#")) return forms[selector.slice(1)] || null;
       return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === "form[id]") return Object.values(forms);
+      return [];
     }
   };
 }

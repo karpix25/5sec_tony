@@ -19,7 +19,7 @@ export async function runImageJob(store, jobId) {
 
   try {
     store.patchJob(jobId, { status: "running", stage: "prompt", progress: 12, failMsg: "" });
-    const preparedJob = await prepareAiBriefJob(store, jobId);
+    const preparedJob = await prepareJobWithFallback(store, jobId);
     await startImageTask(store, jobId, preparedJob, primaryProvider, 24);
   } catch (error) {
     const preparedJob = findJob(store, jobId);
@@ -30,18 +30,23 @@ export async function runImageJob(store, jobId) {
 }
 
 export function resumeRunningImageJobs(store) {
-  const jobs = store.getState().jobs.filter((job) => job.status === "running");
-  const resumable = [];
-  jobs.forEach((job) => {
-    if (job.stage === "image" && job.imageTaskId) {
-      resumable.push(job);
-      return;
-    }
-    if (job.stage === "prompt" || job.stage === "image") {
-      failImageJob(store, job.id, "Задача была прервана обновлением страницы. Запустите генерацию заново.");
-    }
-  });
-  return Promise.all(resumable.map((job) => resumeImageJob(store, job)));
+  const resume = () => {
+    const jobs = store.getState().jobs.filter((job) => job.status === "running");
+    const resumable = [];
+    jobs.forEach((job) => {
+      if (job.stage === "image" && job.imageTaskId) {
+        resumable.push(job);
+        return;
+      }
+      if (job.stage === "prompt" || job.stage === "image") {
+        failImageJob(store, job.id, "Задача была прервана обновлением страницы. Запустите генерацию заново.");
+      }
+    });
+    return Promise.all(resumable.map((job) => resumeImageJob(store, job)));
+  };
+  return typeof store.whenHydrated === "function"
+    ? Promise.resolve(store.whenHydrated()).then(resume)
+    : resume();
 }
 
 function resumeImageJob(store, job) {
@@ -292,6 +297,16 @@ async function prepareAiBriefJob(store, jobId) {
   return jobNext;
 }
 
+async function prepareJobWithFallback(store, jobId) {
+  try {
+    return await prepareAiBriefJob(store, jobId);
+  } catch (error) {
+    const fallbackJob = buildLocalFallbackJob(store, jobId, error);
+    store.replaceJob(jobId, fallbackJob);
+    return fallbackJob;
+  }
+}
+
 function getJobContext(state, job) {
   if (!job) return getContext(state);
   const fallback = getContext(state);
@@ -328,6 +343,32 @@ async function addHumanizedPlan({ context, aiBrief, existingJobs }) {
   } catch {
     return aiBrief;
   }
+}
+
+function buildLocalFallbackJob(store, jobId, error) {
+  const state = store.getState();
+  const currentJob = findJob(store, jobId);
+  const context = getJobContext(state, currentJob);
+  const existingJobs = state.jobs.filter((job) => job.projectId === context.project.id && job.id !== jobId);
+  const fallbackBrief = {
+    diversitySlot: currentJob?.diversitySlot || null,
+    topic: currentJob?.topic || "",
+    hook: currentJob?.title || "",
+    format: currentJob?.format || "",
+    semanticKey: currentJob?.semanticKey || currentJob?.diversitySlot?.id || ""
+  };
+  return {
+    ...createGenerationJob({ ...context, generationBrief: fallbackBrief, existingJobs }),
+    id: jobId,
+    status: currentJob?.status || "running",
+    stage: "prompt",
+    progress: 16,
+    outputType: currentJob?.outputType || "image",
+    requiresFinalVideo: currentJob?.requiresFinalVideo,
+    referenceTitle: currentJob?.referenceTitle || "",
+    characterId: currentJob?.characterId || context.character?.id || "",
+    failMsg: `${error.message || "AI-бриф недоступен"}. Собираем генерацию по локальным данным проекта.`
+  };
 }
 
 function delayImagePoll(ms) {
