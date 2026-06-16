@@ -43,7 +43,7 @@ export async function runAudienceExpertAi(button, store) {
   try {
     const draft = await requestAudienceExpertDraft(store, snapshot);
     applyAudienceExpertDraft(form, draft);
-    store.updateProjectSettings({ ...snapshot, ...draft });
+    store.updateProjectSettings({ ...formSnapshot(form), ...draft });
     setStatus(status, "AI-память обновлена и будет использоваться в генерациях.", "success");
   } catch (error) {
     setStatus(status, humanizeError(error), "error");
@@ -69,7 +69,7 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
   try {
     const draft = await requestAudienceExpertDraft(store, snapshot);
     applyAudienceExpertDraft(form, draft);
-    store.updateProjectSettings({ ...snapshot, ...draft });
+    store.updateProjectSettings(formSnapshot(form));
     setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
   } catch (error) {
     setStatus(status, `Проект сохранен. ${humanizeMemoryError(error)}`, "error");
