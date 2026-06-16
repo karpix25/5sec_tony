@@ -43,3 +43,28 @@ test("wellness batch rotates product pains across content layers", () => {
   assert.deepEqual(subjects, ["тяжело уснуть", "нервное напряжение", "утренняя разбитость"]);
   assert.equal(new Set(subjects).size, 3);
 });
+
+test("batch generation distributes jobs across project products", () => {
+  const project = projects.find((item) => item.id === "supplements");
+  const projectProducts = products.filter((item) => item.projectId === project.id);
+  const context = {
+    project,
+    product: projectProducts[0],
+    reference: project.references[0],
+    character: project.characters[0],
+    audio: project.audioLibrary[0],
+    freePrompt: ""
+  };
+  const existingJobs = [
+    { projectId: project.id, productId: projectProducts[0].id },
+    { projectId: project.id, productId: projectProducts[0].id }
+  ];
+  const jobs = createGenerationJobBatch({ context, existingJobs, products: projectProducts, count: 4 });
+
+  assert.deepEqual(jobs.map((job) => job.productId), [
+    projectProducts[1].id,
+    projectProducts[1].id,
+    projectProducts[0].id,
+    projectProducts[1].id
+  ]);
+});

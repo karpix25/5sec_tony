@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { products } from "../src/domain/entities.js";
 import { getProjectAutomationState, normalizeProjectAutomation } from "../src/domain/project-automation.js";
 import { createStore } from "../src/state/store.js";
 
@@ -89,6 +90,28 @@ test("store creates jobs only up to total project limit", () => {
   assert.equal(jobs.length, 1);
   assert.equal(updated.usedToday, 3);
   assert.equal(updated.usedTotal, 5);
+});
+
+test("store distributes batch jobs across project products", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = state.projects.find((item) => item.id === "supplements");
+  const projectProducts = products.filter((item) => item.projectId === project.id);
+  state.selectedProjectId = project.id;
+  state.selectedProductId = projectProducts[0].id;
+  state.jobs = [];
+  state.projects = state.projects.map((item) =>
+    item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 0, projectLimit: 50, usedTotal: 0 } : item
+  );
+
+  const jobs = store.createJobs(4);
+
+  assert.deepEqual(jobs.map((job) => job.productId), [
+    projectProducts[0].id,
+    projectProducts[1].id,
+    projectProducts[0].id,
+    projectProducts[1].id
+  ]);
 });
 
 test("store updates project daily limit and resets daily usage", () => {

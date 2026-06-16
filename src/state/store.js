@@ -303,13 +303,13 @@ export function createStore() {
     },
     createJobs(count) {
       const context = getContext(state);
-      const jobs = createJobBatchForContext(state, context, count);
+      const jobs = createJobBatchForContext(state, context, count, { distributeProducts: true });
       setState(withCreatedJobs(state, jobs, context.project.id));
       return jobs;
     },
     createProjectJobs(projectId, count) {
       const context = getContextForProject(state, projectId);
-      const jobs = createJobBatchForContext(state, context, count);
+      const jobs = createJobBatchForContext(state, context, count, { distributeProducts: true });
       setState(withCreatedJobs(state, jobs, context.project.id));
       return jobs;
     },
@@ -408,7 +408,7 @@ function getContextForProject(state, projectId) {
   return { ...fallback, project, product, reference, character };
 }
 
-function createJobBatchForContext(state, context, count) {
+function createJobBatchForContext(state, context, count, options = {}) {
   const dailyLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0));
   const totalLeft = Math.max(0, Number(context.project.projectLimit || 0) - Number(context.project.usedTotal || 0));
   const safeCount = Math.max(0, Math.min(Number(count || 1), dailyLeft, totalLeft));
@@ -416,6 +416,7 @@ function createJobBatchForContext(state, context, count) {
   return createGenerationJobBatch({
     context,
     count: safeCount,
+    products: options.distributeProducts ? getProductsForProject(state.products, context.project.id) : [],
     existingJobs: state.jobs.filter((item) => item.projectId === context.project.id)
   });
 }
