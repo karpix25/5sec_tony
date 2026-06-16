@@ -235,7 +235,7 @@ function normalizeAvatarVideoOverlay(payload = {}) {
   return {
     x: clampAvatarVideoOverlayNumber(payload.x, 50, 15, 85),
     y: clampAvatarVideoOverlayNumber(payload.y, 98, 45, 100),
-    scale: clampAvatarVideoOverlayNumber(payload.scale, 96, 60, 150),
+    scale: clampAvatarVideoOverlayNumber(payload.scale, 96, 35, 150),
     opacity: clampAvatarVideoOverlayNumber(payload.opacity, 100, 30, 100)
   };
 }

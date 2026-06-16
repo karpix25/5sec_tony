@@ -46,6 +46,12 @@ test("avatar overlay defaults anchor video near the bottom", () => {
   assert.equal(video.isActive, true);
 });
 
+test("avatar overlay accepts compact scale", () => {
+  const video = createAvatarVideoRecord({ name: "Compact Avatar" }, { overlay: { scale: 35 } });
+
+  assert.equal(video.overlay.scale, 35);
+});
+
 test("store keeps bottom avatar overlay preset values", () => {
   const store = createStore();
   const state = store.getState();
@@ -62,10 +68,10 @@ test("store keeps bottom avatar overlay preset values", () => {
       : item
   );
 
-  store.updateAvatarVideoOverlay(video.id, { x: 50, y: 100, scale: 92, opacity: 100 });
+  store.updateAvatarVideoOverlay(video.id, { x: 50, y: 100, scale: 35, opacity: 100 });
 
   const [updated] = getProjectAvatarVideos(store);
-  assert.deepEqual(updated.overlay, { x: 50, y: 100, scale: 92, opacity: 100 });
+  assert.deepEqual(updated.overlay, { x: 50, y: 100, scale: 35, opacity: 100 });
 });
 
 test("store toggles reusable avatar videos for round robin", () => {

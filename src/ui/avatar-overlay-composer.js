@@ -48,7 +48,6 @@ export function bindAvatarOverlayComposerEvents(root, store) {
     form.addEventListener("submit", (event) => event.preventDefault());
     form.addEventListener("input", () => {
       applyOverlayPreview(form);
-      store.updateAvatarVideoOverlay(form.dataset.avatarOverlayForm, getOverlayPayload(form));
     });
     form.addEventListener("change", () => {
       store.updateAvatarVideoOverlay(form.dataset.avatarOverlayForm, getOverlayPayload(form));
@@ -68,7 +67,6 @@ export function bindAvatarOverlayComposerEvents(root, store) {
     form.addEventListener("submit", (event) => event.preventDefault());
     form.addEventListener("input", () => {
       applyAvatarCtaOverlayPreview(form);
-      store.updateAvatarVideoCtaOverlay(form.dataset.avatarCtaOverlayForm, getAvatarCtaOverlayPayload(form));
     });
     form.addEventListener("change", () => {
       store.updateAvatarVideoCtaOverlay(form.dataset.avatarCtaOverlayForm, getAvatarCtaOverlayPayload(form));
