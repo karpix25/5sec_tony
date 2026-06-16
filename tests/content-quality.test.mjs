@@ -102,6 +102,10 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /НЕ ПЕРЕГРУЖАТЬ МАКЕТ/);
   assert.match(job.prompt, /СОХРАНЯЕМЫЙ СКРИН/);
   assert.match(job.prompt, /4-6 коротких смысловых блоков/);
+  assert.match(job.prompt, /Номера использовать только если выбранный дизайн-референс явно построен на нумерации/);
+  assert.match(job.prompt, /Смысловые блоки как сырье для текста, не готовая разметка/);
+  assert.match(job.prompt, /не нумеровать автоматически 1\/2\/3\/4/);
+  assert.doesNotMatch(job.prompt, /Пункты: 1\)/);
   assert.match(job.prompt, /количество видимых пунктов: [4-6]/);
   assert.match(job.prompt, /НИЖНИЕ ЗАЩИТНЫЕ ПОДПИСИ ЗАПРЕЩЕНЫ/);
   assert.match(job.prompt, /без футера и без нижней рекламной или защитной плашки/);
@@ -117,6 +121,16 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.doesNotMatch(job.prompt, /Дисклеймер:/);
   assert.doesNotMatch(job.prompt, /Дисклеймер: Не обещать лечение/);
   assert.doesNotMatch(job.prompt, /Узнайте больше|Сохраните|Закажите/);
+});
+
+test("image prompt locks design reference layout instead of default numbered checklist", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.id === "magnesium");
+  const job = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0] });
+
+  assert.match(job.prompt, /ДИЗАЙН-РЕФЕРЕНС — КОМПОЗИЦИОННЫЙ ЗАМОК/);
+  assert.match(job.prompt, /визуальный скелет, баланс пустого места и расположение крупных зон остаются как в референсе/);
+  assert.match(job.prompt, /Если референс не использует нумерованный список, не превращать макет в структуру 1\/2\/3\/4/);
 });
 
 test("image prompt never renders plan disclaimer as bottom text", () => {

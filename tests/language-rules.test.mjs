@@ -60,7 +60,9 @@ test("image prompt keeps important elements inside social safe zones", () => {
   const product = products[0];
   const prompt = buildImagePrompt({ project, product, reference: project.references[0] });
 
-  assert.match(prompt, /SOCIAL SAFE ZONE/);
+  assert.match(prompt, /ТЕХНИЧЕСКАЯ SAFE ZONE/);
+  assert.match(prompt, /не видимый текст/);
+  assert.match(prompt, /никогда не писать и не рисовать на финальной картинке/);
   assert.match(prompt, /Reels\/TikTok\/Shorts/);
   assert.match(prompt, /x=72\.\.820 и y=190\.\.1360/);
   assert.match(prompt, /top UI y=0\.\.190/);
@@ -68,6 +70,7 @@ test("image prompt keeps important elements inside social safe zones", () => {
   assert.match(prompt, /Нижние 24% кадра оставить чистыми/);
   assert.match(prompt, /без кнопки, без CTA, без дисклеймера, без продукта/);
   assert.match(prompt, /адаптировать композицию под safe zone/);
+  assert.match(prompt, /координаты, x=, y=, top UI, bottom caption/);
 });
 
 test("design reference form asks for a fixed font style", () => {
