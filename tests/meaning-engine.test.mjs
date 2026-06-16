@@ -278,6 +278,8 @@ test("project management UI exposes only operator fields", () => {
   assert.match(html, /Ограничения проекта/);
   assert.match(html, /<select name="yandexDiskFolder"/);
   assert.match(html, /disk:\/ВИДЕО/);
+  assert.match(html, /Дневной лимит генераций/);
+  assert.match(html, /data-reset-project-usage/);
   assert.match(html, /Сохранить проект/);
   assert.doesNotMatch(html, /Обновить AI-память|AI Audience Expert|AI Strategy|Смысловая база|Ниша|Сценарные кластеры|Боли аудитории|Tone of voice|Стиль проекта/);
 });

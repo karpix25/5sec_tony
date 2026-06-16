@@ -289,6 +289,9 @@ function bindEvents(root, store) {
   root.querySelectorAll("[data-delete-reference]").forEach((button) => {
     button.addEventListener("click", () => store.deleteReference(button.dataset.deleteReference));
   });
+  root.querySelectorAll("[data-reset-project-usage]").forEach((button) => {
+    button.addEventListener("click", () => store.resetProjectDailyUsage(button.dataset.resetProjectUsage));
+  });
   root.querySelectorAll("[data-delete-character]").forEach((button) => {
     button.addEventListener("click", () => store.deleteCharacter(button.dataset.deleteCharacter));
   });

@@ -110,6 +110,13 @@ export function createStore() {
         )
       });
     },
+    resetProjectDailyUsage(projectId = state.selectedProjectId) {
+      setState({
+        projects: state.projects.map((project) =>
+          project.id === projectId ? { ...project, usedToday: 0 } : project
+        )
+      });
+    },
     generateProjectField(fieldName, formPayload) {
       const project = updateProjectEntity(getProject(state, state.selectedProjectId), formPayload);
       const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
@@ -346,6 +353,7 @@ function updateProjectEntity(project, payload) {
     name: payload.name || project.name,
     exportFolder,
     yandexDiskFolder,
+    dailyLimit: normalizeProjectDailyLimit(value("dailyLimit", project.dailyLimit || 20)),
     projectTheme: value("projectTheme"),
     niche: value("niche"),
     keyScenarios: value("keyScenarios"),
@@ -363,6 +371,12 @@ function updateProjectEntity(project, payload) {
     style: value("style", project.style),
     automation: normalizeProjectAutomation(project.automation)
   };
+}
+
+function normalizeProjectDailyLimit(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 20;
+  return Math.min(500, Math.max(1, Math.round(number)));
 }
 
 function getContextForProject(state, projectId) {

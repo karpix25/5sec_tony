@@ -9,12 +9,14 @@ export function renderProjectManagementSettings({ project }) {
         ${projectTextField("Название проекта", "name", "Например: БАДы / Beauty / Плати по миру", project.name)}
         ${projectYandexFolderField(project.yandexDiskFolder || yandexDiskRoot)}
         ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
+        ${projectNumberField("Дневной лимит генераций", "dailyLimit", project.dailyLimit || 20, 1, 500)}
         ${projectField("О проекте", "projectTheme", "Что это за проект, что продаем, кому помогаем, чем отличаемся, какие факты важны.", project.projectTheme || project.companyInfo, false)}
         ${projectField("ЦА компании", "companyAudience", "Кто покупает, какие сегменты важны, что уже известно об аудитории.", project.companyAudience, false)}
         ${projectField("Ограничения проекта", "restrictions", "Что нельзя обещать, юридические/медицинские/финансовые рамки.", project.restrictions, false)}
       </section>
       <div class="project-actions">
         <button id="save-project-settings" class="primary-btn" type="submit">Сохранить проект</button>
+        <button class="ghost-btn" data-reset-project-usage="${escapeHtml(project.id)}" type="button">Сбросить счетчик дня (${Number(project.usedToday || 0)})</button>
         <small id="audience-expert-status" class="ai-field-status">После сохранения AI сам обновит память проекта.</small>
       </div>
     </form>
@@ -39,6 +41,15 @@ function projectTextField(label, name, placeholder, value = "") {
     <label class="stacked-field">
       <span>${escapeHtml(label)}</span>
       <input name="${escapeHtml(name)}" class="text-input" value="${escapeHtml(value || "")}" placeholder="${escapeHtml(placeholder)}" required />
+    </label>
+  `;
+}
+
+function projectNumberField(label, name, value, min, max) {
+  return `
+    <label class="stacked-field">
+      <span>${escapeHtml(label)}</span>
+      <input name="${escapeHtml(name)}" class="text-input" type="number" min="${min}" max="${max}" step="1" value="${escapeHtml(value || "")}" required />
     </label>
   `;
 }

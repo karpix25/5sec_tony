@@ -53,3 +53,23 @@ test("store creates jobs only up to project daily limit", () => {
   assert.equal(jobs.length, 2);
   assert.equal(updated.usedToday, 20);
 });
+
+test("store updates project daily limit and resets daily usage", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = state.projects.find((item) => item.id === state.selectedProjectId);
+  state.projects = state.projects.map((item) =>
+    item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 18 } : item
+  );
+
+  store.updateProjectSettings({ name: project.name, dailyLimit: "7" });
+  let updated = store.getState().projects.find((item) => item.id === project.id);
+
+  assert.equal(updated.dailyLimit, 7);
+  assert.equal(updated.usedToday, 18);
+
+  store.resetProjectDailyUsage(project.id);
+  updated = store.getState().projects.find((item) => item.id === project.id);
+
+  assert.equal(updated.usedToday, 0);
+});
