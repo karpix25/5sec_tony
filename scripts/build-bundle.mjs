@@ -38,6 +38,7 @@ const files = [
   "src/ui/avatar-overlay-composer.js",
   "src/ui/avatar.js",
   "src/ui/modals.js",
+  "src/ui/preview-modal.js",
   "src/ui/design.js",
   "src/ui/hooks.js",
   "src/ui/generation.js",

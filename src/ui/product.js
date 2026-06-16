@@ -1,4 +1,5 @@
 import { escapeHtml } from "./infographic.js";
+import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderProductSettings({ product }) {
   const ready = isProductReady(product);
@@ -198,7 +199,11 @@ function summaryItem(label, value) {
 function renderProductReference(reference) {
   return `
     <article class="product-reference-item">
-      ${reference.imageData ? `<button class="asset-preview-button" data-preview-asset="${reference.imageData}" data-preview-title="${escapeHtml(reference.title)}" type="button"><img src="${reference.imageData}" alt=""></button>` : `<span class="asset-thumb">P</span>`}
+      ${reference.imageData ? renderPreviewTrigger({
+        src: reference.imageData,
+        title: reference.title,
+        className: "asset-preview-button"
+      }) : `<span class="asset-thumb">P</span>`}
       <div>
         <strong>${escapeHtml(reference.title)}</strong>
         <small>${escapeHtml(reference.promptComment || reference.imageName || "референс продукта")}</small>

@@ -1,6 +1,7 @@
 import { defaultResearchAccounts, getStoredResearch, storeResearch } from "../domain/reels-research.js";
 import { analyzeReelsResearch } from "../services/reels-research.js";
 import { escapeHtml } from "./infographic.js";
+import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderResearchPanel() {
   const result = getStoredResearch();
@@ -88,7 +89,11 @@ function summaryCard(title, items) {
 function renderVideoInsight(video) {
   return `
     <article class="research-video">
-      ${video.frame ? `<img src="${video.frame}" alt="">` : `<div class="research-thumb">Reel</div>`}
+      ${video.frame ? renderPreviewTrigger({
+        src: video.frame,
+        title: video.hook || video.topic,
+        className: "research-frame-preview"
+      }) : `<div class="research-thumb">Reel</div>`}
       <div>
         <span>@${escapeHtml(video.account)}</span>
         <h3>${escapeHtml(video.hook || video.topic)}</h3>

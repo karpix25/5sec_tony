@@ -8,7 +8,8 @@ import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
 import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
-import { renderAssetPreviewModal, renderAvatarPreviewModal, renderCreateProjectModal, renderDeleteProjectModal } from "./modals.js";
+import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewModal } from "./modals.js";
+import { bindPreviewModalEvents } from "./preview-modal.js";
 import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft, productReferencesFromImages } from "./product-ai.js";
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
@@ -30,8 +31,7 @@ export function renderApp(root, store) {
     </main>
     ${renderCreateProjectModal(field)}
     ${renderDeleteProjectModal(context)}
-    ${renderAvatarPreviewModal()}
-    ${renderAssetPreviewModal()}
+    ${renderMediaPreviewModal()}
   `;
 
   bindEvents(root, store);
@@ -301,24 +301,7 @@ function bindEvents(root, store) {
   root.querySelectorAll("[data-reject-avatar]").forEach((button) => {
     button.addEventListener("click", () => store.rejectAvatar(button.dataset.rejectAvatar));
   });
-  root.querySelectorAll("[data-preview-avatar]").forEach((button) => {
-    button.addEventListener("click", () => openAvatarPreview(root, button));
-  });
-  root.querySelectorAll("[data-preview-asset]").forEach((button) => {
-    button.addEventListener("click", () => openAssetPreview(root, button));
-  });
-  root.querySelectorAll("[data-close-avatar-preview]").forEach((button) => {
-    button.addEventListener("click", () => closeAvatarPreview(root));
-  });
-  root.querySelectorAll("[data-close-asset-preview]").forEach((button) => {
-    button.addEventListener("click", () => closeAssetPreview(root));
-  });
-  root.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeAvatarPreview(root);
-      closeAssetPreview(root);
-    }
-  });
+  bindPreviewModalEvents(root);
   root.querySelectorAll("[data-delete-audio]").forEach((button) => {
     button.addEventListener("click", () => store.deleteAudio(button.dataset.deleteAudio));
   });
@@ -459,38 +442,4 @@ function openDeleteProjectModal(root) {
 function closeDeleteProjectModal(root) {
   const modal = root.querySelector("#delete-project-modal");
   if (modal) modal.hidden = true;
-}
-
-function openAvatarPreview(root, button) {
-  const modal = root.querySelector("#avatar-preview-modal");
-  const image = root.querySelector("#avatar-preview-image");
-  const title = root.querySelector("#avatar-preview-title");
-  if (!modal || !image || !title) return;
-  image.src = button.dataset.previewAvatar;
-  title.textContent = button.dataset.previewTitle || "Превью аватара";
-  modal.hidden = false;
-}
-
-function closeAvatarPreview(root) {
-  const modal = root.querySelector("#avatar-preview-modal");
-  const image = root.querySelector("#avatar-preview-image");
-  if (modal) modal.hidden = true;
-  if (image) image.src = "";
-}
-
-function openAssetPreview(root, button) {
-  const modal = root.querySelector("#asset-preview-modal");
-  const image = root.querySelector("#asset-preview-image");
-  const title = root.querySelector("#asset-preview-title");
-  if (!modal || !image || !title) return;
-  image.src = button.dataset.previewAsset;
-  title.textContent = button.dataset.previewTitle || "Превью референса";
-  modal.hidden = false;
-}
-
-function closeAssetPreview(root) {
-  const modal = root.querySelector("#asset-preview-modal");
-  const image = root.querySelector("#asset-preview-image");
-  if (modal) modal.hidden = true;
-  if (image) image.src = "";
 }

@@ -1,0 +1,64 @@
+import { escapeHtml } from "./infographic.js";
+
+export function bindPreviewModalEvents(root) {
+  root.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-preview-media]");
+    if (trigger) {
+      event.preventDefault();
+      openMediaPreview(root, trigger);
+      return;
+    }
+    if (event.target.closest("[data-close-preview-media]")) closeMediaPreview(root);
+  });
+
+  root.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMediaPreview(root);
+  });
+}
+
+export function renderPreviewTrigger({ src, title, type = "image", className = "", label = "Открыть превью", content = "" }) {
+  if (!src) return "";
+  const body = content || renderPreviewTriggerBody(src, type);
+  return `
+    <button class="${escapeHtml(className)}" data-preview-media="${escapeHtml(src)}" data-preview-type="${escapeHtml(type)}" data-preview-title="${escapeHtml(title || label)}" type="button" aria-label="${escapeHtml(label)}">
+      ${body}
+    </button>
+  `;
+}
+
+function renderPreviewTriggerBody(src, type) {
+  if (type === "video") return `<video src="${escapeHtml(src)}" muted loop playsinline></video>`;
+  return `<img src="${escapeHtml(src)}" alt="">`;
+}
+
+function openMediaPreview(root, trigger) {
+  const modal = root.querySelector("#media-preview-modal");
+  const body = root.querySelector("#media-preview-body");
+  const title = root.querySelector("#media-preview-title");
+  const src = trigger.dataset.previewMedia || "";
+  const type = trigger.dataset.previewType || guessPreviewType(src);
+  if (!modal || !body || !title || !src) return;
+
+  title.textContent = trigger.dataset.previewTitle || "Превью";
+  body.innerHTML = type === "video" ? renderPreviewVideo(src) : renderPreviewImage(src);
+  modal.hidden = false;
+}
+
+function closeMediaPreview(root) {
+  const modal = root.querySelector("#media-preview-modal");
+  const body = root.querySelector("#media-preview-body");
+  if (modal) modal.hidden = true;
+  if (body) body.innerHTML = "";
+}
+
+function renderPreviewImage(src) {
+  return `<img src="${escapeHtml(src)}" alt="">`;
+}
+
+function renderPreviewVideo(src) {
+  return `<video src="${escapeHtml(src)}" controls autoplay muted loop playsinline></video>`;
+}
+
+function guessPreviewType(src) {
+  return /\.(mp4|webm|mov)(\?|#|$)/i.test(src) ? "video" : "image";
+}

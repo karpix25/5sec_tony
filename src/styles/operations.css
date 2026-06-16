@@ -417,35 +417,6 @@
   width: 72px;
 }
 
-.avatar-preview-modal {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: var(--space-3);
-  width: min(920px, 100%);
-  max-height: calc(100vh - 40px);
-  padding: var(--space-3);
-  background: var(--color-panel);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-soft);
-}
-
-.avatar-preview-head {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  justify-content: space-between;
-}
-
-.avatar-preview-modal > img {
-  width: 100%;
-  max-height: calc(100vh - 130px);
-  object-fit: contain;
-  background: #111;
-  border-radius: var(--radius-control);
-}
-
 @media (max-width: 680px) {
   .modal-shell {
     align-items: stretch;

@@ -1,5 +1,6 @@
 import { statusLabels } from "../domain/entities.js";
 import { escapeHtml } from "./infographic.js";
+import { renderPreviewTrigger } from "./preview-modal.js";
 
 const queueStageLabels = {
   brief: "Готовим идею",
@@ -78,11 +79,13 @@ function renderQueueAction(job, ready, failed) {
 
 function renderQueuePreview(job, ready, failed, preview) {
   if (job.finalVideoUrl) {
-    return `
-      <div class="queue-preview">
-        <video src="${escapeHtml(job.finalVideoUrl)}" controls muted loop playsinline></video>
-      </div>
-    `;
+    return renderPreviewTrigger({
+      src: job.finalVideoUrl,
+      title: job.title,
+      type: "video",
+      className: "queue-preview",
+      label: "Открыть финальное видео крупно"
+    });
   }
   if (isFinalVideoJob(job)) {
     return `
@@ -92,7 +95,7 @@ function renderQueuePreview(job, ready, failed, preview) {
     `;
   }
   return `
-    <button class="queue-preview" data-preview-asset="${escapeHtml(preview)}" data-preview-title="${escapeHtml(job.title)}" type="button" ${ready ? "" : "disabled"}>
+    <button class="queue-preview" data-preview-media="${escapeHtml(preview)}" data-preview-type="image" data-preview-title="${escapeHtml(job.title)}" type="button" ${ready ? "" : "disabled"}>
       ${ready ? `<img src="${escapeHtml(preview)}" alt="">` : renderQueueLoader(failed, job.failMsg, "image")}
     </button>
   `;

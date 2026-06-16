@@ -40,31 +40,16 @@ export function renderDeleteProjectModal({ project }) {
   `;
 }
 
-export function renderAvatarPreviewModal() {
+export function renderMediaPreviewModal() {
   return `
-    <div id="avatar-preview-modal" class="modal-shell" hidden>
-      <div class="modal-backdrop" data-close-avatar-preview></div>
-      <section class="avatar-preview-modal">
-        <div class="avatar-preview-head">
-          <strong id="avatar-preview-title">Превью аватара</strong>
-          <button class="danger-icon" data-close-avatar-preview type="button" aria-label="Закрыть">×</button>
+    <div id="media-preview-modal" class="modal-shell" hidden>
+      <div class="modal-backdrop" data-close-preview-media></div>
+      <section class="media-preview-modal">
+        <div class="media-preview-head">
+          <strong id="media-preview-title">Превью</strong>
+          <button class="danger-icon" data-close-preview-media type="button" aria-label="Закрыть">×</button>
         </div>
-        <img id="avatar-preview-image" src="" alt="">
-      </section>
-    </div>
-  `;
-}
-
-export function renderAssetPreviewModal() {
-  return `
-    <div id="asset-preview-modal" class="modal-shell" hidden>
-      <div class="modal-backdrop" data-close-asset-preview></div>
-      <section class="avatar-preview-modal">
-        <div class="avatar-preview-head">
-          <strong id="asset-preview-title">Превью референса</strong>
-          <button class="danger-icon" data-close-asset-preview type="button" aria-label="Закрыть">×</button>
-        </div>
-        <img id="asset-preview-image" src="" alt="">
+        <div id="media-preview-body" class="media-preview-body"></div>
       </section>
     </div>
   `;

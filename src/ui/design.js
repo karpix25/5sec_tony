@@ -1,5 +1,6 @@
 import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
+import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderDesignSettings({ project, reference }) {
   const references = getDesignReferences(project);
@@ -34,14 +35,20 @@ function renderReferenceCard(reference, selectedId) {
   return `
     <article class="reference-card ${reference.id === selectedId ? "active" : ""}">
       <button class="reference-select" data-select-reference="${reference.id}" type="button">
-        ${reference.imageData ? `<img src="${reference.imageData}" alt="">` : `<span class="asset-thumb">D</span>`}
+        ${reference.imageData ? `<img src="${escapeHtml(reference.imageData)}" alt="">` : `<span class="asset-thumb">D</span>`}
         <span>
           <strong>${escapeHtml(reference.title)}</strong>
           <small>${escapeHtml(reference.fontStyle || reference.takeaways || "референс дизайна")}</small>
           <small>${formatDesignReferenceDate(reference.createdAt)}</small>
         </span>
       </button>
-      ${reference.imageData ? `<button class="ghost-btn asset-open-btn" data-preview-asset="${reference.imageData}" data-preview-title="${escapeHtml(reference.title)}" type="button">Открыть</button>` : ""}
+      ${reference.imageData ? renderPreviewTrigger({
+        src: reference.imageData,
+        title: reference.title,
+        className: "ghost-btn asset-open-btn",
+        label: "Открыть референс крупно",
+        content: "Открыть"
+      }) : ""}
       <dl>
         <div><dt>Формат</dt><dd>9:16</dd></div>
         <div><dt>Шрифт</dt><dd>${escapeHtml(reference.fontStyle || reference.headlineStyle || "по референсу")}</dd></div>

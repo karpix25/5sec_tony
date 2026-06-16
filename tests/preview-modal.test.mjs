@@ -1,0 +1,65 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { projects } from "../src/domain/entities.js";
+import { renderMediaPreviewModal } from "../src/ui/modals.js";
+import { renderPreviewTrigger } from "../src/ui/preview-modal.js";
+import { renderQueuePanel } from "../src/ui/queue.js";
+
+test("media preview modal has one reusable image and video container", () => {
+  const html = renderMediaPreviewModal();
+
+  assert.match(html, /id="media-preview-modal"/);
+  assert.match(html, /id="media-preview-body"/);
+  assert.match(html, /data-close-preview-media/);
+});
+
+test("preview trigger keeps media url title and type", () => {
+  const html = renderPreviewTrigger({
+    src: "https://cdn.example.com/final.mp4",
+    title: "Финальный ролик",
+    type: "video",
+    className: "queue-preview"
+  });
+
+  assert.match(html, /class="queue-preview"/);
+  assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/final\.mp4"/);
+  assert.match(html, /data-preview-type="video"/);
+  assert.match(html, /data-preview-title="Финальный ролик"/);
+  assert.match(html, /<video/);
+});
+
+test("queue previews open both generated images and final videos", () => {
+  const project = projects[0];
+  const html = renderQueuePanel({
+    jobs: [{
+      id: "job-image",
+      projectId: project.id,
+      status: "review",
+      stage: "approval",
+      progress: 80,
+      outputType: "image",
+      imageUrl: "https://cdn.example.com/image.png",
+      title: "Картинка",
+      topic: "тема",
+      music: "аудио",
+      inputUrls: []
+    }, {
+      id: "job-video",
+      projectId: project.id,
+      status: "done",
+      stage: "export",
+      progress: 100,
+      outputType: "final-video",
+      finalVideoUrl: "/generated/avatar-videos/final.mp4",
+      title: "Видео",
+      topic: "тема",
+      music: "аудио",
+      inputUrls: []
+    }]
+  }, { project });
+
+  assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/image\.png"/);
+  assert.match(html, /data-preview-type="image"/);
+  assert.match(html, /data-preview-media="\/generated\/avatar-videos\/final\.mp4"/);
+  assert.match(html, /data-preview-type="video"/);
+});

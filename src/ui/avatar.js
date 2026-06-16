@@ -1,5 +1,6 @@
 import { escapeHtml } from "./infographic.js";
 import { renderAvatarOverlayComposer } from "./avatar-overlay-composer.js";
+import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderAvatarSettings({ project, character }) {
   return `
@@ -120,7 +121,13 @@ function renderAvatarVideoList(videos) {
     <div class="avatar-video-list">
       ${videos.map((video) => `
         <article class="avatar-video-item">
-          ${getPlayableVideoUrl(video) ? `<video src="${escapeHtml(getPlayableVideoUrl(video))}" controls muted loop playsinline></video>` : `<div class="avatar-video-pending">9:16</div>`}
+          ${getPlayableVideoUrl(video) ? renderPreviewTrigger({
+            src: getPlayableVideoUrl(video),
+            title: getVideoStatus(video),
+            type: "video",
+            className: "avatar-video-preview",
+            label: "Открыть видео крупно"
+          }) : `<div class="avatar-video-pending">9:16</div>`}
           <div>
             <strong>${escapeHtml(getVideoStatus(video))}</strong>
             <small>${escapeHtml(video.failMsg || video.motionPrompt)}</small>
@@ -170,9 +177,5 @@ function avatarField(label, name, placeholder, type = "input", required = false)
 }
 
 function renderPreviewButton(src, title) {
-  return `
-    <button class="avatar-preview-trigger" data-preview-avatar="${escapeHtml(src)}" data-preview-title="${escapeHtml(title)}" type="button" aria-label="Открыть превью">
-      <img src="${escapeHtml(src)}" alt="">
-    </button>
-  `;
+  return renderPreviewTrigger({ src, title, className: "avatar-preview-trigger" });
 }
