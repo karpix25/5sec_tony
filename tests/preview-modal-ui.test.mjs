@@ -87,3 +87,31 @@ test("preview modal ignores unrelated clicks until a real preview trigger is pre
   root.dispatchEvent({ type: "click", target: trigger });
   assert.equal(modal.hidden, false);
 });
+
+test("preview modal closes from a text-node-like click target inside the close button", () => {
+  const root = new FakeElement();
+  const modal = new FakeElement({ id: "media-preview-modal", hidden: true });
+  const content = new FakeElement({ className: "media-preview-modal" });
+  const closeButton = new FakeElement({ dataset: { closePreviewMedia: "" } });
+  const title = new FakeElement({ id: "media-preview-title", textContent: "Превью" });
+  const body = new FakeElement({ id: "media-preview-body" });
+  const trigger = new FakeElement({
+    dataset: {
+      previewMedia: "https://cdn.example.com/final.mp4",
+      previewType: "video",
+      previewTitle: "Видео"
+    }
+  });
+
+  root.append(modal, trigger);
+  modal.append(content);
+  content.append(title, closeButton, body);
+  bindPreviewModalEvents(root);
+  root.dispatchEvent({ type: "click", target: trigger });
+
+  const textNodeLikeTarget = { parentNode: closeButton };
+  root.dispatchEvent({ type: "click", target: textNodeLikeTarget });
+
+  assert.equal(modal.hidden, true);
+  assert.equal(body.innerHTML, "");
+});

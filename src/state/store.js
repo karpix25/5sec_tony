@@ -3,7 +3,6 @@ import { globalAudioLibrary } from "../domain/entities.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
-import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import {
@@ -14,6 +13,7 @@ import {
 } from "./global-assets.js";
 import { createGenerationJobBatch } from "./job-batch.js";
 import { createInitialState } from "./initial-state.js";
+import { readStateFromLocalCache, saveStateToLocalCache } from "./local-cache-state.js";
 import { normalizeProjectDailyLimit, normalizeProjectTotalLimit } from "./store-normalizers.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
 import { createStatePersistence } from "./state-persistence.js";
@@ -31,7 +31,7 @@ const storageKey = "anton-5-sec-state";
 const storageVersion = 1;
 
 export function createStore() {
-  let state = normalize(readJsonStorage(storageKey, { fallback: null, version: storageVersion }) || createInitialState());
+  let state = normalize(readStateFromLocalCache(storageKey, storageVersion, null) || createInitialState());
   let persistenceStatus = { status: "local", message: "Локальный кэш" };
   let statePersistence = null;
   const subscribers = new Set();
@@ -41,7 +41,7 @@ export function createStore() {
     const previousState = state;
     const nextState = normalize({ ...state, ...patch });
     state = nextState;
-    writeJsonStorage(storageKey, state, { version: storageVersion });
+    saveStateToLocalCache(storageKey, storageVersion, state);
     if (shouldScheduleRemoteSave(previousState, nextState, patch)) {
       statePersistence?.scheduleSave();
     }
@@ -50,7 +50,7 @@ export function createStore() {
 
   function replaceState(nextState) {
     state = normalize(nextState);
-    writeJsonStorage(storageKey, state, { version: storageVersion });
+    saveStateToLocalCache(storageKey, storageVersion, state);
     subscribers.forEach((subscriber) => subscriber(state, null));
   }
 

@@ -4,17 +4,22 @@ export function bindPreviewModalEvents(root) {
   if (root.dataset.previewModalBound === "true") return;
   root.dataset.previewModalBound = "true";
   root.addEventListener("click", (event) => {
-    const trigger = event.target.closest("[data-preview-media]");
+    const closeTrigger = findClosestEventTarget(event.target, "[data-close-preview-media]");
+    if (closeTrigger) {
+      event.preventDefault();
+      closeMediaPreview(root);
+      return;
+    }
+    const trigger = findClosestEventTarget(event.target, "[data-preview-media]");
     if (trigger) {
       event.preventDefault();
       openMediaPreview(root, trigger);
       return;
     }
     if (isPreviewBackdropClick(event)) {
+      event.preventDefault();
       closeMediaPreview(root);
-      return;
     }
-    if (event.target.closest("[data-close-preview-media]")) closeMediaPreview(root);
   });
 
   root.addEventListener("keydown", (event) => {
@@ -115,7 +120,7 @@ function guessPreviewType(src) {
 }
 
 function isPreviewBackdropClick(event) {
-  const target = event.target;
+  const target = findClosestEventTarget(event.target, "#media-preview-modal, #media-preview-modal > .modal-backdrop");
   return Boolean(
     target?.matches?.("#media-preview-modal, #media-preview-modal > .modal-backdrop")
   );
@@ -123,4 +128,14 @@ function isPreviewBackdropClick(event) {
 
 function getPreviewStateKey(state) {
   return [state?.src || "", state?.type || "", state?.title || ""].join("|");
+}
+
+function findClosestEventTarget(target, selector) {
+  let node = target || null;
+  while (node) {
+    if (typeof node.closest === "function") return node.closest(selector);
+    if (typeof node.matches === "function" && node.matches(selector)) return node;
+    node = node.parentElement || node.parentNode || null;
+  }
+  return null;
 }

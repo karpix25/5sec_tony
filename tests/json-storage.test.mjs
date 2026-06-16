@@ -53,6 +53,41 @@ test("json storage backs up corrupt values and returns fallback", () => {
   }
 });
 
+test("json storage retries with compact payload when quota is exceeded", () => {
+  const items = new Map();
+  let writes = 0;
+  const storage = {
+    getItem: (key) => items.get(key) ?? null,
+    setItem(key, value) {
+      writes += 1;
+      if (writes === 1) {
+        const error = new Error("quota exceeded");
+        error.name = "QuotaExceededError";
+        throw error;
+      }
+      items.set(key, String(value));
+    },
+    removeItem: (key) => items.delete(key),
+    keys: () => [...items.keys()]
+  };
+  const restore = installStorage(storage);
+
+  try {
+    const result = writeJsonStorage(
+      "quota-key",
+      { huge: true },
+      { version: 1, compactValue: () => ({ slim: true }) }
+    );
+    const stored = JSON.parse(items.get("quota-key"));
+
+    assert.equal(result.ok, true);
+    assert.equal(result.compacted, true);
+    assert.deepEqual(stored.data, { slim: true });
+  } finally {
+    restore();
+  }
+});
+
 function installStorage(storage) {
   const previousWindow = globalThis.window;
   globalThis.window = { localStorage: storage };

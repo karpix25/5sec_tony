@@ -22,17 +22,22 @@ export function writeJsonStorage(key, value, options = {}) {
   const storage = getBrowserStorage();
   if (!storage) return { ok: false, reason: "unavailable" };
 
-  const payload = {
-    __storage: envelopeMarker,
-    version: Number(options.version || 1),
-    savedAt: new Date().toISOString(),
-    data: value
-  };
-
   try {
-    storage.setItem(key, JSON.stringify(payload));
-    return { ok: true };
+    writePayload(storage, key, value, options);
+    return { ok: true, compacted: false };
   } catch (error) {
+    const compactValue = typeof options.compactValue === "function"
+      ? options.compactValue(value, error)
+      : null;
+    if (compactValue && compactValue !== value) {
+      try {
+        writePayload(storage, key, compactValue, options);
+        return { ok: true, compacted: true };
+      } catch (compactError) {
+        reportStorageIssue("write", key, compactError);
+        return { ok: false, reason: compactError?.name || "write_failed" };
+      }
+    }
     reportStorageIssue("write", key, error);
     return { ok: false, reason: error?.name || "write_failed" };
   }
@@ -57,6 +62,15 @@ function unwrapStoredValue(parsed, options) {
       : migrateStoredValue(parsed.data, sourceVersion, targetVersion, options);
   }
   return migrateStoredValue(parsed, 0, targetVersion, options);
+}
+
+function writePayload(storage, key, value, options) {
+  storage.setItem(key, JSON.stringify({
+    __storage: envelopeMarker,
+    version: Number(options.version || 1),
+    savedAt: new Date().toISOString(),
+    data: value
+  }));
 }
 
 function migrateStoredValue(value, fromVersion, toVersion, options) {
