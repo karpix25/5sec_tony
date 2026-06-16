@@ -1,23 +1,19 @@
+import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
+
 const hookStorageKey = "anton-hook-library";
+const hookStorageVersion = 1;
 
 export function getHookLibrary() {
   const fallback = { activeVersionId: "", versions: [] };
-  try {
-    if (typeof window === "undefined" || !window.localStorage) return fallback;
-    const text = window.localStorage.getItem(hookStorageKey);
-    return normalizeHookLibrary(text ? JSON.parse(text) : fallback);
-  } catch {
-    return fallback;
-  }
+  return normalizeHookLibrary(readJsonStorage(hookStorageKey, {
+    fallback,
+    version: hookStorageVersion
+  }));
 }
 
 export function saveHookLibrary(library) {
   const normalized = normalizeHookLibrary(library);
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem(hookStorageKey, JSON.stringify(normalized));
-    }
-  } catch {}
+  writeJsonStorage(hookStorageKey, normalized, { version: hookStorageVersion });
   return normalized;
 }
 

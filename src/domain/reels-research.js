@@ -1,3 +1,8 @@
+import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
+
+const researchStorageKey = "anton-reels-research";
+const researchStorageVersion = 1;
+
 export const defaultResearchAccounts = [
   "bodyhealth.labs",
   "thehealthymail",
@@ -27,18 +32,11 @@ export function normalizeResearchResult(payload = {}) {
 }
 
 export function getStoredResearch() {
-  try {
-    const text = window.localStorage.getItem("anton-reels-research");
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return null;
-  }
+  return readJsonStorage(researchStorageKey, { fallback: null, version: researchStorageVersion });
 }
 
 export function storeResearch(result) {
-  try {
-    window.localStorage.setItem("anton-reels-research", JSON.stringify(result));
-  } catch {}
+  writeJsonStorage(researchStorageKey, result, { version: researchStorageVersion });
 }
 
 function normalizeVideo(video) {

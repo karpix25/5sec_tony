@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 
 const root = process.cwd();
 const files = [
+  "src/storage/json-storage.js",
   "src/domain/entities.js",
   "src/domain/avatar.js",
   "src/domain/avatar-video.js",

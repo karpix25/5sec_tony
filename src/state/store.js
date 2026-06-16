@@ -3,6 +3,7 @@ import { globalAudioLibrary, initialJobs, products, projects } from "../domain/e
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
+import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import {
@@ -24,6 +25,7 @@ import {
 } from "./factories.js";
 
 const storageKey = "anton-5-sec-state";
+const storageVersion = 1;
 
 export function createStore() {
   let state = normalize(loadState() || {
@@ -482,16 +484,9 @@ function normalize(nextState) {
 }
 
 function loadState() {
-  try {
-    const text = window.localStorage.getItem(storageKey);
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return null;
-  }
+  return readJsonStorage(storageKey, { fallback: null, version: storageVersion });
 }
 
 function saveState(state) {
-  try {
-    window.localStorage.setItem(storageKey, JSON.stringify(state));
-  } catch {}
+  writeJsonStorage(storageKey, state, { version: storageVersion });
 }
