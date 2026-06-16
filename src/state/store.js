@@ -33,6 +33,7 @@ export function createStore() {
   let persistenceStatus = { status: "local", message: "Локальный кэш" };
   let statePersistence = null;
   const subscribers = new Set();
+  const persistenceSubscribers = new Set();
 
   function setState(patch) {
     state = normalize({ ...state, ...patch });
@@ -49,7 +50,7 @@ export function createStore() {
 
   function setPersistenceStatus(status) {
     persistenceStatus = { ...persistenceStatus, ...status };
-    subscribers.forEach((subscriber) => subscriber(state));
+    persistenceSubscribers.forEach((subscriber) => subscriber(persistenceStatus));
   }
 
   const avatarWorkflow = createAvatarWorkflow({
@@ -78,6 +79,10 @@ export function createStore() {
     subscribe(callback) {
       subscribers.add(callback);
       return () => subscribers.delete(callback);
+    },
+    subscribePersistence(callback) {
+      persistenceSubscribers.add(callback);
+      return () => persistenceSubscribers.delete(callback);
     },
     selectProject(projectId) {
       const projectProducts = getProductsForProject(state.products, projectId);

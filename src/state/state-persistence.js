@@ -18,7 +18,7 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
         return;
       }
       if (result.state) {
-        replaceState(result.state);
+        replaceStateWhenSafe(result.state);
         notifyStatus({ status: "saved", message: "Загружено из БД", updatedAt: result.updatedAt });
         return;
       }
@@ -58,4 +58,22 @@ export function createStatePersistence({ getState, replaceState, notifyStatus })
   }
 
   return { hydrate, scheduleSave };
+
+  function replaceStateWhenSafe(nextState) {
+    if (!isUserEditing()) {
+      replaceState(nextState);
+      return;
+    }
+    const retry = () => {
+      if (!isUserEditing()) replaceState(nextState);
+      else setTimeout(retry, 400);
+    };
+    setTimeout(retry, 400);
+  }
+}
+
+function isUserEditing() {
+  if (typeof document === "undefined") return false;
+  const element = document.activeElement;
+  return Boolean(element?.matches?.("input, textarea, select, [contenteditable='true']"));
 }

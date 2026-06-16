@@ -38,6 +38,14 @@ export function renderApp(root, store) {
   bindEvents(root, store);
 }
 
+export function updatePersistenceStatus(root, status) {
+  const node = root.querySelector("[data-persistence-status]");
+  if (!node) return;
+  const view = getPersistenceStatusView(status);
+  node.className = `persistence-status ${view.tone}`;
+  node.textContent = view.label;
+}
+
 function renderSidebar(state, context, projectProducts) {
   return `
     <aside class="sidebar">
@@ -94,9 +102,13 @@ function renderHeader({ project }, persistenceStatus) {
 }
 
 function renderPersistenceStatus(status = {}) {
+  const view = getPersistenceStatusView(status);
+  return `<small class="persistence-status ${view.tone}" data-persistence-status>${escapeHtml(view.label)}</small>`;
+}
+
+function getPersistenceStatusView(status = {}) {
   const tone = ["saved", "saving", "loading", "error", "local"].includes(status.status) ? status.status : "local";
-  const label = status.message || "Локальный кэш";
-  return `<small class="persistence-status ${tone}">${escapeHtml(label)}</small>`;
+  return { tone, label: status.message || "Локальный кэш" };
 }
 
 function renderOperationsPanel(state, context) {
