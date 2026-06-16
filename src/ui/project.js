@@ -1,11 +1,13 @@
 import { escapeHtml } from "./infographic.js";
 
+const yandexDiskRoot = "disk:/ВИДЕО";
+
 export function renderProjectManagementSettings({ project }) {
   return `
     <form id="project-settings-form" class="ops-form text-editor-form project-settings-form">
       <section class="project-core-fields">
         ${projectTextField("Название проекта", "name", "Например: БАДы / Beauty / Плати по миру", project.name)}
-        ${projectTextField("Папка Яндекс.Диска", "yandexDiskFolder", "disk:/Anton/Проект/Готовые или любая папка", project.yandexDiskFolder || project.exportFolder)}
+        ${projectYandexFolderField(project.yandexDiskFolder || yandexDiskRoot)}
         ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
         ${projectField("О проекте", "projectTheme", "Что это за проект, что продаем, кому помогаем, чем отличаемся, какие факты важны.", project.projectTheme || project.companyInfo, false)}
         ${projectField("ЦА компании", "companyAudience", "Кто покупает, какие сегменты важны, что уже известно об аудитории.", project.companyAudience, false)}
@@ -19,11 +21,37 @@ export function renderProjectManagementSettings({ project }) {
   `;
 }
 
+export function renderYandexFolderOptions(folders = [], selectedPath = "") {
+  const selected = selectedPath || yandexDiskRoot;
+  const values = [...new Set([selected, ...folders].filter(Boolean))];
+  return values.map((folder) =>
+    `<option value="${escapeHtml(folder)}" ${folder === selected ? "selected" : ""}>${escapeHtml(folder)}</option>`
+  ).join("");
+}
+
+export function setYandexFolderOptions(select, folders = []) {
+  if (!select) return;
+  select.innerHTML = renderYandexFolderOptions(folders, select.value || yandexDiskRoot);
+}
+
 function projectTextField(label, name, placeholder, value = "") {
   return `
     <label class="stacked-field">
       <span>${escapeHtml(label)}</span>
       <input name="${escapeHtml(name)}" class="text-input" value="${escapeHtml(value || "")}" placeholder="${escapeHtml(placeholder)}" required />
+    </label>
+  `;
+}
+
+function projectYandexFolderField(value = "") {
+  const selected = value || yandexDiskRoot;
+  return `
+    <label class="stacked-field">
+      <span>Папка Яндекс.Диска</span>
+      <select name="yandexDiskFolder" class="select" data-yandex-folder-select data-yandex-root="${escapeHtml(yandexDiskRoot)}" required>
+        ${renderYandexFolderOptions([], selected)}
+      </select>
+      <small class="ai-field-status" data-yandex-folder-status>Загружаем папки из ${escapeHtml(yandexDiskRoot)}</small>
     </label>
   `;
 }

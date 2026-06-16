@@ -105,7 +105,7 @@ export function ensureProjectAssets(project) {
     toneOfVoice: project.toneOfVoice || "спокойный экспертный",
     restrictions: project.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
     exportFolder: project.exportFolder || `Yandex Disk / Anton / ${project.name || "Проект"} / Готовые`,
-    yandexDiskFolder: project.yandexDiskFolder || project.exportFolder || `disk:/Anton/${project.name || "Проект"}/Готовые`,
+    yandexDiskFolder: project.yandexDiskFolder || `disk:/ВИДЕО/${project.name || "Проект"}/Готовые`,
     automation: normalizeProjectAutomation(project.automation),
     references: references.length ? references : [createReferenceEntity({ title: "Базовый стиль проекта" })],
     audioLibrary: getAudioLibrary(project, legacyAudios),

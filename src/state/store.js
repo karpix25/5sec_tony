@@ -126,7 +126,7 @@ export function createStore() {
         client: "Anton Studio",
         name: payload.name || "Новый проект",
         exportFolder: payload.exportFolder || `Yandex Disk / Anton / ${payload.name || "Новый проект"} / Готовые`,
-        yandexDiskFolder: payload.yandexDiskFolder || payload.exportFolder || `disk:/Anton/${payload.name || "Новый проект"}/Готовые`,
+        yandexDiskFolder: payload.yandexDiskFolder || `disk:/ВИДЕО/${payload.name || "Новый проект"}/Готовые`,
         dailyLimit: Number(payload.dailyLimit || 20),
         usedToday: 0,
         automation: normalizeProjectAutomation(),
@@ -340,7 +340,7 @@ function updateProjectEntity(project, payload) {
   const value = (name, fallback = "") => Object.hasOwn(payload, name) ? payload[name] : (project[name] || fallback);
   const projectAbout = Object.hasOwn(payload, "projectTheme") ? payload.projectTheme : null;
   const exportFolder = value("exportFolder", project.exportFolder);
-  const yandexDiskFolder = value("yandexDiskFolder", project.yandexDiskFolder || exportFolder);
+  const yandexDiskFolder = value("yandexDiskFolder", project.yandexDiskFolder || `disk:/ВИДЕО/${project.name || "Проект"}/Готовые`);
   return {
     ...project,
     name: payload.name || project.name,

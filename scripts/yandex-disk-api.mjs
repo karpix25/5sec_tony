@@ -2,8 +2,14 @@ import { readFile } from "node:fs/promises";
 import { basename, extname } from "node:path";
 
 const yandexApiUrl = "https://cloud-api.yandex.net/v1/disk/resources";
+const defaultFoldersRoot = "disk:/ВИДЕО";
+const maxFolderDepth = 3;
+const maxFolderCount = 200;
 
 export async function handleYandexDiskApi(request, response, url) {
+  if (request.method === "GET" && url.pathname === "/api/yandex-disk/folders") {
+    return handleYandexFoldersApi(request, response, url);
+  }
   if (request.method !== "POST" || url.pathname !== "/api/yandex-disk/upload") return false;
 
   try {
@@ -29,6 +35,39 @@ export async function handleYandexDiskApi(request, response, url) {
   }
 }
 
+async function handleYandexFoldersApi(request, response, url) {
+  try {
+    const token = process.env.YANDEX_DISK_TOKEN || process.env.YANDEX_OAUTH_TOKEN;
+    if (!token) return sendJson(response, 500, { error: "YANDEX_DISK_TOKEN is not configured" });
+
+    const root = normalizeDiskFolder(url.searchParams.get("root") || defaultFoldersRoot);
+    const folders = await listYandexFolders(token, root);
+    return sendJson(response, 200, { root, folders });
+  } catch (error) {
+    return sendJson(response, 502, { error: error.message || "Не удалось получить папки Яндекс.Диска" });
+  }
+}
+
+export async function listYandexFolders(token, root) {
+  const folders = [];
+  await collectYandexFolders(token, root, folders, 0);
+  return folders.slice(0, maxFolderCount);
+}
+
+async function collectYandexFolders(token, path, folders, depth) {
+  if (folders.length >= maxFolderCount) return;
+  folders.push(path);
+  if (depth >= maxFolderDepth) return;
+
+  const resource = await getYandexResource(token, path);
+  const children = resource._embedded?.items || [];
+  for (const item of children) {
+    if (item.type !== "dir" || !item.path) continue;
+    await collectYandexFolders(token, normalizeDiskFolder(item.path), folders, depth + 1);
+    if (folders.length >= maxFolderCount) return;
+  }
+}
+
 async function ensureYandexFolder(token, folder) {
   const parts = folder.replace(/^disk:\//, "").split("/").filter(Boolean);
   let current = "disk:";
@@ -43,6 +82,15 @@ async function ensureYandexFolder(token, folder) {
       throw new Error(payload.message || `Не удалось создать папку Яндекс.Диска: ${current}`);
     }
   }
+}
+
+async function getYandexResource(token, path) {
+  const result = await fetch(`${yandexApiUrl}?path=${encodeURIComponent(path)}&limit=1000`, {
+    headers: { Authorization: getYandexAuthHeader(token) }
+  });
+  const payload = await result.json().catch(() => ({}));
+  if (!result.ok) throw new Error(payload.message || `Не удалось прочитать папку Яндекс.Диска: ${path}`);
+  return payload;
 }
 
 async function getUploadUrl(token, path) {
