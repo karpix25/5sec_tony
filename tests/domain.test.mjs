@@ -347,6 +347,33 @@ test("store updates product content and generation brief for prompt assembly", (
   assert.doesNotMatch(prompt, /Подобрать курс/);
 });
 
+test("product save clears stale generation topic and placeholder data", () => {
+  const store = createStore();
+  store.updateGenerationBrief({
+    topic: "7 признаков проблем с кишечником",
+    hook: "Проблемы с кишечником",
+    visualObject: "3D кишечник"
+  });
+  store.updateProduct({
+    name: "Коллаген БАД",
+    description: "Beauty-комплекс для ежедневной рутины",
+    offer: "поддержка регулярной beauty-рутины",
+    components: "коллаген, витамин C",
+    pains: "ломкость ногтей\nтусклая кожа",
+    facts: "акцент на регулярность\nбез обещаний омоложения",
+    forbidden: "гарантирует омоложение"
+  });
+
+  const state = store.getState();
+  const job = store.createJob();
+
+  assert.equal(state.generationBrief.topic, "");
+  assert.doesNotMatch(job.topic, /кишечник/i);
+  assert.doesNotMatch(job.prompt, /ключевая боль|только проверяемые факты|оффер продукта/i);
+  assert.match(job.prompt, /Коллаген БАД/);
+  assert.match(job.prompt, /ломкость ногтей|тусклая кожа/);
+});
+
 test("store creates and deletes product inside selected project", () => {
   const store = createStore();
   const projectId = store.getState().selectedProjectId;

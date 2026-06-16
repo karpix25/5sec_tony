@@ -91,11 +91,12 @@ export function createStore() {
         selectedProductId: projectProducts[0]?.id,
         selectedReferenceId: getProject(state, projectId).references[0]?.id,
         selectedCharacterId: getProject(state, projectId).characters[0]?.id,
-        selectedProjectTab: "project"
+        selectedProjectTab: "project",
+        generationBrief: ensureGenerationBrief({})
       });
     },
     selectProduct(productId) {
-      setState({ selectedProductId: productId });
+      setState({ selectedProductId: productId, generationBrief: ensureGenerationBrief({}) });
     },
     selectReference(referenceId) {
       setState({ selectedReferenceId: referenceId });
@@ -186,9 +187,7 @@ export function createStore() {
         style: payload.style || "единый проектный стиль инфографики",
         lastReferenceUpdate: new Date().toISOString().slice(0, 10),
         references: [createReferenceEntity({ title: "Базовый стиль проекта" })],
-        audioLibrary: [
-          createAudioEntity({ title: "Default audio 100 BPM", mood: "нейтрально", duration: "5 sec" })
-        ],
+        audioLibrary: [createAudioEntity({ title: "Default audio 100 BPM", mood: "нейтрально", duration: "5 sec" })],
         characters: [
           {
             id: createId("char"),
@@ -207,7 +206,8 @@ export function createStore() {
         selectedReferenceId: project.references[0].id,
         selectedCharacterId: project.characters[0].id,
         selectedAudioId: state.audioLibrary[0]?.id,
-        selectedProjectTab: "project"
+        selectedProjectTab: "project",
+        generationBrief: ensureGenerationBrief({})
       });
     },
     deleteProject(projectId) {
@@ -219,14 +219,16 @@ export function createStore() {
         products: state.products.filter((product) => product.projectId !== projectId),
         jobs: state.jobs.filter((job) => job.projectId !== projectId),
         selectedProjectId: selectedProject.id,
-        selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id
+        selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
+        generationBrief: ensureGenerationBrief({})
       });
     },
     createProduct(payload) {
       const product = createProductEntity(state.selectedProjectId, payload.name || "Новый продукт", payload);
       setState({
         products: [product, ...state.products],
-        selectedProductId: product.id
+        selectedProductId: product.id,
+        generationBrief: ensureGenerationBrief({})
       });
     },
     updateProduct(payload) {
@@ -235,7 +237,8 @@ export function createStore() {
           product.id === state.selectedProductId
             ? createProductEntity(product.projectId, payload.name || product.name, { ...product, ...payload })
             : product
-        )
+        ),
+        generationBrief: ensureGenerationBrief({})
       });
     },
     createProductReference(payload) {
@@ -271,7 +274,8 @@ export function createStore() {
       setState({
         products: productsNext,
         jobs: state.jobs.filter((job) => job.productId !== productId),
-        selectedProductId: getProductsForProject(productsNext, state.selectedProjectId)[0]?.id
+        selectedProductId: getProductsForProject(productsNext, state.selectedProjectId)[0]?.id,
+        generationBrief: ensureGenerationBrief({})
       });
     },
     createReference(payload) {
@@ -360,13 +364,11 @@ export function createStore() {
       setState({ jobs: state.jobs.filter((job) => job.id !== jobId) });
     }
   };
-
 }
 
 export function getContext(state) {
   const project = getProject(state, state.selectedProjectId);
-  const product = state.products.find((item) => item.id === state.selectedProductId)
-    || getProductsForProject(state.products, project.id)[0];
+  const product = state.products.find((item) => item.id === state.selectedProductId) || getProductsForProject(state.products, project.id)[0];
   const references = getDesignReferences(project);
   return {
     project,
@@ -380,9 +382,7 @@ export function getContext(state) {
   };
 }
 
-function getProject(state, projectId) {
-  return state.projects.find((project) => project.id === projectId) || state.projects[0];
-}
+function getProject(state, projectId) { return state.projects.find((project) => project.id === projectId) || state.projects[0]; }
 
 function updateProjectEntity(project, payload) {
   const value = (name, fallback = "") => Object.hasOwn(payload, name) ? payload[name] : (project[name] || fallback);

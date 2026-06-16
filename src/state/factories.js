@@ -74,10 +74,10 @@ export function createProductEntity(projectId, name, payload = {}) {
     projectId,
     name,
     description: payload.description || "",
-    offer: payload.offer || "оффер продукта",
+    offer: payload.offer || "",
     components: payload.components || "",
-    pains: asList(payload.pains || "ключевая боль"),
-    facts: asList(payload.facts || "только проверяемые факты"),
+    pains: asList(payload.pains || ""),
+    facts: asList(payload.facts || ""),
     forbidden: asList(payload.forbidden || "нельзя обещать недоказанный результат"),
     references: payload.references || []
   };
@@ -188,8 +188,8 @@ export function ensureProductAssets(product) {
     ...product,
     description: product.description || "",
     components: product.components || "",
-    pains: asList(product.pains || product.audience || "ключевая боль"),
-    facts: asList(product.facts || "только проверяемые факты"),
+    pains: asList(product.pains || product.audience || ""),
+    facts: asList(product.facts || ""),
     forbidden: asList(product.forbidden || "нельзя обещать недоказанный результат"),
     references: product.references || []
   };
