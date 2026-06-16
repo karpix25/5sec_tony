@@ -9,14 +9,17 @@ test("cta overlay defaults to enabled text", () => {
   assert.equal(overlay.enabled, true);
   assert.equal(overlay.mode, "text");
   assert.equal(overlay.text, "ПОДПИШИСЬ");
+  assert.equal(overlay.prompt, "");
 });
 
 test("cta badge candidate can be approved", () => {
-  const candidate = createCtaBadgeCandidate({ text: "ЖМИ" });
-  const overlay = approveCtaBadgeCandidate({ mode: "text", text: "ЖМИ", candidate });
+  const candidate = createCtaBadgeCandidate({ text: "ЖМИ", prompt: "желтая плашка с черной рамкой" });
+  const overlay = approveCtaBadgeCandidate({ mode: "text", text: "ЖМИ", prompt: candidate.prompt, candidate });
 
   assert.equal(overlay.mode, "badge");
   assert.equal(overlay.text, "ЖМИ");
+  assert.equal(overlay.prompt, "желтая плашка с черной рамкой");
+  assert.equal(overlay.badge.prompt, "желтая плашка с черной рамкой");
   assert.equal(overlay.badge.status, "approved");
   assert.equal(overlay.candidate, null);
 });

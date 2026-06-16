@@ -4,14 +4,30 @@ import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderAvatarSettings({ project, character }) {
   return `
-    ${renderAvatarCandidate(project.avatarCandidates?.[0])}
-    ${renderApprovedAvatars(project.characters, character?.id)}
+    ${renderAvatarCreatePanel()}
+    ${renderToggleSection("Проверка аватара", renderAvatarCandidate(project.avatarCandidates?.[0]))}
+    ${renderToggleSection("Аватары проекта", renderApprovedAvatars(project.characters, character?.id))}
     ${renderAvatarVideoPanel(character)}
+    ${renderAvatarOverlayComposer(character)}
+  `;
+}
+
+function renderAvatarCreatePanel() {
+  return renderToggleSection("Создать аватар", `
     <form id="avatar-form" class="ops-form text-editor-form avatar-generator">
       ${avatarField("Имя аватара", "name", "Например: Эксперт Антон", "input", true)}
       ${avatarField("Описание образа", "prompt", "Лицо, возраст, одежда, эмоция, фон, роль, стабильные признаки.", "textarea", true)}
       <button class="secondary-btn" type="submit">Создать аватар</button>
     </form>
+  `, true);
+}
+
+function renderToggleSection(title, content, open = false) {
+  return `
+    <details class="avatar-toggle-section" ${open ? "open" : ""}>
+      <summary>${escapeHtml(title)}</summary>
+      <div class="avatar-toggle-body">${content}</div>
+    </details>
   `;
 }
 
@@ -110,7 +126,7 @@ function getAvatarActiveLabel(item, isSelected) {
 function renderAvatarVideoPanel(character) {
   const videos = character?.avatarVideos || [];
   const canCreate = Boolean(character?.imageData);
-  return `
+  return renderToggleSection("Видео активного аватара", `
     <section class="avatar-video-panel">
       <div class="avatar-video-head">
         <div>
@@ -125,9 +141,8 @@ function renderAvatarVideoPanel(character) {
       </form>
       ${canCreate ? "" : "<small class=\"avatar-system-note\">Для видео нужен одобренный аватар с изображением.</small>"}
       ${renderAvatarVideoList(videos)}
-      ${renderAvatarOverlayComposer(character)}
     </section>
-  `;
+  `);
 }
 
 function renderAvatarVideoList(videos) {

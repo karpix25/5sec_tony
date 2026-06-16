@@ -17,29 +17,29 @@ export function renderAvatarOverlayComposer(character) {
   const videoUrl = getOverlayVideoUrl(video);
   const canPreview = Boolean(videoUrl);
   return `
-    <section class="avatar-overlay-composer">
-      <div class="avatar-video-head">
-        <div>
-          <span class="eyebrow">Превью слоя</span>
-          <strong>Позиция аватара в ролике</strong>
-          <small>${escapeHtml(getAlphaNote(video))}</small>
-        </div>
-      </div>
+    <details class="avatar-overlay-composer" open>
+      <summary>
+        <span class="eyebrow">Превью слоя</span>
+        <strong>Позиция аватара в ролике</strong>
+        <small>${escapeHtml(getAlphaNote(video))}</small>
+      </summary>
       <div class="avatar-overlay-workbench">
         <div class="avatar-overlay-stage">
           ${canPreview ? renderOverlayVideo(videoUrl, overlay) : "<div class=\"avatar-overlay-empty\">Видео еще готовится</div>"}
           ${renderCtaOverlayPreview(ctaOverlay)}
         </div>
-        <form class="avatar-overlay-controls" data-avatar-overlay-form="${escapeHtml(video.id)}">
-          ${renderPresetButtons(video.id)}
-          ${renderRange("x", "Горизонталь", overlay.x, 15, 85)}
-          ${renderRange("y", "Вертикаль", overlay.y, 45, 100)}
-          ${renderRange("scale", "Размер", overlay.scale, 35, 150)}
-          ${renderRange("opacity", "Прозрачность", overlay.opacity, 30, 100)}
-        </form>
-        ${renderCtaOverlayControls(video.id, ctaOverlay)}
+        <div class="avatar-overlay-control-stack">
+          <form class="avatar-overlay-controls" data-avatar-overlay-form="${escapeHtml(video.id)}">
+            ${renderPresetButtons(video.id)}
+            ${renderRange("x", "Горизонталь", overlay.x, 15, 85)}
+            ${renderRange("y", "Вертикаль", overlay.y, 45, 100)}
+            ${renderRange("scale", "Размер", overlay.scale, 35, 150)}
+            ${renderRange("opacity", "Прозрачность", overlay.opacity, 30, 100)}
+          </form>
+          ${renderCtaOverlayControls(video.id, ctaOverlay)}
+        </div>
       </div>
-    </section>
+    </details>
   `;
 }
 
@@ -158,6 +158,10 @@ function renderCtaOverlayControls(videoId, ctaOverlay) {
       <label class="avatar-overlay-range">
         <span>Текст</span>
         <input name="text" class="text-input" value="${escapeHtml(ctaOverlay.text)}" maxlength="32">
+      </label>
+      <label class="avatar-overlay-range avatar-cta-prompt-field">
+        <span>Промт генерации плашки</span>
+        <textarea name="prompt" class="textarea" maxlength="280" placeholder="Например: яркая заметная плашка в стиле выбранного референса, без логотипов">${escapeHtml(ctaOverlay.prompt || "")}</textarea>
       </label>
       ${renderRange("x", "CTA горизонталь", ctaOverlay.x, 5, 95)}
       ${renderRange("y", "CTA вертикаль", ctaOverlay.y, 5, 95)}

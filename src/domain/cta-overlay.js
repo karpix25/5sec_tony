@@ -6,6 +6,7 @@ export const defaultCtaOverlay = {
   y: 78,
   scale: 100,
   opacity: 100,
+  prompt: "",
   badge: null,
   candidate: null
 };
@@ -26,6 +27,7 @@ export function normalizeCtaOverlay(value = {}) {
     y: clampCtaNumber(value.y, defaultCtaOverlay.y, 5, 95),
     scale: clampCtaNumber(value.scale, defaultCtaOverlay.scale, 60, 150),
     opacity: clampCtaNumber(value.opacity, defaultCtaOverlay.opacity, 20, 100),
+    prompt: normalizeCtaPrompt(value.prompt),
     badge: value.badge || null,
     candidate: value.candidate || null
   };
@@ -59,6 +61,10 @@ export function approveCtaBadgeCandidate(overlay = {}) {
 function normalizeCtaText(value) {
   const text = String(value || "").trim();
   return text ? text.slice(0, 32) : defaultCtaOverlay.text;
+}
+
+function normalizeCtaPrompt(value) {
+  return String(value || "").trim().slice(0, 280);
 }
 
 function clampCtaNumber(value, fallback, min, max) {
