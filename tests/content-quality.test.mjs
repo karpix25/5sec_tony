@@ -37,7 +37,10 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /Не выбирай упаковку как visualObject по умолчанию/);
   assert.match(source, /Хук должен быть понятным без расшифровки ниже/);
   assert.match(source, /CTA не нужен/);
-  assert.match(source, /ровно 3 пункта/);
+  assert.match(source, /4-6 плотных смысловых блоков/);
+  assert.match(source, /сохраняемый скрин/);
+  assert.match(source, /рабочая схема/);
+  assert.match(source, /читать дольше 5 секунд/);
   assert.match(source, /Продукт не должен быть в каждом посте/);
   assert.match(source, /Headline максимум 6 слов/);
   assert.match(source, /Не смешивай в одной карточке оплату рекламного кабинета, ВПН, нейросети, поддержку и заявки/);
@@ -97,7 +100,9 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /Только правдивая информация, реальные факты, без лжи/);
   assert.match(job.prompt, /миф против факта/);
   assert.match(job.prompt, /НЕ ПЕРЕГРУЖАТЬ МАКЕТ/);
-  assert.match(job.prompt, /количество видимых пунктов: 3/);
+  assert.match(job.prompt, /СОХРАНЯЕМЫЙ СКРИН/);
+  assert.match(job.prompt, /4-6 коротких смысловых блоков/);
+  assert.match(job.prompt, /количество видимых пунктов: [4-6]/);
   assert.match(job.prompt, /Дисклеймеры не являются контентом/);
   assert.match(job.prompt, /ТОЧНОСТЬ ПРОДУКТА/);
   assert.match(job.prompt, /не менять форму упаковки, цвет, этикетку/);
