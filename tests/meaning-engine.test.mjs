@@ -14,6 +14,7 @@ import { renderAvatarSettings } from "../src/ui/avatar.js";
 import { renderDesignSettings } from "../src/ui/design.js";
 import { renderStudioPanel } from "../src/ui/generation.js";
 import { renderHooksPanel } from "../src/ui/hooks.js";
+import { renderProductSettings } from "../src/ui/product.js";
 import { renderProjectManagementSettings } from "../src/ui/project.js";
 import { renderQueuePanel } from "../src/ui/queue.js";
 import { generateAiBrief } from "../src/services/brief-ai.js";
@@ -273,9 +274,9 @@ test("humanized ai plan becomes final visible payment text", () => {
 test("project management UI exposes only operator fields", () => {
   const html = renderProjectManagementSettings({ project: projects[2] });
 
-  assert.match(html, /О проекте/);
-  assert.match(html, /ЦА компании/);
-  assert.match(html, /Ограничения проекта/);
+  assert.match(html, /Ниша и суть проекта/);
+  assert.match(html, /Кто покупает/);
+  assert.match(html, /Что нельзя обещать/);
   assert.match(html, /data-yandex-folder-picker/);
   assert.match(html, /name="yandexDiskFolder" type="hidden"/);
   assert.match(html, /disk:\/ВИДЕО/);
@@ -284,7 +285,18 @@ test("project management UI exposes only operator fields", () => {
   assert.match(html, /data-reset-project-usage/);
   assert.match(html, /data-reset-project-total-usage/);
   assert.match(html, /Сохранить проект/);
-  assert.doesNotMatch(html, /Обновить AI-память|AI Audience Expert|AI Strategy|Смысловая база|Ниша|Сценарные кластеры|Боли аудитории|Tone of voice|Стиль проекта/);
+  assert.doesNotMatch(html, /Обновить AI-память|AI Audience Expert|AI Strategy|Смысловая база|Сценарные кластеры|Боли аудитории|Tone of voice|Стиль проекта/);
+});
+
+test("product settings keep the operator questionnaire compact", () => {
+  const html = renderProductSettings({ product: products[0] });
+
+  assert.match(html, /Что это за продукт/);
+  assert.match(html, /Зачем покупают/);
+  assert.match(html, /Роль продукта/);
+  assert.match(html, /Можно говорить/);
+  assert.match(html, /Что нельзя обещать/);
+  assert.doesNotMatch(html, /Боли аудитории|Желания аудитории|Смежные привычки|Контентная стратегия|Сценарные кластеры/);
 });
 
 test("hooks UI hides version workflow from the main operator surface", () => {

@@ -11,9 +11,9 @@ export function renderProjectManagementSettings({ project }) {
         ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
         ${projectNumberField("Дневной лимит генераций", "dailyLimit", project.dailyLimit || 20, 1, 500)}
         ${projectNumberField("Лимит на весь проект", "projectLimit", project.projectLimit || 500, 1, 10000)}
-        ${projectField("О проекте", "projectTheme", "Что это за проект, что продаем, кому помогаем, чем отличаемся, какие факты важны.", project.projectTheme || project.companyInfo, false)}
-        ${projectField("ЦА компании", "companyAudience", "Кто покупает, какие сегменты важны, что уже известно об аудитории.", project.companyAudience, false)}
-        ${projectField("Ограничения проекта", "restrictions", "Что нельзя обещать, юридические/медицинские/финансовые рамки.", project.restrictions, false)}
+        ${projectField("Ниша и суть проекта", "projectTheme", "Например: БАДы/wellness для простых ежедневных привычек. Что продаем и зачем это людям.", project.projectTheme || project.companyInfo, false)}
+        ${projectField("Кто покупает", "companyAudience", "Одной строкой: кто аудитория и какая у нее главная боль или желание.", project.companyAudience, false)}
+        ${projectField("Что нельзя обещать", "restrictions", "Запреты и рамки: лечение, гарантии, диагнозы, обход правил, финансовые обещания.", project.restrictions, false)}
       </section>
       <div class="project-actions">
         <button id="save-project-settings" class="primary-btn" type="submit">Сохранить проект</button>

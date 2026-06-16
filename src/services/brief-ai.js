@@ -1,4 +1,5 @@
 import { createContentSlot, createRecentJobDigest } from "../domain/content-rotation.js";
+import { buildProductInsightMap } from "../domain/product-insights.js";
 
 export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot }) {
   const slot = diversitySlot || createContentSlot({ project, product, existingJobs });
@@ -31,6 +32,7 @@ function normalizeAiBrief(draft, diversitySlot) {
     cta: draft.cta || "",
     notes: "AI-сгенерированный бриф на основе проекта, продукта и истории тем.",
     aiPlan: draft.plan || {},
+    productInsightMap: buildProductInsightMap({ insightMap: draft.productInsightMap }),
     semanticKey: diversitySlot.id || draft.semanticKey,
     contentLayer: diversitySlot.contentLayer || null,
     contentLayerId: diversitySlot.contentLayer?.id || "",

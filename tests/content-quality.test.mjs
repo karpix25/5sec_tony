@@ -39,6 +39,14 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /CTA не нужен/);
   assert.match(source, /ровно 3 пункта/);
   assert.match(source, /Продукт не должен быть в каждом посте/);
+  assert.match(source, /Headline максимум 6 слов/);
+  assert.match(source, /Не смешивай в одной карточке оплату рекламного кабинета, ВПН, нейросети, поддержку и заявки/);
+  assert.match(source, /senior SMM strategist/);
+  assert.match(source, /viral content marketer 2026/);
+  assert.match(source, /вирусный смысл/);
+  assert.match(source, /минимальных входных данных оператора/);
+  assert.match(source, /shareable value/);
+  assert.match(source, /Финальная самопроверка маркетолога/);
 });
 
 test("content layers rotate beyond direct product ads", () => {
@@ -78,6 +86,8 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /ПОНЯТНЫЙ ЗАГОЛОВОК/);
   assert.match(job.prompt, /СВЯЗЬ ПРОДУКТА С ТЕМОЙ/);
   assert.match(job.prompt, /CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН/);
+  assert.match(job.prompt, /КОРОТКИЙ ЗАГОЛОВОК/);
+  assert.match(job.prompt, /ЛОГИКА ТЕКСТА/);
   assert.match(job.prompt, /НЕ ПЕРЕГРУЖАТЬ МАКЕТ/);
   assert.match(job.prompt, /количество видимых пунктов: 3/);
   assert.match(job.prompt, /Дисклеймеры не являются контентом/);
@@ -164,6 +174,26 @@ test("humanizer rewrites technical composition hooks into useful daily pain", ()
   const text = `${plan.headline} ${plan.subhead} ${plan.points.join(" ")}`;
   assert.doesNotMatch(text, /разбор состава|простая метафора|Бренд:|Факт: SONRE/i);
   assert.match(text, /кожа|сухост|тонус|привычк|сегодня|обычном дне/i);
+});
+
+test("humanizer shortens overloaded headline shells before image prompt", () => {
+  const plan = normalizeHumanizedPlan({
+    headline: "Популярное объяснение часто сбивает с толку: пополнить рекламный кабинет.",
+    subhead: "Покажите не шаги оплаты, а статусы заявки.",
+    points: [
+      "Заявка принята",
+      "Идет проверка",
+      "Нужны уточнения"
+    ]
+  }, {
+    headline: "Сначала статус заявки",
+    subhead: "",
+    points: []
+  });
+
+  assert.equal(plan.headline, "пополнить рекламный кабинет");
+  assert.ok(plan.headline.split(/\s+/).length <= 6);
+  assert.doesNotMatch(plan.headline, /популярное объяснение|:/i);
 });
 
 test("fallback semantic plan gives pain, reason and useful action", () => {

@@ -1,3 +1,5 @@
+import { buildProductInsightMap } from "./product-insights.js";
+
 function asLines(value) {
   if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
   return String(value || "").split(/\n|;/).map((item) => item.trim()).filter(Boolean);
@@ -11,19 +13,24 @@ function first(items) {
   return items.find(Boolean) || "";
 }
 
-export function buildProductProfile({ project, product }) {
+export function buildProductProfile({ project, product, insightMap: insightInput } = {}) {
+  const insightMap = buildProductInsightMap({ insightMap: insightInput });
   const useCases = unique([
     ...asLines(product.pains),
+    ...insightMap.painSituations,
+    ...insightMap.connectedHabits,
     ...asLines(project.keyScenarios),
     ...asLines(project.audiencePains)
   ]);
   const proofPoints = unique([
     ...asLines(product.facts),
     ...asLines(product.components),
-    ...asLines(product.offer)
+    ...asLines(product.offer),
+    ...insightMap.safeFacts
   ]);
   const visualAnchors = unique([
     ...asLines(product.components),
+    ...insightMap.visualAnchors,
     ...productReferences(product).map((item) => item.title || item.promptComment || item.imageName)
   ]);
   const audienceSignals = unique([
@@ -56,6 +63,8 @@ export function buildProductProfile({ project, product }) {
     audienceSignals,
     safeClaims,
     forbiddenClaims,
+    insightMap,
+    contentQuestions: insightMap.contentQuestions,
     primaryUseCase: first(useCases) || first(painMap) || product.name,
     primaryPain: first(painMap) || product.name,
     primaryProof: first(proofPoints) || product.description || product.name,

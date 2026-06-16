@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { projects, products } from "../src/domain/entities.js";
 import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/generation.js";
+import { buildProductInsightMap } from "../src/domain/product-insights.js";
+import { buildProductProfile } from "../src/domain/product-profile.js";
 import { buildTopicCandidates } from "../src/domain/topic-candidates.js";
 
 test("wellness generation brief uses product pains and facts for topic seed", () => {
@@ -82,6 +84,59 @@ test("topic candidates pass psychology strategy without canned hook text", () =>
   assert.match(`${candidate.topic} ${candidate.promptInstruction}`, /шум|пустышк|провер|ожидан|маркетинг|цены|пользы/i);
   assert.doesNotMatch(candidate.hook, /проверили одну ошибку/i);
   assert.equal(candidate.safetyPenalty, 0);
+});
+
+test("ai product insight map enriches content without hardcoded niche presets", () => {
+  const project = {
+    ...projects[0],
+    projectTheme: "любая ниша с полезным контентом вокруг боли"
+  };
+  const product = {
+    id: "green-product",
+    projectId: project.id,
+    name: "Зеленый ритуал",
+    description: "wellness-продукт для аккуратной рутины",
+    offer: "понятный утренний ритуал",
+    components: "зеленый концентрат",
+    pains: ["хочется ощущения свежести утром"],
+    facts: ["без медицинских обещаний"],
+    forbidden: ["лечит"]
+  };
+  const aiInsightMap = buildProductInsightMap({
+    insightMap: {
+      id: "ai-green-routine",
+      category: "AI-анализ категории продукта",
+      benefitZones: [
+        {
+          id: "morning-context",
+          pain: "утром хочется свежести, но рутина быстро разваливается",
+          habit: "начать день со стакана воды и простого зеленого ритуала",
+          safeFact: "роль продукта безопаснее объяснять через регулярность и ожидания",
+          visual: "стакан воды, зеленый акцент, утренний свет"
+        }
+      ],
+      connectedHabits: ["вода утром", "регулярность вместо вау-эффекта"],
+      contentQuestions: ["Какая привычка помогает в той же боли?"]
+    }
+  });
+
+  const profile = buildProductProfile({ project, product, insightMap: aiInsightMap });
+  const candidates = buildTopicCandidates({ project, product, existingJobs: [], insightMap: aiInsightMap });
+  const prompt = buildImagePrompt({
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0],
+    generationBrief: { productInsightMap: aiInsightMap }
+  });
+  const candidateText = candidates.map((item) => `${item.topic} ${item.habit || ""} ${item.proof || ""}`).join(" ");
+
+  assert.equal(aiInsightMap.id, "ai-green-routine");
+  assert.match(profile.useCases.join(" "), /свежести|воды|регулярность/i);
+  assert.match(candidateText, /стакана воды|регулярность|ожидания/i);
+  assert.match(prompt, /КАРТА ПОЛЬЗЫ ПРОДУКТА/);
+  assert.match(prompt, /Смежные привычки и лайфхаки/);
+  assert.doesNotMatch(candidateText, /лечит/i);
 });
 
 test("supplement strategy names concrete check instead of vague mistake hook", () => {

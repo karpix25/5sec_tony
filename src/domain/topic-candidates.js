@@ -48,16 +48,18 @@ const hookStrategies = [
   }
 ];
 
-export function buildTopicCandidates({ project, product, existingJobs = [] }) {
-  const profile = buildProductProfile({ project, product });
-  return hookStrategies
-    .map((strategy) => buildStrategyCandidate(strategy, profile))
+export function buildTopicCandidates({ project, product, existingJobs = [], insightMap } = {}) {
+  const profile = buildProductProfile({ project, product, insightMap });
+  return [
+    ...buildInsightCandidates(profile),
+    ...hookStrategies.map((strategy) => buildStrategyCandidate(strategy, profile))
+  ]
     .map((candidate) => scoreStrategyCandidate(candidate, profile, existingJobs))
     .sort((left, right) => right.score - left.score);
 }
 
-export function pickTopicCandidate({ project, product, existingJobs = [] }) {
-  return buildTopicCandidates({ project, product, existingJobs })[0] || null;
+export function pickTopicCandidate({ project, product, existingJobs = [], insightMap } = {}) {
+  return buildTopicCandidates({ project, product, existingJobs, insightMap })[0] || null;
 }
 
 export function createTopicCandidatePlan({ project, product, candidate }) {
@@ -66,7 +68,8 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
   const safeStep = profile.safeClaims[0] || product.offer || product.name;
   const proof = candidate.proof || profile.primaryProof;
   const useCase = candidate.useCase || profile.primaryUseCase;
-  const pain = profile.primaryPain;
+  const pain = candidate.pain || profile.primaryPain;
+  const habit = candidate.habit || safeStep;
 
   const subheads = {
     "authority-break": "Сначала снимите шум и покажите, что реально можно проверить без веры блогерам.",
@@ -78,15 +81,56 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
 
   return {
     headline: "",
-    subhead: subheads[candidate.angleId] || "Сначала поймите ситуацию, потом добавляйте продукт.",
+    subhead: candidate.subhead || subheads[candidate.angleId] || "Сначала поймите ситуацию, потом добавляйте продукт.",
     points: [
-      `Ситуация: ${useCase}`,
-      `Что часто ломает эффект: ${pain}`,
-      `Что можно взять в рутину: ${proof || safeStep}`
+      `Боль: ${pain || useCase}`,
+      `Привычка рядом: ${habit}`,
+      `Факт без магии: ${proof || safeStep}`
     ],
     disclaimer: "",
     hookPsychology: getHookStrategyInstruction(candidate)
   };
+}
+
+function buildInsightCandidates(profile) {
+  const zones = profile.insightMap?.benefitZones || [];
+  const scoreBonus = profile.insightMap?.id ? 7 : 2;
+  return zones.flatMap((zone) => [
+    {
+      angleId: `insight-${zone.id}`,
+      strategyId: "product-insight",
+      strategyLabel: "карта пользы продукта",
+      angleLabel: "боль и привычка",
+      trigger: zone.pain,
+      topic: `${zone.pain}: какой ритуал помогает рядом с ${profile.productName}`,
+      hook: "",
+      format: "checklist",
+      scoreBonus,
+      pain: zone.pain,
+      habit: zone.habit,
+      proof: zone.safeFact,
+      useCase: zone.pain,
+      subhead: "Покажите не чудо-продукт, а понятную связку боли, привычки и спокойного шага.",
+      promptInstruction: "Построй контент как полезную карточку: узнаваемая боль -> смежная привычка -> безопасный факт о роли продукта."
+    },
+    {
+      angleId: `habit-${zone.id}`,
+      strategyId: "adjacent-habit",
+      strategyLabel: "смежная полезная привычка",
+      angleLabel: "лайфхак рядом с продуктом",
+      trigger: zone.habit,
+      topic: `Какая привычка усиливает ту же цель: ${zone.habit}`,
+      hook: "",
+      format: "scheme",
+      scoreBonus: Math.max(1, scoreBonus - 1),
+      pain: zone.pain,
+      habit: zone.habit,
+      proof: zone.safeFact,
+      useCase: zone.habit,
+      subhead: "Дайте зрителю полезный шаг, который решает ту же боль, что и продукт.",
+      promptInstruction: "Не продавай продукт напрямую: объясни смежный лайфхак, а продукт оставь мягким элементом рутины."
+    }
+  ]);
 }
 
 function buildStrategyCandidate(strategy, profile) {
@@ -118,20 +162,23 @@ function getHookStrategyInstruction(candidate) {
     `Психологический угол: ${candidate.strategyLabel}.`,
     `Триггер ЦА: ${candidate.trigger}.`,
     `Правило формулировки: ${candidate.promptInstruction}`,
+    candidate.habit ? `Смежная привычка: ${candidate.habit}.` : "",
+    candidate.proof ? `Безопасный факт: ${candidate.proof}.` : "",
     "Финальный хук нужно сгенерировать под конкретный продукт, боль аудитории и факты анкеты; не брать готовую фразу из шаблона."
-  ].join(" ");
+  ].filter(Boolean).join(" ");
 }
 
 function scoreStrategyCandidate(candidate, profile, existingJobs) {
   const source = normalizeTopicCandidateText(`${candidate.topic} ${candidate.trigger} ${candidate.promptInstruction}`);
   const used = new Set(existingJobs.map((job) => normalizeTopicCandidateText(`${job.topic || ""} ${job.title || ""}`)));
-  const hasAudiencePain = profile.painMap.some((item) => source.includes(normalizeToken(item)));
+  const audienceMatchCount = profile.painMap.filter((item) => source.includes(normalizeToken(item))).length;
+  const hasAudiencePain = audienceMatchCount > 0;
   const hasSafeProof = profile.proofPoints.some((item) => source.includes(normalizeToken(item)));
   const hasForbidden = profile.forbiddenClaims.some((item) => source.includes(normalizeToken(item)));
   const duplicatePenalty = used.has(normalizeTopicCandidateText(candidate.topic)) ? 5 : 0;
   const safetyPenalty = hasForbidden ? 7 : 0;
   const score = candidate.scoreBonus
-    + (hasAudiencePain ? 3 : 1)
+    + (hasAudiencePain ? 3 + audienceMatchCount : 1)
     + (hasSafeProof ? 2 : 0)
     - duplicatePenalty
     - safetyPenalty;

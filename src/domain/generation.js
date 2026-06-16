@@ -45,6 +45,10 @@ const productVisibilityRules = [
 
 const contentQualityRules = [
   "ПОНЯТНЫЙ ЗАГОЛОВОК: хук должен быть самодостаточным и сразу объяснять конфликт. Не писать загадочные заголовки вроде 'одна привычка', 'это', 'главная ошибка', если внутри заголовка не понятно, какая именно ситуация или причина.",
+  "КОРОТКИЙ ЗАГОЛОВОК: максимум 6 слов, одна мысль, без двоеточий и без второй строки-объяснения внутри заголовка.",
+  "Запрещены длинные заголовочные оболочки: 'Этот факт объясняет знакомое ощущение', 'Популярное объяснение часто сбивает с толку', 'Один простой шаг часто меняет больше, чем кажется'.",
+  "ЛОГИКА ТЕКСТА: headline, subhead и пункты должны раскрывать одну и ту же тему. Не смешивать ВПН, рекламный кабинет, заявки, поддержку и нейросети в одном макете.",
+  "Писать заголовки естественным русским порядком слов: 'Оплата ВПН без сюрпризов', а не 'ВПН оплатить'.",
   "Метафоры использовать только если они мгновенно объясняют проблему. Не уводить тему в случайные объекты вроде кофемашины, телефона или батарейки, если связь с продуктом и болью не очевидна за одну строку.",
   "НЕ ДУБЛИРОВАТЬ ТЕКСТ: каждый пункт должен давать новый смысл; не повторять одну мысль в заголовке, подписи, пункте и CTA.",
   "CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН: не рисовать кнопки, стрелки действия, нижние плашки, 'узнайте больше', 'сохраните', 'закажите', 'в описании', 'в профиле' или любые призывы к действию.",
@@ -78,6 +82,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const extra = freePrompt ? `Дополнительная задача: ${freePrompt}.` : "";
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   const plan = createSemanticPlan({ project, product, brief });
+  const profile = buildProductProfile({ project, product, insightMap: brief.productInsightMap });
   const visiblePoints = getVisibleImagePoints(plan.points);
   const visiblePointCount = String(visiblePoints.length);
   const designCopyPrompt = cleanDesignReferenceText(reference?.takeaways);
@@ -124,6 +129,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     project.companyInfo ? `Компания: ${project.companyInfo}.` : "",
     project.companyAudience ? `ЦА компании: ${project.companyAudience}.` : "",
     project.restrictions ? `Ограничения проекта: ${project.restrictions}.` : "",
+    formatProductInsightPrompt(profile),
     `Референс подачи: ${reference?.title || "лучший проектный инфографический стиль"}.`,
     designCopyPrompt ? `Дополнительная визуальная инструкция к копированию дизайна: ${designCopyPrompt}.` : "",
     reference?.avoidCopy ? `Что НЕ копировать из референса: ${reference.avoidCopy}.` : "",
@@ -144,6 +150,20 @@ export function buildImagePrompt({ project, product, reference, character, gener
     "Текст короткий, крупный, без мелкой каши. Не придумывай медицинские/финансовые гарантии. Не добавляй неуказанные проценты, комиссии, баланс карты или фейковые UI-данные.",
     "ПЕРЕД ОТВЕТОМ проверь: все слова, которые ты рисуешь на изображении, написаны по-русски; английский UI/text запрещен.",
     extra
+  ].filter(Boolean).join(" ");
+}
+
+function formatProductInsightPrompt(profile) {
+  if (!profile.insightMap?.id) return "";
+  const zones = profile.insightMap.benefitZones
+    .map((zone) => `${zone.pain} -> ${zone.habit} -> ${zone.safeFact}`)
+    .join("; ");
+  const habits = profile.insightMap.connectedHabits.join("; ");
+  return [
+    `КАРТА ПОЛЬЗЫ ПРОДУКТА: ${profile.insightMap.category}.`,
+    zones ? `Смысловые зоны: ${zones}.` : "",
+    habits ? `Смежные привычки и лайфхаки: ${habits}.` : "",
+    "Используй эту карту, чтобы делать интересный полезный контент вокруг боли, а не только прямую рекламу продукта."
   ].filter(Boolean).join(" ");
 }
 
@@ -240,7 +260,7 @@ function cleanDesignReferenceText(value) {
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const slot = generationBrief.diversitySlot || createContentSlot({ project, product, existingJobs });
   const topicCandidate = !generationBrief.topic && !generationBrief.hook && !isPaymentProject(project)
-    ? pickTopicCandidate({ project, product, existingJobs })
+    ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
     : null;
   const topicCandidatePlan = !generationBrief.aiPlan && topicCandidate
     ? createTopicCandidatePlan({ project, product, candidate: topicCandidate })
@@ -262,7 +282,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const referenceHook = meaning.hookReference ? meaning.hook : "";
   const hook = referenceHook || generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
   const hookPointCount = getHookPointCount(meaning.hookReference?.text || hook);
-  const profile = buildProductProfile({ project, product });
+  const profile = buildProductProfile({ project, product, insightMap: generationBrief.productInsightMap });
   const brief = {
     topic,
     hook,
@@ -280,6 +300,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     diversitySlot: slot,
     contentLayer: slot.contentLayer || generationBrief.contentLayer || null,
     contentLayerId: slot.contentLayer?.id || generationBrief.contentLayerId || "",
+    productInsightMap: profile.insightMap,
     aiPlan: generationSeed.aiPlan
   };
   return brief;

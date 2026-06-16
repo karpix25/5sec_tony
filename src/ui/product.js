@@ -76,9 +76,9 @@ function renderProductSummary(product, ready) {
       ${ready ? `
         <div class="product-summary-grid">
           ${summaryItem("Что это", product.description || "не заполнено")}
-          ${summaryItem("Когда нужно", listValue(product.pains) || "не заполнено")}
-          ${summaryItem("Что можно обещать", product.offer || "не заполнено")}
-          ${summaryItem("Факты", listValue(product.facts) || "не заполнено")}
+          ${summaryItem("Зачем покупают", listValue(product.pains) || "не заполнено")}
+          ${summaryItem("Роль продукта", product.offer || "не заполнено")}
+          ${summaryItem("Можно говорить", listValue(product.facts) || "не заполнено")}
         </div>
       ` : `<div class="locked-note">Универсальная анкета появится после загрузки фото и анализа продукта.</div>`}
     </section>
@@ -95,11 +95,11 @@ function renderProductFieldsModal(product, ready) {
           <button class="danger-icon" data-close-product-fields-modal type="button" aria-label="Закрыть">×</button>
         </div>
         ${ready ? `
-          ${productField("Что это?", "description", "Категория, формат, для чего используется, что видно на фото или известно из проекта.", "textarea", product.description)}
-          ${productField("Когда нужно?", "pains", "Каждый пункт с новой строки: ситуации, задачи, симптомы, желания или рабочие сценарии аудитории.", "textarea", listValue(product.pains))}
-          ${productField("Что можно обещать?", "offer", "Аккуратное обещание без гарантий: результат, польза, формат помощи, отличие от альтернатив.", "textarea", product.offer)}
-          ${productField("Факты", "facts", "Каждый пункт с новой строки: состав, этапы услуги, формат, ограничения, видимые надписи, проверяемые детали.", "textarea", listValue(product.facts))}
-          ${productField("Что нельзя обещать?", "forbidden", "Каждый пункт с новой строки: лечение, гарантии, диагнозы, сроки результата, запрещенные заявления.", "textarea", listValue(product.forbidden))}
+          ${productField("Что это за продукт?", "description", "Одно человеческое описание: категория, формат, для чего он в жизни человека.", "textarea", product.description)}
+          ${productField("Зачем покупают?", "pains", "Боль и желание в одном поле: что человек хочет решить или почувствовать.", "textarea", listValue(product.pains))}
+          ${productField("Роль продукта", "offer", "Например: часть утренней рутины, понятный сервис оплаты, простой шаг в уходе.", "textarea", product.offer)}
+          ${productField("Можно говорить", "facts", "Безопасные факты: состав, формат, реальные свойства, видимые детали, сценарий использования.", "textarea", listValue(product.facts))}
+          ${productField("Что нельзя обещать?", "forbidden", "Самые важные запреты: лечение, гарантии, диагнозы, сроки результата, обход правил.", "textarea", listValue(product.forbidden))}
           <button class="secondary-btn" form="product-settings-form" type="submit">Сохранить анкету</button>
         ` : `<div class="locked-note">Сначала загрузите фото продукта и запустите анализ.</div>`}
       </section>
