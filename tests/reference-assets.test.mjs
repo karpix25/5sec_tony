@@ -69,3 +69,31 @@ test("reference asset logs distinguish product references", () => {
     designRefs: 1
   });
 });
+
+test("generation job skips product image inputs in no-package mode", () => {
+  const project = projects[0];
+  const product = {
+    ...products[0],
+    references: [{
+      title: "Реальная упаковка",
+      promptComment: "белая бутылка с зеленой этикеткой",
+      imageData: tinyPng
+    }]
+  };
+  const job = createGenerationJob({
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0],
+    generationBrief: {
+      topic: "Почему тяжело уснуть",
+      hook: "Что мешает расслабиться вечером",
+      visualObject: "вечерний свет и стакан воды"
+    }
+  });
+
+  assert.equal(job.productVisualMode, "no-package");
+  assert.deepEqual(job.inputRefs, []);
+  assert.deepEqual(job.inputUrls, []);
+  assert.match(job.prompt, /Не показывать упаковку продукта вообще/);
+});

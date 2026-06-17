@@ -381,6 +381,7 @@ async function runProductPhotoAnalysis(root, store, form) {
     product = { ...context.product, ...getFormSnapshot(productForm) };
     references = productReferencesFromImages(images);
     const result = await analyzeProductPhotos({ project: context.project, product, images });
+    references = productReferencesFromImages(images, result.draft?.promptComment);
     const liveProduct = getLiveProductDraft(root, store, productId, getFormSnapshot, product);
     const payload = mergeAnalyzedProductDraft(productPayloadFromDraft, product, liveProduct, result.draft || {}, references);
     if (store.getState().selectedProductId === productId) store.updateProduct(payload);
@@ -401,8 +402,8 @@ async function runCreateProductFromPhotos(root, store, form) {
     if (status) status.textContent = "Создаем продукт и анализируем фото...";
     const images = await getProductPhotoPayloads(form);
     const base = getFormSnapshot(form);
-    const references = productReferencesFromImages(images);
     const result = await analyzeProductPhotos({ project: context.project, product: base, images });
+    const references = productReferencesFromImages(images, result.draft?.promptComment);
     store.createProduct(productPayloadFromDraft(base, result.draft || {}, references));
     closeProductModal(root);
   } catch (error) {

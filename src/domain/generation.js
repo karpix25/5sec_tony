@@ -185,7 +185,7 @@ function formatProductInsightPrompt(profile) {
 
 export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [] }) {
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
-  const inputReferences = getGenerationInputReferences({ reference, product });
+  const inputReferences = getGenerationInputReferences({ reference, product, productVisualMode: brief.productVisualMode });
   return {
     id: `job-${Math.floor(200 + Math.random() * 700)}`,
     projectId: project.id,
@@ -217,13 +217,13 @@ export function getGenerationInputUrls({ reference, character, product }) {
   return getGenerationInputReferences({ reference, character, product }).map((item) => item.url);
 }
 
-export function getGenerationInputReferences({ reference, product }) {
+export function getGenerationInputReferences({ reference, product, productVisualMode = "exact-product" }) {
   return [
-    ...(product.references || []).map((item) => ({
+    ...(productVisualMode === "exact-product" ? (product.references || []).map((item) => ({
       role: "product",
       title: item.title || item.imageName || "Product reference",
       url: item.imageData
-    })),
+    })) : []),
     {
       role: "design",
       title: reference?.title || "Design reference",

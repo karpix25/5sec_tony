@@ -43,10 +43,11 @@ export function fillProductDraft(form, draft) {
 }
 
 export function productReferencesFromImages(images, promptComment = "Фото продукта из AI-анализа: упаковка, этикетка, форма, цвет и важные надписи.") {
+  const referencePrompt = normalizeReferencePromptComment(promptComment);
   return images.map((image, index) => ({
     id: `product-ref-${Date.now().toString(36)}-${index}`,
     title: image.name || `Фото продукта ${index + 1}`,
-    promptComment,
+    promptComment: referencePrompt,
     imageName: image.name || "",
     imageData: image.dataUrl || "",
     createdAt: new Date().toISOString()
@@ -76,6 +77,12 @@ function normalizeProductDraft(draft = {}) {
     facts: draft.facts || draft.proofPoints || "",
     forbidden: draft.forbidden || draft.forbiddenPromises || draft.risks || ""
   };
+}
+
+function normalizeReferencePromptComment(value) {
+  const text = String(value || "").trim().replace(/\s+/g, " ");
+  if (!text) return "Фото продукта из AI-анализа: упаковка, этикетка, форма, цвет и важные надписи.";
+  return text;
 }
 
 function setValue(form, name, value) {
