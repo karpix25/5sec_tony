@@ -123,14 +123,14 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.doesNotMatch(job.prompt, /Узнайте больше|Сохраните|Закажите/);
 });
 
-test("image prompt locks design reference layout instead of default numbered checklist", () => {
+test("image prompt uses design reference as style system, not literal layout lock", () => {
   const project = projects[0];
   const product = products.find((item) => item.id === "magnesium");
   const job = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0] });
 
-  assert.match(job.prompt, /ДИЗАЙН-РЕФЕРЕНС — КОМПОЗИЦИОННЫЙ ЗАМОК/);
-  assert.match(job.prompt, /визуальный скелет, баланс пустого места и расположение крупных зон остаются как в референсе/);
-  assert.match(job.prompt, /Если референс не использует нумерованный список, не превращать макет в структуру 1\/2\/3\/4/);
+  assert.match(job.prompt, /ДИЗАЙН-РЕФЕРЕНС — ИСТОЧНИК СТИЛЯ, А НЕ БУКВАЛЬНОЙ ВЕРСТКИ/);
+  assert.match(job.prompt, /Композиция может меняться под задачу: список, таблица, сравнение, сетка, схема, карточки или таймлайн/);
+  assert.match(job.prompt, /COMPOSITION MODE:/);
 });
 
 test("image prompt never renders plan disclaimer as bottom text", () => {

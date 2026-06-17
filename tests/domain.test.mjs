@@ -99,6 +99,7 @@ test("generation brief is auto-created from project and product context", () => 
   assert.match(brief.topic, /карт|зарубежн|подписк/);
   assert.match(brief.hook, /зарубеж|оплат|карта|подписк/i);
   assert.doesNotMatch(brief.topic, /кишечник/i);
+  assert.ok(brief.compositionMode?.id);
 });
 
 test("auto generation rotates hooks and topics by existing project jobs", () => {

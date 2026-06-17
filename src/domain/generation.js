@@ -1,5 +1,6 @@
 import { generationStages } from "./entities.js";
 import { createContentSlot } from "./content-rotation.js";
+import { getCompositionInstruction, pickCompositionMode } from "./composition-modes.js";
 import { getContentLayerInstruction } from "./content-layers.js";
 import { createMeaningBrief, createUniversalSemanticPlan, scoreMeaningBrief } from "./meaning-engine.js";
 import { createPaymentPlan, getScenarioVisualInstruction } from "./payment-plan.js";
@@ -32,10 +33,10 @@ const socialSafeZoneRules = [
 ];
 
 const designReferenceRules = [
-  "ДИЗАЙН-РЕФЕРЕНС — КОМПОЗИЦИОННЫЙ ЗАМОК: сетка, пропорции блоков, плотность, типографика, фон, свет, контраст, форма карточек, ритм и иерархия должны повторять выбранный дизайн-референс.",
-  "Не изобретать новую структуру, если есть reference image. Меняется только смысл текста и продуктовый объект; визуальный скелет, баланс пустого места и расположение крупных зон остаются как в референсе.",
-  "Если референс не использует нумерованный список, не превращать макет в структуру 1/2/3/4. Маркеры, бейджи, карточки и выноски выбирать по стилю референса.",
-  "Если референс использует колонки, постерный хук, сравнение, диаграмму или свободные карточки, сохранить именно этот тип композиции вместо стандартного чек-листа."
+  "ДИЗАЙН-РЕФЕРЕНС — ИСТОЧНИК СТИЛЯ, А НЕ БУКВАЛЬНОЙ ВЕРСТКИ: брать палитру, типографику, контраст, форму карточек, фактуры, свет, обводки, ритм и декоративные элементы.",
+  "Не копировать референс как один и тот же макет. Композиция может меняться под задачу: список, таблица, сравнение, сетка, схема, карточки или таймлайн.",
+  "Если в задаче задан composition mode, он важнее буквальной верстки референса. Референс должен окрасить макет визуально, а не запретить новый формат.",
+  "Если референс не использует нумерованный список, это не значит, что все будущие макеты должны повторять его буквально. Сохраняй язык дизайна, а не один скриншот."
 ];
 
 const productVisibilityRules = [
@@ -103,15 +104,17 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const visiblePointSource = formatVisiblePointSource(visiblePoints);
   const designCopyPrompt = cleanDesignReferenceText(reference?.takeaways);
   const fixedFontStyle = reference?.fontStyle || reference?.headlineStyle || "";
+  const compositionInstruction = getCompositionInstruction(brief.compositionMode);
 
   return [
     "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
-    "КРИТИЧНО: если переданы reference images, использовать их как главный источник визуального дизайна: композиция, сетка, плотность текста, иерархия, палитра, типографика и ритм блоков.",
+    "КРИТИЧНО: если переданы reference images, использовать их как главный источник визуального дизайна: палитра, типографика, свет, контраст, форма карточек, материалы, фактуры и ритм.",
     "Дизайн-референс использовать только как визуальный стиль; не копировать его текст, смысл, продукт, логотипы, персонажа или обещания.",
     ...designReferenceRules,
     ...socialSafeZoneRules,
     "Не добавлять аватара/персонажа в саму картинку. Персонаж будет наложен отдельно на этапе видео.",
     "Смыслы и формулировки создать только на основе компании, ЦА, выбранного продукта и брифа генерации.",
+    compositionInstruction,
     getContentLayerInstruction(brief.contentLayer),
     ...productVisibilityRules,
     getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode: brief.productVisualMode }),
@@ -207,6 +210,7 @@ export function createGenerationJob({ project, product, reference, character, au
     semanticKey: brief.semanticKey,
     meaningPatternId: brief.meaningPatternId,
     productVisualMode: brief.productVisualMode,
+    compositionMode: brief.compositionMode?.id || "",
     diversitySlot: brief.diversitySlot,
     contentLayerId: brief.contentLayerId,
     format: brief.format
@@ -336,6 +340,10 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     diversitySlot: slot,
     contentLayer: slot.contentLayer || generationBrief.contentLayer || null,
     contentLayerId: slot.contentLayer?.id || generationBrief.contentLayerId || "",
+    compositionMode: generationBrief.compositionMode || pickCompositionMode({
+      format: generationSeed.format || meaning.format || slot.format || pickFormat(project, reference),
+      existingJobs
+    }),
     productInsightMap: profile.insightMap,
     aiPlan: generationSeed.aiPlan,
     productVisualMode: generationBrief.productVisualMode || getProductVisualMode({
