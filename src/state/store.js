@@ -34,11 +34,15 @@ export function createStore() {
   let state = storeCache.createInitialStoreState();
   let persistenceStatus = { status: "local", message: "Локальный кэш" };
   let statePersistence = null;
+  let hydrationSettled = false;
+  let hadLocalChangesBeforeHydrate = false;
+  const preHydrationLocalKeys = new Set();
   const subscribers = new Set();
   const persistenceSubscribers = new Set();
 
   function setState(patch) {
     const previousState = state;
+    markPreHydrationPatch(patch);
     const nextState = normalize({ ...state, ...patch });
     state = nextState;
     storeCache.persist(state);
@@ -49,7 +53,8 @@ export function createStore() {
   }
 
   function replaceState(nextState) {
-    state = normalize(mergeHydratedStateWithUiState(nextState, state));
+    const hydratedState = mergeHydratedStateWithUiState(nextState, state);
+    state = normalize(hydrationSettled ? hydratedState : preservePreHydrationKeys(hydratedState, state, preHydrationLocalKeys));
     storeCache.persist(state);
     subscribers.forEach((subscriber) => subscriber(state, null));
   }
@@ -81,9 +86,17 @@ export function createStore() {
   });
   const hydrationPromise = new Promise((resolve) => setTimeout(() => resolve(statePersistence.hydrate()), 0));
   hydrationPromise.then(() => {
+    hydrationSettled = true;
+    if (hadLocalChangesBeforeHydrate) statePersistence.scheduleSave();
     avatarWorkflow.resumeAvatarPolling();
     designReferenceWorkflow.resumeDesignReferencePolling();
   });
+
+  function markPreHydrationPatch(patch) {
+    if (hydrationSettled || !patch || !Object.keys(patch).length) return;
+    hadLocalChangesBeforeHydrate = true;
+    Object.keys(patch).forEach((key) => preHydrationLocalKeys.add(key));
+  }
 
   return {
     getState: () => state,
@@ -450,5 +463,17 @@ function normalize(nextState) {
       ? nextState.selectedProjectTab
       : "project",
     generationBrief: ensureGenerationBrief(nextState.generationBrief)
+  };
+}
+
+function preservePreHydrationKeys(remoteState, localState, protectedKeys) {
+  if (!protectedKeys?.size) return remoteState;
+  return {
+    ...remoteState,
+    ...Object.fromEntries(
+      [...protectedKeys]
+        .filter((key) => Object.hasOwn(localState, key))
+        .map((key) => [key, localState[key]])
+    )
   };
 }
