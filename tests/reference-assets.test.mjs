@@ -16,12 +16,22 @@ test("generation job keeps local product references for image-to-image handoff",
       imageData: tinyPng
     }]
   };
-  const job = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0] });
+  const job = createGenerationJob({
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0],
+    generationBrief: {
+      topic: "Как выбрать хлорофилл",
+      hook: "Что смотреть на упаковке",
+      visualObject: "реальная бутылка крупно"
+    }
+  });
 
   assert.deepEqual(job.inputUrls, [tinyPng]);
   assert.deepEqual(job.inputRefs, [{ role: "product", title: "Реальная упаковка", isLocalData: true }]);
   assert.match(job.prompt, /Референсы продукта: Реальная упаковка: белая бутылка с зеленой этикеткой/);
-  assert.match(job.prompt, /ТОЧНЫЙ PRODUCT IMAGE-TO-IMAGE ДОСТУПЕН/);
+  assert.match(job.prompt, /РЕЖИМ ПРОДУКТА: exact-product/);
   assert.doesNotMatch(job.prompt, /он не передан в image-to-image/);
 });
 

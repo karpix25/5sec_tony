@@ -40,12 +40,12 @@ const designReferenceRules = [
 
 const productVisibilityRules = [
   "ПРОДУКТ ПОКАЗЫВАТЬ ТОЛЬКО В ТЕМУ: не вставлять упаковку в каждую генерацию ради рекламы. Если тема бытовая или образовательная, продукт может быть только мягким сигналом или вообще остаться за кадром.",
-  "ПРОДУКТ В КАДРЕ НЕ РАВЕН УПАКОВКЕ: если продукт уместен, можно показать упаковку, жидкость, ингредиент, ритуал применения, карточку услуги, интерфейс или главный предмет оффера.",
-  "Не пихать упаковку в каждую генерацию. Крупная упаковка нужна только когда тема прямо про продукт, выбор, применение, состав или упаковку; в остальных случаях использовать контекст: стакан, капля, ингредиент, рутина, мини-бейдж продукта или аккуратный фрагмент.",
+  "ПРОДУКТ В КАДРЕ НЕ РАВЕН УПАКОВКЕ: если продукт не обязателен по смыслу, лучше показать ситуацию, ингредиент, ритуал, интерфейс или предмет боли без любой упаковки.",
+  "Не пихать упаковку в каждую генерацию. Крупная упаковка нужна только когда тема прямо про продукт, выбор, применение, состав или упаковку; в остальных случаях упаковку не показывать вообще.",
   "Если у продукта есть product reference images, использовать их как источник внешнего вида продукта; дизайн-референс не должен заменять продукт чужим объектом.",
   "ТОЧНОСТЬ ПРОДУКТА: не менять форму упаковки, цвет, этикетку, название, формат, объем, крышку, коробку и SKU. Лучше показать меньше деталей, но сохранить реальный внешний вид из product reference images.",
-  "Если точный внешний вид продукта не виден или недоступен как image-to-image, не придумывать бренд, дозировку, капсулы, таблетки, объем, состав, новую этикетку или новую коробку; показать нейтральную упаковку только с названием продукта из анкеты.",
-  "Если точный product reference не передан в генератор как image-to-image, НЕ рисовать крупную фронтальную упаковку с новой этикеткой. Лучше показать продукт через жидкость, стакан, лист/ингредиент, ритуал, маленькую нейтральную плашку с названием или не показывать упаковку вовсе.",
+  "Если точный внешний вид продукта не виден или недоступен как image-to-image, не придумывать бренд, дозировку, капсулы, таблетки, объем, состав, новую этикетку, новую коробку или нейтральную упаковку.",
+  "Если точный product reference не передан в генератор как image-to-image, НЕ рисовать крупную фронтальную упаковку с новой этикеткой и не подменять продукт похожей generic-банкой.",
   "Не придумывать новые варианты упаковки, ребрендинг, аптечный блистер, таблетки, медицинский флакон, лекарственную коробку или чужой продукт вместо исходного.",
   "Если продукт нематериальный, показать понятную визуализацию услуги: экран сервиса, карту, заявку, чек, подписку, процесс или другой предмет, напрямую связанный с оффером.",
   "СВЯЗЬ ПРОДУКТА С ТЕМОЙ: рядом с продуктом должен быть понятный мост: какую боль, привычку или ситуацию он помогает закрыть. Не ставить продукт как случайную упаковку рядом с чужой темой."
@@ -114,7 +114,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     "Смыслы и формулировки создать только на основе компании, ЦА, выбранного продукта и брифа генерации.",
     getContentLayerInstruction(brief.contentLayer),
     ...productVisibilityRules,
-    getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs }),
+    getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode: brief.productVisualMode }),
     ...productDataRules,
     ...contentQualityRules,
     ...russianImageTextRules,
@@ -206,6 +206,7 @@ export function createGenerationJob({ project, product, reference, character, au
     topic: brief.topic,
     semanticKey: brief.semanticKey,
     meaningPatternId: brief.meaningPatternId,
+    productVisualMode: brief.productVisualMode,
     diversitySlot: brief.diversitySlot,
     contentLayerId: brief.contentLayerId,
     format: brief.format
@@ -246,17 +247,31 @@ function isImageReferenceUrl(value) {
   return isRemoteImageUrl(value) || isDataImageUrl(value);
 }
 
-function getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs }) {
+function getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode }) {
   const productRefCount = remoteProductRefs + localProductRefs;
-  if (productRefCount) {
+  if (productVisualMode === "exact-product" && productRefCount) {
     return [
-      `ТОЧНЫЙ PRODUCT IMAGE-TO-IMAGE ДОСТУПЕН: передано ${productRefCount} product reference image(s).`,
+      `РЕЖИМ ПРОДУКТА: exact-product. Передано ${productRefCount} product reference image(s).`,
       "Локальные product reference images будут опубликованы как S3/public URL перед запросом к генератору; считай их доступными для image-to-image.",
-      "Если тема, хук, пункты или visualObject упоминают продукт, упаковку, состав, применение, курс, ритуал с продуктом или выбор продукта, продукт должен быть визуально виден в кадре.",
-      "Копируй внешний вид продукта из product reference: форму упаковки, цвет, этикетку, название, крышку, коробку и SKU; не заменяй его абстрактным 3D-объектом."
+      "Тема требует показать продукт: продукт должен быть визуально виден в кадре.",
+      "Копируй внешний вид продукта из product reference: форму упаковки, цвет, этикетку, название, крышку, коробку и SKU; не заменяй его абстрактным 3D-объектом, generic bottle, generic jar, flask или чужой упаковкой."
     ].join(" ");
   }
-  return "ТОЧНОГО PRODUCT IMAGE-TO-IMAGE НЕТ: не рисовать крупную упаковку с выдуманной этикеткой; продукт показывать через контекст, ингредиент, ритуал или маленький нейтральный объект.";
+  return [
+    "РЕЖИМ ПРОДУКТА: no-package.",
+    "Не показывать упаковку продукта вообще.",
+    "Не рисовать никакую банку, флакон, коробку, капсулы, бутылку, баночку, блистер, тюбик или похожий generic product object.",
+    "Если точный продукт не обязателен по теме, показывать только ситуацию, ингредиент, ритуал, интерфейс, предмет боли или абстрактный объект без упаковки."
+  ].join(" ");
+}
+
+function getProductVisualMode({ product, topic, hook, visualObject }) {
+  const hasProductReference = Array.isArray(product?.references) && product.references.some((item) => isImageReferenceUrl(item?.imageData));
+  if (!hasProductReference) return "no-package";
+  const source = `${topic || ""} ${hook || ""} ${visualObject || ""}`.toLowerCase();
+  return /продукт|упаков|состав|этикет|как пить|как приним|прием|принимать|дозиров|курс|банка|флакон|капсул|таблет|выбор|что внутри|обзор/.test(source)
+    ? "exact-product"
+    : "no-package";
 }
 
 function getVisibleImagePoints(points) {
@@ -322,7 +337,13 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     contentLayer: slot.contentLayer || generationBrief.contentLayer || null,
     contentLayerId: slot.contentLayer?.id || generationBrief.contentLayerId || "",
     productInsightMap: profile.insightMap,
-    aiPlan: generationSeed.aiPlan
+    aiPlan: generationSeed.aiPlan,
+    productVisualMode: generationBrief.productVisualMode || getProductVisualMode({
+      product,
+      topic,
+      hook,
+      visualObject: generationBrief.visualObject || profile.primaryVisual || meaning.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name
+    })
   };
   return brief;
 }

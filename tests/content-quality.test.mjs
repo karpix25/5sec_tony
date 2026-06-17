@@ -171,16 +171,54 @@ test("image prompt treats local product references as transferable image input",
       imageData: "data:image/png;base64,local"
     }]
   };
-  const job = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0] });
+  const job = createGenerationJob({
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0],
+    generationBrief: {
+      topic: "Как выбрать хлорофилл",
+      hook: "Что смотреть на упаковке",
+      visualObject: "реальная бутылка хлорофилла крупно"
+    }
+  });
 
   assert.match(job.prompt, /ПРОДУКТ ПОКАЗЫВАТЬ ТОЛЬКО В ТЕМУ/);
   assert.match(job.prompt, /ПРОДУКТ В КАДРЕ НЕ РАВЕН УПАКОВКЕ/);
   assert.match(job.prompt, /Не пихать упаковку в каждую генерацию/);
-  assert.match(job.prompt, /ТОЧНЫЙ PRODUCT IMAGE-TO-IMAGE ДОСТУПЕН/);
+  assert.match(job.prompt, /РЕЖИМ ПРОДУКТА: exact-product/);
   assert.match(job.prompt, /Локальные product reference images будут опубликованы как S3\/public URL/);
-  assert.match(job.prompt, /Если тема, хук, пункты или visualObject упоминают продукт/);
-  assert.match(job.prompt, /продукт должен быть визуально виден в кадре/);
-  assert.match(job.prompt, /не заменяй его абстрактным 3D-объектом/);
+  assert.match(job.prompt, /Тема требует показать продукт/);
+  assert.match(job.prompt, /generic bottle, generic jar, flask или чужой упаковкой/);
+  assert.equal(job.productVisualMode, "exact-product");
+});
+
+test("image prompt bans any generic package when topic is not product-centric", () => {
+  const project = projects[0];
+  const product = {
+    ...products.find((item) => item.id === "magnesium"),
+    references: [{
+      title: "Фото бутылки",
+      promptComment: "белая бутылка с зеленой этикеткой",
+      imageData: "data:image/png;base64,local"
+    }]
+  };
+  const job = createGenerationJob({
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0],
+    generationBrief: {
+      topic: "Почему тяжело уснуть",
+      hook: "Что мешает расслабиться вечером",
+      visualObject: "вечерний свет и стакан воды"
+    }
+  });
+
+  assert.match(job.prompt, /РЕЖИМ ПРОДУКТА: no-package/);
+  assert.match(job.prompt, /Не показывать упаковку продукта вообще/);
+  assert.match(job.prompt, /Не рисовать никакую банку, флакон, коробку, капсулы, бутылку/);
+  assert.equal(job.productVisualMode, "no-package");
 });
 
 test("humanizer removes disclaimer points and technical labels", () => {
