@@ -241,6 +241,7 @@ test("image job assembles final 5 second video with reusable avatar video and li
     audioLibrary: [audio]
   };
   let markedVideo = null;
+  let uploadPayload = null;
   const store = {
     getState: () => state,
     patchJob: (jobId, payload) => {
@@ -278,18 +279,24 @@ test("image job assembles final 5 second video with reusable avatar video and li
       assert.deepEqual(body.ctaOverlay, { enabled: true, mode: "text", text: "ЖМИ", x: 52, y: 82, scale: 90, opacity: 85 });
       return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-with-audio.mp4", hasAudio: true }) };
     }
+    if (String(url).includes("/api/yandex-disk/upload")) {
+      uploadPayload = body;
+      return { ok: true, json: async () => ({ diskPath: "disk:/ВИДЕО/5сек/БАДы/Ready Avatar/final.mp4" }) };
+    }
     return { ok: true, json: async () => ({}) };
   };
 
   try {
     await runImageJob(store, job.id);
     await waitFor(() => Boolean(state.jobs[0].finalVideoUrl));
+    await waitFor(() => Boolean(uploadPayload));
 
     assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final-with-audio.mp4");
     assert.equal(state.jobs[0].finalVideoHasAudio, true);
     assert.equal(state.jobs[0].stage, "export");
     assert.equal(state.jobs[0].status, "done");
     assert.deepEqual(markedVideo, { characterId: "char-ready", videoId: "avatar-video-ready", nextIndex: 0, nextCharacterIndex: 0 });
+    assert.equal(uploadPayload.targetFolder, "disk:/ВИДЕО/5сек/БАДы/Ready Avatar");
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

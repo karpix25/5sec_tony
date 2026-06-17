@@ -43,6 +43,7 @@ const files = [
   "src/state/avatar-workflow.js",
   "src/state/store-normalizers.js",
   "src/state/store-persistence-policy.js",
+  "src/state/store-projects.js",
   "src/state/ui-cache-state.js",
   "src/state/store-cache.js",
   "src/state/store.js",

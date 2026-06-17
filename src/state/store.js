@@ -12,9 +12,9 @@ import {
   getSelectedGlobalAudioId
 } from "./global-assets.js";
 import { createGenerationJobBatch } from "./job-batch.js";
-import { normalizeProjectDailyLimit, normalizeProjectTotalLimit } from "./store-normalizers.js";
 import { createStoreCache } from "./store-cache.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
+import { updateProjectEntity, withCreatedJobs } from "./store-projects.js";
 import { createStatePersistence } from "./state-persistence.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
@@ -22,6 +22,8 @@ import {
   createId,
   createProductEntity,
   createReferenceEntity,
+  defaultProjectExportFolder,
+  defaultProjectYandexDiskFolder,
   ensureGenerationBrief,
   ensureProductAssets,
   ensureProjectAssets
@@ -174,8 +176,8 @@ export function createStore() {
         id: createId("project"),
         client: "Anton Studio",
         name: payload.name || "Новый проект",
-        exportFolder: payload.exportFolder || `Yandex Disk / Anton / ${payload.name || "Новый проект"} / Готовые`,
-        yandexDiskFolder: payload.yandexDiskFolder || `disk:/ВИДЕО/${payload.name || "Новый проект"}/Готовые`,
+        exportFolder: payload.exportFolder || defaultProjectExportFolder(payload.name || "Новый проект"),
+        yandexDiskFolder: payload.yandexDiskFolder || defaultProjectYandexDiskFolder(payload.name || "Новый проект"),
         dailyLimit: Number(payload.dailyLimit || 20),
         usedToday: 0,
         projectLimit: Number(payload.projectLimit || 500),
@@ -393,37 +395,6 @@ export function getContext(state) {
 
 function getProject(state, projectId) { return state.projects.find((project) => project.id === projectId) || state.projects[0]; }
 
-function updateProjectEntity(project, payload) {
-  const value = (name, fallback = "") => Object.hasOwn(payload, name) ? payload[name] : (project[name] || fallback);
-  const projectAbout = Object.hasOwn(payload, "projectTheme") ? payload.projectTheme : null;
-  const exportFolder = value("exportFolder", project.exportFolder);
-  const yandexDiskFolder = value("yandexDiskFolder", project.yandexDiskFolder || `disk:/ВИДЕО/${project.name || "Проект"}/Готовые`);
-  return {
-    ...project,
-    name: payload.name || project.name,
-    exportFolder,
-    yandexDiskFolder,
-    dailyLimit: normalizeProjectDailyLimit(value("dailyLimit", project.dailyLimit || 20)),
-    projectLimit: normalizeProjectTotalLimit(value("projectLimit", project.projectLimit || 500)),
-    projectTheme: value("projectTheme"),
-    niche: value("niche"),
-    keyScenarios: value("keyScenarios"),
-    audiencePains: value("audiencePains"),
-    audienceDesires: value("audienceDesires"),
-    audienceObjections: value("audienceObjections"),
-    allowedTriggers: value("allowedTriggers"),
-    forbiddenTriggers: value("forbiddenTriggers"),
-    hookAggression: value("hookAggression", "Средняя"),
-    contentRestrictions: value("contentRestrictions"),
-    companyInfo: Object.hasOwn(payload, "companyInfo") ? payload.companyInfo : (projectAbout ?? project.companyInfo ?? ""),
-    companyAudience: value("companyAudience"),
-    toneOfVoice: value("toneOfVoice"),
-    restrictions: value("restrictions"),
-    style: value("style", project.style),
-    automation: normalizeProjectAutomation(project.automation)
-  };
-}
-
 function getContextForProject(state, projectId) {
   const fallback = getContext(state);
   const project = getProject(state, projectId);
@@ -446,22 +417,6 @@ function createJobBatchForContext(state, context, count, options = {}) {
     products: options.distributeProducts ? getProductsForProject(state.products, context.project.id) : [],
     existingJobs: state.jobs.filter((item) => item.projectId === context.project.id)
   });
-}
-
-function withCreatedJobs(state, jobs, projectId) {
-  if (!jobs.length) return { jobs: state.jobs };
-  return {
-    jobs: [...jobs, ...state.jobs],
-    projects: state.projects.map((project) =>
-      project.id === projectId
-        ? {
-          ...project,
-          usedToday: Number(project.usedToday || 0) + jobs.length,
-          usedTotal: Number(project.usedTotal || 0) + jobs.length
-        }
-        : project
-    )
-  };
 }
 
 function normalize(nextState) {

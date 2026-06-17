@@ -34,7 +34,7 @@ test("project save keeps fresh form values after ai memory refresh", async () =>
   };
   globalThis.fetch = async () => {
     form.values.dailyLimit = "33";
-    form.values.yandexDiskFolder = "disk:/ВИДЕО/Новое/Готовые";
+    form.values.yandexDiskFolder = "disk:/ВИДЕО/5сек/Новое";
     return { ok: true, json: async () => ({ draft: { companyAudience: "AI ЦА" } }) };
   };
 
@@ -47,7 +47,7 @@ test("project save keeps fresh form values after ai memory refresh", async () =>
 
   assert.equal(updates[0].dailyLimit, "20");
   assert.equal(updates.at(-1).dailyLimit, "33");
-  assert.equal(updates.at(-1).yandexDiskFolder, "disk:/ВИДЕО/Новое/Готовые");
+  assert.equal(updates.at(-1).yandexDiskFolder, "disk:/ВИДЕО/5сек/Новое");
   assert.equal(updates.at(-1).companyAudience, "AI ЦА");
 });
 
@@ -67,7 +67,7 @@ test("project save reads fresh values from live form after rerender", async () =
   });
   const liveForm = createProjectSettingsForm({
     name: "Проект",
-    yandexDiskFolder: "disk:/ВИДЕО/Новое/Готовые",
+    yandexDiskFolder: "disk:/ВИДЕО/5сек/Новое",
     exportFolder: "Новое",
     dailyLimit: "33",
     projectLimit: "100",

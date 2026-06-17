@@ -29,6 +29,9 @@ const ppmViralReference = {
   visualObject: "крупный 3D-объект оплаты: карта, глобус, терминал, экран подписки или связка сервисов"
 };
 
+const yandexVideoRoot = "disk:/ВИДЕО/5сек";
+const yandexExportLabelRoot = "Yandex Disk / 5сек";
+
 export function createId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -105,7 +108,7 @@ export function ensureProjectAssets(project) {
     contentRestrictions: project.contentRestrictions || "",
     toneOfVoice: project.toneOfVoice || "спокойный экспертный",
     restrictions: project.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
-    exportFolder: project.exportFolder || `Yandex Disk / Anton / ${project.name || "Проект"} / Готовые`,
+    exportFolder: normalizeProjectExportFolder(project.exportFolder, project.name),
     yandexDiskFolder: normalizeProjectYandexFolder(project.yandexDiskFolder, project.name),
     dailyLimit: normalizeAssetLimit(project.dailyLimit, 20),
     usedToday: normalizeAssetUsage(project.usedToday),
@@ -135,14 +138,42 @@ function normalizeAssetUsage(value) {
   return Math.max(0, Math.round(number));
 }
 
-function normalizeProjectYandexFolder(value, projectName = "Проект") {
+export function defaultProjectYandexDiskFolder(projectName = "Проект") {
+  return `${yandexVideoRoot}/${sanitizeFolderSegment(projectName)}`;
+}
+
+export function defaultProjectExportFolder(projectName = "Проект") {
+  return `${yandexExportLabelRoot} / ${sanitizeFolderSegment(projectName)}`;
+}
+
+export function normalizeProjectYandexFolder(value, projectName = "Проект") {
   const raw = String(value || "").trim();
-  if (/^disk:\//i.test(raw)) return raw;
+  if (/^disk:\//i.test(raw)) {
+    return normalizeDiskVideoFolder(raw, projectName);
+  }
   const legacy = raw.match(/^Yandex Disk\s*\/\s*Anton\s*\/\s*(.+)$/i);
   if (legacy) {
-    return `disk:/ВИДЕО/${legacy[1].split("/").map((part) => part.trim()).filter(Boolean).join("/")}`;
+    return normalizeDiskVideoFolder(`disk:/ВИДЕО/${legacy[1]}`, projectName);
   }
-  return `disk:/ВИДЕО/${projectName || "Проект"}/Готовые`;
+  const modern = raw.match(/^Yandex Disk\s*\/\s*5сек\s*\/\s*(.+)$/i);
+  if (modern) {
+    return normalizeDiskVideoFolder(`${yandexVideoRoot}/${modern[1]}`, projectName);
+  }
+  return defaultProjectYandexDiskFolder(projectName);
+}
+
+export function normalizeProjectExportFolder(value, projectName = "Проект") {
+  const raw = String(value || "").trim();
+  if (!raw) return defaultProjectExportFolder(projectName);
+  const normalizedDiskPath = normalizeProjectYandexFolder(raw, projectName);
+  if (/^disk:\//i.test(raw) || /^Yandex Disk\s*\//i.test(raw)) {
+    return buildExportLabelFromDiskFolder(normalizedDiskPath);
+  }
+  return raw;
+}
+
+export function buildAvatarYandexDiskFolder(baseFolder, avatarName = "") {
+  return `${normalizeProjectYandexFolder(baseFolder)}/${sanitizeFolderSegment(avatarName, "Без аватара")}`;
 }
 
 function ensureCharacterAssets(character) {
@@ -208,4 +239,41 @@ function getAudioLibrary(project, legacyAudios) {
 function asList(value) {
   if (Array.isArray(value)) return value;
   return String(value).split(/\n|;/).map((item) => item.trim()).filter(Boolean);
+}
+
+function normalizeDiskVideoFolder(value, projectName = "Проект") {
+  const normalized = `disk:/${String(value || "")
+    .replace(/^disk:\/*/i, "")
+    .split("/")
+    .map((part) => sanitizeFolderSegment(part, ""))
+    .filter(Boolean)
+    .join("/")}`;
+  const suffix = normalized.replace(/^disk:\/?/, "").split("/").filter(Boolean);
+  const withoutReady = suffix.filter((part) => !/^готовые$/i.test(part));
+  if (!withoutReady.length) return defaultProjectYandexDiskFolder(projectName);
+  if (withoutReady[0] !== "ВИДЕО") {
+    return defaultProjectYandexDiskFolder(projectName);
+  }
+  if (withoutReady[1] === "5сек") {
+    return `disk:/${withoutReady.join("/")}`;
+  }
+  return `disk:/ВИДЕО/5сек/${withoutReady.slice(1).join("/") || sanitizeFolderSegment(projectName)}`;
+}
+
+function buildExportLabelFromDiskFolder(folder) {
+  const suffix = String(folder || "")
+    .replace(/^disk:\/ВИДЕО\/5сек\/?/i, "")
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" / ");
+  return suffix ? `${yandexExportLabelRoot} / ${suffix}` : yandexExportLabelRoot;
+}
+
+function sanitizeFolderSegment(value, fallback = "Проект") {
+  const cleaned = String(value || "")
+    .trim()
+    .replace(/[\\:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ");
+  return cleaned || fallback;
 }

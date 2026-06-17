@@ -216,6 +216,8 @@ test("store creates a project with a starter product", () => {
 
   assert.equal(state.selectedProjectId, project.id);
   assert.equal(product.name, "Новый продукт");
+  assert.equal(project.exportFolder, "Yandex Disk / 5сек / Новый проект");
+  assert.equal(project.yandexDiskFolder, "disk:/ВИДЕО/5сек/Новый проект");
 });
 
 test("store deletes project with related products and jobs", () => {
@@ -265,10 +267,12 @@ test("store updates project settings and uses them in prompt", () => {
 test("store migrates legacy Yandex Disk folder paths to video root", () => {
   const project = ensureProjectAssets({
     ...projects[0],
+    exportFolder: "Yandex Disk / Anton / БАДы / Готовые",
     yandexDiskFolder: "Yandex Disk / Anton / БАДы / Готовые"
   });
 
-  assert.equal(project.yandexDiskFolder, "disk:/ВИДЕО/БАДы/Готовые");
+  assert.equal(project.exportFolder, "Yandex Disk / 5сек / БАДы");
+  assert.equal(project.yandexDiskFolder, "disk:/ВИДЕО/5сек/БАДы");
 });
 
 test("store generates project strategy fields from current project context", () => {

@@ -1,4 +1,5 @@
 import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } from "../domain/generation.js";
+import { buildAvatarYandexDiskFolder } from "../state/factories.js";
 import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../domain/avatar-video-rotation.js";
 import { getContext } from "../state/store.js";
 import { generateAiBrief } from "../services/brief-ai.js";
@@ -199,12 +200,13 @@ async function uploadJobToYandexDisk(store, jobId, finalVideoUrl) {
   const job = findJob(store, jobId);
   const project = state.projects?.find((item) => item.id === job?.projectId);
   if (!job || !project?.yandexDiskFolder) return;
+  const avatarName = resolveJobAvatarName(project, job, state.selectedCharacterId);
 
   try {
     store.patchJob(jobId, { diskStatus: "uploading", diskMessage: "Сохраняем в Яндекс.Диск..." });
     const result = await uploadVideoToYandexDisk({
       fileUrl: finalVideoUrl,
-      targetFolder: project.yandexDiskFolder,
+      targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
       fileName: buildExportFileName(project, job)
     });
     store.patchJob(jobId, {
@@ -227,6 +229,10 @@ function buildExportFileName(project, job) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
   return `${title || job.id}.mp4`;
+}
+
+function resolveJobAvatarName(project, job, fallbackCharacterId = "") {
+  return project.characters?.find((item) => item.id === (job.characterId || fallbackCharacterId))?.name || "Без аватара";
 }
 
 function requiresFinalVideo(job) {
