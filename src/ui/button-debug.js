@@ -43,9 +43,9 @@ function getButtonPayload(button, store) {
   return {
     at: new Date().toISOString(),
     id: button.id || null,
-    text: normalizeText(button.textContent),
+    text: normalizeButtonDebugText(button.textContent),
     type: button.getAttribute?.("type") || button.type || null,
-    className: normalizeText(button.className),
+    className: normalizeButtonDebugText(button.className),
     disabled: Boolean(button.disabled),
     dataset: { ...(button.dataset || {}) },
     projectId: context?.project?.id || state?.selectedProjectId || null,
@@ -63,7 +63,7 @@ function pushDebugEntry(kind, payload) {
   scope[DEBUG_LOG_KEY] = queue;
 }
 
-function normalizeText(value) {
+function normalizeButtonDebugText(value) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   return text ? text.slice(0, 160) : null;
 }

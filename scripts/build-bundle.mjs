@@ -57,6 +57,7 @@ const files = [
   "src/ui/generation-live.js",
   "src/ui/modals.js",
   "src/ui/preview-modal.js",
+  "src/ui/button-debug.js",
   "src/ui/product-form-sync.js",
   "src/ui/product-analysis-merge.js",
   "src/ui/transient-ui-state.js",
