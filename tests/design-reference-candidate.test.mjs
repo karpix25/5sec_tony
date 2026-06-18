@@ -90,6 +90,20 @@ test("store reviews and approves generated design reference templates", async ()
   }
 });
 
+test("store deletes selected design reference and selects the next one", () => {
+  const store = createStore();
+  store.createReference({ title: "Delete me", prompt: "dark cards" });
+  const state = store.getState();
+  const project = getSelectedProject(store);
+  const deletedId = state.selectedReferenceId;
+
+  store.deleteReference(deletedId);
+
+  const updated = getSelectedProject(store);
+  assert.equal(updated.references.some((reference) => reference.id === deletedId), false);
+  assert.equal(store.getState().selectedReferenceId, updated.references[0].id);
+});
+
 function getSelectedProject(store) {
   const state = store.getState();
   return state.projects.find((item) => item.id === state.selectedProjectId);

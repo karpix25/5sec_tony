@@ -96,6 +96,7 @@ function renderReferenceCard(reference, selectedId) {
         label: "Открыть референс крупно",
         content: "Открыть"
       }) : ""}
+      <button class="ghost-btn" data-delete-reference="${escapeHtml(reference.id)}" type="button">Удалить</button>
       <dl>
         <div><dt>Формат</dt><dd>9:16</dd></div>
         <div><dt>Шрифт</dt><dd>${escapeHtml(reference.fontStyle || reference.headlineStyle || "по референсу")}</dd></div>

@@ -328,13 +328,17 @@ export function createStore() {
     rejectDesignReference: designReferenceWorkflow.rejectDesignReference,
     deleteReference(referenceId) {
       const project = getProject(state, state.selectedProjectId);
-      if (project.references.length <= 1) return;
+      const references = project.references.filter((reference) => reference.id !== referenceId);
+      if (project.references.length <= 1 || references.length === project.references.length) return;
       setState({
         projects: state.projects.map((item) =>
           item.id === project.id
-            ? { ...item, references: item.references.filter((reference) => reference.id !== referenceId) }
+            ? { ...item, references }
             : item
-        )
+        ),
+        selectedReferenceId: references.some((reference) => reference.id === state.selectedReferenceId)
+          ? state.selectedReferenceId
+          : references[0]?.id
       });
     },
     createCharacter: avatarWorkflow.createCharacter,
