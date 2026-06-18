@@ -1,6 +1,7 @@
-export function normalizeHumanizedPlan(draft, fallbackPlan) {
+export function normalizeHumanizedPlan(draft, fallbackPlan, options = {}) {
   const points = normalizePoints(draft?.points, fallbackPlan.points);
-  const headline = normalizeHeadline(draft?.headline, fallbackPlan.headline, points);
+  const lockedHeadline = cleanText(options.lockedHeadline);
+  const headline = lockedHeadline || normalizeHeadline(draft?.headline, fallbackPlan.headline, points);
   const subhead = normalizeSubhead(draft?.subhead, fallbackPlan.subhead);
   return {
     headline,
@@ -18,7 +19,7 @@ export function humanizePlanFallback({ plan }) {
     points: plan.points.map(simplifyLine),
     cta: simplifyLine(plan.cta),
     disclaimer: simplifyLine(plan.disclaimer)
-  }, plan);
+  }, plan, { lockedHeadline: plan.headline });
 }
 
 function normalizePoints(points, fallbackPoints = []) {

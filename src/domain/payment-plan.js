@@ -9,7 +9,7 @@ export function createPaymentPlan({ product, brief }) {
         subhead: brief.aiPlan.subhead || brief.topic,
         points: brief.aiPlan.points
       },
-      headline: brief.aiPlan.headline || brief.hook,
+      headline: brief.hook,
       disclaimer: brief.aiPlan.disclaimer || paymentDisclaimer
     });
   }

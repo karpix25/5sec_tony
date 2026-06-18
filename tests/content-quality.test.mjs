@@ -291,6 +291,26 @@ test("humanizer shortens overloaded headline shells before image prompt", () => 
   assert.doesNotMatch(plan.headline, /популярное объяснение|:/i);
 });
 
+test("humanizer keeps locked hook as final headline", () => {
+  const plan = normalizeHumanizedPlan({
+    headline: "Популярное объяснение часто сбивает с толку: пополнить рекламный кабинет.",
+    subhead: "Покажите не шаги оплаты, а статусы заявки.",
+    points: [
+      "Заявка принята",
+      "Идет проверка",
+      "Нужны уточнения"
+    ]
+  }, {
+    headline: "Что проверить перед оплатой",
+    subhead: "",
+    points: []
+  }, {
+    lockedHeadline: "Что проверить перед оплатой"
+  });
+
+  assert.equal(plan.headline, "Что проверить перед оплатой");
+});
+
 test("fallback semantic plan gives pain, reason and useful action", () => {
   const project = projects[0];
   const product = {

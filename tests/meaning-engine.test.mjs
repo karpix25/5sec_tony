@@ -114,6 +114,33 @@ test("pdf hook placeholders adapt to project context", () => {
   assert.match(adapted, /карта не проходит|оплата зарубежных подписок/);
 });
 
+test("generic first-person hook gets rewritten into niche-specific hook", () => {
+  const project = {
+    ...projects.find((item) => item.id === "ppm"),
+    projectTheme: "оплата зарубежных подписок"
+  };
+  const product = products.find((item) => item.id === "crosspay");
+  const hook = { text: "Я (что-то сделал) с 5 (вещей) и это мой топ-5!" };
+  const adapted = adaptHookFromReference(hook, { project, product, angle: "карта не проходит" });
+
+  assert.doesNotMatch(adapted, /\(|\)|что-то|Я /i);
+  assert.match(adapted, /5 /);
+  assert.match(adapted, /карта не проходит|оплата зарубежных подписок/i);
+});
+
+test("same hook template adapts differently for another niche", () => {
+  const project = {
+    ...projects.find((item) => item.id === "supplements"),
+    projectTheme: "вечерний wellness-ритуал"
+  };
+  const product = products.find((item) => item.id === "magnesium");
+  const hook = { text: "7 красных флагов [темы]" };
+  const adapted = adaptHookFromReference(hook, { project, product, angle: "тяжело уснуть" });
+
+  assert.match(adapted, /тяжело уснуть|вечерний wellness-ритуал/i);
+  assert.doesNotMatch(adapted, /\[темы\]/);
+});
+
 test("ai brief keeps the locked diversity slot topic", async () => {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -208,6 +235,7 @@ test("payment generation turns active hook references into headline and text pla
 
     assert.equal(brief.hookReference.text, "7 красных флагов [темы]");
     assert.match(brief.hook, /7 красных флагов/);
+    assert.equal(plan.headline, brief.hook);
     assert.match(plan.points.join(" "), /Красный флаг|Норма/);
   } finally {
     globalThis.window = previousWindow;
@@ -266,7 +294,7 @@ test("humanized ai plan becomes final visible payment text", () => {
     }
   });
 
-  assert.equal(plan.headline, "Деньги уйдут, а за что — непонятно");
+  assert.equal(plan.headline, "Где прячутся риски в зарубежном счете перед оплатой");
   assert.match(plan.points.join(" "), /без тумана/);
   assert.equal(plan.disclaimer, "Условия зависят от площадки");
 });

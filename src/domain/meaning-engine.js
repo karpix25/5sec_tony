@@ -40,7 +40,7 @@ export function createMeaningBrief({ project, product, reference, generationBrie
 export function createUniversalSemanticPlan({ project, product, brief }) {
   if (brief.aiPlan?.points?.length) {
     return {
-      headline: brief.aiPlan.headline || brief.hook,
+      headline: brief.hook,
       subhead: brief.aiPlan.subhead || brief.topic,
       points: brief.aiPlan.points.slice(0, Number(brief.pointCount) || 5),
       cta: brief.cta || product.name,

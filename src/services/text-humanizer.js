@@ -12,7 +12,7 @@ export async function humanizeGenerationPlan({ project, product, brief, plan }) 
   });
   const payload = await readHumanizerPayload(response);
   if (!response.ok) throw new Error(payload.error || "OpenRouter text humanizer failed");
-  return normalizeHumanizedPlan(payload.draft || {}, plan);
+  return normalizeHumanizedPlan(payload.draft || {}, plan, { lockedHeadline: brief?.hook || plan.headline });
 }
 
 function normalizeHumanizedPlan(draft, fallbackPlan) {

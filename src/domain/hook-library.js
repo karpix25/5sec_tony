@@ -1,4 +1,5 @@
 import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
+import { adaptHookText } from "./hook-adapter.js";
 
 const hookStorageKey = "anton-hook-library";
 const hookStorageVersion = 1;
@@ -76,6 +77,11 @@ export function selectHookReference({ project, product, pattern, slot }) {
   const matchingHooks = eligibleHooks.filter((hook) => hookMatchesContext(hook, { project, product, pattern }));
   const hooks = matchingHooks.length ? matchingHooks : eligibleHooks;
   if (!hooks.length) return null;
+  const scoredHooks = hooks
+    .map((hook) => ({ hook, score: scoreHookReference(hook, { project, pattern, slot }) }))
+    .sort((left, right) => right.score - left.score);
+  const bestScore = scoredHooks[0]?.score ?? 0;
+  const pool = scoredHooks.filter((item) => item.score >= bestScore - 1).map((item) => item.hook);
   const source = [
     project?.projectTheme || "",
     product?.name || "",
@@ -84,42 +90,12 @@ export function selectHookReference({ project, product, pattern, slot }) {
     slot?.topic || "",
     slot?.angle || ""
   ].join(" ");
-  const index = Math.abs(hashHookSource(source)) % hooks.length;
-  return hooks[index];
+  const index = Math.abs(hashHookSource(source)) % pool.length;
+  return pool[index];
 }
 
 export function adaptHookFromReference(hook, { project, product, angle }) {
-  const subject = hookShortSubject(project, product, angle);
-  const problem = hookFirstLine(product?.pains) || hookFirstLine(project?.audiencePains) || "ситуация";
-  const replacements = {
-    "\\[тема\\]": subject,
-    "\\[темы\\]": subject,
-    "\\[объект\\]": product?.name || subject,
-    "\\[объекта\\]": product?.name || subject,
-    "\\[проблема\\]": problem,
-    "\\[проблемы\\]": problem,
-    "\\[результат\\]": product?.offer || hookFirstLine(project?.audienceDesires) || "результат",
-    "\\(ниша, клиент\\)": subject,
-    "\\(ниша\\)": subject,
-    "\\(клиент\\)": product?.name || subject,
-    "\\(проект, блог, способ что-то делать\\)": subject,
-    "\\(чего-то\\)": subject,
-    "\\(что-то\\)": product?.name || subject,
-    "\\(действие\\)": hookFirstLine(project?.keyScenarios) || "это",
-    "\\(сайт, ресурс, портал\\)": product?.name || subject,
-    "\\(сайт, приложение, инструмент\\)": product?.name || subject,
-    "\\(мест, вещей, ресторанов и тд\\)": product?.name || subject,
-    "\\(город, страна\\)": subject,
-    "\\(страна, город\\)": subject,
-    "\\(указать боли аудитории\\)": problem
-  };
-  let text = hook.text || "";
-  Object.entries(replacements).forEach(([pattern, value]) => {
-    text = text.replace(new RegExp(pattern, "gi"), value);
-  });
-  text = text.replace(/\bN\b/g, getReferenceHookPointCount(text) || "5");
-  if (/\bэто\b/i.test(text)) return text.replace(/\bэто\b/i, subject);
-  return text.includes("[") ? text : `${text}: ${subject}`;
+  return adaptHookText(hook, { project, product, angle });
 }
 
 function getReferenceHookPointCount(value) {
@@ -192,10 +168,6 @@ function hookMatchesContext(hook, { project, product, pattern }) {
   return hook.tags.some((tag) => source.includes(tag.split(" ")[0]));
 }
 
-function hookShortSubject(project, product, angle) {
-  return hookFirstLine(angle) || hookFirstLine(project?.projectTheme) || product?.name || "это";
-}
-
 function hookFirstLine(value) {
   return String(Array.isArray(value) ? value.find(Boolean) || "" : value || "").split(/\n|;|,/)[0].trim();
 }
@@ -206,4 +178,21 @@ function hashHookSource(value) {
 
 function hookCreateId(prefix) {
   return `${prefix}-${Math.floor(Date.now() + Math.random() * 100000)}`;
+}
+
+function scoreHookReference(hook, { project, pattern, slot }) {
+  const format = String(slot?.format || pattern?.format || "").toLowerCase();
+  const tags = hook.tags || [];
+  let score = 0;
+
+  if (pattern?.id === "red-flag" && tags.includes("красный флаг")) score += 4;
+  if (pattern?.id === "hidden-mistake" && tags.includes("ошибка")) score += 4;
+  if (pattern?.id === "myth-reality" && tags.includes("сравнение")) score += 4;
+  if (/check|list|scheme|comparison/.test(format) && tags.includes("чеклист")) score += 2;
+  if (/high|высок/.test(String(project?.hookAggression || "").toLowerCase()) && hook.aggression === "высокая") score += 1;
+  if (/сред/.test(String(project?.hookAggression || "").toLowerCase()) && hook.aggression === "средняя") score += 1;
+  if (/\[.*?\]|\(.*?\)|\bчто-то\b/i.test(hook.text || "")) score -= 1;
+  if (/\bя\b/i.test(hook.text || "")) score -= 1;
+
+  return score;
 }

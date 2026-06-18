@@ -16,6 +16,7 @@ const files = [
   "src/domain/composition-modes.js",
   "src/domain/cta-overlay.js",
   "src/domain/hook-library.js",
+  "src/domain/hook-adapter.js",
   "src/domain/product-insights.js",
   "src/domain/product-profile.js",
   "src/domain/project-automation.js",
