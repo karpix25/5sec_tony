@@ -50,3 +50,21 @@ test("product settings disables delete for the last product in project", () => {
   assert.match(html, /минимум один продукт/i);
   assert.doesNotMatch(html, /data-delete-product=/);
 });
+
+test("product screen has a single save changes action", () => {
+  const product = {
+    name: "Хлорофил",
+    description: "Описание",
+    offer: "Роль",
+    pains: ["Боль"],
+    facts: ["Факт"],
+    forbidden: ["Запрет"],
+    references: [{ title: "Фото", imageData: "data:image/png;base64,a" }],
+    projectProductCount: 2
+  };
+  const html = renderProductSettings({ product });
+  const matches = html.match(/Сохранить изменения/g) || [];
+
+  assert.equal(matches.length, 1);
+  assert.match(html, /Сохранить анкету/);
+});

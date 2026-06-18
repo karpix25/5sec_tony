@@ -25,7 +25,6 @@ export function renderProductSettings({ product }) {
           </section>
           ${renderProductSummary(product, ready)}
           <div class="form-actions">
-            <button class="secondary-btn" type="submit">Сохранить изменения</button>
             <button class="danger-btn" id="open-delete-product-modal" type="button" ${canDeleteProduct ? "" : "disabled title=\"Нельзя удалить единственный продукт в проекте\""}>Удалить продукт</button>
           </div>
           ${canDeleteProduct ? "" : `<small class="locked-note">В проекте должен оставаться минимум один продукт.</small>`}
