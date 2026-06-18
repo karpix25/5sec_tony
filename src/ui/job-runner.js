@@ -2,6 +2,7 @@ import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } fr
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { buildAvatarYandexDiskFolder } from "../state/factories.js";
 import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../domain/avatar-video-rotation.js";
+import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { getContext } from "../state/store.js";
 import { generateAiBrief } from "../services/brief-ai.js";
 import { humanizeGenerationPlan } from "../services/text-humanizer.js";
@@ -162,7 +163,9 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       backgroundImageUrl,
       audioData: audio?.fileData || "",
       overlay: renderWithoutAvatar ? {} : avatarVideo?.overlay || {},
-      ctaOverlay: renderWithoutAvatar ? { enabled: false } : avatarVideo?.ctaOverlay || { enabled: false }
+      ctaOverlay: renderWithoutAvatar
+        ? resolveNoAvatarCtaOverlay(project)
+        : avatarVideo?.ctaOverlay || { enabled: false }
     });
     if (!renderWithoutAvatar && avatarVideoPick && avatarVideo?.id) {
       store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex, avatarVideoPick.nextCharacterIndex);
@@ -226,6 +229,13 @@ function resolveJobAvatarName(project, job, fallbackCharacterId = "") {
   if (job.renderedWithoutAvatar) return "Без аватара";
   if (isNoAvatarCharacterId(job.characterId || fallbackCharacterId)) return "Без аватара";
   return project.characters?.find((item) => item.id === (job.characterId || fallbackCharacterId))?.name || "Без аватара";
+}
+
+function resolveNoAvatarCtaOverlay(project) {
+  const savedOverlay = (project?.characters || [])
+    .flatMap((character) => character.avatarVideos || [])
+    .find((video) => video.ctaOverlay)?.ctaOverlay;
+  return normalizeCtaOverlay(savedOverlay);
 }
 
 function requiresFinalVideo(job) {

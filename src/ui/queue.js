@@ -65,6 +65,7 @@ function renderQueueJob(job, productName = "") {
         <div class="queue-meta">
           <span>${escapeHtml(queueStageLabels[job.stage] || job.stage)}</span>
           <span>Продукт: ${escapeHtml(productName || "не указан")}</span>
+          ${renderProductVisualTag(job)}
           <span>${escapeHtml(job.topic || job.title)}</span>
           <span>${escapeHtml(job.music || "аудио проекта")}</span>
           <span>${Number(job.inputUrls?.length || 0)} реф.</span>
@@ -88,6 +89,17 @@ function renderDiskStatus(job) {
     failed: `Яндекс.Диск: ${job.diskMessage || "ошибка сохранения"}`
   }[job.diskStatus] || job.diskMessage || "";
   return label ? `<span>${escapeHtml(label)}</span>` : "";
+}
+
+function renderProductVisualTag(job) {
+  const hasProductInput = (job.inputRefs || []).some((item) => item?.role === "product");
+  if (job.productVisualMode === "exact-product" || hasProductInput) {
+    return "<span>Продукт в кадре</span>";
+  }
+  if (job.productVisualMode === "no-package") {
+    return "<span>Без продукта в кадре</span>";
+  }
+  return "<span>Продукт: не выводился отдельно</span>";
 }
 
 function renderQueueAction(job, ready, failed) {

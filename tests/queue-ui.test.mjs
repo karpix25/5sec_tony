@@ -36,6 +36,8 @@ test("queue delete buttons bind once and rebind after partial list rerender", ()
       status: "review",
       stage: "approval",
       outputType: "image",
+      productVisualMode: "exact-product",
+      inputRefs: [{ role: "product" }],
       imageUrl: "https://cdn.example.com/image.png",
       title: "Новая задача"
     }],
@@ -46,6 +48,7 @@ test("queue delete buttons bind once and rebind after partial list rerender", ()
 
   assert.equal(updated, true);
   assert.match(list.innerHTML, /Новая задача/);
+  assert.match(list.innerHTML, /Продукт в кадре/);
   secondButton.dispatchEvent({ type: "click", target: secondButton });
   assert.deepEqual(deleted, ["job-1", "job-2"]);
 });
@@ -95,6 +98,7 @@ test("queue waiting state explains final video assembly without avatar", () => {
       stage: "assembly",
       outputType: "final-video",
       requiresFinalVideo: true,
+      productVisualMode: "no-package",
       characterId: "__no_avatar__",
       imageUrl: "https://cdn.example.com/frame.png",
       title: "Видео без аватара"
@@ -105,4 +109,5 @@ test("queue waiting state explains final video assembly without avatar", () => {
   }, { deleteJob() {} });
 
   assert.match(list.innerHTML, /Картинка готова, сейчас собираем mp4 из картинки и аудио\./);
+  assert.match(list.innerHTML, /Без продукта в кадре/);
 });

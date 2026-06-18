@@ -363,6 +363,8 @@ test("final video job falls back to no-avatar render when reusable avatar video 
       const body = JSON.parse(options.body || "{}");
       assert.equal(body.avatarVideoUrl, undefined);
       assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
+      assert.equal(body.ctaOverlay.text, "ПОДПИШИСЬ");
+      assert.equal(body.ctaOverlay.enabled, true);
       return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-auto-no-avatar.mp4", hasAudio: false }) };
     }
     if (String(url).includes("/api/yandex-disk/upload")) {
@@ -453,6 +455,7 @@ test("final video job can render without avatar overlay when no-avatar mode is s
       assert.equal(body.avatarVideoUrl, undefined);
       assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
       assert.equal(body.audioData, audio.fileData);
+      assert.equal(body.ctaOverlay.enabled, true);
       return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-no-avatar.mp4", hasAudio: true }) };
     }
     if (String(url).includes("/api/yandex-disk/upload")) {
