@@ -310,12 +310,12 @@ test("hooks UI hides version workflow from the main operator surface", () => {
 test("design references ask only for design extraction inputs", () => {
   const project = projects[2];
   const html = renderDesignSettings({ project, reference: project.references[0] });
+  const formHtml = html.match(/<form id="reference-form"[\s\S]*?<\/form>/)?.[0] || "";
 
-  assert.match(html, /Название/);
-  assert.match(html, /Картинка-референс/);
-  assert.match(html, /Доп\. промт к копированию дизайна/);
-  assert.match(html, /Safe zone|safe zone/);
-  assert.doesNotMatch(html, /Позиция аватара|Тип композиции|Палитра|Стиль заголовка|Главный визуальный объект|Комментарий|не копировать текст|смысл референса/);
+  assert.match(formHtml, /Название/);
+  assert.match(formHtml, /Файл референса/);
+  assert.match(formHtml, /Промт/);
+  assert.doesNotMatch(formHtml, /name="fontStyle"|Доп\. промт|Safe zone|safe zone|Позиция аватара|Тип композиции|Палитра|Стиль заголовка|Главный визуальный объект|не копировать текст|смысл референса/);
 });
 
 test("generation style selector hides CTA references", () => {

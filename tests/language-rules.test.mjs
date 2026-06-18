@@ -73,14 +73,15 @@ test("image prompt keeps important elements inside social safe zones", () => {
   assert.match(prompt, /координаты, x=, y=, top UI, bottom caption/);
 });
 
-test("design reference form asks for a fixed font style", () => {
+test("design reference form asks only for title, prompt and optional file", () => {
   const project = projects[0];
   const html = renderDesignSettings({
     project,
     reference: createReferenceEntity({ title: "Тест", fontStyle: "bold sans" })
   });
 
-  assert.match(html, /name="fontStyle"/);
-  assert.match(html, /Шрифт \/ типографика стиля/);
-  assert.match(html, /bold sans/);
+  assert.match(html, /name="title"/);
+  assert.match(html, /name="prompt"/);
+  assert.match(html, /name="imageFile"/);
+  assert.doesNotMatch(html, /name="fontStyle"|Шрифт \/ типографика стиля|bold sans/);
 });

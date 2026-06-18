@@ -277,11 +277,13 @@ function bindEvents(root, store, options = {}) {
   });
   root.querySelector("#reference-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    getAssetPayload(event.currentTarget).then((payload) => store.createReference(payload));
-  });
-  root.querySelector("#reference-template-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    store.createDesignReferenceTemplate(getFormPayload(event.currentTarget));
+    getAssetPayload(event.currentTarget).then((payload) => {
+      if (!payload.imageData) {
+        store.createDesignReferenceTemplate(payload);
+        return;
+      }
+      store.createReference({ ...payload, promptComment: payload.prompt, takeaways: payload.prompt });
+    });
   });
   root.querySelector("#avatar-form")?.addEventListener("submit", (event) => {
     event.preventDefault();

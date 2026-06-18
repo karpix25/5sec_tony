@@ -16,8 +16,7 @@ export function renderDesignSettings({ project, reference }) {
         </div>
       </section>
       <div class="reference-editor">
-        ${renderGeneratedReferenceForm()}
-        ${renderManualReferenceForm(reference)}
+        ${renderReferenceForm(reference)}
       </div>
     </div>
   `;
@@ -47,32 +46,17 @@ function renderDesignReferenceCandidate(candidate) {
   `;
 }
 
-function renderGeneratedReferenceForm() {
-  return `
-    <form id="reference-template-form" class="ops-form text-editor-form">
-      <div class="panel-head compact">
-        <div><span class="eyebrow">Предгенерация</span><h2>Сгенерировать дизайн-шаблон</h2></div>
-      </div>
-      ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
-      ${designField("Шрифт / типографика стиля", "fontStyle", "Например: крупный белый bold sans с черной обводкой; вторичный тезис — контрастный serif.", "textarea")}
-      ${designField("Доп. промт к дизайну", "takeaways", "Например: усилить glow-заголовок, сохранить сетку карточек, оставить больше воздуха снизу, держать весь контент в safe zone.", "textarea")}
-      <button class="secondary-btn" type="submit">Сгенерировать шаблон</button>
-    </form>
-  `;
-}
-
-function renderManualReferenceForm(reference) {
+function renderReferenceForm(reference) {
   return `
     <form id="reference-form" class="ops-form text-editor-form">
       <div class="panel-head compact">
-        <div><span class="eyebrow">Новый референс</span><h2>Добавить вручную</h2></div>
+        <div><span class="eyebrow">Дизайн-референс</span><h2>Создать или добавить стиль</h2></div>
       </div>
       ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
-      ${designFileField("Картинка-референс", "imageFile")}
-      ${designField("Шрифт / типографика стиля", "fontStyle", "Например: крупный белый bold sans с черной обводкой; вторичный тезис — контрастный serif. Будет фиксироваться во всех генерациях этого стиля.", "textarea")}
-      ${designField("Доп. промт к копированию дизайна", "takeaways", "Например: усилить glow-заголовок, сохранить сетку карточек, оставить больше воздуха снизу, держать весь контент в safe zone.", "textarea")}
+      ${designFileField("Файл референса", "imageFile")}
+      ${designField("Промт", "prompt", "Опишите стиль с нуля или добавьте комментарии к загруженному файлу: фон, сетка, типографика, плашки, плотность, что важно повторять.", "textarea", "", true)}
       <div class="form-actions">
-        <button class="secondary-btn" type="submit">+ Добавить референс</button>
+        <button class="secondary-btn" type="submit">Сохранить стиль</button>
         <button class="ghost-btn" data-delete-reference="${reference?.id || ""}" type="button">Удалить выбранный</button>
       </div>
     </form>
