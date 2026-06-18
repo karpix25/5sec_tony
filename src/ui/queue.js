@@ -160,7 +160,7 @@ function getQueuePendingMessage(pendingType, job) {
   if (pendingType !== "video") {
     return "Результат появится здесь автоматически после этапа генерации.";
   }
-  return isNoAvatarCharacterId(job?.characterId)
+  return job?.renderedWithoutAvatar || isNoAvatarCharacterId(job?.characterId)
     ? "Картинка готова, сейчас собираем mp4 из картинки и аудио."
     : "Картинка готова, сейчас накладываем аватара и аудио.";
 }

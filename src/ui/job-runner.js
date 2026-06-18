@@ -143,15 +143,7 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
   const avatarVideoPick = allowNoAvatar ? null : pickAvatarVideoRoundRobin(project, selectedCharacterId);
   const avatarVideo = avatarVideoPick?.video;
   const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
-  if (!avatarVideoUrl && !allowNoAvatar) {
-    store.patchJob(jobId, {
-      status: "failed",
-      stage: "assembly",
-      progress: 100,
-      failMsg: "Нет готового аватар-видео проекта. Сначала создайте аватар-видео, потом запускайте финальную генерацию."
-    });
-    return;
-  }
+  const renderWithoutAvatar = allowNoAvatar || !avatarVideoUrl;
 
   const audio = state.audioLibrary?.find((item) => item.title === job.music)
     || state.audioLibrary?.find((item) => item.id === state.selectedAudioId);
@@ -160,18 +152,19 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       status: "running",
       stage: "assembly",
       progress: 88,
-      failMsg: allowNoAvatar
+      renderedWithoutAvatar: renderWithoutAvatar,
+      failMsg: renderWithoutAvatar
         ? "Собираем финальное видео из картинки и аудио..."
         : "Собираем финальное видео с аватаром и аудио..."
     });
     const result = await createCompositeAvatarVideo({
-      avatarVideoUrl,
+      avatarVideoUrl: renderWithoutAvatar ? "" : avatarVideoUrl,
       backgroundImageUrl,
       audioData: audio?.fileData || "",
-      overlay: avatarVideo?.overlay || {},
-      ctaOverlay: avatarVideo?.ctaOverlay || { enabled: false }
+      overlay: renderWithoutAvatar ? {} : avatarVideo?.overlay || {},
+      ctaOverlay: renderWithoutAvatar ? { enabled: false } : avatarVideo?.ctaOverlay || { enabled: false }
     });
-    if (avatarVideoPick && avatarVideo?.id) {
+    if (!renderWithoutAvatar && avatarVideoPick && avatarVideo?.id) {
       store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex, avatarVideoPick.nextCharacterIndex);
     }
     store.patchJob(jobId, {
@@ -230,6 +223,7 @@ function buildExportFileName(project, job) {
 }
 
 function resolveJobAvatarName(project, job, fallbackCharacterId = "") {
+  if (job.renderedWithoutAvatar) return "Без аватара";
   if (isNoAvatarCharacterId(job.characterId || fallbackCharacterId)) return "Без аватара";
   return project.characters?.find((item) => item.id === (job.characterId || fallbackCharacterId))?.name || "Без аватара";
 }

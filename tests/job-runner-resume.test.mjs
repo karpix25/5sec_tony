@@ -304,10 +304,14 @@ test("image job assembles final 5 second video with reusable avatar video and li
   }
 });
 
-test("final video job fails clearly when reusable avatar video is missing", async () => {
+test("final video job falls back to no-avatar render when reusable avatar video is missing", async () => {
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;
-  const project = projects.find((item) => item.id === "supplements");
+  const sourceProject = projects.find((item) => item.id === "supplements");
+  const project = {
+    ...sourceProject,
+    characters: sourceProject.characters.map((character) => ({ ...character, avatarVideos: [] }))
+  };
   const product = products.find((item) => item.id === "magnesium");
   const job = {
     id: "job-missing-avatar-video",
@@ -342,7 +346,7 @@ test("final video job fails clearly when reusable avatar video is missing", asyn
   };
 
   globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, options = {}) => {
     if (String(url).includes("/api/generation/brief")) {
       return { ok: true, json: async () => ({ draft: { hook: "Готовый ролик", plan: { points: ["пункт"] } } }) };
     }
@@ -355,17 +359,29 @@ test("final video job fails clearly when reusable avatar video is missing", asyn
     if (String(url).includes("/api/images/status")) {
       return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/background.png" }) };
     }
+    if (String(url).includes("/api/avatar-videos/composite")) {
+      const body = JSON.parse(options.body || "{}");
+      assert.equal(body.avatarVideoUrl, undefined);
+      assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
+      return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-auto-no-avatar.mp4", hasAudio: false }) };
+    }
+    if (String(url).includes("/api/yandex-disk/upload")) {
+      const body = JSON.parse(options.body || "{}");
+      assert.equal(body.targetFolder, "disk:/ВИДЕО/5сек/БАДы/Без аватара");
+      return { ok: true, json: async () => ({ diskPath: "disk:/ВИДЕО/5сек/БАДы/Без аватара/final.mp4" }) };
+    }
     return { ok: true, json: async () => ({}) };
   };
 
   try {
     await runImageJob(store, job.id);
-    await waitFor(() => state.jobs[0].status === "failed");
+    await waitFor(() => Boolean(state.jobs[0].finalVideoUrl));
 
-    assert.equal(state.jobs[0].stage, "assembly");
+    assert.equal(state.jobs[0].status, "done");
+    assert.equal(state.jobs[0].stage, "export");
     assert.equal(state.jobs[0].progress, 100);
-    assert.match(state.jobs[0].failMsg, /аватар-видео/);
-    assert.equal(state.jobs[0].finalVideoUrl, "");
+    assert.equal(state.jobs[0].renderedWithoutAvatar, true);
+    assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final-auto-no-avatar.mp4");
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;
@@ -462,7 +478,7 @@ test("final video job can render without avatar overlay when no-avatar mode is s
 });
 
 async function waitFor(predicate) {
-  for (let index = 0; index < 25; index += 1) {
+  for (let index = 0; index < 100; index += 1) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
