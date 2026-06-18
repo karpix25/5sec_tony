@@ -32,3 +32,21 @@ test("product questionnaire fields are explicitly attached to settings form", ()
   assert.match(html, /name="facts"[^>]+form="product-settings-form"/);
   assert.match(html, /name="forbidden"[^>]+form="product-settings-form"/);
 });
+
+test("product settings disables delete for the last product in project", () => {
+  const product = {
+    name: "Хлорофил",
+    description: "Описание",
+    offer: "Роль",
+    pains: ["Боль"],
+    facts: ["Факт"],
+    forbidden: ["Запрет"],
+    references: [{ title: "Фото", imageData: "data:image/png;base64,a" }],
+    projectProductCount: 1
+  };
+  const html = renderProductSettings({ product });
+
+  assert.match(html, /id="open-delete-product-modal"[^>]+disabled/);
+  assert.match(html, /минимум один продукт/i);
+  assert.doesNotMatch(html, /data-delete-product=/);
+});

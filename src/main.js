@@ -5,6 +5,7 @@ import { resumeRunningImageJobs } from "./ui/job-runner.js";
 import { getContext } from "./state/store.js";
 import { getOpenMediaPreviewState, restoreMediaPreviewState } from "./ui/preview-modal.js";
 import { updateGenerationAutomationStats } from "./ui/generation-live.js";
+import { bindButtonDebug } from "./ui/button-debug.js";
 import { updateQueuePanel } from "./ui/queue.js";
 import { captureTransientUiState, restoreTransientUiState } from "./ui/transient-ui-state.js";
 
@@ -14,6 +15,7 @@ let pendingFrame = 0;
 let needsFullRender = false;
 let pendingState = store.getState();
 
+bindButtonDebug(root, store);
 store.subscribe((state, patch) => scheduleRender(state, patch));
 store.subscribePersistence((status) => updatePersistenceStatus(root, status));
 renderAppSafely();

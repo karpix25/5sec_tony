@@ -419,6 +419,18 @@ test("store creates and deletes product inside selected project", () => {
   assert.equal(state.products.some((item) => item.id === created.id), false);
 });
 
+test("store does not delete the last product in project and explains why", () => {
+  const store = createStore();
+  store.createProject({ name: "Solo project" });
+  const stateBefore = store.getState();
+  const lastProductId = stateBefore.selectedProductId;
+  const result = store.deleteProduct(lastProductId);
+  const stateAfter = store.getState();
+
+  assert.deepEqual(result, { ok: false, reason: "last-product" });
+  assert.equal(stateAfter.products.some((item) => item.id === lastProductId), true);
+});
+
 test("store manages product-level references and adds them to prompt", () => {
   const store = createStore();
   store.createProductReference({

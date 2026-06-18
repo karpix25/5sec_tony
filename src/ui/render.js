@@ -5,6 +5,7 @@ import { bindAvatarOverlayComposerEvents } from "./avatar-overlay-composer.js";
 import { renderAvatarSettings } from "./avatar.js";
 import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
+import { warnButtonBlocked } from "./button-debug.js";
 import { syncProductDraftToFieldsModal } from "./product-form-sync.js";
 import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
@@ -144,7 +145,7 @@ function renderProjectSettingsTabs(state, context) {
     </div>
     <div class="settings-tab-panel">
       ${active === "project" ? renderProjectManagementSettings(context) : ""}
-      ${active === "product" ? renderProductSettings(context) : ""}
+      ${active === "product" ? renderProductSettings({ ...context, product: { ...context.product, projectProductCount: getProductsForProject(state.products, context.project.id).length } }) : ""}
       ${active === "design" ? renderDesignSettings(context) : ""}
       ${active === "avatars" ? renderAvatarSettings(context) : ""}
       ${active === "generation" ? renderStudioPanel(state, context) : ""}
@@ -316,7 +317,14 @@ function bindEvents(root, store, options = {}) {
   });
   root.querySelectorAll("[data-delete-product]").forEach((button) => {
     button.addEventListener("click", () => {
-      store.deleteProduct(button.dataset.deleteProduct);
+      const result = store.deleteProduct(button.dataset.deleteProduct);
+      if (result?.ok === false) {
+        warnButtonBlocked(result.reason || "delete-product-blocked", {
+          buttonId: button.id || null,
+          targetProductId: button.dataset.deleteProduct || null
+        });
+        return;
+      }
       closeDeleteProductModal(root);
     });
   });

@@ -3,6 +3,8 @@ import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderProductSettings({ product }) {
   const ready = isProductReady(product);
+  const productCount = Number(product?.projectProductCount || 1);
+  const canDeleteProduct = productCount > 1;
   return `
     <section class="product-screen">
       <div class="product-action-bar">
@@ -24,8 +26,9 @@ export function renderProductSettings({ product }) {
           ${renderProductSummary(product, ready)}
           <div class="form-actions">
             <button class="secondary-btn" type="submit">Сохранить изменения</button>
-            <button class="danger-btn" id="open-delete-product-modal" type="button">Удалить продукт</button>
+            <button class="danger-btn" id="open-delete-product-modal" type="button" ${canDeleteProduct ? "" : "disabled title=\"Нельзя удалить единственный продукт в проекте\""}>Удалить продукт</button>
           </div>
+          ${canDeleteProduct ? "" : `<small class="locked-note">В проекте должен оставаться минимум один продукт.</small>`}
         </form>
         ${renderProductFieldsModal(product, ready)}
         <aside class="product-side">
@@ -34,12 +37,12 @@ export function renderProductSettings({ product }) {
       </div>
       ${renderProductReferences(product)}
       ${renderCreateProductModal()}
-      ${renderDeleteProductModal(product)}
+      ${renderDeleteProductModal(product, canDeleteProduct)}
     </section>
   `;
 }
 
-function renderDeleteProductModal(product) {
+function renderDeleteProductModal(product, canDeleteProduct) {
   return `
     <div id="delete-product-modal" class="modal-shell" hidden>
       <div class="modal-backdrop" data-close-delete-product-modal></div>
@@ -51,7 +54,9 @@ function renderDeleteProductModal(product) {
         <div class="danger-zone">
           <strong>${escapeHtml(product.name)}</strong>
           <small>Будут удалены карточка продукта, его фото-референсы и задачи генерации, связанные с этим продуктом.</small>
-          <button class="danger-btn" data-delete-product="${product.id}" type="button">Удалить продукт навсегда</button>
+          ${canDeleteProduct
+            ? `<button class="danger-btn" data-delete-product="${product.id}" type="button">Удалить продукт навсегда</button>`
+            : `<small class="locked-note">Нельзя удалить последний продукт в проекте.</small>`}
         </div>
       </section>
     </div>

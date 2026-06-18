@@ -294,7 +294,14 @@ export function createStore() {
     },
     deleteProduct(productId) {
       const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
-      if (projectProducts.length <= 1) return;
+      if (projectProducts.length <= 1) {
+        console.warn("[store:delete-product]", {
+          reason: "last-product",
+          productId,
+          selectedProjectId: state.selectedProjectId
+        });
+        return { ok: false, reason: "last-product" };
+      }
       const productsNext = state.products.filter((product) => product.id !== productId);
       setState({
         products: productsNext,
@@ -302,6 +309,7 @@ export function createStore() {
         selectedProductId: getProductsForProject(productsNext, state.selectedProjectId)[0]?.id,
         generationBrief: ensureGenerationBrief({})
       });
+      return { ok: true };
     },
     createReference(payload) {
       const projectsNext = state.projects.map((project) => {
