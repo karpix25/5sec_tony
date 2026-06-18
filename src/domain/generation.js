@@ -1,4 +1,5 @@
 import { generationStages } from "./entities.js";
+import { noAvatarCharacterId } from "./avatar-selection.js";
 import { createContentSlot } from "./content-rotation.js";
 import { getCompositionInstruction, pickCompositionMode } from "./composition-modes.js";
 import { getContentLayerInstruction } from "./content-layers.js";
@@ -193,7 +194,7 @@ export function createGenerationJob({ project, product, reference, character, au
     id: `job-${Math.floor(200 + Math.random() * 700)}`,
     projectId: project.id,
     productId: product.id,
-    characterId: character?.id || "",
+    characterId: character?.id || noAvatarCharacterId,
     status: "queued",
     stage: generationStages[0],
     progress: 6,

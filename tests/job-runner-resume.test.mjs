@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { projects, products } from "../src/domain/entities.js";
 import { runImageJob, resumeRunningImageJobs } from "../src/ui/job-runner.js";
 
@@ -365,6 +366,95 @@ test("final video job fails clearly when reusable avatar video is missing", asyn
     assert.equal(state.jobs[0].progress, 100);
     assert.match(state.jobs[0].failMsg, /аватар-видео/);
     assert.equal(state.jobs[0].finalVideoUrl, "");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("final video job can render without avatar overlay when no-avatar mode is selected", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const project = projects.find((item) => item.id === "supplements");
+  const product = products.find((item) => item.id === "magnesium");
+  const audio = {
+    id: "audio-no-avatar",
+    title: "Library beat",
+    fileData: "data:audio/wav;base64,UklGRg=="
+  };
+  const job = {
+    id: "job-no-avatar-video",
+    projectId: project.id,
+    productId: product.id,
+    status: "queued",
+    stage: "idea",
+    progress: 6,
+    outputType: "final-video",
+    characterId: noAvatarCharacterId,
+    referenceTitle: project.references[0].title
+  };
+  const state = {
+    projects: [project],
+    products: [product],
+    jobs: [job],
+    selectedProjectId: project.id,
+    selectedProductId: product.id,
+    selectedReferenceId: project.references[0].id,
+    selectedCharacterId: noAvatarCharacterId,
+    selectedAudioId: audio.id,
+    audioLibrary: [audio]
+  };
+  let compositePayload = null;
+  let uploadPayload = null;
+  const store = {
+    getState: () => state,
+    patchJob: (jobId, payload) => {
+      const target = state.jobs.find((item) => item.id === jobId);
+      if (target) Object.assign(target, payload);
+    },
+    replaceJob: (jobId, jobNext) => {
+      state.jobs = state.jobs.map((item) => (item.id === jobId ? jobNext : item));
+    }
+  };
+
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : {};
+    if (String(url).includes("/api/generation/brief")) {
+      return { ok: true, json: async () => ({ draft: { hook: "Ролик без аватара", plan: { points: ["пункт"] } } }) };
+    }
+    if (String(url).includes("/api/generation/humanize")) {
+      return { ok: true, json: async () => ({ draft: { points: ["пункт"] } }) };
+    }
+    if (String(url).includes("/api/images/generate")) {
+      return { ok: true, json: async () => ({ taskId: "task-no-avatar-image" }) };
+    }
+    if (String(url).includes("/api/images/status")) {
+      return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/background.png" }) };
+    }
+    if (String(url).includes("/api/avatar-videos/composite")) {
+      compositePayload = body;
+      assert.equal(body.avatarVideoUrl, undefined);
+      assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
+      assert.equal(body.audioData, audio.fileData);
+      return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-no-avatar.mp4", hasAudio: true }) };
+    }
+    if (String(url).includes("/api/yandex-disk/upload")) {
+      uploadPayload = body;
+      return { ok: true, json: async () => ({ diskPath: "disk:/ВИДЕО/5сек/БАДы/Без аватара/final.mp4" }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  try {
+    await runImageJob(store, job.id);
+    await waitFor(() => Boolean(state.jobs[0].finalVideoUrl));
+    await waitFor(() => Boolean(uploadPayload));
+
+    assert.ok(compositePayload);
+    assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final-no-avatar.mp4");
+    assert.equal(state.jobs[0].finalVideoHasAudio, true);
+    assert.equal(uploadPayload.targetFolder, "disk:/ВИДЕО/5сек/БАДы/Без аватара");
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

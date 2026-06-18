@@ -2,6 +2,8 @@ import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
 import { getProjectAutomationState } from "../domain/project-automation.js";
 import { runImageJob } from "./job-runner.js";
+import { formatAutomationStats } from "./generation-live.js";
+import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 
 export function renderStudioPanel(state, context) {
   const automationState = getProjectAutomationState({ project: context.project, jobs: state.jobs });
@@ -62,10 +64,12 @@ function renderReferenceSelect({ project, reference }) {
 }
 
 function renderCharacterSelect({ project, character }) {
+  const options = getCharacterSelectOptions(project.characters);
+  const selectedId = character?.id || noAvatarCharacterId;
   return `
     <label class="field-label" for="character-select">Персонаж проекта</label>
     <select id="character-select" class="select">
-      ${project.characters.map((item) => briefOption(item.id, `${item.name} · ${characterStatusLabel(item.status)}`, character?.id)).join("")}
+      ${options.map((item) => briefOption(item.id, getCharacterOptionLabel(item), selectedId)).join("")}
     </select>
   `;
 }
@@ -93,10 +97,7 @@ function renderAutomationControls(project, automationState) {
         ${automationNumberField("batchSize", "Пакет", automation.batchSize, 1, 10)}
         ${automationNumberField("concurrency", "Параллельно", automation.concurrency, 1, 5)}
       </div>
-      <small>
-        Готово: ${completedJobs}. В работе: ${activeJobs}. До цели: ${remainingTarget}. Дневной остаток: ${remainingDaily}. Остаток проекта: ${remainingProject}.
-        ${escapeHtml(automation.lastMessage || "")}
-      </small>
+      <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget }))}</small>
       <button class="secondary-btn" type="submit">${automation.enabled ? "Сохранить авторежим" : "Включить авторежим"}</button>
     </form>
   `;
@@ -116,7 +117,13 @@ function briefOption(id, label, selectedId) {
 }
 
 function characterStatusLabel(status) {
+  if (status === "no-avatar") return "без оверлея";
   if (status === "approved") return "готов";
   if (status === "draft") return "черновик";
   return "в работе";
+}
+
+function getCharacterOptionLabel(item) {
+  if (isNoAvatarCharacterId(item.id)) return item.name;
+  return `${item.name} · ${characterStatusLabel(item.status)}`;
 }

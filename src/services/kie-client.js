@@ -31,7 +31,9 @@ export async function getAvatarVideoTaskStatus(taskId) {
 }
 
 export async function createCompositeAvatarVideo({ avatarVideoUrl, backgroundImageUrl, audioData = "", overlay = {}, ctaOverlay = {} }) {
-  return createKieTask("/api/avatar-videos/composite", { avatarVideoUrl, backgroundImageUrl, audioData, overlay, ctaOverlay });
+  const payload = { backgroundImageUrl, audioData, overlay, ctaOverlay };
+  if (avatarVideoUrl) payload.avatarVideoUrl = avatarVideoUrl;
+  return createKieTask("/api/avatar-videos/composite", payload);
 }
 
 export async function createAvatarAlphaVideo(videoUrl) {

@@ -78,3 +78,31 @@ test("queue final video waiting state keeps preview disabled until video is read
   assert.match(list.innerHTML, /Картинка готова, собираем финальное видео/);
   assert.match(list.innerHTML, /Собираем видео/);
 });
+
+test("queue waiting state explains final video assembly without avatar", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  root.append(panel);
+  panel.append(list);
+
+  updateQueuePanel(root, {
+    jobs: [{
+      id: "job-video-no-avatar",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "processing",
+      stage: "assembly",
+      outputType: "final-video",
+      requiresFinalVideo: true,
+      characterId: "__no_avatar__",
+      imageUrl: "https://cdn.example.com/frame.png",
+      title: "Видео без аватара"
+    }],
+    products: [{ id: "product-1", name: "Продукт" }]
+  }, {
+    project: { id: "project-1" }
+  }, { deleteJob() {} });
+
+  assert.match(list.innerHTML, /Картинка готова, сейчас собираем mp4 из картинки и аудио\./);
+});

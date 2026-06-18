@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { projects, products } from "../src/domain/entities.js";
 import {
   advanceJob,
@@ -350,6 +351,19 @@ test("store updates product content and generation brief for prompt assembly", (
   assert.match(prompt, /лечит гормоны/);
   assert.match(prompt, /CTA: не добавлять на изображение/);
   assert.doesNotMatch(prompt, /Подобрать курс/);
+});
+
+test("generation job keeps explicit no-avatar selection", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const job = createGenerationJob({
+    project,
+    product,
+    reference: project.references[0],
+    character: null
+  });
+
+  assert.equal(job.characterId, noAvatarCharacterId);
 });
 
 test("product save keeps generation brief intact for current product session", () => {

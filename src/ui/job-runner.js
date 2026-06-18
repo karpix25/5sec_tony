@@ -1,4 +1,5 @@
 import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } from "../domain/generation.js";
+import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { buildAvatarYandexDiskFolder } from "../state/factories.js";
 import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../domain/avatar-video-rotation.js";
 import { getContext } from "../state/store.js";
@@ -126,26 +127,28 @@ async function pollImageJob(store, jobId, taskId, provider, attempt = 0, transie
 async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
   const state = store.getState();
   const job = findJob(store, jobId);
-  const project = state.projects?.find((item) => item.id === job?.projectId);
-  const avatarVideoPick = pickAvatarVideoRoundRobin(project, job?.characterId || state.selectedCharacterId);
-  const avatarVideo = avatarVideoPick?.video;
-  const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
   if (!job) return;
-  if (!avatarVideoUrl) {
-    if (requiresFinalVideo(job)) {
-      store.patchJob(jobId, {
-        status: "failed",
-        stage: "assembly",
-        progress: 100,
-        failMsg: "Нет готового аватар-видео проекта. Сначала создайте аватар-видео, потом запускайте финальную генерацию."
-      });
-      return;
-    }
+  if (!requiresFinalVideo(job)) {
     store.patchJob(jobId, {
       status: "review",
       stage: "approval",
       progress: 76,
       failMsg: ""
+    });
+    return;
+  }
+  const project = state.projects?.find((item) => item.id === job?.projectId);
+  const selectedCharacterId = job?.characterId || state.selectedCharacterId || noAvatarCharacterId;
+  const allowNoAvatar = isNoAvatarCharacterId(selectedCharacterId);
+  const avatarVideoPick = allowNoAvatar ? null : pickAvatarVideoRoundRobin(project, selectedCharacterId);
+  const avatarVideo = avatarVideoPick?.video;
+  const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
+  if (!avatarVideoUrl && !allowNoAvatar) {
+    store.patchJob(jobId, {
+      status: "failed",
+      stage: "assembly",
+      progress: 100,
+      failMsg: "Нет готового аватар-видео проекта. Сначала создайте аватар-видео, потом запускайте финальную генерацию."
     });
     return;
   }
@@ -157,16 +160,20 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
       status: "running",
       stage: "assembly",
       progress: 88,
-      failMsg: "Собираем финальное видео с аватаром и аудио..."
+      failMsg: allowNoAvatar
+        ? "Собираем финальное видео из картинки и аудио..."
+        : "Собираем финальное видео с аватаром и аудио..."
     });
     const result = await createCompositeAvatarVideo({
       avatarVideoUrl,
       backgroundImageUrl,
       audioData: audio?.fileData || "",
-      overlay: avatarVideo.overlay || {},
-      ctaOverlay: avatarVideo.ctaOverlay || {}
+      overlay: avatarVideo?.overlay || {},
+      ctaOverlay: avatarVideo?.ctaOverlay || { enabled: false }
     });
-    store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex, avatarVideoPick.nextCharacterIndex);
+    if (avatarVideoPick && avatarVideo?.id) {
+      store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex, avatarVideoPick.nextCharacterIndex);
+    }
     store.patchJob(jobId, {
       status: "done",
       stage: "export",
@@ -177,19 +184,10 @@ async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
     });
     uploadJobToYandexDisk(store, jobId, result.videoUrl);
   } catch (error) {
-    if (requiresFinalVideo(job)) {
-      store.patchJob(jobId, {
-        status: "failed",
-        stage: "assembly",
-        progress: 100,
-        failMsg: error.message || "Картинка готова, но финальное видео не собрано"
-      });
-      return;
-    }
     store.patchJob(jobId, {
-      status: "review",
-      stage: "approval",
-      progress: 76,
+      status: "failed",
+      stage: "assembly",
+      progress: 100,
       failMsg: error.message || "Картинка готова, но финальное видео не собрано"
     });
   }
@@ -232,6 +230,7 @@ function buildExportFileName(project, job) {
 }
 
 function resolveJobAvatarName(project, job, fallbackCharacterId = "") {
+  if (isNoAvatarCharacterId(job.characterId || fallbackCharacterId)) return "Без аватара";
   return project.characters?.find((item) => item.id === (job.characterId || fallbackCharacterId))?.name || "Без аватара";
 }
 
@@ -319,7 +318,9 @@ function getJobContext(state, job) {
   const project = state.projects.find((item) => item.id === job.projectId) || fallback.project;
   const product = state.products.find((item) => item.id === job.productId) || fallback.product;
   const reference = project.references.find((item) => item.title === job.referenceTitle) || fallback.reference || project.references[0];
-  const character = project.characters.find((item) => item.id === job.characterId) || fallback.character || project.characters[0];
+  const character = isNoAvatarCharacterId(job.characterId)
+    ? null
+    : project.characters.find((item) => item.id === job.characterId) || fallback.character || project.characters[0];
   const audio = state.audioLibrary.find((item) => item.title === job.music) || fallback.audio;
   return {
     ...fallback,
@@ -372,7 +373,7 @@ function buildLocalFallbackJob(store, jobId, error) {
     outputType: currentJob?.outputType || "image",
     requiresFinalVideo: currentJob?.requiresFinalVideo,
     referenceTitle: currentJob?.referenceTitle || "",
-    characterId: currentJob?.characterId || context.character?.id || "",
+    characterId: currentJob?.characterId || context.character?.id || noAvatarCharacterId,
     failMsg: `${error.message || "AI-бриф недоступен"}. Собираем генерацию по локальным данным проекта.`
   };
 }

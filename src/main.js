@@ -4,6 +4,7 @@ import { startAutomationRunner } from "./ui/automation-runner.js";
 import { resumeRunningImageJobs } from "./ui/job-runner.js";
 import { getContext } from "./state/store.js";
 import { getOpenMediaPreviewState, restoreMediaPreviewState } from "./ui/preview-modal.js";
+import { updateGenerationAutomationStats } from "./ui/generation-live.js";
 import { updateQueuePanel } from "./ui/queue.js";
 import { captureTransientUiState, restoreTransientUiState } from "./ui/transient-ui-state.js";
 
@@ -33,7 +34,9 @@ function scheduleRender(state, patch) {
 function flushRender() {
   pendingFrame = 0;
   if (!needsFullRender) {
-    updateQueuePanel(root, pendingState, getContext(pendingState), store);
+    const context = getContext(pendingState);
+    updateQueuePanel(root, pendingState, context, store);
+    updateGenerationAutomationStats(root, pendingState, context);
     return;
   }
   needsFullRender = false;

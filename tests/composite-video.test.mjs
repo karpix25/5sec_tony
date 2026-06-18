@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAvatarOverlayFilter } from "../scripts/composite-video.mjs";
+import { buildAvatarOverlayFilter, buildCompositeVideoFilter } from "../scripts/composite-video.mjs";
 
 test("composite filter maps overlay panel values to ffmpeg placement", () => {
   const filter = buildAvatarOverlayFilter({ x: 68, y: 95, scale: 82, opacity: 75 });
@@ -22,4 +22,12 @@ test("composite filter allows compact avatar overlay", () => {
   const filter = buildAvatarOverlayFilter({ scale: 35 });
 
   assert.match(filter, /scale=358:-2/);
+});
+
+test("composite filter can render final video without avatar input", () => {
+  const filter = buildCompositeVideoFilter({ hasAvatarInput: false, ctaOverlay: { enabled: false } });
+
+  assert.doesNotMatch(filter, /chromakey=0x00FF00/);
+  assert.match(filter, /\[bg\]format=rgba\[base\]/);
+  assert.match(filter, /\[base\]format=yuv420p\[out\]/);
 });

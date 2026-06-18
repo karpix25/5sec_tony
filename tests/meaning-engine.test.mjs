@@ -352,6 +352,21 @@ test("generation panel does not render static preview mockup", () => {
   assert.doesNotMatch(html, /Открыть превью/);
 });
 
+test("generation panel allows selecting no-avatar mode", () => {
+  const project = projects[0];
+  const html = renderStudioPanel({ jobs: [] }, {
+    project,
+    product: products[0],
+    reference: project.references[0],
+    character: null,
+    audioLibrary: [],
+    audio: null,
+    generationBrief: {}
+  });
+
+  assert.match(html, /<option value="__no_avatar__"[^>]*selected[^>]*>Без аватара<\/option>/);
+});
+
 test("generation operation panels hide provider and task identifiers", () => {
   const project = projects[2];
   const html = [

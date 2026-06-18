@@ -5,6 +5,7 @@ import { bindAvatarOverlayComposerEvents } from "./avatar-overlay-composer.js";
 import { renderAvatarSettings } from "./avatar.js";
 import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
+import { syncProductDraftToFieldsModal } from "./product-form-sync.js";
 import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
 import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewModal } from "./modals.js";
@@ -455,7 +456,9 @@ function closeProductModal(root) {
 
 function openProductFieldsModal(root) {
   const modal = root.querySelector("#product-fields-modal");
-  if (modal) modal.hidden = false;
+  if (!modal) return;
+  syncProductDraftToFieldsModal(root);
+  modal.hidden = false;
 }
 
 function closeProductFieldsModal(root) {

@@ -15,7 +15,6 @@ export async function handleCompositeVideoApi(request, response, url) {
 
   try {
     const body = await readJson(request);
-    if (!body.avatarVideoUrl) return sendJson(response, 400, { error: "avatarVideoUrl is required" });
     if (!body.backgroundImageUrl) return sendJson(response, 400, { error: "backgroundImageUrl is required" });
 
     const result = await createCompositeVideo({
@@ -38,7 +37,7 @@ export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl,
   await mkdir(tempDir, { recursive: true });
 
   const backgroundPath = join(tempDir, `background${getSourceExt(backgroundImageUrl, ".png")}`);
-  const avatarPath = join(tempDir, `avatar${getSourceExt(avatarVideoUrl, ".mp4")}`);
+  const avatarPath = avatarVideoUrl ? join(tempDir, `avatar${getSourceExt(avatarVideoUrl, ".mp4")}`) : "";
   const ctaImageUrl = getCtaBadgeImageUrl(ctaOverlay);
   const ctaBadgePath = ctaImageUrl ? join(tempDir, `cta-badge${getSourceExt(ctaImageUrl, ".png")}`) : "";
   const audioPath = audioUrl ? join(tempDir, `audio${getSourceExt(audioUrl, ".mp3")}`) : "";
@@ -46,7 +45,7 @@ export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl,
 
   try {
     await writeFile(backgroundPath, await readSourceBytes(backgroundImageUrl));
-    await writeFile(avatarPath, await readSourceBytes(avatarVideoUrl));
+    if (avatarPath) await writeFile(avatarPath, await readSourceBytes(avatarVideoUrl));
     if (ctaBadgePath) await writeFile(ctaBadgePath, await readSourceBytes(ctaImageUrl));
     if (audioPath) await writeFile(audioPath, await readSourceBytes(audioUrl));
     await composeWithFfmpeg({ backgroundPath, avatarPath, ctaBadgePath, audioPath, outputPath, overlay, ctaOverlay });
@@ -60,14 +59,22 @@ export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl,
 }
 
 async function composeWithFfmpeg({ backgroundPath, avatarPath, ctaBadgePath, audioPath, outputPath, overlay, ctaOverlay }) {
-  const filter = buildCompositeVideoFilter({ overlay, ctaOverlay, hasCtaBadgeInput: Boolean(ctaBadgePath) });
-  const audioInputIndex = ctaBadgePath ? 3 : 2;
+  const hasAvatarInput = Boolean(avatarPath);
+  const filter = buildCompositeVideoFilter({
+    overlay,
+    ctaOverlay,
+    hasCtaBadgeInput: Boolean(ctaBadgePath),
+    hasAvatarInput
+  });
+  const audioInputIndex = hasAvatarInput
+    ? (ctaBadgePath ? 3 : 2)
+    : (ctaBadgePath ? 2 : 1);
   const args = [
     "-y",
     "-loop", "1",
     "-t", "5",
     "-i", backgroundPath,
-    "-i", avatarPath,
+    ...(avatarPath ? ["-i", avatarPath] : []),
     ...(ctaBadgePath ? ["-loop", "1", "-t", "5", "-i", ctaBadgePath] : []),
     ...(audioPath ? ["-stream_loop", "-1", "-i", audioPath] : []),
     "-filter_complex", filter,
@@ -83,10 +90,10 @@ async function composeWithFfmpeg({ backgroundPath, avatarPath, ctaBadgePath, aud
 }
 
 export function buildAvatarOverlayFilter(overlay = {}) {
-  return buildCompositeVideoFilter({ overlay, ctaOverlay: { enabled: false } });
+  return buildCompositeVideoFilter({ overlay, ctaOverlay: { enabled: false }, hasAvatarInput: true });
 }
 
-export function buildCompositeVideoFilter({ overlay = {}, ctaOverlay = {}, hasCtaBadgeInput = false } = {}) {
+export function buildCompositeVideoFilter({ overlay = {}, ctaOverlay = {}, hasCtaBadgeInput = false, hasAvatarInput = true } = {}) {
   const placement = normalizeAvatarOverlay(overlay);
   const cta = normalizeCtaOverlay(ctaOverlay);
   const avatarWidth = Math.round(1024 * (placement.scale / 100));
@@ -95,22 +102,24 @@ export function buildCompositeVideoFilter({ overlay = {}, ctaOverlay = {}, hasCt
   const alpha = placement.opacity / 100;
   const alphaFilter = alpha < 1 ? `,colorchannelmixer=aa=${alpha.toFixed(2)}` : "";
 
-  const base = [
-    "[0:v]scale=1024:1792:force_original_aspect_ratio=increase,crop=1024:1792,setsar=1,format=rgba[bg]",
-    `[1:v]trim=duration=5,setpts=PTS-STARTPTS,fps=30,scale=${avatarWidth}:-2:force_original_aspect_ratio=decrease,chromakey=0x00FF00:0.18:0.08,format=rgba${alphaFilter}[avatar]`,
-    `[bg][avatar]overlay=x=${anchorX}-w/2:y=${anchorY}-h:format=auto[base]`
-  ];
-  return [...base, buildCtaOverlayFilter(cta, { hasCtaBadgeInput })].join(";");
+  const base = ["[0:v]scale=1024:1792:force_original_aspect_ratio=increase,crop=1024:1792,setsar=1,format=rgba[bg]"];
+  if (hasAvatarInput) {
+    base.push(`[1:v]trim=duration=5,setpts=PTS-STARTPTS,fps=30,scale=${avatarWidth}:-2:force_original_aspect_ratio=decrease,chromakey=0x00FF00:0.18:0.08,format=rgba${alphaFilter}[avatar]`);
+    base.push(`[bg][avatar]overlay=x=${anchorX}-w/2:y=${anchorY}-h:format=auto[base]`);
+  } else {
+    base.push("[bg]format=rgba[base]");
+  }
+  return [...base, buildCtaOverlayFilter(cta, { hasCtaBadgeInput, ctaInputIndex: hasAvatarInput ? 2 : 1 })].join(";");
 }
 
-function buildCtaOverlayFilter(cta, { hasCtaBadgeInput = false } = {}) {
+function buildCtaOverlayFilter(cta, { hasCtaBadgeInput = false, ctaInputIndex = 2 } = {}) {
   if (!cta.enabled) return "[base]format=yuv420p[out]";
   const x = Math.round(1024 * (cta.x / 100));
   const y = Math.round(1792 * (cta.y / 100));
   const opacity = (cta.opacity / 100).toFixed(2);
   if (hasCtaBadgeInput && cta.mode === "badge" && cta.badge?.imageUrl) {
     const width = Math.round(320 * (cta.scale / 100));
-    return `[2:v]scale=${width}:-1:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa=${opacity}[cta];[base][cta]overlay=x=${x}-w/2:y=${y}-h/2:enable='gte(t,3)',format=yuv420p[out]`;
+    return `[${ctaInputIndex}:v]scale=${width}:-1:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa=${opacity}[cta];[base][cta]overlay=x=${x}-w/2:y=${y}-h/2:enable='gte(t,3)',format=yuv420p[out]`;
   }
   const fontSize = Math.round(58 * (cta.scale / 100));
   const styleParts = [

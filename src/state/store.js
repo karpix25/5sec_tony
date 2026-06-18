@@ -1,4 +1,5 @@
 import { advanceJob, getProductsForProject } from "../domain/generation.js";
+import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { globalAudioLibrary } from "../domain/entities.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
@@ -394,11 +395,12 @@ export function getContext(state) {
   const project = getProject(state, state.selectedProjectId);
   const product = state.products.find((item) => item.id === state.selectedProductId) || getProductsForProject(state.products, project.id)[0];
   const references = getDesignReferences(project);
+  const selectedCharacterId = isNoAvatarCharacterId(state.selectedCharacterId) ? noAvatarCharacterId : state.selectedCharacterId;
   return {
     project,
     product,
     reference: references.find((item) => item.id === state.selectedReferenceId) || references[0],
-    character: project.characters.find((item) => item.id === state.selectedCharacterId),
+    character: isNoAvatarCharacterId(selectedCharacterId) ? null : project.characters.find((item) => item.id === selectedCharacterId),
     audio: state.audioLibrary.find((item) => item.id === state.selectedAudioId),
     audioLibrary: state.audioLibrary,
     generationBrief: ensureGenerationBrief(state.generationBrief),
@@ -415,7 +417,9 @@ function getContextForProject(state, projectId) {
   const product = projectProducts.find((item) => item.id === state.selectedProductId) || projectProducts[0] || fallback.product;
   const references = getDesignReferences(project);
   const reference = references.find((item) => item.id === state.selectedReferenceId) || references[0] || fallback.reference;
-  const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0] || fallback.character;
+  const character = isNoAvatarCharacterId(state.selectedCharacterId)
+    ? null
+    : project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0] || fallback.character;
   return { ...fallback, project, product, reference, character };
 }
 
@@ -455,9 +459,11 @@ function normalize(nextState) {
     selectedReferenceId: designReferences.some((ref) => ref.id === nextState.selectedReferenceId)
       ? nextState.selectedReferenceId
       : fallbackReference?.id,
-    selectedCharacterId: project.characters.some((char) => char.id === nextState.selectedCharacterId)
-      ? nextState.selectedCharacterId
-      : project.characters[0]?.id,
+    selectedCharacterId: isNoAvatarCharacterId(nextState.selectedCharacterId)
+      ? noAvatarCharacterId
+      : project.characters.some((char) => char.id === nextState.selectedCharacterId)
+        ? nextState.selectedCharacterId
+        : project.characters[0]?.id,
     selectedAudioId: getSelectedGlobalAudioId(audioLibrary, nextState.selectedAudioId),
     selectedProjectTab: ["project", "product", "audio", "design", "avatars", "generation", "queue", "hooks"].includes(nextState.selectedProjectTab)
       ? nextState.selectedProjectTab

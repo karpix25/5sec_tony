@@ -1,4 +1,5 @@
 import { statusLabels } from "../domain/entities.js";
+import { isNoAvatarCharacterId } from "../domain/avatar-selection.js";
 import { escapeHtml } from "./infographic.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 
@@ -110,7 +111,7 @@ function renderQueuePreview(job, ready, failed, preview) {
   if (isFinalVideoJob(job)) {
     return `
       <button class="queue-preview" type="button" disabled>
-        ${renderQueueLoader(failed, job.failMsg, job.imageData || job.imageUrl ? "video" : "image")}
+        ${renderQueueLoader(failed, job.failMsg, job.imageData || job.imageUrl ? "video" : "image", job)}
       </button>
     `;
   }
@@ -137,7 +138,7 @@ function getQueueStepClass(index, activeIndex) {
   return "";
 }
 
-function renderQueueLoader(failed, failMsg, pendingType = "image") {
+function renderQueueLoader(failed, failMsg, pendingType = "image", job = null) {
   if (failed) {
     return `
       <div class="queue-loader error">
@@ -150,9 +151,18 @@ function renderQueueLoader(failed, failMsg, pendingType = "image") {
     <div class="queue-loader">
       <span></span><span></span><span></span>
       <strong>${pendingType === "video" ? "Собираем видео" : "Ждем картинку"}</strong>
-      <small>${pendingType === "video" ? "Картинка готова, сейчас накладываем аватара и аудио." : "Результат появится здесь автоматически после этапа генерации."}</small>
+      <small>${getQueuePendingMessage(pendingType, job)}</small>
     </div>
   `;
+}
+
+function getQueuePendingMessage(pendingType, job) {
+  if (pendingType !== "video") {
+    return "Результат появится здесь автоматически после этапа генерации.";
+  }
+  return isNoAvatarCharacterId(job?.characterId)
+    ? "Картинка готова, сейчас собираем mp4 из картинки и аудио."
+    : "Картинка готова, сейчас накладываем аватара и аудио.";
 }
 
 function isQueueJobReady(job) {
