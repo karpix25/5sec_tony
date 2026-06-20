@@ -1,11 +1,11 @@
 import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { escapeHtml } from "./infographic.js";
 
-export function renderCtaOverlayControls({ targetId, ctaOverlay, className = "", title = "Плашка / текст" }) {
+export function renderCtaOverlayControls({ targetId, ctaOverlay, className = "", title = "Плашка / текст", scope = "project" }) {
   const normalized = normalizeCtaOverlay(ctaOverlay);
-  const isGeneratingBadge = ["submitting", "generating"].includes(normalized.candidate?.status);
+  const statusView = getCtaStatusView(normalized);
   return `
-    <form class="avatar-cta-controls ${escapeHtml(className)}" data-cta-overlay-form="${escapeHtml(targetId)}">
+    <form class="avatar-cta-controls ${escapeHtml(className)}" data-cta-overlay-form="${escapeHtml(targetId)}" data-cta-scope="${escapeHtml(scope)}">
       <div class="avatar-cta-head">
         <strong>${escapeHtml(title)}</strong>
         <label><input name="enabled" type="checkbox" ${normalized.enabled ? "checked" : ""}> Включено</label>
@@ -27,19 +27,20 @@ export function renderCtaOverlayControls({ targetId, ctaOverlay, className = "",
       ${renderCtaControlRange("scale", "CTA размер", normalized.scale, 60, 150)}
       ${renderCtaControlRange("opacity", "CTA прозрачность", normalized.opacity, 20, 100)}
       <div class="avatar-cta-actions">
-        <button class="ghost-btn" data-cta-generate="${escapeHtml(targetId)}" type="button" ${isGeneratingBadge ? "disabled" : ""}>
-          ${isGeneratingBadge ? "Генерируем..." : "Сгенерировать плашку"}
+        <button class="ghost-btn" data-cta-generate="${escapeHtml(targetId)}" type="button" ${statusView.isBusy ? "disabled" : ""}>
+          ${escapeHtml(statusView.generateLabel)}
         </button>
-        ${normalized.candidate?.status === "review" ? `<button class="secondary-btn" data-cta-approve="${escapeHtml(targetId)}" type="button">Апрув плашки</button>` : ""}
-        ${renderCtaStatusPill(normalized.candidate)}
+        ${statusView.canApprove ? `<button class="secondary-btn" data-cta-approve="${escapeHtml(targetId)}" type="button">Апрув плашки</button>` : ""}
+        ${renderCtaStatusPill(statusView)}
       </div>
-      ${renderCtaCandidateStatus(normalized.candidate)}
+      ${renderCtaCandidateStatus(statusView)}
     </form>
   `;
 }
 
 export function bindCtaOverlayControlEvents(root, handlers = {}) {
   root.querySelectorAll("[data-cta-overlay-form]").forEach((form) => {
+    if (handlers.filter && !handlers.filter(form)) return;
     form.addEventListener("submit", (event) => event.preventDefault());
     form.addEventListener("input", () => {
       const payload = getCtaOverlayPayload(form);
@@ -53,13 +54,18 @@ export function bindCtaOverlayControlEvents(root, handlers = {}) {
   root.querySelectorAll("[data-cta-generate]").forEach((button) => {
     button.addEventListener("click", () => {
       const form = button.closest("[data-cta-overlay-form]");
+      if (handlers.filter && !handlers.filter(form)) return;
       setCtaGenerateButtonBusy(button, form);
       handlers.onGenerate?.(button.dataset.ctaGenerate, getCtaOverlayPayload(form), button, form);
     });
   });
   root.querySelectorAll("[data-cta-approve]").forEach((button) => {
     button.addEventListener("click", () => {
-      handlers.onApprove?.(button.dataset.ctaApprove, button);
+      const form = button.closest("[data-cta-overlay-form]");
+      if (handlers.filter && !handlers.filter(form)) return;
+      button.disabled = true;
+      button.textContent = "Апрувим...";
+      handlers.onApprove?.(button.dataset.ctaApprove, button, form);
     });
   });
 }
@@ -69,18 +75,14 @@ export function getCtaOverlayPayload(form) {
   return { ...payload, enabled: payload.enabled === "on" };
 }
 
-function renderCtaStatusPill(candidate) {
-  if (!candidate) return "";
-  if (candidate.status === "failed") return "<span class=\"avatar-cta-status failed\">Ошибка</span>";
-  if (candidate.status === "review") return "<span class=\"avatar-cta-status ready\">Готово</span>";
-  return "<span class=\"avatar-cta-status loading\">Генерация...</span>";
+function renderCtaStatusPill(statusView) {
+  if (!statusView.label) return "";
+  return `<span class="avatar-cta-status ${escapeHtml(statusView.tone)}">${escapeHtml(statusView.label)}</span>`;
 }
 
-function renderCtaCandidateStatus(candidate) {
-  if (!candidate) return "";
-  if (candidate.status === "failed") return `<small>Ошибка плашки: ${escapeHtml(candidate.failMsg || "не удалось сгенерировать")}</small>`;
-  if (candidate.status === "review") return "<small>AI-плашка готова. Нажмите апрув, чтобы использовать ее в видео.</small>";
-  return "<small data-cta-status-note>Генерируем AI-плашку. После готовности появится апрув.</small>";
+function renderCtaCandidateStatus(statusView) {
+  if (!statusView.note) return "";
+  return `<small data-cta-status-note>${escapeHtml(statusView.note)}</small>`;
 }
 
 function renderCtaModeRadio(value, label, mode) {
@@ -111,16 +113,78 @@ function updateCtaRangeLabels(form, overlay) {
 
 function setCtaGenerateButtonBusy(button, form) {
   button.disabled = true;
-  button.textContent = "Генерируем...";
+  button.textContent = "Отправляем...";
   const actions = button.closest(".avatar-cta-actions");
   const status = actions?.querySelector(".avatar-cta-status");
   if (status) {
     status.className = "avatar-cta-status loading";
-    status.textContent = "Генерация...";
+    status.textContent = "Стартуем...";
   } else {
-    actions?.insertAdjacentHTML("beforeend", "<span class=\"avatar-cta-status loading\">Генерация...</span>");
+    actions?.insertAdjacentHTML("beforeend", "<span class=\"avatar-cta-status loading\">Стартуем...</span>");
   }
   const note = form?.querySelector("[data-cta-status-note]");
-  if (note) note.textContent = "Генерируем AI-плашку. После готовности появится апрув.";
-  else form?.insertAdjacentHTML("beforeend", "<small data-cta-status-note>Генерируем AI-плашку. После готовности появится апрув.</small>");
+  if (note) note.textContent = "Отправляем запрос на AI-плашку. После рендера появится апрув.";
+  else form?.insertAdjacentHTML("beforeend", "<small data-cta-status-note>Отправляем запрос на AI-плашку. После рендера появится апрув.</small>");
+}
+
+function getCtaStatusView(overlay) {
+  const candidate = overlay.candidate;
+  if (candidate?.status === "failed") {
+    return {
+      isBusy: false,
+      canApprove: false,
+      generateLabel: "Сгенерировать заново",
+      label: "Ошибка",
+      tone: "failed",
+      note: candidate.failMsg || "Не удалось сгенерировать плашку."
+    };
+  }
+  if (candidate?.status === "review") {
+    return {
+      isBusy: false,
+      canApprove: true,
+      generateLabel: "Сгенерировать заново",
+      label: "Ждет апрува",
+      tone: "ready",
+      note: "AI-плашка готова. Проверьте превью и нажмите апрув, чтобы использовать ее в видео."
+    };
+  }
+  if (candidate?.status === "generating") {
+    return {
+      isBusy: true,
+      canApprove: false,
+      generateLabel: "Генерируем...",
+      label: "Рендерим",
+      tone: "loading",
+      note: "AI уже рендерит плашку. Как только файл будет готов, здесь появится апрув."
+    };
+  }
+  if (candidate?.status === "submitting") {
+    return {
+      isBusy: true,
+      canApprove: false,
+      generateLabel: "Отправляем...",
+      label: "Отправляем",
+      tone: "loading",
+      note: "Отправляем запрос на генерацию плашки."
+    };
+  }
+  if (overlay.badge?.status === "approved") {
+    return {
+      isBusy: false,
+      canApprove: false,
+      generateLabel: "Сгенерировать заново",
+      label: "Используется",
+      tone: "ready",
+      note: "Апрувнутая AI-плашка уже используется в превью и финальном видео."
+    };
+  }
+  return {
+    isBusy: false,
+    canApprove: false,
+    generateLabel: "Сгенерировать плашку",
+    label: "Стандарт",
+    tone: "idle",
+    note: "Сейчас используется стандартная плашка проекта. Можно сгенерировать AI-вариант и апрувнуть его."
+  };
 }

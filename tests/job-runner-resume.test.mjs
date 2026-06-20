@@ -363,7 +363,7 @@ test("final video job falls back to no-avatar render when reusable avatar video 
       const body = JSON.parse(options.body || "{}");
       assert.equal(body.avatarVideoUrl, undefined);
       assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
-      assert.equal(body.ctaOverlay.text, "ПОДПИШИСЬ");
+      assert.equal(body.ctaOverlay.text, "ЧИТАЙ ОПИСАНИЕ");
       assert.equal(body.ctaOverlay.enabled, true);
       return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-auto-no-avatar.mp4", hasAudio: false }) };
     }

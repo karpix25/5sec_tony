@@ -41,7 +41,10 @@ test("avatar overlay defaults anchor video near the bottom", () => {
   const video = createAvatarVideoRecord({ name: "Overlay Avatar" });
 
   assert.deepEqual(video.overlay, { x: 50, y: 98, scale: 96, opacity: 100 });
-  assert.equal(video.ctaOverlay.text, "ПОДПИШИСЬ");
+  assert.equal(video.ctaOverlay.text, "ЧИТАЙ ОПИСАНИЕ");
+  assert.equal(video.ctaOverlay.mode, "badge");
+  assert.equal(video.ctaOverlay.background, "#ffffff");
+  assert.equal(video.ctaOverlay.color, "#111111");
   assert.equal(video.ctaOverlay.enabled, true);
   assert.equal(video.isActive, true);
 });

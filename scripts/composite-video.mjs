@@ -144,11 +144,11 @@ function getCtaBadgeImageUrl(ctaOverlay = {}) {
 }
 
 function getCtaBoxColor(cta) {
-  return toFfmpegColor(cta.badge?.background, "black");
+  return toFfmpegColor(cta.badge?.background || cta.background, "white");
 }
 
 function getCtaTextColor(cta) {
-  return toFfmpegColor(cta.badge?.color, "white");
+  return toFfmpegColor(cta.badge?.color || cta.color, "black");
 }
 
 function toFfmpegColor(value, fallback) {

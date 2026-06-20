@@ -13,8 +13,10 @@ test("cta overlay defaults to enabled text", () => {
   const overlay = normalizeCtaOverlay();
 
   assert.equal(overlay.enabled, true);
-  assert.equal(overlay.mode, "text");
-  assert.equal(overlay.text, "ПОДПИШИСЬ");
+  assert.equal(overlay.mode, "badge");
+  assert.equal(overlay.text, "ЧИТАЙ ОПИСАНИЕ");
+  assert.equal(overlay.background, "#ffffff");
+  assert.equal(overlay.color, "#111111");
   assert.equal(overlay.prompt, "");
 });
 
@@ -46,13 +48,15 @@ test("cta badge candidate carries ai image task state", () => {
 test("composite filter shows cta from third second", () => {
   const filter = buildCompositeVideoFilter({
     overlay: { x: 50, y: 98, scale: 96, opacity: 100 },
-    ctaOverlay: { enabled: true, mode: "badge", text: "ПОДПИШИСЬ", x: 50, y: 78, scale: 100, opacity: 100 }
+    ctaOverlay: { enabled: true, mode: "badge", text: "ЧИТАЙ ОПИСАНИЕ", x: 50, y: 78, scale: 100, opacity: 100 }
   });
 
   assert.match(filter, /drawtext/);
-  assert.match(filter, /ПОДПИШИСЬ/);
+  assert.match(filter, /ЧИТАЙ ОПИСАНИЕ/);
   assert.match(filter, /enable='gte\(t,3\)'/);
   assert.match(filter, /box=1/);
+  assert.match(filter, /boxcolor=0xffffff@1\.00/);
+  assert.match(filter, /fontcolor=0x111111/);
 });
 
 test("composite filter can disable cta overlay", () => {
@@ -67,7 +71,7 @@ test("composite filter uses approved ai badge image when available", () => {
     ctaOverlay: {
       enabled: true,
       mode: "badge",
-      text: "ПОДПИШИСЬ",
+      text: "ЧИТАЙ ОПИСАНИЕ",
       x: 50,
       y: 78,
       scale: 100,

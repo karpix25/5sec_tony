@@ -1,24 +1,29 @@
 export const defaultCtaOverlay = {
   enabled: true,
-  mode: "text",
-  text: "ПОДПИШИСЬ",
+  mode: "badge",
+  text: "ЧИТАЙ ОПИСАНИЕ",
   x: 50,
   y: 78,
   scale: 100,
   opacity: 100,
+  background: "#ffffff",
+  color: "#111111",
+  border: "#111111",
+  radius: 10,
   prompt: "",
   badge: null,
   candidate: null
 };
 
-const badgeStyles = [
-  { background: "#111111", color: "#ffffff", border: "#ffffff", radius: 10 },
-  { background: "#f7e75a", color: "#111111", border: "#111111", radius: 8 },
-  { background: "#ffffff", color: "#1f2528", border: "#1f6f73", radius: 6 }
-];
+const defaultBadgeStyle = {
+  background: "#ffffff",
+  color: "#111111",
+  border: "#111111",
+  radius: 10
+};
 
 export function normalizeCtaOverlay(value = {}) {
-  const mode = value.mode === "badge" ? "badge" : "text";
+  const mode = value.mode === "text" ? "text" : defaultCtaOverlay.mode;
   return {
     enabled: value.enabled !== false,
     mode,
@@ -27,6 +32,10 @@ export function normalizeCtaOverlay(value = {}) {
     y: clampCtaNumber(value.y, defaultCtaOverlay.y, 5, 95),
     scale: clampCtaNumber(value.scale, defaultCtaOverlay.scale, 60, 150),
     opacity: clampCtaNumber(value.opacity, defaultCtaOverlay.opacity, 20, 100),
+    background: normalizeHexColor(value.background, defaultCtaOverlay.background),
+    color: normalizeHexColor(value.color, defaultCtaOverlay.color),
+    border: normalizeHexColor(value.border, defaultCtaOverlay.border),
+    radius: clampCtaNumber(value.radius, defaultCtaOverlay.radius, 0, 40),
     prompt: normalizeCtaPrompt(value.prompt),
     badge: value.badge || null,
     candidate: value.candidate || null
@@ -34,18 +43,22 @@ export function normalizeCtaOverlay(value = {}) {
 }
 
 export function createCtaBadgeCandidate(input = {}) {
-  const text = normalizeCtaText(input.text);
-  const style = badgeStyles[Math.abs(hashCtaText(text)) % badgeStyles.length];
+  const overlay = normalizeCtaOverlay(input);
+  const text = overlay.text;
   return {
     id: `cta-badge-${Date.now().toString(36)}`,
     status: input.status || "submitting",
     text,
-    prompt: input.prompt || "",
-    finalPrompt: buildCtaBadgePrompt({ text, prompt: input.prompt }),
+    prompt: overlay.prompt || "",
+    finalPrompt: buildCtaBadgePrompt(overlay),
     taskId: input.taskId || "",
     imageUrl: input.imageUrl || "",
     failMsg: "",
-    ...style,
+    ...defaultBadgeStyle,
+    background: overlay.background,
+    color: overlay.color,
+    border: overlay.border,
+    radius: overlay.radius,
     createdAt: new Date().toISOString()
   };
 }
@@ -69,7 +82,9 @@ export function buildCtaBadgePrompt({ text, prompt } = {}) {
     "The badge must be centered, isolated, large, readable, with clean edges and transparent or plain neutral background.",
     "Use bold Russian text exactly as provided. Do not add extra words, logos, icons, handles, prices or disclaimers.",
     `Text: ${normalizeCtaText(text)}.`,
-    prompt ? `Style: ${normalizeCtaPrompt(prompt)}.` : "Style: stylish, modern, high-contrast social media sticker."
+    prompt
+      ? `Style: ${normalizeCtaPrompt(prompt)}. Keep the badge very readable, with white base, black text and clear contrast unless the prompt explicitly asks for another palette.`
+      : "Style: clean white rounded badge, bold black text, thin black border, minimal high-contrast social media sticker."
   ].join(" ");
 }
 
@@ -94,12 +109,13 @@ function normalizeCtaPrompt(value) {
   return String(value || "").trim().slice(0, 280);
 }
 
+function normalizeHexColor(value, fallback) {
+  const normalized = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(normalized) ? normalized.toLowerCase() : fallback;
+}
+
 function clampCtaNumber(value, fallback, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, Math.round(number)));
-}
-
-function hashCtaText(value) {
-  return String(value || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
 }

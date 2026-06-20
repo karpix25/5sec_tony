@@ -54,6 +54,9 @@ export function bindGenerationPanelEvents(root, store) {
     });
   });
   bindCtaOverlayControlEvents(root, {
+    filter(form) {
+      return Boolean(form?.closest(".generation-cta-panel"));
+    },
     onChange(_projectId, payload) {
       store.updateProjectCtaOverlay(payload);
     },
@@ -120,7 +123,7 @@ function renderGenerationCtaSettings(project) {
   return `
     <section class="generation-cta-panel">
       <div class="generation-cta-note">Эти настройки работают и в режиме без аватара.</div>
-      ${renderCtaOverlayControls({ targetId: project.id, ctaOverlay: project.ctaOverlay })}
+      ${renderCtaOverlayControls({ targetId: project.id, ctaOverlay: project.ctaOverlay, scope: "project" })}
     </section>
   `;
 }

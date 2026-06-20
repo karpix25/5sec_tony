@@ -50,10 +50,10 @@
 }
 
 .avatar-cta-overlay {
-  --cta-bg: #111111;
-  --cta-color: #ffffff;
-  --cta-border: #ffffff;
-  --cta-radius: 8px;
+  --cta-bg: #ffffff;
+  --cta-color: #111111;
+  --cta-border: #111111;
+  --cta-radius: 10px;
   position: absolute;
   z-index: 2;
   max-width: 82%;
@@ -151,6 +151,11 @@
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
+}
+
+.avatar-cta-status.idle {
+  color: #2f3440;
+  background: #eef1f4;
 }
 
 .avatar-cta-status.loading {

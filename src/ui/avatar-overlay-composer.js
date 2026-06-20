@@ -12,6 +12,7 @@ const overlayPresets = [
 export function renderAvatarOverlayComposer(character) {
   const context = normalizeOverlayComposerContext(character);
   const { project, video } = context;
+  const ctaScope = video ? "avatar-video" : "project";
 
   const overlay = normalizeOverlay(video?.overlay);
   const ctaOverlay = normalizeCtaOverlay(video?.ctaOverlay || project?.ctaOverlay);
@@ -39,7 +40,7 @@ export function renderAvatarOverlayComposer(character) {
               ${renderRange("opacity", "Прозрачность", overlay.opacity, 30, 100)}
             </form>
           ` : "<small class=\"avatar-system-note\">Сначала создайте аватар-видео, потом здесь появится настройка его позиции. Плашка уже работает отдельно.</small>"}
-          ${renderAvatarCtaControls(project?.id || video?.id || "project-cta", ctaOverlay)}
+          ${renderAvatarCtaControls(video?.id || project?.id || "project-cta", ctaOverlay, ctaScope)}
         </div>
       </div>
     </details>
@@ -67,17 +68,32 @@ export function bindAvatarOverlayComposerEvents(root, store) {
     });
   });
   bindCtaOverlayControlEvents(root, {
+    filter(form) {
+      return Boolean(form?.closest(".avatar-overlay-workbench"));
+    },
     onInput(form) {
       if (form.closest(".avatar-overlay-workbench")) applyAvatarCtaOverlayPreview(form);
     },
-    onChange(videoId, payload) {
-      store.updateAvatarVideoCtaOverlay(videoId, payload);
+    onChange(targetId, payload, form) {
+      if (form?.dataset.ctaScope === "project") {
+        store.updateProjectCtaOverlay(payload);
+        return;
+      }
+      store.updateAvatarVideoCtaOverlay(targetId, payload);
     },
-    onGenerate(videoId, payload) {
-      store.createAvatarVideoCtaCandidate(videoId, payload);
+    onGenerate(targetId, payload, _button, form) {
+      if (form?.dataset.ctaScope === "project") {
+        store.createProjectCtaCandidate(payload);
+        return;
+      }
+      store.createAvatarVideoCtaCandidate(targetId, payload);
     },
-    onApprove(videoId) {
-      store.approveAvatarVideoCtaCandidate(videoId);
+    onApprove(targetId, _button, form) {
+      if (form?.dataset.ctaScope === "project") {
+        store.approveProjectCtaCandidate();
+        return;
+      }
+      store.approveAvatarVideoCtaCandidate(targetId);
     }
   });
 }
@@ -129,10 +145,10 @@ function renderCtaOverlayPreview(ctaOverlay) {
     `top:${ctaOverlay.y}%`,
     `opacity:${ctaOverlay.opacity / 100}`,
     `transform:translate(-50%, -50%) scale(${ctaOverlay.scale / 100})`,
-    badge?.background ? `--cta-bg:${badge.background}` : "",
-    badge?.color ? `--cta-color:${badge.color}` : "",
-    badge?.border ? `--cta-border:${badge.border}` : "",
-    badge?.radius ? `--cta-radius:${badge.radius}px` : ""
+    `--cta-bg:${badge?.background || ctaOverlay.background}`,
+    `--cta-color:${badge?.color || ctaOverlay.color}`,
+    `--cta-border:${badge?.border || ctaOverlay.border}`,
+    `--cta-radius:${Number(badge?.radius || ctaOverlay.radius)}px`
   ].filter(Boolean).join(";");
   if (badge?.imageUrl) {
     return `
@@ -146,8 +162,8 @@ function renderCtaOverlayPreview(ctaOverlay) {
   `;
 }
 
-function renderAvatarCtaControls(videoId, ctaOverlay) {
-  return renderCtaOverlayControls({ targetId: videoId, ctaOverlay });
+function renderAvatarCtaControls(videoId, ctaOverlay, scope) {
+  return renderCtaOverlayControls({ targetId: videoId, ctaOverlay, scope });
 }
 
 function renderPresetButtons(videoId) {
