@@ -1,5 +1,6 @@
 import { escapeHtml } from "./infographic.js";
 import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
+import { bindCtaOverlayControlEvents, getCtaOverlayPayload, renderCtaOverlayControls as renderSharedCtaOverlayControls } from "./cta-overlay-controls.js";
 
 const defaultOverlay = { x: 50, y: 98, scale: 96, opacity: 100 };
 const overlayPresets = [
@@ -9,34 +10,36 @@ const overlayPresets = [
 ];
 
 export function renderAvatarOverlayComposer(character) {
-  const video = getLatestAvatarVideo(character);
-  if (!video) return "";
+  const context = normalizeOverlayComposerContext(character);
+  const { project, video } = context;
 
-  const overlay = normalizeOverlay(video.overlay);
-  const ctaOverlay = normalizeCtaOverlay(video.ctaOverlay);
+  const overlay = normalizeOverlay(video?.overlay);
+  const ctaOverlay = normalizeCtaOverlay(video?.ctaOverlay || project?.ctaOverlay);
   const videoUrl = getOverlayVideoUrl(video);
   const canPreview = Boolean(videoUrl);
   return `
     <details class="avatar-overlay-composer" open>
       <summary>
         <span class="eyebrow">Превью слоя</span>
-        <strong>Позиция аватара в ролике</strong>
+        <strong>Позиция аватара и плашки в ролике</strong>
         <small>${escapeHtml(getAlphaNote(video))}</small>
       </summary>
       <div class="avatar-overlay-workbench">
         <div class="avatar-overlay-stage">
-          ${canPreview ? renderOverlayVideo(videoUrl, overlay) : "<div class=\"avatar-overlay-empty\">Видео еще готовится</div>"}
+          ${canPreview ? renderOverlayVideo(videoUrl, overlay) : "<div class=\"avatar-overlay-empty\">Аватар еще не создан. Плашку уже можно настраивать.</div>"}
           ${renderCtaOverlayPreview(ctaOverlay)}
         </div>
         <div class="avatar-overlay-control-stack">
-          <form class="avatar-overlay-controls" data-avatar-overlay-form="${escapeHtml(video.id)}">
-            ${renderPresetButtons(video.id)}
-            ${renderRange("x", "Горизонталь", overlay.x, 15, 85)}
-            ${renderRange("y", "Вертикаль", overlay.y, 45, 100)}
-            ${renderRange("scale", "Размер", overlay.scale, 35, 150)}
-            ${renderRange("opacity", "Прозрачность", overlay.opacity, 30, 100)}
-          </form>
-          ${renderCtaOverlayControls(video.id, ctaOverlay)}
+          ${canPreview ? `
+            <form class="avatar-overlay-controls" data-avatar-overlay-form="${escapeHtml(video.id)}">
+              ${renderPresetButtons(video.id)}
+              ${renderRange("x", "Горизонталь", overlay.x, 15, 85)}
+              ${renderRange("y", "Вертикаль", overlay.y, 45, 100)}
+              ${renderRange("scale", "Размер", overlay.scale, 35, 150)}
+              ${renderRange("opacity", "Прозрачность", overlay.opacity, 30, 100)}
+            </form>
+          ` : "<small class=\"avatar-system-note\">Сначала создайте аватар-видео, потом здесь появится настройка его позиции. Плашка уже работает отдельно.</small>"}
+          ${renderAvatarCtaControls(project?.id || video?.id || "project-cta", ctaOverlay)}
         </div>
       </div>
     </details>
@@ -63,26 +66,19 @@ export function bindAvatarOverlayComposerEvents(root, store) {
       store.updateAvatarVideoOverlay(button.dataset.avatarVideoId, preset.settings);
     });
   });
-  root.querySelectorAll("[data-avatar-cta-overlay-form]").forEach((form) => {
-    form.addEventListener("submit", (event) => event.preventDefault());
-    form.addEventListener("input", () => {
-      applyAvatarCtaOverlayPreview(form);
-    });
-    form.addEventListener("change", () => {
-      store.updateAvatarVideoCtaOverlay(form.dataset.avatarCtaOverlayForm, getAvatarCtaOverlayPayload(form));
-    });
-  });
-  root.querySelectorAll("[data-avatar-cta-generate]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const form = button.closest("[data-avatar-cta-overlay-form]");
-      setCtaGenerateButtonBusy(button, form);
-      store.createAvatarVideoCtaCandidate(button.dataset.avatarCtaGenerate, getAvatarCtaOverlayPayload(form));
-    });
-  });
-  root.querySelectorAll("[data-avatar-cta-approve]").forEach((button) => {
-    button.addEventListener("click", () => {
-      store.approveAvatarVideoCtaCandidate(button.dataset.avatarCtaApprove);
-    });
+  bindCtaOverlayControlEvents(root, {
+    onInput(form) {
+      if (form.closest(".avatar-overlay-workbench")) applyAvatarCtaOverlayPreview(form);
+    },
+    onChange(videoId, payload) {
+      store.updateAvatarVideoCtaOverlay(videoId, payload);
+    },
+    onGenerate(videoId, payload) {
+      store.createAvatarVideoCtaCandidate(videoId, payload);
+    },
+    onApprove(videoId) {
+      store.approveAvatarVideoCtaCandidate(videoId);
+    }
   });
 }
 
@@ -150,63 +146,8 @@ function renderCtaOverlayPreview(ctaOverlay) {
   `;
 }
 
-function renderCtaOverlayControls(videoId, ctaOverlay) {
-  const isGeneratingBadge = ["submitting", "generating"].includes(ctaOverlay.candidate?.status);
-  return `
-    <form class="avatar-cta-controls" data-avatar-cta-overlay-form="${escapeHtml(videoId)}">
-      <div class="avatar-cta-head">
-        <strong>Плашка / текст</strong>
-        <label><input name="enabled" type="checkbox" ${ctaOverlay.enabled ? "checked" : ""}> Включено</label>
-      </div>
-      <div class="avatar-cta-mode">
-        ${renderModeRadio("text", "Текст", ctaOverlay.mode)}
-        ${renderModeRadio("badge", "Плашка", ctaOverlay.mode)}
-      </div>
-      <label class="avatar-overlay-range">
-        <span>Текст</span>
-        <input name="text" class="text-input" value="${escapeHtml(ctaOverlay.text)}" maxlength="32">
-      </label>
-      <label class="avatar-overlay-range avatar-cta-prompt-field">
-        <span>Промт генерации плашки</span>
-        <textarea name="prompt" class="textarea" maxlength="280" placeholder="Например: яркая заметная плашка в стиле выбранного референса, без логотипов">${escapeHtml(ctaOverlay.prompt || "")}</textarea>
-      </label>
-      ${renderRange("x", "CTA горизонталь", ctaOverlay.x, 5, 95)}
-      ${renderRange("y", "CTA вертикаль", ctaOverlay.y, 5, 95)}
-      ${renderRange("scale", "CTA размер", ctaOverlay.scale, 60, 150)}
-      ${renderRange("opacity", "CTA прозрачность", ctaOverlay.opacity, 20, 100)}
-      <div class="avatar-cta-actions">
-        <button class="ghost-btn" data-avatar-cta-generate="${escapeHtml(videoId)}" type="button" ${isGeneratingBadge ? "disabled" : ""}>
-          ${isGeneratingBadge ? "Генерируем..." : "Сгенерировать плашку"}
-        </button>
-        ${ctaOverlay.candidate?.status === "review" ? `<button class="secondary-btn" data-avatar-cta-approve="${escapeHtml(videoId)}" type="button">Апрув плашки</button>` : ""}
-        ${renderCtaStatusPill(ctaOverlay.candidate)}
-      </div>
-      ${renderCtaCandidateStatus(ctaOverlay.candidate)}
-    </form>
-  `;
-}
-
-function renderCtaStatusPill(candidate) {
-  if (!candidate) return "";
-  if (candidate.status === "failed") return "<span class=\"avatar-cta-status failed\">Ошибка</span>";
-  if (candidate.status === "review") return "<span class=\"avatar-cta-status ready\">Готово</span>";
-  return "<span class=\"avatar-cta-status loading\">Генерация...</span>";
-}
-
-function renderCtaCandidateStatus(candidate) {
-  if (!candidate) return "";
-  if (candidate.status === "failed") return `<small>Ошибка плашки: ${escapeHtml(candidate.failMsg || "не удалось сгенерировать")}</small>`;
-  if (candidate.status === "review") return "<small>AI-плашка готова. Нажмите апрув, чтобы использовать ее в видео.</small>";
-  return "<small>Генерируем AI-плашку. После готовности появится апрув.</small>";
-}
-
-function renderModeRadio(value, label, mode) {
-  return `
-    <label>
-      <input name="mode" type="radio" value="${value}" ${mode === value ? "checked" : ""}>
-      ${escapeHtml(label)}
-    </label>
-  `;
+function renderAvatarCtaControls(videoId, ctaOverlay) {
+  return renderSharedCtaOverlayControls({ targetId: videoId, ctaOverlay });
 }
 
 function renderPresetButtons(videoId) {
@@ -232,32 +173,8 @@ function getOverlayPayload(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
-function getAvatarCtaOverlayPayload(form) {
-  const payload = Object.fromEntries(new FormData(form).entries());
-  return { ...payload, enabled: payload.enabled === "on" };
-}
-
-function setCtaGenerateButtonBusy(button, form) {
-  button.disabled = true;
-  button.textContent = "Генерируем...";
-  const actions = button.closest(".avatar-cta-actions");
-  const status = actions?.querySelector(".avatar-cta-status");
-  if (status) {
-    status.className = "avatar-cta-status loading";
-    status.textContent = "Генерация...";
-  } else {
-    actions?.insertAdjacentHTML("beforeend", "<span class=\"avatar-cta-status loading\">Генерация...</span>");
-  }
-  const note = form?.querySelector("[data-avatar-cta-status-note]");
-  if (note) {
-    note.textContent = "Генерируем AI-плашку. После готовности появится апрув.";
-  } else {
-    form?.insertAdjacentHTML("beforeend", "<small data-avatar-cta-status-note>Генерируем AI-плашку. После готовности появится апрув.</small>");
-  }
-}
-
 function applyAvatarCtaOverlayPreview(form) {
-  const ctaOverlay = normalizeCtaOverlay(getAvatarCtaOverlayPayload(form));
+  const ctaOverlay = normalizeCtaOverlay(getCtaOverlayPayload(form));
   const stage = form.closest(".avatar-overlay-workbench")?.querySelector(".avatar-overlay-stage");
   const preview = stage?.querySelector(".avatar-cta-overlay");
   if (!preview) return;
@@ -269,7 +186,21 @@ function applyAvatarCtaOverlayPreview(form) {
   preview.style.top = `${ctaOverlay.y}%`;
   preview.style.opacity = String(ctaOverlay.opacity / 100);
   preview.style.transform = `translate(-50%, -50%) scale(${ctaOverlay.scale / 100})`;
-  updateRangeLabels(form, ctaOverlay);
+}
+
+function normalizeOverlayComposerContext(input) {
+  if (input && typeof input === "object" && ("project" in input || "character" in input)) {
+    return {
+      project: input.project || null,
+      character: input.character || null,
+      video: getLatestAvatarVideo(input.character || null)
+    };
+  }
+  return {
+    project: null,
+    character: input || null,
+    video: getLatestAvatarVideo(input || null)
+  };
 }
 
 function getLatestAvatarVideo(character) {
@@ -278,10 +209,12 @@ function getLatestAvatarVideo(character) {
 }
 
 function getOverlayVideoUrl(video) {
+  if (!video) return "";
   return video.alphaVideoUrl || video.compositeVideoUrl || video.videoUrl || "";
 }
 
 function getAlphaNote(video) {
+  if (!video) return "Плашку можно настроить заранее, даже если аватар еще не создан.";
   if (video.alphaStatus === "ready") return "Сохранена прозрачная WEBM-версия. Ее можно двигать поверх будущего ролика.";
   if (video.alphaStatus === "converting") return "Удаляем зеленый фон и сохраняем прозрачный слой.";
   if (video.alphaStatus === "failed") return video.alphaFailMsg || "Прозрачность не создана, показан исходный хромакей.";

@@ -8,7 +8,7 @@ export function renderAvatarSettings({ project, character }) {
     ${renderToggleSection("Проверка аватара", renderAvatarCandidate(project.avatarCandidates?.[0]))}
     ${renderToggleSection("Аватары проекта", renderApprovedAvatars(project.characters, character?.id))}
     ${renderAvatarVideoPanel(character)}
-    ${renderAvatarOverlayComposer(character)}
+    ${renderAvatarOverlayComposer({ project, character })}
   `;
 }
 

@@ -17,6 +17,7 @@ import { renderHooksPanel } from "../src/ui/hooks.js";
 import { renderProductSettings } from "../src/ui/product.js";
 import { renderProjectManagementSettings } from "../src/ui/project.js";
 import { renderQueuePanel } from "../src/ui/queue.js";
+import { renderProjectSettingsTabs } from "../src/ui/render.js";
 import { generateAiBrief } from "../src/services/brief-ai.js";
 
 test("meaning engine adapts viral patterns for non-payment projects", () => {
@@ -393,6 +394,8 @@ test("generation panel allows selecting no-avatar mode", () => {
   });
 
   assert.match(html, /<option value="__no_avatar__"[^>]*selected[^>]*>Без аватара<\/option>/);
+  assert.match(html, /Плашка \/ текст/);
+  assert.match(html, /Эти настройки работают и в режиме без аватара/);
 });
 
 test("generation operation panels hide provider and task identifiers", () => {
@@ -422,6 +425,25 @@ test("generation operation panels hide provider and task identifiers", () => {
 
   assert.match(html, /Результат появится автоматически/);
   assert.doesNotMatch(html, /taskId|task_internal|Kie\.ai|OpenRouter|GPT Image|model|модел/i);
+});
+
+test("project settings tab renames avatars to avatar plus cta", () => {
+  const html = renderProjectSettingsTabs({
+    selectedProjectTab: "avatars",
+    products,
+    projects,
+    selectedProjectId: projects[0].id
+  }, {
+    project: projects[0],
+    product: products[0],
+    reference: projects[0].references[0],
+    character: projects[0].characters[0],
+    audioLibrary: [],
+    audio: null,
+    generationBrief: {}
+  });
+
+  assert.match(html, /Аватар \+ плашка/);
 });
 
 test("queue waits for final video before marking final-video job ready", () => {

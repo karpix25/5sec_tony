@@ -393,7 +393,10 @@ test("final video job falls back to no-avatar render when reusable avatar video 
 test("final video job can render without avatar overlay when no-avatar mode is selected", async () => {
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;
-  const project = projects.find((item) => item.id === "supplements");
+  const project = {
+    ...projects.find((item) => item.id === "supplements"),
+    ctaOverlay: { enabled: true, mode: "text", text: "БЕЗ АВАТАРА", x: 44, y: 74, scale: 88, opacity: 92 }
+  };
   const product = products.find((item) => item.id === "magnesium");
   const audio = {
     id: "audio-no-avatar",
@@ -455,6 +458,7 @@ test("final video job can render without avatar overlay when no-avatar mode is s
       assert.equal(body.avatarVideoUrl, undefined);
       assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
       assert.equal(body.audioData, audio.fileData);
+      assert.equal(body.ctaOverlay.text, "БЕЗ АВАТАРА");
       assert.equal(body.ctaOverlay.enabled, true);
       return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-no-avatar.mp4", hasAudio: true }) };
     }

@@ -4,6 +4,7 @@ import { getProjectAutomationState } from "../domain/project-automation.js";
 import { runImageJob } from "./job-runner.js";
 import { formatAutomationStats } from "./generation-live.js";
 import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
+import { bindCtaOverlayControlEvents, renderCtaOverlayControls } from "./cta-overlay-controls.js";
 
 export function renderStudioPanel(state, context) {
   const automationState = getProjectAutomationState({ project: context.project, jobs: state.jobs });
@@ -21,6 +22,7 @@ export function renderStudioPanel(state, context) {
           <div class="auto-generation-note">
             Система сама подберет тему, хук, формат и объекты на основе проекта, продукта, референсов и истории генераций.
           </div>
+          ${renderGenerationCtaSettings(context.project)}
           <label class="stacked-field">
             <span>Количество</span>
             <input id="generation-count" class="text-input" type="number" min="1" max="10" value="1" />
@@ -50,6 +52,17 @@ export function bindGenerationPanelEvents(root, store) {
       status: payload.enabled === "on" ? "running" : "paused",
       lastMessage: payload.enabled === "on" ? "Авторежим включен." : "Авторежим остановлен."
     });
+  });
+  bindCtaOverlayControlEvents(root, {
+    onChange(_projectId, payload) {
+      store.updateProjectCtaOverlay(payload);
+    },
+    onGenerate(_projectId, payload) {
+      store.createProjectCtaCandidate(payload);
+    },
+    onApprove() {
+      store.approveProjectCtaCandidate();
+    }
   });
 }
 
@@ -100,6 +113,15 @@ function renderAutomationControls(project, automationState) {
       <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget }))}</small>
       <button class="secondary-btn" type="submit">${automation.enabled ? "Сохранить авторежим" : "Включить авторежим"}</button>
     </form>
+  `;
+}
+
+function renderGenerationCtaSettings(project) {
+  return `
+    <section class="generation-cta-panel">
+      <div class="generation-cta-note">Эти настройки работают и в режиме без аватара.</div>
+      ${renderCtaOverlayControls({ targetId: project.id, ctaOverlay: project.ctaOverlay })}
+    </section>
   `;
 }
 

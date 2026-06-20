@@ -130,6 +130,9 @@ test("image prompt uses design reference as style system, not literal layout loc
 
   assert.match(job.prompt, /ДИЗАЙН-РЕФЕРЕНС — ИСТОЧНИК СТИЛЯ, А НЕ БУКВАЛЬНОЙ ВЕРСТКИ/);
   assert.match(job.prompt, /Композиция может меняться под задачу: список, таблица, сравнение, сетка, схема, карточки или таймлайн/);
+  assert.match(job.prompt, /STYLE LOCK ПО РЕФЕРЕНСУ/);
+  assert.match(job.prompt, /80-90% той же визуальной ДНК/);
+  assert.match(job.prompt, /ФИКСАЦИЯ ПАЛИТРЫ/);
   assert.match(job.prompt, /COMPOSITION MODE:/);
 });
 

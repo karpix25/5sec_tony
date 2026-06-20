@@ -46,8 +46,25 @@ test("avatar cta badge generation shows busy feedback", () => {
   };
   const html = renderAvatarSettings({ project, character: project.characters[0] });
 
-  assert.match(html, /data-avatar-cta-generate="avatar-video-busy" type="button" disabled/);
+  assert.match(html, /data-cta-generate="supplements" type="button" disabled/);
   assert.match(html, /Генерируем\.\.\./);
   assert.match(html, /avatar-cta-status loading/);
   assert.doesNotMatch(html, /Апрув плашки/);
+});
+
+test("avatar overlay composer stays visible without avatar video so CTA can be configured", () => {
+  const project = {
+    ...projects[0],
+    ctaOverlay: { enabled: true, mode: "text", text: "ПОДПИШИСЬ" },
+    characters: [{
+      ...projects[0].characters[0],
+      avatarVideos: []
+    }]
+  };
+  const html = renderAvatarSettings({ project, character: project.characters[0] });
+
+  assert.match(html, /<details class="avatar-overlay-composer" open>/);
+  assert.match(html, /Аватар еще не создан\. Плашку уже можно настраивать\./);
+  assert.match(html, /Плашка \/ текст/);
+  assert.match(html, /Сначала создайте аватар-видео, потом здесь появится настройка его позиции\./);
 });

@@ -5,6 +5,7 @@ import { getCompositionInstruction, pickCompositionMode } from "./composition-mo
 import { getContentLayerInstruction } from "./content-layers.js";
 import { createMeaningBrief, createUniversalSemanticPlan, scoreMeaningBrief } from "./meaning-engine.js";
 import { createPaymentPlan, getScenarioVisualInstruction } from "./payment-plan.js";
+import { buildDesignReferenceConsistencyInstructions } from "./design-style-lock.js";
 import { buildProductProfile } from "./product-profile.js";
 import { createTopicCandidatePlan, pickTopicCandidate } from "./topic-candidates.js";
 
@@ -112,6 +113,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     "КРИТИЧНО: если переданы reference images, использовать их как главный источник визуального дизайна: палитра, типографика, свет, контраст, форма карточек, материалы, фактуры и ритм.",
     "Дизайн-референс использовать только как визуальный стиль; не копировать его текст, смысл, продукт, логотипы, персонажа или обещания.",
     ...designReferenceRules,
+    ...buildDesignReferenceConsistencyInstructions(reference),
     ...socialSafeZoneRules,
     "Не добавлять аватара/персонажа в саму картинку. Персонаж будет наложен отдельно на этапе видео.",
     "Смыслы и формулировки создать только на основе компании, ЦА, выбранного продукта и брифа генерации.",

@@ -132,14 +132,14 @@ function isGlobalReferenceTab(state) {
   return ["audio", "hooks"].includes(state.selectedProjectTab);
 }
 
-function renderProjectSettingsTabs(state, context) {
+export function renderProjectSettingsTabs(state, context) {
   const active = state.selectedProjectTab || "project";
   return `
     <div class="settings-tabs" role="tablist" aria-label="Настройки проекта">
       ${tabButton("project", "Управление", active)}
       ${tabButton("product", "Продукт", active)}
       ${tabButton("design", "Дизайн-референсы", active)}
-      ${tabButton("avatars", "Аватары", active)}
+      ${tabButton("avatars", "Аватар + плашка", active)}
       ${tabButton("generation", "Генерация", active)}
       ${tabButton("queue", "Очередь", active)}
     </div>

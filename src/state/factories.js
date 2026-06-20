@@ -115,6 +115,7 @@ export function ensureProjectAssets(project) {
     projectLimit: normalizeAssetLimit(project.projectLimit, 500),
     usedTotal: normalizeAssetUsage(project.usedTotal),
     automation: normalizeProjectAutomation(project.automation),
+    ctaOverlay: normalizeCtaOverlay(project.ctaOverlay),
     avatarRoundRobinIndex: normalizeFactoryRoundRobinIndex(project.avatarRoundRobinIndex),
     references: references.length ? references : [createReferenceEntity({ title: "Базовый стиль проекта" })],
     audioLibrary: getAudioLibrary(project, legacyAudios),

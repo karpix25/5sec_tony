@@ -232,7 +232,7 @@ function resolveJobAvatarName(project, job, fallbackCharacterId = "") {
 }
 
 function resolveNoAvatarCtaOverlay(project) {
-  const savedOverlay = (project?.characters || [])
+  const savedOverlay = project?.ctaOverlay || (project?.characters || [])
     .flatMap((character) => character.avatarVideos || [])
     .find((video) => video.ctaOverlay)?.ctaOverlay;
   return normalizeCtaOverlay(savedOverlay);

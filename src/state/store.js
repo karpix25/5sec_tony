@@ -6,17 +6,22 @@ import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
+import { createProjectCtaWorkflow } from "./project-cta-workflow.js";
 import {
   addGlobalAudioFiles,
   deleteGlobalAudio,
   ensureGlobalAudioLibrary,
   getSelectedGlobalAudioId
 } from "./global-assets.js";
-import { createGenerationJobBatch } from "./job-batch.js";
 import { createStoreCache } from "./store-cache.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
 import { updateProjectEntity, withCreatedJobs } from "./store-projects.js";
 import { createStatePersistence } from "./state-persistence.js";
+import {
+  createSelectionJobBatch,
+  getProjectSelectionContext,
+  getSelectionContext
+} from "./store-context.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
   createAudioEntity,
@@ -75,6 +80,11 @@ export function createStore() {
     setState,
     getProject
   });
+  const projectCtaWorkflow = createProjectCtaWorkflow({
+    getState: () => state,
+    getProject,
+    setState
+  });
   statePersistence = createStatePersistence({
     getState: () => state,
     replaceState,
@@ -91,6 +101,7 @@ export function createStore() {
     if (hadLocalChangesBeforeHydrate) statePersistence.scheduleSave();
     avatarWorkflow.resumeAvatarPolling();
     designReferenceWorkflow.resumeDesignReferencePolling();
+    projectCtaWorkflow.resumeProjectCtaPolling();
   });
 
   function markPreHydrationPatch(patch) {
@@ -161,6 +172,9 @@ export function createStore() {
         )
       });
     },
+    updateProjectCtaOverlay: projectCtaWorkflow.updateProjectCtaOverlay,
+    createProjectCtaCandidate: projectCtaWorkflow.createProjectCtaCandidate,
+    approveProjectCtaCandidate: projectCtaWorkflow.approveProjectCtaCandidate,
     resetProjectDailyUsage(projectId = state.selectedProjectId) {
       setState({
         projects: state.projects.map((project) =>
@@ -197,6 +211,7 @@ export function createStore() {
         projectLimit: Number(payload.projectLimit || 500),
         usedTotal: 0,
         automation: normalizeProjectAutomation(),
+        ctaOverlay: { enabled: true, mode: "text", text: "ПОДПИШИСЬ", x: 50, y: 78, scale: 100, opacity: 100 },
         companyInfo: payload.companyInfo || "",
         companyAudience: payload.companyAudience || "",
         projectTheme: payload.projectTheme || "",
@@ -367,20 +382,20 @@ export function createStore() {
     createAvatarVideoCtaCandidate: avatarWorkflow.createAvatarVideoCtaCandidate,
     approveAvatarVideoCtaCandidate: avatarWorkflow.approveAvatarVideoCtaCandidate,
     createJob() {
-      const context = getContext(state);
-      const jobs = createJobBatchForContext(state, context, 1);
+      const context = getSelectionContext(state, getProject);
+      const jobs = createSelectionJobBatch(state, context, 1);
       setState(withCreatedJobs(state, jobs, context.project.id));
       return jobs[0] || null;
     },
     createJobs(count) {
-      const context = getContext(state);
-      const jobs = createJobBatchForContext(state, context, count, { distributeProducts: true });
+      const context = getSelectionContext(state, getProject);
+      const jobs = createSelectionJobBatch(state, context, count, { distributeProducts: true });
       setState(withCreatedJobs(state, jobs, context.project.id));
       return jobs;
     },
     createProjectJobs(projectId, count) {
-      const context = getContextForProject(state, projectId);
-      const jobs = createJobBatchForContext(state, context, count, { distributeProducts: true });
+      const context = getProjectSelectionContext(state, projectId, getProject);
+      const jobs = createSelectionJobBatch(state, context, count, { distributeProducts: true });
       setState(withCreatedJobs(state, jobs, context.project.id));
       return jobs;
     },
@@ -403,50 +418,9 @@ export function createStore() {
   };
 }
 
-export function getContext(state) {
-  const project = getProject(state, state.selectedProjectId);
-  const product = state.products.find((item) => item.id === state.selectedProductId) || getProductsForProject(state.products, project.id)[0];
-  const references = getDesignReferences(project);
-  const selectedCharacterId = isNoAvatarCharacterId(state.selectedCharacterId) ? noAvatarCharacterId : state.selectedCharacterId;
-  return {
-    project,
-    product,
-    reference: references.find((item) => item.id === state.selectedReferenceId) || references[0],
-    character: isNoAvatarCharacterId(selectedCharacterId) ? null : project.characters.find((item) => item.id === selectedCharacterId),
-    audio: state.audioLibrary.find((item) => item.id === state.selectedAudioId),
-    audioLibrary: state.audioLibrary,
-    generationBrief: ensureGenerationBrief(state.generationBrief),
-    freePrompt: state.freePrompt
-  };
-}
+export function getContext(state) { return getSelectionContext(state, getProject); }
 
 function getProject(state, projectId) { return state.projects.find((project) => project.id === projectId) || state.projects[0]; }
-
-function getContextForProject(state, projectId) {
-  const fallback = getContext(state);
-  const project = getProject(state, projectId);
-  const projectProducts = getProductsForProject(state.products, project.id);
-  const product = projectProducts.find((item) => item.id === state.selectedProductId) || projectProducts[0] || fallback.product;
-  const references = getDesignReferences(project);
-  const reference = references.find((item) => item.id === state.selectedReferenceId) || references[0] || fallback.reference;
-  const character = isNoAvatarCharacterId(state.selectedCharacterId)
-    ? null
-    : project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0] || fallback.character;
-  return { ...fallback, project, product, reference, character };
-}
-
-function createJobBatchForContext(state, context, count, options = {}) {
-  const dailyLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0));
-  const totalLeft = Math.max(0, Number(context.project.projectLimit || 0) - Number(context.project.usedTotal || 0));
-  const safeCount = Math.max(0, Math.min(Number(count || 1), dailyLeft, totalLeft));
-  if (!safeCount) return [];
-  return createGenerationJobBatch({
-    context,
-    count: safeCount,
-    products: options.distributeProducts ? getProductsForProject(state.products, context.project.id) : [],
-    existingJobs: state.jobs.filter((item) => item.projectId === context.project.id)
-  });
-}
 
 function normalize(nextState) {
   const hydratedProjects = nextState.projects.map(ensureProjectAssets);
