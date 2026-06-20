@@ -1,6 +1,6 @@
 import { escapeHtml } from "./infographic.js";
 import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
-import { bindCtaOverlayControlEvents, getCtaOverlayPayload, renderCtaOverlayControls as renderSharedCtaOverlayControls } from "./cta-overlay-controls.js";
+import { bindCtaOverlayControlEvents, getCtaOverlayPayload, renderCtaOverlayControls } from "./cta-overlay-controls.js";
 
 const defaultOverlay = { x: 50, y: 98, scale: 96, opacity: 100 };
 const overlayPresets = [
@@ -147,7 +147,7 @@ function renderCtaOverlayPreview(ctaOverlay) {
 }
 
 function renderAvatarCtaControls(videoId, ctaOverlay) {
-  return renderSharedCtaOverlayControls({ targetId: videoId, ctaOverlay });
+  return renderCtaOverlayControls({ targetId: videoId, ctaOverlay });
 }
 
 function renderPresetButtons(videoId) {
