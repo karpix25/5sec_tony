@@ -64,6 +64,50 @@ test("state api migrates legacy snapshot into normalized tables on load", async 
   assert.deepEqual(calls, [["normalized", legacyState], ["legacy", legacyState]]);
 });
 
+test("state api removes duplicate jobs during legacy migration", async () => {
+  const calls = [];
+  const legacyState = {
+    projects: [{ id: "project-1" }],
+    products: [],
+    jobs: [
+      { id: "job-1", title: "visible current" },
+      { id: "job-1", title: "stale duplicate" }
+    ]
+  };
+  let migratedState = null;
+  const response = createJsonResponse();
+  const handleStateApi = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    loadNormalizedState: async () => {
+      if (migratedState) return migratedState;
+      return null;
+    },
+    loadLegacyState: async () => legacyState,
+    saveNormalizedState: async (_query, _key, state) => {
+      migratedState = state;
+      calls.push(["normalized", state.jobs.map((job) => job.title)]);
+    },
+    saveLegacyState: async (_query, _key, state) => {
+      calls.push(["legacy", state.jobs.map((job) => job.title)]);
+      return { rows: [{ updated_at: "2026-06-16T10:03:00.000Z" }] };
+    },
+    queryPostgres: async () => ({ rows: [{ updated_at: "2026-06-16T10:03:00.000Z" }] }),
+    withPostgresTransaction: async (callback) => callback({ query: async () => ({ rows: [] }) })
+  });
+
+  await handleStateApi(
+    { method: "GET" },
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, [
+    ["normalized", ["visible current"]],
+    ["legacy", ["visible current"]]
+  ]);
+});
+
 test("state api fails legacy migration when normalized parity is broken", async () => {
   const legacyState = { projects: [{ id: "project-1" }], products: [], jobs: [] };
   const response = createJsonResponse();

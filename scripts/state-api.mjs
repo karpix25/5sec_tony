@@ -38,10 +38,11 @@ async function handleLoadState(response, deps) {
       source = state ? "legacy" : "empty";
       if (state) {
         state = await deps.withTransaction(async (tx) => {
-          await deps.saveNormalized(tx.query, appStateKey, state);
-          await deps.saveLegacy(tx.query, appStateKey, state);
+          const nextState = normalizeStateJobIds(state);
+          await deps.saveNormalized(tx.query, appStateKey, nextState);
+          await deps.saveLegacy(tx.query, appStateKey, nextState);
           const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
-          if (!statesEqual(rebuiltState, state)) {
+          if (!statesEqual(rebuiltState, nextState)) {
             throw new Error("Legacy migration parity check failed");
           }
           return rebuiltState;
