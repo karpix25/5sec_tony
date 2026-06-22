@@ -2,11 +2,11 @@ import { escapeHtml } from "./infographic.js";
 import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { bindCtaOverlayControlEvents, getCtaOverlayPayload, renderCtaOverlayControls } from "./cta-overlay-controls.js";
 
-const defaultOverlay = { x: 50, y: 98, scale: 96, opacity: 100 };
+const defaultOverlay = { x: 75, y: 100, scale: 37, opacity: 100 };
 const overlayPresets = [
-  { id: "lower-center", label: "Снизу центр", settings: { x: 50, y: 98, scale: 96, opacity: 100 } },
-  { id: "lower-left", label: "Снизу слева", settings: { x: 32, y: 98, scale: 92, opacity: 100 } },
-  { id: "lower-right", label: "Снизу справа", settings: { x: 68, y: 98, scale: 92, opacity: 100 } }
+  { id: "lower-center", label: "Снизу центр", settings: { x: 50, y: 100, scale: 37, opacity: 100 } },
+  { id: "lower-left", label: "Снизу слева", settings: { x: 25, y: 100, scale: 37, opacity: 100 } },
+  { id: "lower-right", label: "Снизу справа", settings: { x: 75, y: 100, scale: 37, opacity: 100 } }
 ];
 
 export function renderAvatarOverlayComposer(character) {

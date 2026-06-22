@@ -119,9 +119,9 @@ function createAvatarVideoId() {
 
 function normalizeAvatarVideoRecordOverlay(payload = {}) {
   return {
-    x: clampAvatarVideoRecordNumber(payload.x, 50, 15, 85),
-    y: clampAvatarVideoRecordNumber(payload.y, 98, 45, 100),
-    scale: clampAvatarVideoRecordNumber(payload.scale, 96, 35, 150),
+    x: clampAvatarVideoRecordNumber(payload.x, 75, 15, 85),
+    y: clampAvatarVideoRecordNumber(payload.y, 100, 45, 100),
+    scale: clampAvatarVideoRecordNumber(payload.scale, 37, 35, 150),
     opacity: clampAvatarVideoRecordNumber(payload.opacity, 100, 30, 100)
   };
 }

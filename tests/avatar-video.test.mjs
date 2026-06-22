@@ -40,7 +40,7 @@ test("avatar alpha ffmpeg args keep webm transparency", () => {
 test("avatar overlay defaults anchor video near the bottom", () => {
   const video = createAvatarVideoRecord({ name: "Overlay Avatar" });
 
-  assert.deepEqual(video.overlay, { x: 50, y: 98, scale: 96, opacity: 100 });
+  assert.deepEqual(video.overlay, { x: 75, y: 100, scale: 37, opacity: 100 });
   assert.equal(video.ctaOverlay.text, "ЧИТАЙ ОПИСАНИЕ");
   assert.equal(video.ctaOverlay.mode, "badge");
   assert.equal(video.ctaOverlay.background, "#ffffff");
