@@ -15,6 +15,7 @@ test("state schema creates normalized tables and justified indexes", async () =>
   assert.match(ddl, /create table if not exists studio_products/i);
   assert.match(ddl, /create table if not exists studio_jobs/i);
   assert.match(ddl, /create table if not exists studio_hook_versions/i);
+  assert.match(ddl, /"references" jsonb not null default '\[\]'::jsonb/i);
   assert.match(ddl, /foreign key \(app_state_key, product_id\) references studio_products/i);
   assert.match(ddl, /create index if not exists idx_studio_jobs_app_state_project_sort/i);
   assert.match(ddl, /create index if not exists idx_studio_products_app_state_sort/i);
@@ -50,6 +51,8 @@ test("save normalized state writes separate project product job and hook tables"
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_app_ui_state")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_projects")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_products")));
+  assert.ok(queries.some((entry) => /insert into studio_projects[\s\S]*"references"/i.test(entry.text)));
+  assert.ok(queries.some((entry) => /insert into studio_products[\s\S]*"references"/i.test(entry.text)));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_jobs")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_global_audio_assets")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_hook_versions")));
