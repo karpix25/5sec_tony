@@ -47,15 +47,13 @@ export async function loadNormalizedState(query, appStateKey) {
   await ensureStateSchema(query);
   if (!(await hasNormalizedState(query, appStateKey))) return null;
 
-  const [ui, projects, products, jobs, audioLibrary, hookLibrary, reelsResearch] = await Promise.all([
-    loadUiState(query, appStateKey),
-    loadProjects(query, appStateKey),
-    loadProducts(query, appStateKey),
-    loadJobs(query, appStateKey),
-    loadGlobalAudio(query, appStateKey),
-    loadHookLibrary(query, appStateKey),
-    loadReelsResearch(query, appStateKey)
-  ]);
+  const ui = await loadUiState(query, appStateKey);
+  const projects = await loadProjects(query, appStateKey);
+  const products = await loadProducts(query, appStateKey);
+  const jobs = await loadJobs(query, appStateKey);
+  const audioLibrary = await loadGlobalAudio(query, appStateKey);
+  const hookLibrary = await loadHookLibrary(query, appStateKey);
+  const reelsResearch = await loadReelsResearch(query, appStateKey);
 
   const uiExtra = asObject(ui?.extra);
   return {
@@ -233,11 +231,9 @@ async function loadGlobalAudio(query, appStateKey) {
 }
 
 async function loadHookLibrary(query, appStateKey) {
-  const [stateResult, versionsResult, itemsResult] = await Promise.all([
-    query("select * from studio_hook_library_state where app_state_key = $1 limit 1", [appStateKey]),
-    query("select * from studio_hook_versions where app_state_key = $1 order by sort_order asc", [appStateKey]),
-    query("select * from studio_hook_items where app_state_key = $1 order by sort_order asc", [appStateKey])
-  ]);
+  const stateResult = await query("select * from studio_hook_library_state where app_state_key = $1 limit 1", [appStateKey]);
+  const versionsResult = await query("select * from studio_hook_versions where app_state_key = $1 order by sort_order asc", [appStateKey]);
+  const itemsResult = await query("select * from studio_hook_items where app_state_key = $1 order by sort_order asc", [appStateKey]);
   const itemsByVersion = new Map();
   itemsResult.rows.forEach((row) => {
     const items = itemsByVersion.get(row.version_id) || [];

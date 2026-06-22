@@ -100,3 +100,28 @@ test("load normalized state rebuilds snapshot from separate tables", async () =>
   assert.equal(state.hookLibrary.activeVersionId, "version-1");
   assert.equal(state.reelsResearch.accounts[0], "demo");
 });
+
+test("load normalized state queries one postgres client sequentially", async () => {
+  let active = false;
+  const state = await loadNormalizedState(async (text) => {
+    assert.equal(active, false, `concurrent query: ${text.trim().slice(0, 80)}`);
+    active = true;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    active = false;
+    if (/exists\(select 1 from studio_app_ui_state/i.test(text)) return { rows: [{ present: true }] };
+    if (/select \* from studio_app_ui_state/i.test(text)) {
+      return { rows: [{ selected_project_id: "project-1", selected_product_id: "", selected_reference_id: "", selected_character_id: "", selected_audio_id: "", selected_project_tab: "project", generation_brief: {}, free_prompt: "", extra: {} }] };
+    }
+    if (/select \* from studio_projects/i.test(text)) return { rows: [] };
+    if (/select \* from studio_products/i.test(text)) return { rows: [] };
+    if (/select \* from studio_jobs/i.test(text)) return { rows: [] };
+    if (/select \* from studio_global_audio_assets/i.test(text)) return { rows: [] };
+    if (/select \* from studio_hook_library_state/i.test(text)) return { rows: [] };
+    if (/select \* from studio_hook_versions/i.test(text)) return { rows: [] };
+    if (/select \* from studio_hook_items/i.test(text)) return { rows: [] };
+    if (/select \* from studio_reels_research/i.test(text)) return { rows: [] };
+    return { rows: [] };
+  }, "workspace-1");
+
+  assert.equal(state.selectedProjectId, "project-1");
+});

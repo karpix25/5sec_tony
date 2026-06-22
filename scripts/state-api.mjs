@@ -1,5 +1,6 @@
 import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
 import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
+import { statesEqual } from "./state-compare.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
@@ -139,10 +140,6 @@ function sendJson(response, status, payload) {
 
 function isPlainStateObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function statesEqual(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 async function lockCurrentUpdatedAt(query, key) {
