@@ -30,9 +30,13 @@ test("generation start clamps invalid count and switches to queue tab", () => {
 });
 
 test("project automation form saves limits and normalizes enabled payload into running or paused state", () => {
-  const originalFormData = globalThis.FormData;
   const root = new FakeElement();
-  const form = new FakeElement({ id: "automation-form", tagName: "form" });
+  const panel = new FakeElement({ id: "automation-form" });
+  const saveButton = new FakeElement({ id: "save-automation-settings", tagName: "button" });
+  const projectId = new FakeElement({ name: "projectId", value: "project-1" });
+  const dailyLimit = new FakeElement({ name: "dailyLimit", value: "24" });
+  const projectLimit = new FakeElement({ name: "projectLimit", value: "400" });
+  const enabled = new FakeElement({ name: "enabled", type: "checkbox", checked: true });
   const settingsCalls = [];
   const automationCalls = [];
   const store = {
@@ -44,35 +48,15 @@ test("project automation form saves limits and normalizes enabled payload into r
     }
   };
 
-  globalThis.FormData = class FakeFormData {
-    constructor(target) {
-      this.target = target;
-    }
-    entries() {
-      return Object.entries(this.target.formValues)[Symbol.iterator]();
-    }
-  };
+  panel.append(projectId, dailyLimit, projectLimit, enabled, saveButton);
+  root.append(panel);
+  bindProjectAutomationControls(root, store);
+  saveButton.dispatchEvent({ type: "click", target: saveButton, currentTarget: saveButton });
 
-  try {
-    form.formValues = {
-      projectId: "project-1",
-      dailyLimit: "24",
-      projectLimit: "400",
-      enabled: "on"
-    };
-    root.append(form);
-    bindProjectAutomationControls(root, store);
-    form.dispatchEvent({ type: "submit", target: form, currentTarget: form });
-
-    form.formValues = {
-      projectId: "project-1",
-      dailyLimit: "18",
-      projectLimit: "300"
-    };
-    form.dispatchEvent({ type: "submit", target: form, currentTarget: form });
-  } finally {
-    globalThis.FormData = originalFormData;
-  }
+  dailyLimit.value = "18";
+  projectLimit.value = "300";
+  enabled.checked = false;
+  saveButton.dispatchEvent({ type: "click", target: saveButton, currentTarget: saveButton });
 
   assert.deepEqual(settingsCalls, [
     {

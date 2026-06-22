@@ -6,12 +6,18 @@ export class FakeElement {
     value = "",
     textContent = "",
     hidden = false,
-    tagName = "div"
+    tagName = "div",
+    name = "",
+    type = "",
+    checked = false
   } = {}) {
     this.id = id;
     this.className = className;
     this.dataset = { ...dataset };
     this.value = value;
+    this.name = name;
+    this.type = type;
+    this.checked = checked;
     this.textContent = textContent;
     this.hidden = hidden;
     this.tagName = String(tagName).toUpperCase();
@@ -123,14 +129,18 @@ function matchSelector(node, selector) {
   }
   if (selector.startsWith("#")) return node.id === selector.slice(1);
   if (selector.startsWith(".")) return node.className.split(/\s+/).includes(selector.slice(1));
-  if (selector.startsWith("[")) return matchDataSelector(node, selector);
+  if (selector.startsWith("[")) return matchAttributeSelector(node, selector);
   return node.tagName.toLowerCase() === selector.toLowerCase();
 }
 
-function matchDataSelector(node, selector) {
+function matchAttributeSelector(node, selector) {
   const match = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/);
   if (!match) return false;
   const [, rawName, expected] = match;
+  if (!rawName.startsWith("data-")) {
+    const value = node[rawName] ?? node.attributes?.get?.(rawName);
+    return value !== undefined && (expected === undefined || String(value) === expected);
+  }
   const name = rawName
     .replace(/^data-/, "")
     .replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
