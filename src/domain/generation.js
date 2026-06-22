@@ -10,14 +10,9 @@ import { buildProductProfile } from "./product-profile.js";
 import { isPaymentProject } from "./project-content-intent.js";
 import { createTopicCandidatePlan, pickTopicCandidate } from "./topic-candidates.js";
 import { pickGenerationTopic } from "./generation-topic.js";
-
-const hookStarters = [
-  "Почему это срывает результат",
-  "Три признака, что пора менять подход",
-  "Неочевидная ошибка в продукте",
-  "Что проверить перед покупкой",
-  "Как понять, что вам это подходит"
-];
+import { createHookIntelligence, formatHookIntelligencePrompt } from "./hook-intelligence.js";
+import { createLayoutContentPlan, formatLayoutPlanPrompt } from "./layout-content-planner.js";
+import { formatCreativeQualityPrompt, validateCreativeBrief } from "./creative-quality-validator.js";
 
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
@@ -109,6 +104,9 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const designCopyPrompt = cleanDesignReferenceText(reference?.takeaways);
   const fixedFontStyle = reference?.fontStyle || reference?.headlineStyle || "";
   const compositionInstruction = getCompositionInstruction(brief.compositionMode);
+  const layoutContentInstruction = formatLayoutPlanPrompt(brief.layoutContentPlan);
+  const hookIntelligenceInstruction = formatHookIntelligencePrompt(brief.hookIntelligence);
+  const creativeQualityInstruction = formatCreativeQualityPrompt(brief.creativeQuality);
 
   return [
     "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
@@ -120,6 +118,9 @@ export function buildImagePrompt({ project, product, reference, character, gener
     "Не добавлять аватара/персонажа в саму картинку. Персонаж будет наложен отдельно на этапе видео.",
     "Смыслы и формулировки создать только на основе компании, ЦА, выбранного продукта и брифа генерации.",
     compositionInstruction,
+    layoutContentInstruction,
+    hookIntelligenceInstruction,
+    creativeQualityInstruction,
     getContentLayerInstruction(brief.contentLayer),
     ...productVisibilityRules,
     getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode: brief.productVisualMode }),
@@ -214,6 +215,9 @@ export function createGenerationJob({ project, product, reference, character, au
     topic: brief.topic,
     semanticKey: brief.semanticKey,
     meaningPatternId: brief.meaningPatternId,
+    hookIntelligence: brief.hookIntelligence,
+    layoutContentPlan: brief.layoutContentPlan,
+    creativeQuality: brief.creativeQuality,
     productVisualMode: brief.productVisualMode,
     compositionMode: brief.compositionMode?.id || "",
     diversitySlot: brief.diversitySlot,
@@ -341,6 +345,16 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const hook = referenceHook || generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
   const hookPointCount = getHookPointCount(meaning.hookReference?.text || hook);
   const profile = buildProductProfile({ project, product, insightMap: generationBrief.productInsightMap });
+  const hookIntelligence = createHookIntelligence(meaning.hookReference?.text || hook);
+  const layoutContentPlan = createLayoutContentPlan(reference, hookIntelligence);
+  const creativeQuality = validateCreativeBrief({
+    draft: { ...generationBrief, topic, hook, plan: generationSeed.aiPlan },
+    project,
+    product,
+    layoutPlan: layoutContentPlan,
+    hookIntelligence,
+    existingJobs
+  });
   const brief = {
     topic,
     hook,
@@ -353,6 +367,9 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     semanticKey: generationBrief.semanticKey || slot.id,
     meaningPatternId: meaning.pattern.id,
     hookReference: meaning.hookReference || null,
+    hookIntelligence,
+    layoutContentPlan,
+    creativeQuality,
     meaningScore: scoreMeaningBrief({ brief: meaning, project }),
     topicCandidate,
     diversitySlot: slot,
@@ -412,11 +429,6 @@ function getSingleLimitState(limitValue, usedValue) {
   return { limit, used, remaining, percent, isNearLimit: percent >= 80 };
 }
 
-function pickHook(productName) {
-  const starter = hookStarters[Math.floor(Math.random() * hookStarters.length)];
-  return `${starter}: ${productName}`;
-}
-
 function buildAutoHook({ project, product, topic, fact, desire, existingJobs = [] }) {
   const source = `${project.niche || ""} ${project.projectTheme || ""}`.toLowerCase();
   if (/финтех|оплат|зарубеж|банк|санкци|рубл/.test(source)) return pickUniqueHook([
@@ -474,20 +486,12 @@ function pickPointCount(product) {
   const count = Math.max(product.pains?.length || 0, product.facts?.length || 0);
   return String(Math.min(6, Math.max(4, count || 5)));
 }
-
 function firstLine(value) {
   return String(value || "").split(/\n/).map((item) => item.trim()).find(Boolean) || "";
 }
-
 function firstListItem(value) {
   return Array.isArray(value) ? value.find(Boolean) || "" : firstLine(value);
 }
-
-function getSafeDisclaimer(project) {
-  if (isPaymentProject(project)) return "Итог зависит от правил площадки, страны и актуальных условий платежа";
-  return project.restrictions || "Информация не заменяет консультацию специалиста; проверяйте условия и ограничения";
-}
-
 function pickAudio(project) {
   return project.audioLibrary?.[0]?.title || "Project audio random";
 }

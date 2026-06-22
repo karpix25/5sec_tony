@@ -5,6 +5,7 @@ import { projects, products } from "../src/domain/entities.js";
 import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } from "../src/domain/generation.js";
 import { createContentSlot } from "../src/domain/content-rotation.js";
 import { createContentLayer } from "../src/domain/content-layers.js";
+import { createGenerationStructurePreview } from "../src/domain/generation-structure-preview.js";
 import { normalizeHumanizedPlan } from "../src/domain/text-humanizer.js";
 
 test("semantic fallback raises life pain before product solution", () => {
@@ -69,6 +70,51 @@ test("content layers rotate beyond direct product ads", () => {
   assert.notEqual(first.contentLayerId, second.contentLayerId);
   assert.match(prompt, /слой анализа/);
   assert.match(prompt, /бытовые боли, лайфхаки, советы, привычки, ошибки, мифы/);
+});
+
+test("image prompt includes hook intelligence and active design layout guidance", () => {
+  const project = projects.find((item) => item.id === "ppm");
+  const product = products.find((item) => item.id === "crosspay");
+  const reference = project.references.find((item) => item.id === "viral-pink-symptoms") || project.references[0];
+  const hookLibrary = {
+    activeVersionId: "v1",
+    versions: [{ id: "v1", status: "active", hooks: [{ id: "h1", text: "Оказалось, что я делал это неправильно всю жизнь!", enabled: true }] }]
+  };
+  const job = createGenerationJob({
+    project,
+    product,
+    reference,
+    character: project.characters[0],
+    hookLibrary
+  });
+  const prompt = job.prompt;
+
+  assert.equal(job.hookIntelligence.hookType, "surprise-fact");
+  assert.equal(job.layoutContentPlan.layoutType, "symptoms-poster");
+  assert.match(prompt, /ВНУТРЕННЕЕ ПРАВИЛО ХУКА/);
+  assert.match(prompt, /ВНУТРЕННЯЯ СТРУКТУРА ДИЗАЙНА/);
+  assert.match(prompt, /Curiosity score target: 8\/10/);
+  assert.match(prompt, /Активный дизайн-референс: Viral symptoms poster/);
+  assert.match(prompt, /Не превращай все дизайны в одинаковый список из 4 пунктов/);
+});
+
+test("generation structure preview keeps payment prompt clean and product-specific", () => {
+  const project = projects.find((item) => item.id === "ppm");
+  const product = products.find((item) => item.id === "crosspay");
+  const preview = createGenerationStructurePreview({
+    project,
+    product,
+    reference: project.references[0],
+    existingJobs: [{ projectId: "ppm", title: "Когда подписка заканчивается сегодня" }],
+    hookLibrary: { active: [], versions: [] }
+  });
+  const text = `${preview.strategy.topic} ${preview.strategy.hook} ${preview.imagePrompt}`.toLowerCase();
+
+  assert.match(preview.strategy.topic, /зарубежн|оплат|сервис/i);
+  assert.match(preview.strategy.hook, /карт|оплат|подписк|сервис/i);
+  assert.match(preview.strategy.nicheFact, /платеж|подписк|сервис|счет|заявк/i);
+  assert.match(preview.imagePrompt, /Visible text:/);
+  assert.doesNotMatch(text, /composition mode|safe zone|semantic plan|sourcebrief|анкета продукта|режим продукта/);
 });
 
 test("content layer can choose adjacent topics around product", () => {

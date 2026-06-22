@@ -111,7 +111,11 @@ export function createRecentJobDigest(existingJobs = []) {
     topic: job.topic || "",
     semanticKey: job.semanticKey || "",
     meaningPatternId: job.meaningPatternId || "",
-    format: job.format || ""
+    format: job.format || "",
+    contentLayerId: job.contentLayerId || job.diversitySlot?.contentLayer?.id || "",
+    contentLayerSubject: job.diversitySlot?.contentLayer?.subject || "",
+    hookType: job.hookIntelligence?.hookType || "",
+    layoutType: job.layoutContentPlan?.layoutType || ""
   }));
 }
 

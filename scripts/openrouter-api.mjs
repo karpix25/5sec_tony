@@ -267,6 +267,12 @@ function generationBriefInstruction(body) {
       pointCount: "4-6",
       visualObject: "главный объект изображения",
       cta: "всегда пустая строка",
+      sourceHook: "дословный хук из active hookLibrary; пусто только если библиотека пуста",
+      hookIntelligence: "тип хука, механика внимания, обещание зрителю и почему adapted hook сохраняет психологию sourceHook",
+      layoutContentPlan: "структура текста под activeDesignReference: symptoms-poster, beauty-grid, checklist-note, nostalgia-story, fact-badges, minimal-thesis или saveable-note",
+      scrollStopperAngle: "самая сильная первая строка с конкретной микродрамой, фактом или конфликтом ожидание/реальность",
+      productFact: "один конкретный безопасный факт из product/safeFacts/project без выдуманных claims",
+      productPositiveBridge: "почему продукт уместен, не реклама и не атака на продукт",
       productInsightMap: {
         id: "короткий id смысловой карты без названия конкретной ниши в кодовом стиле",
         category: "что это за категория продукта и какую боль она обычно закрывает",
@@ -283,6 +289,9 @@ function generationBriefInstruction(body) {
     },
     rules: [
       "MandatorySlot обязателен: topic, hook, format, visualObject и plan должны раскрывать именно этот angle, а не соседний сценарий.",
+      "Если hookLibrary.hooks не пустой, выбери один sourceHook дословно из нее и сохрани психологию хука; не заменяй все хуки на одинаковые '3 ошибки' или 'как правильно'.",
+      "activeDesignReference обязателен для структуры: сначала выбери layoutContentPlan под выбранный дизайн, потом пиши текст. Не делай всегда 4 пункта.",
+      "Curiosity target: 8/10. Нужны конкретный факт, микроконфликт и узнаваемая ситуация; общие 'регулярность важна' и 'простая привычка' переписывай.",
       "MandatorySlot.contentLayer обязателен: сначала сделай анализ через этот слой, затем собери тему, хук и пункты.",
       "Если входные данные короткие, не жалуйся на нехватку контекста. Сам дострой гипотезы через категорию продукта, тип аудитории, типичные боли, смежные привычки и безопасные факты; спорные claims не утверждай.",
       "Контент 2026 должен выигрывать не криком, а точным узнаванием: человек думает 'это про меня', 'полезно', 'надо сохранить', 'кому-то отправлю'.",
@@ -311,8 +320,6 @@ function generationBriefInstruction(body) {
       "Headline должен быть связан с subhead и points одним объектом: если заголовок про оплату ВПН, пункты тоже про оплату ВПН, а не про заявки, поддержку или нейросети.",
       "Пиши headline в естественном русском порядке слов: 'Как оплатить ВПН без сюрпризов', а не 'ВПН оплатить'.",
       "Не повторяй recentJobs по теме, смысловому углу, структуре и формулировкам.",
-      "Если recentJobs уже про оплату подписки, не делай новую тему про оплату подписки; выбери другой объект из mandatorySlot.",
-      "Если recentJobs уже про отказ карты, не делай новую тему про отказ карты; выбери другой объект из mandatorySlot.",
       "Опирайся на project, product и выбранный reference.",
       "Перед темой обязательно создай productInsightMap: изучи по названию, описанию, офферу, составу, болям и фактам, что это за продукт/категория, зачем его покупают, какие боли рядом, какие привычки или лайфхаки помогают в той же зоне, какие мифы надо объяснять безопасно.",
       "productInsightMap должен быть универсальным AI-анализом ниши, а не захардкоженным шаблоном: он должен одинаково работать для БАДов, косметики, финтеха, образования, сервисов, еды и других проектов.",
@@ -354,6 +361,9 @@ function generationBriefInstruction(body) {
     project: body.project,
     product: body.product,
     reference: body.reference,
+    activeDesignReference: body.activeDesignReference,
+    hookLibrary: body.hookLibrary,
+    layoutContentPlan: body.layoutContentPlan,
     recentJobs: (body.existingJobs || []).slice(0, 30)
   });
 }
@@ -472,13 +482,11 @@ function readJson(request) {
     });
   });
 }
-
 function sendJson(response, status, payload) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(payload));
   return true;
 }
-
 function logGenerationPayload(stage, body) {
   console.log(`[openrouter:${stage}]`, JSON.stringify({
     productId: body.product?.id || "",

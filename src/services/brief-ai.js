@@ -1,8 +1,12 @@
 import { createContentSlot, createRecentJobDigest } from "../domain/content-rotation.js";
+import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
 import { buildProductInsightMap } from "../domain/product-insights.js";
+import { normalizeHookLibrary } from "../domain/hook-library.js";
 
-export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot }) {
+export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot, hookLibrary }) {
   const slot = diversitySlot || createContentSlot({ project, product, existingJobs });
+  const hookDigest = createHookLibraryDigest(hookLibrary);
+  const activeDesignReference = createDesignReferenceDigest(reference);
   const response = await fetch("/api/generation/brief", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -10,6 +14,9 @@ export async function generateAiBrief({ project, product, reference, existingJob
       project,
       product,
       reference,
+      activeDesignReference,
+      layoutContentPlan: createLayoutContentPlan(reference),
+      hookLibrary: hookDigest,
       existingJobs: createRecentJobDigest(existingJobs),
       diversitySlot: slot
     })
@@ -33,10 +40,50 @@ function normalizeAiBrief(draft, diversitySlot) {
     notes: "AI-сгенерированный бриф на основе проекта, продукта и истории тем.",
     aiPlan: draft.plan || {},
     productInsightMap: buildProductInsightMap({ insightMap: draft.productInsightMap }),
+    sourceHook: draft.sourceHook || draft.hookReference?.text || "",
+    hookIntelligence: draft.hookIntelligence || {},
+    layoutContentPlan: draft.layoutContentPlan || diversitySlot.layoutContentPlan || {},
+    creativeQuality: draft.qualityChecks || draft.creativeQuality || {},
+    scrollStopperAngle: draft.scrollStopperAngle || "",
+    productFact: draft.productFact || "",
+    productPositiveBridge: draft.productPositiveBridge || "",
     semanticKey: diversitySlot.id || draft.semanticKey,
     contentLayer: diversitySlot.contentLayer || null,
     contentLayerId: diversitySlot.contentLayer?.id || "",
     diversitySlot
+  };
+}
+
+function createHookLibraryDigest(hookLibrary) {
+  const library = normalizeHookLibrary(hookLibrary);
+  const active = library.versions.find((version) => version.id === library.activeVersionId)
+    || library.versions.find((version) => version.status === "active")
+    || library.versions[0];
+  return {
+    activeVersionId: active?.id || "",
+    title: active?.title || "",
+    hooks: (active?.hooks || [])
+      .filter((hook) => hook.enabled !== false && hook.text)
+      .slice(0, 80)
+      .map((hook) => ({
+        id: hook.id || "",
+        text: hook.text,
+        tags: hook.tags || [],
+        aggression: hook.aggression || ""
+      }))
+  };
+}
+
+function createDesignReferenceDigest(reference) {
+  return {
+    id: reference?.id || "",
+    title: reference?.title || "",
+    layoutType: reference?.layoutType || "",
+    visualObject: reference?.visualObject || "",
+    takeaways: reference?.takeaways || "",
+    textDensity: reference?.textDensity || "",
+    headlineStyle: reference?.headlineStyle || "",
+    palette: reference?.palette || ""
   };
 }
 
