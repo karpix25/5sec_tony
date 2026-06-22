@@ -63,6 +63,41 @@ test("store restores compact local project fallback when remote state is disable
   }
 });
 
+test("remote hydrate treats postgres working fields as truth over ui cache drafts", async () => {
+  const storage = createMemoryStorage();
+  const restoreWindow = installStorage(storage);
+  const restoreFetch = installFetch(async () => ({
+    ok: true,
+    json: async () => ({
+      state: {
+        ...createRemoteState("Описание из БД"),
+        generationBrief: { topic: "бриф из БД" },
+        freePrompt: "prompt из БД"
+      },
+      updatedAt: "2026-06-17T11:00:00.000Z"
+    })
+  }));
+
+  storage.setItem(uiCacheKey, JSON.stringify(envelope({
+    selectedProjectTab: "queue",
+    generationBrief: { topic: "локальный черновик" },
+    freePrompt: "локальный prompt"
+  })));
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    const state = store.getState();
+
+    assert.equal(state.selectedProjectTab, "queue");
+    assert.equal(state.generationBrief.topic, "бриф из БД");
+    assert.equal(state.freePrompt, "prompt из БД");
+  } finally {
+    restoreFetch();
+    restoreWindow();
+  }
+});
+
 test("late remote hydrate does not overwrite product edits made right after boot", async () => {
   const storage = createMemoryStorage();
   const restoreWindow = installStorage(storage);

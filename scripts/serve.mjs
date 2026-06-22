@@ -48,7 +48,11 @@ const server = createServer(async (request, response) => {
 
   if (statSync(filePath).isDirectory()) filePath = join(filePath, "index.html");
 
-  response.setHeader("Content-Type", types[extname(filePath)] || "application/octet-stream");
+  const extension = extname(filePath);
+  response.setHeader("Content-Type", types[extension] || "application/octet-stream");
+  if (extension === ".html" || extension === ".js") {
+    response.setHeader("Cache-Control", "no-cache");
+  }
   createReadStream(filePath).pipe(response);
 });
 

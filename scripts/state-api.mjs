@@ -19,7 +19,7 @@ export function createStateApiHandler(deps = {}) {
       return handleLoadState(response, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
-      return handleSaveState(request, response, { isConfigured, query, withTransaction, loadNormalized, saveLegacy, saveNormalized });
+      return handleSaveState(request, response, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized });
     }
     return false;
   };
@@ -69,6 +69,14 @@ async function handleSaveState(request, response, deps) {
       return sendJson(response, 400, { error: "state object is required" });
     }
     const result = await deps.withTransaction(async (tx) => {
+      const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
+      if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
+        return {
+          conflict: true,
+          updatedAt: currentUpdatedAt,
+          state: await loadCurrentState(tx.query, deps, appStateKey)
+        };
+      }
       await deps.saveNormalized(tx.query, appStateKey, body.state);
       const legacyResult = await deps.saveLegacy(tx.query, appStateKey, body.state);
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
@@ -80,6 +88,16 @@ async function handleSaveState(request, response, deps) {
         parityOk: true
       };
     });
+    if (result.conflict) {
+      return sendJson(response, 409, {
+        saved: false,
+        conflict: true,
+        error: "State was changed in Postgres by another operator",
+        key: appStateKey,
+        updatedAt: result.updatedAt,
+        state: result.state || null
+      });
+    }
     return sendJson(response, 200, { saved: true, key: appStateKey, updatedAt: result.updatedAt, parityOk: result.parityOk });
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось сохранить состояние в Postgres" });
@@ -108,7 +126,10 @@ function readJsonBody(request) {
 }
 
 function sendJson(response, status, payload) {
-  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  response.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
   response.end(JSON.stringify(payload));
   return true;
 }
@@ -119,4 +140,29 @@ function isPlainStateObject(value) {
 
 function statesEqual(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+async function lockCurrentUpdatedAt(query, key) {
+  await query("select pg_advisory_xact_lock(hashtext($1))", [key]);
+  const result = await query("select updated_at from app_state where id = $1 limit 1 for update", [key]);
+  return formatUpdatedAt(result.rows[0]?.updated_at || "");
+}
+
+async function loadCurrentState(query, deps, key) {
+  const normalizedState = await deps.loadNormalized(query, key);
+  return normalizedState || await deps.loadLegacy(query, key);
+}
+
+function hasWriteConflict(currentUpdatedAt, baseUpdatedAt) {
+  const current = formatUpdatedAt(currentUpdatedAt);
+  const base = formatUpdatedAt(baseUpdatedAt);
+  if (!current) return false;
+  if (!base) return true;
+  return current !== base;
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
 }

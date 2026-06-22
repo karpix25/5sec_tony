@@ -60,6 +60,7 @@ const files = [
   "src/state/store-projects.js",
   "src/state/store-context.js",
   "src/state/ui-cache-state.js",
+  "src/state/pending-remote-save-cache.js",
   "src/state/store-cache.js",
   "src/state/store.js",
   "src/ui/infographic.js",

@@ -1,19 +1,27 @@
-import { loadRemoteState, saveRemoteState } from "../services/state-sync.js";
+import { StateSyncConflictError, loadRemoteState, saveRemoteState } from "../services/state-sync.js";
 
-const saveDelayMs = 700;
+const saveDelayMs = 250;
+const defaultRefreshIntervalMs = 10000;
 
 export function createStatePersistence({
   getState,
   replaceState,
   notifyStatus,
   getLocalFallbackState,
-  onRemoteModeChange
+  getPendingRemoteSave,
+  savePendingRemoteSave,
+  clearPendingRemoteSave,
+  onRemoteModeChange,
+  refreshIntervalMs = defaultRefreshIntervalMs
 }) {
   let timer = null;
+  let refreshTimer = null;
   let saveInFlight = false;
+  let refreshInFlight = false;
   let pendingSave = false;
   let hydrated = false;
   let hydratePromise = null;
+  let remoteUpdatedAt = "";
 
   async function hydrate() {
     if (hydratePromise) return hydratePromise;
@@ -23,12 +31,16 @@ export function createStatePersistence({
         const result = await loadRemoteState();
         hydrated = true;
         if (result.disabled) {
+          stopAutoRefresh();
           onRemoteModeChange?.("local");
           await restoreLocalFallbackState();
           notifyStatus({ status: "local", message: "БД не настроена" });
           return;
         }
         onRemoteModeChange?.("remote");
+        remoteUpdatedAt = result.updatedAt || "";
+        startAutoRefresh();
+        if (await restorePendingRemoteSave(result)) return;
         if (result.state) {
           await replaceStateWhenSafe(result.state);
           notifyStatus({ status: "saved", message: "Загружено из БД", updatedAt: result.updatedAt });
@@ -38,6 +50,7 @@ export function createStatePersistence({
         notifyStatus({ status: "saving", message: "Создаем запись в БД" });
       } catch (error) {
         hydrated = true;
+        stopAutoRefresh();
         onRemoteModeChange?.("error");
         await restoreLocalFallbackState();
         notifyStatus({ status: "error", message: error.message || "Ошибка БД" });
@@ -49,6 +62,7 @@ export function createStatePersistence({
   function scheduleSave() {
     if (!hydrated) return;
     pendingSave = true;
+    savePendingRemoteSave?.(getState(), remoteUpdatedAt);
     clearTimeout(timer);
     timer = setTimeout(flushSave, saveDelayMs);
     notifyStatus({ status: "saving", message: "Сохраняем в БД" });
@@ -59,13 +73,22 @@ export function createStatePersistence({
     pendingSave = false;
     saveInFlight = true;
     try {
-      const result = await saveRemoteState(getState());
+      savePendingRemoteSave?.(getState(), remoteUpdatedAt);
+      const result = await saveRemoteState(getState(), remoteUpdatedAt);
       if (result.disabled) {
+        stopAutoRefresh();
+        clearPendingRemoteSave?.();
         notifyStatus({ status: "local", message: "БД не настроена" });
       } else {
+        remoteUpdatedAt = result.updatedAt || remoteUpdatedAt;
+        clearPendingRemoteSave?.();
         notifyStatus({ status: "saved", message: "Сохранено в БД", updatedAt: result.updatedAt });
       }
     } catch (error) {
+      if (error instanceof StateSyncConflictError || error?.conflict) {
+        await acceptRemoteConflict(error);
+        return;
+      }
       notifyStatus({ status: "error", message: error.message || "Ошибка сохранения в БД" });
     } finally {
       saveInFlight = false;
@@ -96,6 +119,71 @@ export function createStatePersistence({
       };
       setTimeout(retry, 400);
     });
+  }
+
+  function startAutoRefresh() {
+    if (!refreshIntervalMs || refreshTimer) return;
+    refreshTimer = setInterval(refreshFromRemote, refreshIntervalMs);
+    refreshTimer.unref?.();
+  }
+
+  function stopAutoRefresh() {
+    if (!refreshTimer) return;
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+
+  async function refreshFromRemote() {
+    if (!hydrated || saveInFlight || pendingSave || refreshInFlight || isUserEditing()) return;
+    refreshInFlight = true;
+    try {
+      const result = await loadRemoteState();
+      if (result.disabled) {
+        stopAutoRefresh();
+        onRemoteModeChange?.("local");
+        notifyStatus({ status: "local", message: "БД не настроена" });
+        return;
+      }
+      if (result.state && result.updatedAt && result.updatedAt !== remoteUpdatedAt) {
+        remoteUpdatedAt = result.updatedAt;
+        await replaceStateWhenSafe(result.state);
+        notifyStatus({ status: "saved", message: "Обновлено из БД", updatedAt: result.updatedAt });
+      }
+    } catch (error) {
+      notifyStatus({ status: "error", message: error.message || "Ошибка обновления из БД" });
+    } finally {
+      refreshInFlight = false;
+    }
+  }
+
+  async function acceptRemoteConflict(error) {
+    pendingSave = false;
+    clearPendingRemoteSave?.();
+    remoteUpdatedAt = error.updatedAt || remoteUpdatedAt;
+    if (error.state) {
+      await replaceStateWhenSafe(error.state);
+    }
+    notifyStatus({
+      status: "conflict",
+      message: "БД обновлена другим оператором",
+      updatedAt: remoteUpdatedAt
+    });
+  }
+
+  async function restorePendingRemoteSave(result) {
+    const pending = getPendingRemoteSave?.();
+    if (!pending?.state) return false;
+    const currentUpdatedAt = result.updatedAt || "";
+    if ((pending.baseUpdatedAt || "") !== currentUpdatedAt) {
+      clearPendingRemoteSave?.();
+      return false;
+    }
+    await replaceStateWhenSafe(pending.state);
+    pendingSave = true;
+    clearTimeout(timer);
+    timer = setTimeout(flushSave, 0);
+    notifyStatus({ status: "saving", message: "Досохраняем в БД", updatedAt: currentUpdatedAt });
+    return true;
   }
 }
 

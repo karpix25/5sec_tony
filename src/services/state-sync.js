@@ -9,11 +9,21 @@ export async function loadRemoteState() {
   };
 }
 
-export async function saveRemoteState(state) {
+export class StateSyncConflictError extends Error {
+  constructor(payload = {}) {
+    super(payload.error || "State was changed in Postgres by another operator");
+    this.name = "StateSyncConflictError";
+    this.conflict = true;
+    this.state = payload.state || null;
+    this.updatedAt = payload.updatedAt || "";
+  }
+}
+
+export async function saveRemoteState(state, baseUpdatedAt = "") {
   const response = await fetch("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ state })
+    body: JSON.stringify({ state, baseUpdatedAt })
   });
   const payload = await readStateSyncResponse(response);
   return {
@@ -30,6 +40,9 @@ async function readStateSyncResponse(response) {
   try {
     payload = await response.json();
   } catch {}
+  if (response.status === 409 || payload.conflict) {
+    throw new StateSyncConflictError(payload);
+  }
   if (!response.ok) throw new Error(payload.error || "State sync request failed");
   return payload;
 }

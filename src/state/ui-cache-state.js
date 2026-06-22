@@ -25,7 +25,7 @@ export function applyUiCache(baseState, uiCache = {}) {
 export function mergeHydratedStateWithUiState(nextState, currentUiState = {}) {
   return {
     ...nextState,
-    ...pickDefinedUiCache(currentUiState)
+    ...pickDefinedHydratedUiState(currentUiState)
   };
 }
 
@@ -45,5 +45,26 @@ export function pickUiCacheState(state = {}) {
 function pickDefinedUiCache(uiCache) {
   return Object.fromEntries(
     Object.entries(pickUiCacheState(uiCache)).filter(([, value]) => value !== undefined)
+  );
+}
+
+function pickDefinedHydratedUiState(uiCache) {
+  const {
+    selectedProjectId,
+    selectedProductId,
+    selectedReferenceId,
+    selectedCharacterId,
+    selectedAudioId,
+    selectedProjectTab
+  } = pickUiCacheState(uiCache);
+  return Object.fromEntries(
+    Object.entries({
+      selectedProjectId,
+      selectedProductId,
+      selectedReferenceId,
+      selectedCharacterId,
+      selectedAudioId,
+      selectedProjectTab
+    }).filter(([, value]) => value !== undefined)
   );
 }

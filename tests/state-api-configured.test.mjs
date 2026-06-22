@@ -90,6 +90,7 @@ test("state api fails legacy migration when normalized parity is broken", async 
 test("state api saves relational tables and legacy mirror when postgres is configured", async () => {
   const calls = [];
   const state = { projects: [{ id: "project-1" }], products: [], jobs: [] };
+  const baseUpdatedAt = "2026-06-16T10:04:00.000Z";
   const response = createJsonResponse();
   const handleStateApi = createStateApiHandler({
     isPostgresConfigured: () => true,
@@ -101,11 +102,16 @@ test("state api saves relational tables and legacy mirror when postgres is confi
       return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
     },
     loadNormalizedState: async () => state,
-    withPostgresTransaction: async (callback) => callback({ query: async () => ({ rows: [] }) })
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/select updated_at from app_state/i.test(text)) return { rows: [{ updated_at: baseUpdatedAt }] };
+        return { rows: [] };
+      }
+    })
   });
 
   const handled = await handleStateApi(
-    createJsonRequest("POST", { state }),
+    createJsonRequest("POST", { state, baseUpdatedAt }),
     response,
     new URL("http://localhost/api/state")
   );
@@ -116,6 +122,81 @@ test("state api saves relational tables and legacy mirror when postgres is confi
   assert.equal(response.payload.updatedAt, "2026-06-16T10:05:00.000Z");
   assert.equal(response.payload.parityOk, true);
   assert.deepEqual(calls, [["normalized", state], ["legacy", state]]);
+});
+
+test("state api rejects stale saves without overwriting current db state", async () => {
+  const calls = [];
+  const staleState = { projects: [{ id: "local-old" }], products: [], jobs: [] };
+  const dbState = { projects: [{ id: "db-new" }], products: [], jobs: [] };
+  const response = createJsonResponse();
+  const handleStateApi = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    saveNormalizedState: async (_query, _key, nextState) => {
+      calls.push(["normalized", nextState]);
+    },
+    saveLegacyState: async (_query, _key, nextState) => {
+      calls.push(["legacy", nextState]);
+      return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
+    },
+    loadNormalizedState: async () => dbState,
+    loadLegacyState: async () => null,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/select updated_at from app_state/i.test(text)) {
+          return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
+        }
+        return { rows: [] };
+      }
+    })
+  });
+
+  await handleStateApi(
+    createJsonRequest("POST", {
+      state: staleState,
+      baseUpdatedAt: "2026-06-16T10:00:00.000Z"
+    }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal(response.payload.saved, false);
+  assert.equal(response.payload.conflict, true);
+  assert.equal(response.payload.updatedAt, "2026-06-16T10:05:00.000Z");
+  assert.deepEqual(response.payload.state, dbState);
+  assert.deepEqual(calls, []);
+});
+
+test("state api treats missing baseUpdatedAt as conflict when db already exists", async () => {
+  const calls = [];
+  const dbState = { projects: [{ id: "db-current" }], products: [], jobs: [] };
+  const response = createJsonResponse();
+  const handleStateApi = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    saveNormalizedState: async () => calls.push("normalized"),
+    saveLegacyState: async () => calls.push("legacy"),
+    loadNormalizedState: async () => dbState,
+    loadLegacyState: async () => null,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/select updated_at from app_state/i.test(text)) {
+          return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
+        }
+        return { rows: [] };
+      }
+    })
+  });
+
+  await handleStateApi(
+    createJsonRequest("POST", { state: { projects: [], products: [], jobs: [] } }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal(response.payload.conflict, true);
+  assert.deepEqual(response.payload.state, dbState);
+  assert.deepEqual(calls, []);
 });
 
 test("state api save fails when relational round-trip loses data", async () => {
