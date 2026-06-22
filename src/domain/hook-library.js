@@ -68,7 +68,7 @@ export function toggleHookEnabled(library, hookId) {
   });
 }
 
-export function selectHookReference({ project, product, pattern, slot }) {
+export function selectHookReference({ project, product, pattern, slot, existingJobs = [] }) {
   const library = getHookLibrary();
   const active = library.versions.filter((version) => version.status === "active");
   const eligibleHooks = active.flatMap((version) => version.hooks)
@@ -88,7 +88,8 @@ export function selectHookReference({ project, product, pattern, slot }) {
     pattern?.id || "",
     slot?.id || "",
     slot?.topic || "",
-    slot?.angle || ""
+    slot?.angle || "",
+    existingJobs.length
   ].join(" ");
   const index = Math.abs(hashHookSource(source)) % pool.length;
   return pool[index];

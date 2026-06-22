@@ -18,7 +18,8 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     project,
     product,
     pattern,
-    slot: generationBrief.diversitySlot
+    slot: generationBrief.diversitySlot,
+    existingJobs
   });
   const referenceHook = hookReference ? adaptHookFromReference(hookReference, { project, product, angle }) : "";
   const hookBridge = createHookProductBridge({

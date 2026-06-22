@@ -235,9 +235,10 @@ test("payment generation turns active hook references into headline and text pla
     const plan = createSemanticPlan({ project, product, brief });
 
     assert.equal(brief.hookReference.text, "7 красных флагов [темы]");
-    assert.match(brief.hook, /7 красных флагов/);
+    assert.match(brief.hook, /7 .*?(сигнал|признак|детал)/i);
+    assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
     assert.equal(plan.headline, brief.hook);
-    assert.match(plan.points.join(" "), /Красный флаг|Норма/);
+    assert.match(plan.points.join(" "), /Сигнал|Норма|Контекст/);
   } finally {
     globalThis.window = previousWindow;
   }
@@ -264,7 +265,8 @@ test("hook references override ai brief hook for final generation", () => {
       generationBrief: { hook: "Бронь держат недолго: успейте проверить оплату", pointCount: "4" }
     });
 
-    assert.match(brief.hook, /7 красных флагов/);
+    assert.match(brief.hook, /7 .*?(сигнал|признак|детал)/i);
+    assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
     assert.equal(brief.pointCount, "7");
   } finally {
     globalThis.window = previousWindow;

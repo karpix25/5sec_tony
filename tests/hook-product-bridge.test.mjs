@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { projects, products } from "../src/domain/entities.js";
 import { createAutoGenerationBrief, createSemanticPlan } from "../src/domain/generation.js";
+import { adaptHookText } from "../src/domain/hook-adapter.js";
 
 test("hook library combines hook shape with product context instead of product-name insertion", () => {
   const project = {
@@ -29,8 +30,27 @@ test("hook library combines hook shape with product context instead of product-n
   const text = `${brief.topic} ${brief.hook} ${plan.points.join(" ")}`.toLowerCase();
 
   assert.match(brief.notes, /Hook Product Bridge/);
-  assert.match(brief.hook, /красн|флаг|локальные правила/i);
+  assert.match(brief.hook, /сигнал|признак|детал|локальные правила/i);
   assert.match(text, /локальные правила|достопримечательности|культурные особенности/);
-  assert.doesNotMatch(text, /по теме достопримечательностях|если о /);
+  assert.doesNotMatch(text, /по теме|достопримечательностях интересных|если о |красных флагов/);
   assert.doesNotMatch(`${brief.topic} ${brief.hook}`.toLowerCase(), /плати по миру|бот в тг|переплатить за/);
+});
+
+test("hook adapter rewrites formulas as original hooks instead of literal template fill", () => {
+  const hook = adaptHookText(
+    { text: "7 красных флагов [темы]" },
+    {
+      project: { projectTheme: "Рекомендации и лайфхаки о туризме" },
+      product: {
+        name: "Плати по миру бот в тг",
+        facts: ["О достопримечательностях интересных, о культурных особенностях"],
+        offer: "Давать интересные факты и рекомендации о туризме"
+      },
+      angle: "О достопримечательностях интересных"
+    }
+  );
+
+  assert.match(hook, /интересные достопримечательности/);
+  assert.match(hook, /сигнал|признак|детал/);
+  assert.doesNotMatch(hook.toLowerCase(), /красных флагов|по теме|бот в тг/);
 });

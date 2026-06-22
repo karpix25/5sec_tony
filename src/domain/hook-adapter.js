@@ -1,5 +1,6 @@
 import { buildProductProfile } from "./product-profile.js";
 import { normalizeHookPhrase } from "./hook-phrase-normalizer.js";
+import { writeHookFromFormula } from "./hook-formula-writer.js";
 
 const genericPlaceholderPattern = /\[.*?\]|\(.*?\)|\bчто-то\b|\bчего-то\b|\bвещей\b/gi;
 
@@ -120,16 +121,7 @@ function shouldRewriteHook(template, text) {
 }
 
 function rewriteHookFromShape(template, context) {
-  const source = normalizeTemplateText(template).toLowerCase();
-  if (/красн.*флаг/.test(source)) return `${context.count} красных флагов, ${context.conditionClause}`;
-  if (/что проверить|проверь/.test(source)) return `Что проверить, ${context.conditionClause}`;
-  if (/ошиб/.test(source)) return `Ошибка, из-за которой ${context.problem}`;
-  if (/миф|правда|реальн/.test(source)) return `Миф, который мешает, ${context.conditionClause}`;
-  if (/почему/.test(source)) return `Почему ${context.problem}`;
-  if (/топ-\d|\b\d+\b.*вещ|хотел бы знать|я .*топ/.test(source)) {
-    return `${context.count} вещей, которые стоит знать, ${context.conditionClause}`;
-  }
-  return `${context.count} вещей, которые стоит проверить, ${context.conditionClause}`;
+  return writeHookFromFormula(template, context);
 }
 
 function finalizeHook(text, context) {
@@ -173,7 +165,7 @@ function getReferenceCount(value) {
 }
 
 function hookAdapterShortPhrase(value, max = 64) {
-  const phrase = hookAdapterFirstAvailable([value]).split(/\n|;|,/)[0].trim();
+  const phrase = normalizeHookPhrase(hookAdapterFirstAvailable([value]));
   return phrase.slice(0, max).replace(/[:.!?]+$/g, "").trim();
 }
 

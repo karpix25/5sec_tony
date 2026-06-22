@@ -19,6 +19,7 @@ const files = [
   "src/domain/design-style-lock.js",
   "src/domain/hook-library.js",
   "src/domain/hook-phrase-normalizer.js",
+  "src/domain/hook-formula-writer.js",
   "src/domain/hook-adapter.js",
   "src/domain/hook-product-bridge.js",
   "src/domain/product-insights.js",
