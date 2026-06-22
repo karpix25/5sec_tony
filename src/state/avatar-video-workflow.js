@@ -11,7 +11,8 @@ import {
   attachCtaBadgeTask,
   createCtaBadgeCandidate,
   failCtaBadgeCandidate,
-  normalizeCtaOverlay
+  normalizeCtaOverlay,
+  resetCtaOverlay
 } from "../domain/cta-overlay.js";
 import {
   createAvatarAlphaVideo,
@@ -106,6 +107,16 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       patchAvatarVideo(character.id, videoId, (item) => ({
         ...item,
         ctaOverlay: approveCtaBadgeCandidate(item.ctaOverlay)
+      }));
+    },
+    resetAvatarVideoCtaOverlay(videoId) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
+      if (!character) return;
+      patchAvatarVideo(character.id, videoId, (item) => ({
+        ...item,
+        ctaOverlay: resetCtaOverlay()
       }));
     },
     setAvatarVideoActive(videoId, isActive) {

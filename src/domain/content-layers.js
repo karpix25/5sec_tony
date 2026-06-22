@@ -78,16 +78,18 @@ function getLayerSubject(project, product, existingJobs) {
   const subjects = uniqueLayerSubjects([
     ...layerListItems(product.pains),
     ...layerListItems(project.keyScenarios),
-    ...layerListItems(product.facts),
     ...focus.list,
+    ...layerListItems(product.facts),
     ...layerListItems(project.audiencePains),
     product.offer,
     project.projectTheme,
     product.name
   ]);
   const fallback = subjects[0] || "жизненная ситуация аудитории";
-  const usedText = existingJobs.map((job) => normalizeLayerSubject(`${job.diversitySlot?.contentLayer?.subject || ""} ${job.topic || ""} ${job.title || ""}`)).join(" ");
-  return subjects.find((subject) => !usedText.includes(normalizeLayerSubject(subject)))
+  const usedSubjects = new Set(existingJobs
+    .map((job) => normalizeLayerSubject(job.diversitySlot?.contentLayer?.subject || ""))
+    .filter(Boolean));
+  return subjects.find((subject) => !usedSubjects.has(normalizeLayerSubject(subject)))
     || subjects[existingJobs.length % subjects.length]
     || fallback;
 }
@@ -106,8 +108,8 @@ function uniqueLayerSubjects(items) {
 }
 
 function layerListItems(value) {
-  if (Array.isArray(value)) return value;
-  return String(value || "").split(/\n|;/).map((item) => item.trim()).filter(Boolean);
+  if (Array.isArray(value)) return value.flatMap(layerListItems);
+  return String(value || "").split(/\n|;|,/).map((item) => item.trim()).filter(Boolean);
 }
 
 function normalizeLayerSubject(value) {

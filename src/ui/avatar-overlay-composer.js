@@ -94,6 +94,13 @@ export function bindAvatarOverlayComposerEvents(root, store) {
         return;
       }
       store.approveAvatarVideoCtaCandidate(targetId);
+    },
+    onReset(targetId, _button, form) {
+      if (form?.dataset.ctaScope === "project") {
+        store.resetProjectCtaOverlay();
+        return;
+      }
+      store.resetAvatarVideoCtaOverlay(targetId);
     }
   });
 }
@@ -139,7 +146,7 @@ function renderOverlayVideo(videoUrl, overlay) {
 }
 
 function renderCtaOverlayPreview(ctaOverlay) {
-  const badge = ctaOverlay.mode === "badge" ? ctaOverlay.badge || ctaOverlay.candidate : null;
+  const badge = getPreviewBadge(ctaOverlay);
   const style = [
     `left:${ctaOverlay.x}%`,
     `top:${ctaOverlay.y}%`,
@@ -160,6 +167,13 @@ function renderCtaOverlayPreview(ctaOverlay) {
       ${escapeHtml(ctaOverlay.text)}
     </div>
   `;
+}
+
+function getPreviewBadge(ctaOverlay) {
+  if (ctaOverlay.mode !== "badge") return null;
+  const candidate = ctaOverlay.candidate;
+  if (candidate?.imageUrl && candidate.status === "review") return candidate;
+  return ctaOverlay.badge || candidate || null;
 }
 
 function renderAvatarCtaControls(videoId, ctaOverlay, scope) {

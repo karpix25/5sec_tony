@@ -49,6 +49,9 @@ export function bindGenerationPanelEvents(root, store) {
     },
     onApprove() {
       store.approveProjectCtaCandidate();
+    },
+    onReset() {
+      store.resetProjectCtaOverlay();
     }
   });
 }

@@ -111,9 +111,10 @@ test("generation cta controls stay inside project workflow handlers", () => {
   const actions = new FakeElement({ className: "avatar-cta-actions" });
   const generate = new FakeElement({ tagName: "button", dataset: { ctaGenerate: "project-1" } });
   const approve = new FakeElement({ tagName: "button", dataset: { ctaApprove: "project-1" } });
+  const reset = new FakeElement({ tagName: "button", dataset: { ctaReset: "project-1" } });
   const status = new FakeElement({ tagName: "span", className: "avatar-cta-status idle", textContent: "Стандарт" });
   const note = new FakeElement({ tagName: "small", dataset: { ctaStatusNote: "" }, textContent: "" });
-  actions.append(generate, approve, status);
+  actions.append(generate, approve, reset, status);
   form.append(actions, note);
   panel.append(form);
   root.append(panel);
@@ -129,6 +130,9 @@ test("generation cta controls stay inside project workflow handlers", () => {
     },
     approveProjectCtaCandidate() {
       calls.push(["approveProjectCtaCandidate"]);
+    },
+    resetProjectCtaOverlay() {
+      calls.push(["resetProjectCtaOverlay"]);
     }
   };
 
@@ -146,6 +150,7 @@ test("generation cta controls stay inside project workflow handlers", () => {
     form.dispatchEvent({ type: "change", currentTarget: form, target: form });
     generate.dispatchEvent({ type: "click", target: generate });
     approve.dispatchEvent({ type: "click", target: approve });
+    reset.dispatchEvent({ type: "click", target: reset });
   } finally {
     globalThis.FormData = originalFormData;
   }
@@ -153,6 +158,7 @@ test("generation cta controls stay inside project workflow handlers", () => {
   assert.deepEqual(calls, [
     ["updateProjectCtaOverlay", { text: "ЧИТАЙ ОПИСАНИЕ", enabled: true, mode: "badge" }],
     ["createProjectCtaCandidate", { text: "ЧИТАЙ ОПИСАНИЕ", enabled: true, mode: "badge" }],
-    ["approveProjectCtaCandidate"]
+    ["approveProjectCtaCandidate"],
+    ["resetProjectCtaOverlay"]
   ]);
 });

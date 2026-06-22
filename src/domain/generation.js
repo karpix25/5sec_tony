@@ -9,6 +9,7 @@ import { buildDesignReferenceConsistencyInstructions } from "./design-style-lock
 import { buildProductProfile } from "./product-profile.js";
 import { isPaymentProject } from "./project-content-intent.js";
 import { createTopicCandidatePlan, pickTopicCandidate } from "./topic-candidates.js";
+import { pickGenerationTopic } from "./generation-topic.js";
 
 const hookStarters = [
   "Почему это срывает результат",
@@ -304,7 +305,7 @@ function cleanDesignReferenceText(value) {
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
   const slot = generationBrief.diversitySlot || createContentSlot({ project, product, existingJobs });
   const hasHookReference = Boolean(generationBrief.hookReference);
-  const topicCandidate = !hasHookReference && !slot.lockTopic && !generationBrief.topic && !generationBrief.hook && !isPaymentProject(project, product)
+  const topicCandidate = !hasHookReference && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
     ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
     : null;
   const topicCandidatePlan = !generationBrief.aiPlan && topicCandidate
@@ -313,10 +314,17 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const lockedTopic = slot.lockTopic ? slot.topic : "";
   const lockedHook = slot.lockTopic ? slot.hook : "";
   const lockedFormat = slot.lockTopic ? slot.format : "";
+  const seedTopic = pickGenerationTopic({
+    suppliedTopic: generationBrief.topic,
+    candidateTopic: topicCandidate?.topic,
+    lockedTopic,
+    slot,
+    existingJobs
+  });
   const generationSeed = {
     ...generationBrief,
     diversitySlot: slot,
-    topic: generationBrief.topic || topicCandidate?.topic || lockedTopic,
+    topic: seedTopic,
     hook: generationBrief.hook || topicCandidate?.hook || lockedHook,
     format: generationBrief.format || topicCandidate?.format || lockedFormat,
     aiPlan: generationBrief.aiPlan || topicCandidatePlan || undefined

@@ -4,7 +4,8 @@ import {
   attachCtaBadgeTask,
   createCtaBadgeCandidate,
   failCtaBadgeCandidate,
-  normalizeCtaOverlay
+  normalizeCtaOverlay,
+  resetCtaOverlay
 } from "../domain/cta-overlay.js";
 import { createImageTask, getImageTaskStatus } from "../services/kie-client.js";
 
@@ -51,6 +52,15 @@ export function createProjectCtaWorkflow({ getState, getProject, setState }) {
       patchProject(project.id, (item) => ({
         ...item,
         ctaOverlay: approveCtaBadgeCandidate(item.ctaOverlay)
+      }));
+    },
+    resetProjectCtaOverlay() {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      if (!project) return;
+      patchProject(project.id, (item) => ({
+        ...item,
+        ctaOverlay: resetCtaOverlay()
       }));
     },
     resumeProjectCtaPolling(project) {

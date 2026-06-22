@@ -5,7 +5,8 @@ import {
   attachCtaBadgeImage,
   attachCtaBadgeTask,
   createCtaBadgeCandidate,
-  normalizeCtaOverlay
+  normalizeCtaOverlay,
+  resetCtaOverlay
 } from "../src/domain/cta-overlay.js";
 import { buildCompositeVideoFilter } from "../scripts/composite-video.mjs";
 
@@ -43,6 +44,23 @@ test("cta badge candidate carries ai image task state", () => {
   assert.equal(running.status, "generating");
   assert.equal(ready.status, "review");
   assert.equal(ready.imageUrl, "https://cdn.example.com/badge.png");
+});
+
+test("cta overlay reset returns to default project badge state", () => {
+  const reset = resetCtaOverlay({
+    mode: "badge",
+    text: "ПОДПИШИСЬ",
+    prompt: "синяя стеклянная плашка",
+    badge: { status: "approved", imageUrl: "https://cdn.example.com/badge.png" },
+    candidate: { id: "candidate", status: "review", imageUrl: "https://cdn.example.com/candidate.png" }
+  });
+
+  assert.equal(reset.text, "ЧИТАЙ ОПИСАНИЕ");
+  assert.equal(reset.prompt, "");
+  assert.equal(reset.badge, null);
+  assert.equal(reset.candidate, null);
+  assert.equal(reset.background, "#ffffff");
+  assert.equal(reset.color, "#111111");
 });
 
 test("composite filter shows cta from third second", () => {

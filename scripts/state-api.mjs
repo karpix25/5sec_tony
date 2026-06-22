@@ -1,4 +1,5 @@
-import { isPostgresConfigured, queryPostgres } from "./postgres-client.mjs";
+import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
+import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
 
@@ -7,13 +8,18 @@ export const handleStateApi = createStateApiHandler();
 export function createStateApiHandler(deps = {}) {
   const isConfigured = deps.isPostgresConfigured || isPostgresConfigured;
   const query = deps.queryPostgres || queryPostgres;
+  const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
+  const loadNormalized = deps.loadNormalizedState || loadNormalizedState;
+  const loadLegacy = deps.loadLegacyState || loadLegacyState;
+  const saveNormalized = deps.saveNormalizedState || saveNormalizedState;
+  const saveLegacy = deps.saveLegacyState || saveLegacyState;
 
   return async function handleStateApi(request, response, url) {
     if (request.method === "GET" && url.pathname === "/api/state") {
-      return handleLoadState(response, { isConfigured, query });
+      return handleLoadState(response, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
-      return handleSaveState(request, response, { isConfigured, query });
+      return handleSaveState(request, response, { isConfigured, query, withTransaction, loadNormalized, saveLegacy, saveNormalized });
     }
     return false;
   };
@@ -24,16 +30,29 @@ async function handleLoadState(response, deps) {
     return sendJson(response, 200, { state: null, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    await ensureStateTable(deps.query);
-    const result = await deps.query(
-      "select data, updated_at from app_state where id = $1 limit 1",
-      [appStateKey]
-    );
-    const row = result.rows[0];
+    let state = await deps.loadNormalized(deps.query, appStateKey);
+    let source = "relational";
+    if (!state) {
+      state = await deps.loadLegacy(deps.query, appStateKey);
+      source = state ? "legacy" : "empty";
+      if (state) {
+        state = await deps.withTransaction(async (tx) => {
+          await deps.saveNormalized(tx.query, appStateKey, state);
+          await deps.saveLegacy(tx.query, appStateKey, state);
+          const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
+          if (!statesEqual(rebuiltState, state)) {
+            throw new Error("Legacy migration parity check failed");
+          }
+          return rebuiltState;
+        });
+      }
+    }
+    const meta = await deps.query("select updated_at from app_state where id = $1 limit 1", [appStateKey]);
     return sendJson(response, 200, {
-      state: row?.data || null,
-      updatedAt: row?.updated_at || null,
-      key: appStateKey
+      state: state || null,
+      key: appStateKey,
+      source,
+      updatedAt: meta.rows[0]?.updated_at || null
     });
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось загрузить состояние из Postgres" });
@@ -49,29 +68,22 @@ async function handleSaveState(request, response, deps) {
     if (!isPlainStateObject(body.state)) {
       return sendJson(response, 400, { error: "state object is required" });
     }
-    await ensureStateTable(deps.query);
-    const result = await deps.query(
-      `insert into app_state (id, data, updated_at)
-       values ($1, $2::jsonb, now())
-       on conflict (id)
-       do update set data = excluded.data, updated_at = now()
-       returning updated_at`,
-      [appStateKey, JSON.stringify(body.state)]
-    );
-    return sendJson(response, 200, { saved: true, key: appStateKey, updatedAt: result.rows[0]?.updated_at || null });
+    const result = await deps.withTransaction(async (tx) => {
+      await deps.saveNormalized(tx.query, appStateKey, body.state);
+      const legacyResult = await deps.saveLegacy(tx.query, appStateKey, body.state);
+      const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
+      if (!statesEqual(rebuiltState, body.state)) {
+        throw new Error("Relational state parity check failed");
+      }
+      return {
+        updatedAt: legacyResult.rows[0]?.updated_at || null,
+        parityOk: true
+      };
+    });
+    return sendJson(response, 200, { saved: true, key: appStateKey, updatedAt: result.updatedAt, parityOk: result.parityOk });
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось сохранить состояние в Postgres" });
   }
-}
-
-async function ensureStateTable(query) {
-  await query(`
-    create table if not exists app_state (
-      id text primary key,
-      data jsonb not null,
-      updated_at timestamptz not null default now()
-    )
-  `);
 }
 
 function readJsonBody(request) {
@@ -103,4 +115,8 @@ function sendJson(response, status, payload) {
 
 function isPlainStateObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function statesEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }

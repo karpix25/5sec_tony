@@ -100,6 +100,15 @@ export function approveCtaBadgeCandidate(overlay = {}) {
   };
 }
 
+export function resetCtaOverlay() {
+  return normalizeCtaOverlay({
+    ...defaultCtaOverlay,
+    badge: null,
+    candidate: null,
+    prompt: ""
+  });
+}
+
 function normalizeCtaText(value) {
   const text = String(value || "").trim();
   return text ? text.slice(0, 32) : defaultCtaOverlay.text;

@@ -1,275 +1,111 @@
-import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } from "../domain/generation.js";
-import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
-import { buildAvatarYandexDiskFolder } from "../state/factories.js";
-import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../domain/avatar-video-rotation.js";
-import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
-import { getContext } from "../state/store.js";
-import { generateAiBrief } from "../services/brief-ai.js";
-import { humanizeGenerationPlan } from "../services/text-humanizer.js";
-import { createCompositeAvatarVideo, createImageTask, getImageTaskStatus, isKieConnectionError } from "../services/kie-client.js";
-import { uploadVideoToYandexDisk } from "../services/yandex-disk.js";
+import { getServerImageJobStatus, runServerImageJob } from "../services/server-jobs.js";
 
-const successStates = ["success", "succeeded", "completed", "complete"];
-const failStates = ["fail", "failed", "error"];
-const primaryProvider = "gpt-image-2";
-const fallbackProvider = "nano-banana-2";
-const maxTransientImageStatusErrors = 8;
-const resumedImagePolls = new Set();
+const terminalStatuses = ["done", "review", "failed"];
+const activeServerPolls = new Set();
+const appliedAvatarUsage = new Set();
 
 export async function runImageJob(store, jobId) {
   const job = findJob(store, jobId);
   if (!job) return;
 
+  store.patchJob(jobId, {
+    status: "running",
+    stage: "image",
+    progress: Math.max(12, Number(job.progress || 0)),
+    failMsg: "Передали генерацию серверу..."
+  });
+
   try {
-    store.patchJob(jobId, { status: "running", stage: "prompt", progress: 12, failMsg: "" });
-    const preparedJob = await prepareJobWithFallback(store, jobId);
-    await startImageTask(store, jobId, preparedJob, primaryProvider, 24);
-  } catch (error) {
-    const preparedJob = findJob(store, jobId);
-    if (preparedJob) {
-      await startFallbackImageTask(store, jobId, preparedJob, error.message || "основная генерация не запустилась");
+    const currentJob = findJob(store, jobId) || job;
+    const payload = await runServerImageJob({
+      job: currentJob,
+      context: createServerJobContext(store, currentJob)
+    });
+    applyServerJobPayload(store, payload);
+    if (!isTerminalJob(payload.job)) {
+      pollServerImageJob(store, jobId);
     }
+  } catch (error) {
+    failServerJob(store, jobId, error.message || "Не удалось запустить серверную генерацию");
   }
 }
 
 export function resumeRunningImageJobs(store) {
   const resume = () => {
     const jobs = store.getState().jobs.filter((job) => job.status === "running");
-    const resumable = [];
-    jobs.forEach((job) => {
-      if (job.stage === "image" && job.imageTaskId) {
-        resumable.push(job);
-        return;
-      }
-      if (job.stage === "prompt" || job.stage === "image") {
-        failImageJob(store, job.id, "Задача была прервана обновлением страницы. Запустите генерацию заново.");
-      }
-    });
-    return Promise.all(resumable.map((job) => resumeImageJob(store, job)));
+    return Promise.all(jobs.map((job) => pollServerImageJob(store, job.id, { immediate: true })));
   };
   return typeof store.whenHydrated === "function"
     ? Promise.resolve(store.whenHydrated()).then(resume)
     : resume();
 }
 
-function resumeImageJob(store, job) {
-  const provider = job.imageProvider || primaryProvider;
-  const key = `${job.id}:${provider}:${job.imageTaskId}`;
-  if (resumedImagePolls.has(key)) return Promise.resolve();
-  resumedImagePolls.add(key);
-  store.patchJob(job.id, {
-    failMsg: job.failMsg || "Восстановили проверку результата после обновления страницы..."
-  });
-  return pollImageJob(store, job.id, job.imageTaskId, provider);
-}
-
-async function pollImageJob(store, jobId, taskId, provider, attempt = 0, transientErrors = 0) {
-  if (attempt >= 75) {
-    const job = findJob(store, jobId);
-    if (provider === primaryProvider && job) {
-      await startFallbackImageTask(store, jobId, job, "основная генерация не вернула картинку за 5 минут");
-      return;
-    }
-    failImageJob(store, jobId, "Не удалось получить картинку за 5 минут. Попробуйте запустить еще раз.");
-    return;
-  }
-
-  await delayImagePoll(attempt === 0 ? 6000 : 4000);
-  const job = findJob(store, jobId);
-  if (!job || ["done", "review", "failed"].includes(job.status)) return;
-
+async function pollServerImageJob(store, jobId, options = {}) {
+  if (activeServerPolls.has(jobId)) return Promise.resolve();
+  activeServerPolls.add(jobId);
   try {
-    const status = await getImageTaskStatus(taskId);
-    if (successStates.includes(status.state) && status.imageUrl) {
-      store.patchJob(jobId, {
-        status: "running",
-        stage: "assembly",
-        progress: 76,
-        imageUrl: status.imageUrl,
-        imageData: status.imageUrl,
-        failMsg: "Картинка готова, собираем финальное видео..."
-      });
-      await startFinalVideoAssembly(store, jobId, status.imageUrl);
-      return;
-    }
-    if (failStates.includes(status.state)) {
-      if (provider === primaryProvider) {
-        await startFallbackImageTask(store, jobId, job, status.failMsg || "основная генерация вернула ошибку");
-        return;
+    let immediate = Boolean(options.immediate);
+    for (let attempt = 0; attempt < 150; attempt += 1) {
+      if (!immediate) await delayServerStatusPoll(attempt === 0 ? 1600 : 3000);
+      immediate = false;
+
+      const localJob = findJob(store, jobId);
+      if (!localJob || terminalStatuses.includes(localJob.status)) return;
+
+      try {
+        const payload = await getServerImageJobStatus(jobId);
+        applyServerJobPayload(store, payload);
+        if (isTerminalJob(payload.job)) return;
+      } catch (error) {
+        if (isServerJobMissing(error)) {
+          failServerJob(store, jobId, "Серверная задача не найдена. Запустите генерацию заново.");
+          return;
+        }
+        store.patchJob(jobId, {
+          failMsg: "Не удалось прочитать статус сервера, пробуем еще раз..."
+        });
       }
-      failImageJob(store, jobId, status.failMsg || "Генерация завершилась ошибкой");
-      return;
     }
-    store.patchJob(jobId, {
-      status: "running",
-      stage: "image",
-      progress: Math.min(72, 24 + attempt * 4)
-    });
-    pollImageJob(store, jobId, taskId, provider, attempt + 1, 0);
-  } catch (error) {
-    if (isKieConnectionError(error) && transientErrors < maxTransientImageStatusErrors) {
-      store.patchJob(jobId, {
-        status: "running",
-        stage: "image",
-        progress: Math.min(72, Math.max(job.progress || 0, 24 + attempt * 4)),
-        failMsg: "API студии кратко недоступен, продолжаем ждать уже запущенную генерацию..."
-      });
-      pollImageJob(store, jobId, taskId, provider, attempt + 1, transientErrors + 1);
-      return;
-    }
-    if (provider === primaryProvider) {
-      await startFallbackImageTask(store, jobId, job, error.message || "не удалось проверить основную генерацию");
-      return;
-    }
-    failImageJob(store, jobId, error.message || "Не удалось проверить статус генерации");
+    failServerJob(store, jobId, "Сервер слишком долго не вернул результат. Проверьте задачу и запустите заново.");
+  } finally {
+    activeServerPolls.delete(jobId);
   }
 }
 
-async function startFinalVideoAssembly(store, jobId, backgroundImageUrl) {
+function applyServerJobPayload(store, payload) {
+  if (!payload?.job?.id) return;
+  store.patchJob(payload.job.id, payload.job);
+  applyAvatarUsage(store, payload.job.id, payload.avatarUsage);
+}
+
+function applyAvatarUsage(store, jobId, usage) {
+  if (!usage?.characterId || !usage?.videoId || typeof store.markAvatarVideoUsed !== "function") return;
+  const key = `${jobId}:${usage.characterId}:${usage.videoId}`;
+  if (appliedAvatarUsage.has(key)) return;
+  appliedAvatarUsage.add(key);
+  store.markAvatarVideoUsed(usage.characterId, usage.videoId, usage.nextIndex, usage.nextCharacterIndex);
+}
+
+function createServerJobContext(store, job) {
   const state = store.getState();
-  const job = findJob(store, jobId);
-  if (!job) return;
-  if (!requiresFinalVideo(job)) {
-    store.patchJob(jobId, {
-      status: "review",
-      stage: "approval",
-      progress: 76,
-      failMsg: ""
-    });
-    return;
-  }
-  const project = state.projects?.find((item) => item.id === job?.projectId);
-  const selectedCharacterId = job?.characterId || state.selectedCharacterId || noAvatarCharacterId;
-  const allowNoAvatar = isNoAvatarCharacterId(selectedCharacterId);
-  const avatarVideoPick = allowNoAvatar ? null : pickAvatarVideoRoundRobin(project, selectedCharacterId);
-  const avatarVideo = avatarVideoPick?.video;
-  const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
-  const renderWithoutAvatar = allowNoAvatar || !avatarVideoUrl;
-
-  const audio = state.audioLibrary?.find((item) => item.title === job.music)
-    || state.audioLibrary?.find((item) => item.id === state.selectedAudioId);
-  try {
-    store.patchJob(jobId, {
-      status: "running",
-      stage: "assembly",
-      progress: 88,
-      renderedWithoutAvatar: renderWithoutAvatar,
-      failMsg: renderWithoutAvatar
-        ? "Собираем финальное видео из картинки и аудио..."
-        : "Собираем финальное видео с аватаром и аудио..."
-    });
-    const result = await createCompositeAvatarVideo({
-      avatarVideoUrl: renderWithoutAvatar ? "" : avatarVideoUrl,
-      backgroundImageUrl,
-      audioData: audio?.fileData || "",
-      overlay: renderWithoutAvatar ? {} : avatarVideo?.overlay || {},
-      ctaOverlay: renderWithoutAvatar
-        ? resolveNoAvatarCtaOverlay(project)
-        : avatarVideo?.ctaOverlay || { enabled: false }
-    });
-    if (!renderWithoutAvatar && avatarVideoPick && avatarVideo?.id) {
-      store.markAvatarVideoUsed?.(avatarVideoPick.characterId, avatarVideo.id, avatarVideoPick.nextIndex, avatarVideoPick.nextCharacterIndex);
-    }
-    store.patchJob(jobId, {
-      status: "done",
-      stage: "export",
-      progress: 100,
-      finalVideoUrl: result.videoUrl,
-      finalVideoHasAudio: Boolean(result.hasAudio),
-      failMsg: ""
-    });
-    uploadJobToYandexDisk(store, jobId, result.videoUrl);
-  } catch (error) {
-    store.patchJob(jobId, {
-      status: "failed",
-      stage: "assembly",
-      progress: 100,
-      failMsg: error.message || "Картинка готова, но финальное видео не собрано"
-    });
-  }
+  const project = state.projects?.find((item) => item.id === job.projectId) || null;
+  return {
+    project,
+    audioLibrary: state.audioLibrary || [],
+    selectedAudioId: state.selectedAudioId || "",
+    selectedCharacterId: state.selectedCharacterId || ""
+  };
 }
 
-async function uploadJobToYandexDisk(store, jobId, finalVideoUrl) {
-  const state = store.getState();
-  const job = findJob(store, jobId);
-  const project = state.projects?.find((item) => item.id === job?.projectId);
-  if (!job || !project?.yandexDiskFolder) return;
-  const avatarName = resolveJobAvatarName(project, job, state.selectedCharacterId);
-
-  try {
-    store.patchJob(jobId, { diskStatus: "uploading", diskMessage: "Сохраняем в Яндекс.Диск..." });
-    const result = await uploadVideoToYandexDisk({
-      fileUrl: finalVideoUrl,
-      targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
-      fileName: buildExportFileName(project, job)
-    });
-    store.patchJob(jobId, {
-      diskStatus: "done",
-      diskPath: result.diskPath,
-      diskMessage: "Сохранено в Яндекс.Диск"
-    });
-  } catch (error) {
-    store.patchJob(jobId, {
-      diskStatus: "failed",
-      diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск"
-    });
-  }
+function isTerminalJob(job) {
+  return job?.status && terminalStatuses.includes(job.status);
 }
 
-function buildExportFileName(project, job) {
-  const title = `${project.name || "project"}-${job.title || job.id}`
-    .toLowerCase()
-    .replace(/[^a-zа-я0-9ё]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-  return `${title || job.id}.mp4`;
+function isServerJobMissing(error) {
+  return /server job not found|Серверная задача не найдена/i.test(error?.message || "");
 }
 
-function resolveJobAvatarName(project, job, fallbackCharacterId = "") {
-  if (job.renderedWithoutAvatar) return "Без аватара";
-  if (isNoAvatarCharacterId(job.characterId || fallbackCharacterId)) return "Без аватара";
-  return project.characters?.find((item) => item.id === (job.characterId || fallbackCharacterId))?.name || "Без аватара";
-}
-
-function resolveNoAvatarCtaOverlay(project) {
-  const savedOverlay = project?.ctaOverlay || (project?.characters || [])
-    .flatMap((character) => character.avatarVideos || [])
-    .find((video) => video.ctaOverlay)?.ctaOverlay;
-  return normalizeCtaOverlay(savedOverlay);
-}
-
-function requiresFinalVideo(job) {
-  return job?.outputType !== "image" && job?.requiresFinalVideo !== false;
-}
-
-async function startImageTask(store, jobId, job, provider, progress) {
-  const task = await createImageTask(job.prompt, job.inputUrls || [], provider, job.inputRefs || []);
-  store.patchJob(jobId, {
-    imageTaskId: task.taskId,
-    imageProvider: provider,
-    status: "running",
-    stage: "image",
-    progress,
-    failMsg: provider === fallbackProvider ? "Основной способ не ответил, пробуем резервный..." : ""
-  });
-  pollImageJob(store, jobId, task.taskId, provider);
-}
-
-async function startFallbackImageTask(store, jobId, job, reason) {
-  try {
-    store.patchJob(jobId, {
-      status: "running",
-      stage: "image",
-      progress: 20,
-      failMsg: `${reason}. Переключаемся на резервный способ...`
-    });
-    await startImageTask(store, jobId, job, fallbackProvider, 26);
-  } catch (error) {
-    failImageJob(store, jobId, error.message || "Резервный способ не запустил генерацию");
-  }
-}
-
-function failImageJob(store, jobId, message) {
+function failServerJob(store, jobId, message) {
   store.patchJob(jobId, {
     status: "failed",
     stage: "image",
@@ -282,106 +118,6 @@ function findJob(store, jobId) {
   return store.getState().jobs.find((job) => job.id === jobId);
 }
 
-async function prepareAiBriefJob(store, jobId) {
-  const state = store.getState();
-  const currentJob = findJob(store, jobId);
-  const context = getJobContext(state, currentJob);
-  const existingJobs = state.jobs.filter((job) => job.projectId === context.project.id && job.id !== jobId);
-  const aiBrief = await generateAiBrief({
-    project: context.project,
-    product: context.product,
-    reference: context.reference,
-    existingJobs,
-    diversitySlot: currentJob?.diversitySlot
-  });
-  const humanizedBrief = await addHumanizedPlan({ context, aiBrief, existingJobs });
-  const jobNext = {
-    ...createGenerationJob({ ...context, generationBrief: humanizedBrief, existingJobs }),
-    id: jobId,
-    status: currentJob.status,
-    stage: "prompt",
-    progress: 16
-  };
-  store.replaceJob(jobId, jobNext);
-  return jobNext;
-}
-
-async function prepareJobWithFallback(store, jobId) {
-  try {
-    return await prepareAiBriefJob(store, jobId);
-  } catch (error) {
-    const fallbackJob = buildLocalFallbackJob(store, jobId, error);
-    store.replaceJob(jobId, fallbackJob);
-    return fallbackJob;
-  }
-}
-
-function getJobContext(state, job) {
-  if (!job) return getContext(state);
-  const fallback = getContext(state);
-  const project = state.projects.find((item) => item.id === job.projectId) || fallback.project;
-  const product = state.products.find((item) => item.id === job.productId) || fallback.product;
-  const reference = project.references.find((item) => item.title === job.referenceTitle) || fallback.reference || project.references[0];
-  const character = isNoAvatarCharacterId(job.characterId)
-    ? null
-    : project.characters.find((item) => item.id === job.characterId) || fallback.character || project.characters[0];
-  const audio = state.audioLibrary.find((item) => item.title === job.music) || fallback.audio;
-  return {
-    ...fallback,
-    project,
-    product,
-    reference,
-    character,
-    audio
-  };
-}
-
-async function addHumanizedPlan({ context, aiBrief, existingJobs }) {
-  const brief = createAutoGenerationBrief({ ...context, generationBrief: aiBrief, existingJobs });
-  const plan = createSemanticPlan({ project: context.project, product: context.product, brief });
-  try {
-    const humanizedPlan = await humanizeGenerationPlan({
-      project: context.project,
-      product: context.product,
-      brief,
-      plan
-    });
-    return {
-      ...aiBrief,
-      aiPlan: humanizedPlan,
-      notes: `${aiBrief.notes || ""} Humanizer AI: текст переписан простым массовым языком.`.trim()
-    };
-  } catch {
-    return aiBrief;
-  }
-}
-
-function buildLocalFallbackJob(store, jobId, error) {
-  const state = store.getState();
-  const currentJob = findJob(store, jobId);
-  const context = getJobContext(state, currentJob);
-  const existingJobs = state.jobs.filter((job) => job.projectId === context.project.id && job.id !== jobId);
-  const fallbackBrief = {
-    diversitySlot: currentJob?.diversitySlot || null,
-    topic: currentJob?.topic || "",
-    hook: currentJob?.title || "",
-    format: currentJob?.format || "",
-    semanticKey: currentJob?.semanticKey || currentJob?.diversitySlot?.id || ""
-  };
-  return {
-    ...createGenerationJob({ ...context, generationBrief: fallbackBrief, existingJobs }),
-    id: jobId,
-    status: currentJob?.status || "running",
-    stage: "prompt",
-    progress: 16,
-    outputType: currentJob?.outputType || "image",
-    requiresFinalVideo: currentJob?.requiresFinalVideo,
-    referenceTitle: currentJob?.referenceTitle || "",
-    characterId: currentJob?.characterId || context.character?.id || noAvatarCharacterId,
-    failMsg: `${error.message || "AI-бриф недоступен"}. Собираем генерацию по локальным данным проекта.`
-  };
-}
-
-function delayImagePoll(ms) {
+function delayServerStatusPoll(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

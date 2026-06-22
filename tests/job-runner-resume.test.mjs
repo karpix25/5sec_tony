@@ -1,491 +1,169 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
-import { projects, products } from "../src/domain/entities.js";
+import { projects } from "../src/domain/entities.js";
 import { runImageJob, resumeRunningImageJobs } from "../src/ui/job-runner.js";
 
-test("image polling resumes for running jobs after page reload", async () => {
+test("running job reconnects to server status after page reload", async () => {
+  const restore = installImmediateTimers();
   const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
   const job = {
-    id: "job-resume",
+    id: "job-resume-server",
+    projectId: "supplements",
     status: "running",
-    stage: "image",
-    progress: 44,
-    imageTaskId: "task-resume",
-    imageProvider: "gpt-image-2",
+    stage: "prompt",
+    progress: 12,
     outputType: "image",
     failMsg: ""
   };
-  const store = {
-    getState: () => ({ jobs: [job] }),
-    patchJob: (jobId, payload) => {
-      if (jobId === job.id) Object.assign(job, payload);
-    }
-  };
+  const store = createTestStore({ jobs: [job] });
 
-  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
   globalThis.fetch = async (url) => {
-    assert.match(String(url), /task-resume/);
-    return {
-      ok: true,
-      json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/result.png" })
-    };
-  };
-
-  await resumeRunningImageJobs(store);
-
-  assert.equal(job.status, "review");
-  assert.equal(job.stage, "approval");
-  assert.equal(job.imageUrl, "https://cdn.example.com/result.png");
-
-  globalThis.fetch = originalFetch;
-  globalThis.setTimeout = originalSetTimeout;
-});
-
-test("image polling keeps the same task after a transient API disconnect", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
-  const job = {
-    id: "job-transient-status",
-    status: "running",
-    stage: "image",
-    progress: 44,
-    imageTaskId: "task-transient",
-    imageProvider: "gpt-image-2",
-    outputType: "image",
-    failMsg: ""
-  };
-  const store = {
-    getState: () => ({ jobs: [job] }),
-    patchJob: (jobId, payload) => {
-      if (jobId === job.id) Object.assign(job, payload);
-    }
-  };
-  let statusCalls = 0;
-
-  globalThis.window = { location: { origin: "https://n8n-5sec.ap2dy7.easypanel.host" } };
-  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
-  globalThis.fetch = async (url) => {
-    assert.match(String(url), /task-transient/);
-    statusCalls += 1;
-    if (statusCalls === 1) throw new TypeError("Failed to fetch");
-    return {
-      ok: true,
-      json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/transient-result.png" })
-    };
+    assert.match(String(url), /\/api\/jobs\/status\?jobId=job-resume-server/);
+    return jsonResponse({
+      job: {
+        ...job,
+        status: "review",
+        stage: "approval",
+        progress: 76,
+        imageUrl: "https://cdn.example.com/result.png",
+        failMsg: ""
+      }
+    });
   };
 
   try {
     await resumeRunningImageJobs(store);
-    await waitFor(() => job.status === "review");
 
-    assert.equal(statusCalls, 2);
+    assert.equal(job.status, "review");
     assert.equal(job.stage, "approval");
-    assert.equal(job.imageUrl, "https://cdn.example.com/transient-result.png");
-    assert.equal(job.imageProvider, "gpt-image-2");
+    assert.equal(job.imageUrl, "https://cdn.example.com/result.png");
+    assert.doesNotMatch(job.failMsg, /прервана обновлением страницы/);
   } finally {
-    delete globalThis.window;
     globalThis.fetch = originalFetch;
-    globalThis.setTimeout = originalSetTimeout;
+    restore();
   }
 });
 
-test("running jobs without task id fail instead of hanging after reload", async () => {
+test("image job starts on the server and mirrors final status into the queue", async () => {
+  const restore = installImmediateTimers();
+  const originalFetch = globalThis.fetch;
+  const project = projects.find((item) => item.id === "supplements");
   const job = {
-    id: "job-stale",
+    id: "job-server-run",
+    projectId: project.id,
+    status: "queued",
+    stage: "idea",
+    progress: 6,
+    outputType: "final-video",
+    prompt: "Generate a vertical product video"
+  };
+  const state = {
+    projects: [project],
+    jobs: [job],
+    selectedAudioId: "audio-1",
+    selectedCharacterId: "char-1",
+    audioLibrary: [{ id: "audio-1", title: "Beat", fileData: "data:audio/wav;base64,UklGRg==" }]
+  };
+  const store = createTestStore(state);
+  let runPayload = null;
+  let markedUsage = null;
+  store.markAvatarVideoUsed = (characterId, videoId, nextIndex, nextCharacterIndex) => {
+    markedUsage = { characterId, videoId, nextIndex, nextCharacterIndex };
+  };
+
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/api/jobs/run")) {
+      runPayload = JSON.parse(options.body || "{}");
+      return jsonResponse({ job: { ...job, status: "running", stage: "image", progress: 24 } });
+    }
+    if (String(url).includes("/api/jobs/status")) {
+      return jsonResponse({
+        job: {
+          ...job,
+          status: "done",
+          stage: "export",
+          progress: 100,
+          finalVideoUrl: "/generated/avatar-videos/final.mp4",
+          finalVideoHasAudio: true,
+          failMsg: ""
+        },
+        avatarUsage: {
+          characterId: "char-1",
+          videoId: "video-1",
+          nextIndex: 1,
+          nextCharacterIndex: 0
+        }
+      });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  try {
+    await runImageJob(store, job.id);
+    await waitFor(() => state.jobs[0].status === "done");
+
+    assert.equal(runPayload.job.id, job.id);
+    assert.equal(runPayload.context.project.id, project.id);
+    assert.equal(runPayload.context.selectedAudioId, "audio-1");
+    assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final.mp4");
+    assert.deepEqual(markedUsage, { characterId: "char-1", videoId: "video-1", nextIndex: 1, nextCharacterIndex: 0 });
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("running job shows a retryable failure when server memory no longer has it", async () => {
+  const restore = installImmediateTimers();
+  const originalFetch = globalThis.fetch;
+  const job = {
+    id: "job-missing-server",
     status: "running",
     stage: "image",
     progress: 44,
     failMsg: ""
   };
-  const store = {
-    getState: () => ({ jobs: [job] }),
-    patchJob: (jobId, payload) => {
-      if (jobId === job.id) Object.assign(job, payload);
-    }
-  };
+  const store = createTestStore({ jobs: [job] });
 
-  await resumeRunningImageJobs(store);
-
-  assert.equal(job.status, "failed");
-  assert.equal(job.progress, 100);
-  assert.match(job.failMsg, /прервана обновлением страницы/);
-});
-
-test("image job uses its own product data instead of currently selected product", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
-  const project = projects.find((item) => item.id === "supplements");
-  const jobProduct = products.find((item) => item.id === "collagen");
-  const selectedProduct = products.find((item) => item.id === "magnesium");
-  const job = {
-    id: "job-product-context",
-    projectId: project.id,
-    productId: jobProduct.id,
-    status: "queued",
-    stage: "idea",
-    progress: 6,
-    outputType: "image",
-    referenceTitle: project.references[0].title,
-    diversitySlot: { id: "slot", topic: "уход изнутри", hook: "Почему уход не работает", format: "checklist" }
-  };
-  const state = {
-    projects: [project],
-    products: [selectedProduct, jobProduct],
-    jobs: [job],
-    selectedProjectId: project.id,
-    selectedProductId: selectedProduct.id,
-    selectedReferenceId: project.references[0].id,
-    selectedCharacterId: project.characters[0].id,
-    selectedAudioId: "",
-    audioLibrary: []
-  };
-  const seenProducts = [];
-  const store = {
-    getState: () => state,
-    patchJob: (jobId, payload) => {
-      const target = state.jobs.find((item) => item.id === jobId);
-      if (target) Object.assign(target, payload);
-    },
-    replaceJob: (jobId, jobNext) => {
-      state.jobs = state.jobs.map((item) => (item.id === jobId ? jobNext : item));
-    }
-  };
-
-  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
-  globalThis.fetch = async (url, options = {}) => {
-    const body = options.body ? JSON.parse(options.body) : {};
-    if (String(url).includes("/api/generation/brief")) {
-      seenProducts.push(body.product?.id);
-      return { ok: true, json: async () => ({ draft: { plan: { points: ["пункт"] } } }) };
-    }
-    if (String(url).includes("/api/generation/humanize")) {
-      seenProducts.push(body.product?.id);
-      return { ok: true, json: async () => ({ draft: { points: ["пункт"] } }) };
-    }
-    if (String(url).includes("/api/images/generate")) {
-      assert.match(body.prompt, new RegExp(jobProduct.name));
-      assert.doesNotMatch(body.prompt, new RegExp(`Продукт: ${selectedProduct.name}`));
-      return { ok: true, json: async () => ({ taskId: "task-context" }) };
-    }
-    return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/context.png" }) };
-  };
-
-  await runImageJob(store, job.id);
-
-  assert.deepEqual(seenProducts, [jobProduct.id, jobProduct.id]);
-
-  globalThis.fetch = originalFetch;
-  globalThis.setTimeout = originalSetTimeout;
-});
-
-test("image job assembles final 5 second video with reusable avatar video and library audio", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
-  const project = {
-    ...projects.find((item) => item.id === "supplements"),
-    avatarRoundRobinIndex: 1,
-    characters: [{
-      id: "char-other",
-      name: "Other Avatar",
-      status: "approved",
-      imageData: "https://cdn.example.com/other-avatar.png",
-      avatarVideos: [{
-        id: "avatar-video-other",
-        status: "ready",
-        videoUrl: "https://cdn.example.com/other-avatar-green.mp4",
-        alphaVideoUrl: "https://cdn.example.com/other-avatar-alpha.webm",
-        overlay: { x: 20, y: 60, scale: 140, opacity: 50 }
-      }]
-    }, {
-      id: "char-ready",
-      name: "Ready Avatar",
-      status: "approved",
-      imageData: "https://cdn.example.com/avatar.png",
-      avatarVideos: [{
-        id: "avatar-video-ready",
-        status: "ready",
-        videoUrl: "https://cdn.example.com/avatar-green.mp4",
-        alphaVideoUrl: "https://cdn.example.com/avatar-alpha.webm",
-        overlay: { x: 68, y: 95, scale: 82, opacity: 75 },
-        ctaOverlay: { enabled: true, mode: "text", text: "ЖМИ", x: 52, y: 82, scale: 90, opacity: 85 }
-      }]
-    }]
-  };
-  const product = products.find((item) => item.id === "magnesium");
-  const audio = {
-    id: "audio-ready",
-    title: "Library beat",
-    fileData: "data:audio/wav;base64,UklGRg=="
-  };
-  const job = {
-    id: "job-final-video",
-    projectId: project.id,
-    productId: product.id,
-    status: "queued",
-    stage: "idea",
-    progress: 6,
-    outputType: "final-video",
-    characterId: "char-ready",
-    referenceTitle: project.references[0].title
-  };
-  const state = {
-    projects: [project],
-    products: [product],
-    jobs: [job],
-    selectedProjectId: project.id,
-    selectedProductId: product.id,
-    selectedReferenceId: project.references[0].id,
-    selectedCharacterId: "char-other",
-    selectedAudioId: audio.id,
-    audioLibrary: [audio]
-  };
-  let markedVideo = null;
-  let uploadPayload = null;
-  const store = {
-    getState: () => state,
-    patchJob: (jobId, payload) => {
-      const target = state.jobs.find((item) => item.id === jobId);
-      if (target) Object.assign(target, payload);
-    },
-    replaceJob: (jobId, jobNext) => {
-      state.jobs = state.jobs.map((item) => (item.id === jobId ? jobNext : item));
-    },
-    markAvatarVideoUsed: (characterId, videoId, nextIndex, nextCharacterIndex) => {
-      markedVideo = { characterId, videoId, nextIndex, nextCharacterIndex };
-    }
-  };
-
-  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
-  globalThis.fetch = async (url, options = {}) => {
-    const body = options.body ? JSON.parse(options.body) : {};
-    if (String(url).includes("/api/generation/brief")) {
-      return { ok: true, json: async () => ({ draft: { hook: "Готовый ролик", plan: { points: ["пункт"] } } }) };
-    }
-    if (String(url).includes("/api/generation/humanize")) {
-      return { ok: true, json: async () => ({ draft: { points: ["пункт"] } }) };
-    }
-    if (String(url).includes("/api/images/generate")) {
-      return { ok: true, json: async () => ({ taskId: "task-final-video-image" }) };
-    }
-    if (String(url).includes("/api/images/status")) {
-      return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/background.png" }) };
-    }
-    if (String(url).includes("/api/avatar-videos/composite")) {
-      assert.equal(body.avatarVideoUrl, "https://cdn.example.com/avatar-alpha.webm");
-      assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
-      assert.equal(body.audioData, audio.fileData);
-      assert.deepEqual(body.overlay, { x: 68, y: 95, scale: 82, opacity: 75 });
-      assert.deepEqual(body.ctaOverlay, { enabled: true, mode: "text", text: "ЖМИ", x: 52, y: 82, scale: 90, opacity: 85 });
-      return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-with-audio.mp4", hasAudio: true }) };
-    }
-    if (String(url).includes("/api/yandex-disk/upload")) {
-      uploadPayload = body;
-      return { ok: true, json: async () => ({ diskPath: "disk:/ВИДЕО/5сек/БАДы/Ready Avatar/final.mp4" }) };
-    }
-    return { ok: true, json: async () => ({}) };
-  };
+  globalThis.fetch = async () => jsonResponse({ error: "server job not found" }, false);
 
   try {
-    await runImageJob(store, job.id);
-    await waitFor(() => Boolean(state.jobs[0].finalVideoUrl));
-    await waitFor(() => Boolean(uploadPayload));
+    await resumeRunningImageJobs(store);
 
-    assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final-with-audio.mp4");
-    assert.equal(state.jobs[0].finalVideoHasAudio, true);
-    assert.equal(state.jobs[0].stage, "export");
-    assert.equal(state.jobs[0].status, "done");
-    assert.deepEqual(markedVideo, { characterId: "char-ready", videoId: "avatar-video-ready", nextIndex: 0, nextCharacterIndex: 0 });
-    assert.equal(uploadPayload.targetFolder, "disk:/ВИДЕО/5сек/БАДы/Ready Avatar");
+    assert.equal(job.status, "failed");
+    assert.equal(job.progress, 100);
+    assert.match(job.failMsg, /Серверная задача не найдена/);
   } finally {
     globalThis.fetch = originalFetch;
-    globalThis.setTimeout = originalSetTimeout;
+    restore();
   }
 });
 
-test("final video job falls back to no-avatar render when reusable avatar video is missing", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
-  const sourceProject = projects.find((item) => item.id === "supplements");
-  const project = {
-    ...sourceProject,
-    characters: sourceProject.characters.map((character) => ({ ...character, avatarVideos: [] }))
-  };
-  const product = products.find((item) => item.id === "magnesium");
-  const job = {
-    id: "job-missing-avatar-video",
-    projectId: project.id,
-    productId: product.id,
-    status: "queued",
-    stage: "idea",
-    progress: 6,
-    outputType: "final-video",
-    referenceTitle: project.references[0].title
-  };
-  const state = {
-    projects: [project],
-    products: [product],
-    jobs: [job],
-    selectedProjectId: project.id,
-    selectedProductId: product.id,
-    selectedReferenceId: project.references[0].id,
-    selectedCharacterId: project.characters[0].id,
-    selectedAudioId: "",
-    audioLibrary: []
-  };
-  const store = {
+function createTestStore(state) {
+  return {
     getState: () => state,
     patchJob: (jobId, payload) => {
       const target = state.jobs.find((item) => item.id === jobId);
       if (target) Object.assign(target, payload);
-    },
-    replaceJob: (jobId, jobNext) => {
-      state.jobs = state.jobs.map((item) => (item.id === jobId ? jobNext : item));
     }
   };
+}
 
-  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
-  globalThis.fetch = async (url, options = {}) => {
-    if (String(url).includes("/api/generation/brief")) {
-      return { ok: true, json: async () => ({ draft: { hook: "Готовый ролик", plan: { points: ["пункт"] } } }) };
-    }
-    if (String(url).includes("/api/generation/humanize")) {
-      return { ok: true, json: async () => ({ draft: { points: ["пункт"] } }) };
-    }
-    if (String(url).includes("/api/images/generate")) {
-      return { ok: true, json: async () => ({ taskId: "task-missing-avatar-video" }) };
-    }
-    if (String(url).includes("/api/images/status")) {
-      return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/background.png" }) };
-    }
-    if (String(url).includes("/api/avatar-videos/composite")) {
-      const body = JSON.parse(options.body || "{}");
-      assert.equal(body.avatarVideoUrl, undefined);
-      assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
-      assert.equal(body.ctaOverlay.text, "ЧИТАЙ ОПИСАНИЕ");
-      assert.equal(body.ctaOverlay.enabled, true);
-      return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-auto-no-avatar.mp4", hasAudio: false }) };
-    }
-    if (String(url).includes("/api/yandex-disk/upload")) {
-      const body = JSON.parse(options.body || "{}");
-      assert.equal(body.targetFolder, "disk:/ВИДЕО/5сек/БАДы/Без аватара");
-      return { ok: true, json: async () => ({ diskPath: "disk:/ВИДЕО/5сек/БАДы/Без аватара/final.mp4" }) };
-    }
-    return { ok: true, json: async () => ({}) };
+function jsonResponse(payload, ok = true) {
+  return {
+    ok,
+    json: async () => payload
   };
+}
 
-  try {
-    await runImageJob(store, job.id);
-    await waitFor(() => Boolean(state.jobs[0].finalVideoUrl));
-
-    assert.equal(state.jobs[0].status, "done");
-    assert.equal(state.jobs[0].stage, "export");
-    assert.equal(state.jobs[0].progress, 100);
-    assert.equal(state.jobs[0].renderedWithoutAvatar, true);
-    assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final-auto-no-avatar.mp4");
-  } finally {
-    globalThis.fetch = originalFetch;
-    globalThis.setTimeout = originalSetTimeout;
-  }
-});
-
-test("final video job can render without avatar overlay when no-avatar mode is selected", async () => {
-  const originalFetch = globalThis.fetch;
+function installImmediateTimers() {
   const originalSetTimeout = globalThis.setTimeout;
-  const project = {
-    ...projects.find((item) => item.id === "supplements"),
-    ctaOverlay: { enabled: true, mode: "text", text: "БЕЗ АВАТАРА", x: 44, y: 74, scale: 88, opacity: 92 }
-  };
-  const product = products.find((item) => item.id === "magnesium");
-  const audio = {
-    id: "audio-no-avatar",
-    title: "Library beat",
-    fileData: "data:audio/wav;base64,UklGRg=="
-  };
-  const job = {
-    id: "job-no-avatar-video",
-    projectId: project.id,
-    productId: product.id,
-    status: "queued",
-    stage: "idea",
-    progress: 6,
-    outputType: "final-video",
-    characterId: noAvatarCharacterId,
-    referenceTitle: project.references[0].title
-  };
-  const state = {
-    projects: [project],
-    products: [product],
-    jobs: [job],
-    selectedProjectId: project.id,
-    selectedProductId: product.id,
-    selectedReferenceId: project.references[0].id,
-    selectedCharacterId: noAvatarCharacterId,
-    selectedAudioId: audio.id,
-    audioLibrary: [audio]
-  };
-  let compositePayload = null;
-  let uploadPayload = null;
-  const store = {
-    getState: () => state,
-    patchJob: (jobId, payload) => {
-      const target = state.jobs.find((item) => item.id === jobId);
-      if (target) Object.assign(target, payload);
-    },
-    replaceJob: (jobId, jobNext) => {
-      state.jobs = state.jobs.map((item) => (item.id === jobId ? jobNext : item));
-    }
-  };
-
   globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
-  globalThis.fetch = async (url, options = {}) => {
-    const body = options.body ? JSON.parse(options.body) : {};
-    if (String(url).includes("/api/generation/brief")) {
-      return { ok: true, json: async () => ({ draft: { hook: "Ролик без аватара", plan: { points: ["пункт"] } } }) };
-    }
-    if (String(url).includes("/api/generation/humanize")) {
-      return { ok: true, json: async () => ({ draft: { points: ["пункт"] } }) };
-    }
-    if (String(url).includes("/api/images/generate")) {
-      return { ok: true, json: async () => ({ taskId: "task-no-avatar-image" }) };
-    }
-    if (String(url).includes("/api/images/status")) {
-      return { ok: true, json: async () => ({ state: "success", imageUrl: "https://cdn.example.com/background.png" }) };
-    }
-    if (String(url).includes("/api/avatar-videos/composite")) {
-      compositePayload = body;
-      assert.equal(body.avatarVideoUrl, undefined);
-      assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
-      assert.equal(body.audioData, audio.fileData);
-      assert.equal(body.ctaOverlay.text, "БЕЗ АВАТАРА");
-      assert.equal(body.ctaOverlay.enabled, true);
-      return { ok: true, json: async () => ({ videoUrl: "/generated/avatar-videos/final-no-avatar.mp4", hasAudio: true }) };
-    }
-    if (String(url).includes("/api/yandex-disk/upload")) {
-      uploadPayload = body;
-      return { ok: true, json: async () => ({ diskPath: "disk:/ВИДЕО/5сек/БАДы/Без аватара/final.mp4" }) };
-    }
-    return { ok: true, json: async () => ({}) };
-  };
-
-  try {
-    await runImageJob(store, job.id);
-    await waitFor(() => Boolean(state.jobs[0].finalVideoUrl));
-    await waitFor(() => Boolean(uploadPayload));
-
-    assert.ok(compositePayload);
-    assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final-no-avatar.mp4");
-    assert.equal(state.jobs[0].finalVideoHasAudio, true);
-    assert.equal(uploadPayload.targetFolder, "disk:/ВИДЕО/5сек/БАДы/Без аватара");
-  } finally {
-    globalThis.fetch = originalFetch;
-    globalThis.setTimeout = originalSetTimeout;
-  }
-});
+  return () => { globalThis.setTimeout = originalSetTimeout; };
+}
 
 async function waitFor(predicate) {
-  for (let index = 0; index < 100; index += 1) {
+  for (let index = 0; index < 30; index += 1) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 0));
   }

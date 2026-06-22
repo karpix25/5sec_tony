@@ -182,6 +182,7 @@ export function createStore() {
     updateProjectCtaOverlay: projectCtaWorkflow.updateProjectCtaOverlay,
     createProjectCtaCandidate: projectCtaWorkflow.createProjectCtaCandidate,
     approveProjectCtaCandidate: projectCtaWorkflow.approveProjectCtaCandidate,
+    resetProjectCtaOverlay: projectCtaWorkflow.resetProjectCtaOverlay,
     resetProjectDailyUsage(projectId = state.selectedProjectId) {
       setState({
         projects: state.projects.map((project) =>
@@ -400,6 +401,7 @@ export function createStore() {
     updateAvatarVideoCtaOverlay: avatarWorkflow.updateAvatarVideoCtaOverlay,
     createAvatarVideoCtaCandidate: avatarWorkflow.createAvatarVideoCtaCandidate,
     approveAvatarVideoCtaCandidate: avatarWorkflow.approveAvatarVideoCtaCandidate,
+    resetAvatarVideoCtaOverlay: avatarWorkflow.resetAvatarVideoCtaOverlay,
     createJob() {
       const context = getSelectionContext(state, getProject);
       const jobs = createSelectionJobBatch(state, context, 1);

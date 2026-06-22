@@ -20,6 +20,7 @@ export async function saveRemoteState(state) {
     saved: Boolean(payload.saved),
     disabled: Boolean(payload.disabled),
     updatedAt: payload.updatedAt || "",
+    parityOk: payload.parityOk !== false,
     error: payload.error || ""
   };
 }

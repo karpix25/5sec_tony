@@ -8,7 +8,7 @@ export function writeHookFromFormula(template, context) {
 
   const variants = {
     "red-flag": [
-      `${count} деталей, которые стоит проверить заранее: ${focus}`,
+      `${count} красных флагов, которые стоит проверить заранее: ${focus}`,
       `${count} сигналов, что про ${focus} лучше узнать заранее`,
       `${count} моментов, где легко ошибиться: ${focus}`
     ],

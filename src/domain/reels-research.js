@@ -1,8 +1,3 @@
-import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
-
-const researchStorageKey = "anton-reels-research";
-const researchStorageVersion = 1;
-
 export const defaultResearchAccounts = [
   "bodyhealth.labs",
   "thehealthymail",
@@ -29,14 +24,6 @@ export function normalizeResearchResult(payload = {}) {
       reusableHooks: researchAsList(summary.reusableHooks)
     }
   };
-}
-
-export function getStoredResearch() {
-  return readJsonStorage(researchStorageKey, { fallback: null, version: researchStorageVersion });
-}
-
-export function storeResearch(result) {
-  writeJsonStorage(researchStorageKey, result, { version: researchStorageVersion });
 }
 
 function normalizeVideo(video) {

@@ -1,10 +1,9 @@
-import { defaultResearchAccounts, getStoredResearch, storeResearch } from "../domain/reels-research.js";
+import { defaultResearchAccounts } from "../domain/reels-research.js";
 import { analyzeReelsResearch } from "../services/reels-research.js";
 import { escapeHtml } from "./infographic.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 
-export function renderResearchPanel() {
-  const result = getStoredResearch();
+export function renderResearchPanel(result) {
   return `
     <section class="embedded-panel research-panel">
       <div class="panel-head">
@@ -27,11 +26,11 @@ export function renderResearchPanel() {
   `;
 }
 
-export function bindResearchEvents(root) {
-  root.querySelector("#run-reels-research")?.addEventListener("click", () => runResearch(root));
+export function bindResearchEvents(root, store) {
+  root.querySelector("#run-reels-research")?.addEventListener("click", () => runResearch(root, store));
 }
 
-async function runResearch(root) {
+async function runResearch(root, store) {
   const status = root.querySelector("#reels-research-status");
   const output = root.querySelector("#reels-research-output");
   const accounts = root.querySelector("#research-accounts")?.value || "";
@@ -39,7 +38,7 @@ async function runResearch(root) {
     status.textContent = "Собираем видео и анализируем темы, хуки и первые кадры. Это может занять несколько минут.";
     output.innerHTML = renderLoading();
     const result = await analyzeReelsResearch({ accounts, limit: 10 });
-    storeResearch(result);
+    store.updateReelsResearch(result);
     status.textContent = `Готово: изучено ${result.videos.length} видео.`;
     output.innerHTML = renderResearchResult(result);
   } catch (error) {

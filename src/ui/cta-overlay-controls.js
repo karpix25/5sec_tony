@@ -31,6 +31,7 @@ export function renderCtaOverlayControls({ targetId, ctaOverlay, className = "",
           ${escapeHtml(statusView.generateLabel)}
         </button>
         ${statusView.canApprove ? `<button class="secondary-btn" data-cta-approve="${escapeHtml(targetId)}" type="button">Апрув плашки</button>` : ""}
+        <button class="ghost-btn" data-cta-reset="${escapeHtml(targetId)}" type="button">Сбросить плашку</button>
         ${renderCtaStatusPill(statusView)}
       </div>
       ${renderCtaCandidateStatus(statusView)}
@@ -66,6 +67,13 @@ export function bindCtaOverlayControlEvents(root, handlers = {}) {
       button.disabled = true;
       button.textContent = "Апрувим...";
       handlers.onApprove?.(button.dataset.ctaApprove, button, form);
+    });
+  });
+  root.querySelectorAll("[data-cta-reset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const form = button.closest("[data-cta-overlay-form]");
+      if (handlers.filter && !handlers.filter(form)) return;
+      handlers.onReset?.(button.dataset.ctaReset, button, form);
     });
   });
 }

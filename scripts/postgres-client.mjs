@@ -9,6 +9,23 @@ export async function queryPostgres(text, params = []) {
   return pool.query(text, params);
 }
 
+export async function withPostgresTransaction(callback) {
+  const pool = await getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    const tx = { query: (text, params = []) => client.query(text, params) };
+    const result = await callback(tx);
+    await client.query("commit");
+    return result;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function getPool() {
   if (!isPostgresConfigured()) {
     throw new Error("Postgres is not configured. Set DATABASE_URL or DB_HOST/DB_USER/DB_PASSWORD/DB_NAME.");
