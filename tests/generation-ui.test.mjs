@@ -58,10 +58,7 @@ test("project automation form saves limits and normalizes enabled payload into r
       projectId: "project-1",
       dailyLimit: "24",
       projectLimit: "400",
-      enabled: "on",
-      targetCount: "12",
-      batchSize: "3",
-      concurrency: "2"
+      enabled: "on"
     };
     root.append(form);
     bindProjectAutomationControls(root, store);
@@ -70,10 +67,7 @@ test("project automation form saves limits and normalizes enabled payload into r
     form.formValues = {
       projectId: "project-1",
       dailyLimit: "18",
-      projectLimit: "300",
-      targetCount: "6",
-      batchSize: "1",
-      concurrency: "1"
+      projectLimit: "300"
     };
     form.dispatchEvent({ type: "submit", target: form, currentTarget: form });
   } finally {
@@ -94,17 +88,11 @@ test("project automation form saves limits and normalizes enabled payload into r
   assert.deepEqual(automationCalls, [
     ["project-1", {
       enabled: true,
-      targetCount: "12",
-      batchSize: "3",
-      concurrency: "2",
       status: "running",
       lastMessage: "Авторежим включен."
     }],
     ["project-1", {
       enabled: false,
-      targetCount: "6",
-      batchSize: "1",
-      concurrency: "1",
       status: "paused",
       lastMessage: "Авторежим остановлен."
     }]

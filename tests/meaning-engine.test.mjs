@@ -322,10 +322,11 @@ test("project management UI exposes limits and autorun controls on the right-sid
   assert.match(html, /Дневной лимит генераций/);
   assert.match(html, /Лимит на весь проект/);
   assert.match(html, /Авторежим до лимита/);
-  assert.match(html, /Цель роликов/);
-  assert.match(html, /Параллельно/);
-  assert.match(html, /data-reset-project-usage/);
-  assert.match(html, /data-reset-project-total-usage/);
+  assert.doesNotMatch(html, /Цель роликов/);
+  assert.doesNotMatch(html, /Пакет/);
+  assert.doesNotMatch(html, /Параллельно/);
+  assert.doesNotMatch(html, /data-reset-project-usage/);
+  assert.doesNotMatch(html, /data-reset-project-total-usage/);
   assert.match(html, /Сохранить проект/);
   assert.doesNotMatch(html, /Обновить AI-память|AI Audience Expert|AI Strategy|Смысловая база|Сценарные кластеры|Боли аудитории|Tone of voice|Стиль проекта/);
 });

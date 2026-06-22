@@ -28,18 +28,9 @@ export function renderProjectAutomationControls(project, automationState) {
           <input name="enabled" type="checkbox" ${automation.enabled ? "checked" : ""}>
           <span>Авторежим до лимита</span>
         </label>
-        <div class="automation-grid">
-          ${automationNumberField("targetCount", "Цель роликов", automation.targetCount, 1, 500)}
-          ${automationNumberField("batchSize", "Пакет", automation.batchSize, 1, 10)}
-          ${automationNumberField("concurrency", "Параллельно", automation.concurrency, 1, 5)}
-        </div>
         <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget }))}</small>
         <button class="secondary-btn" type="submit">${automation.enabled ? "Сохранить авторежим" : "Включить авторежим"}</button>
       </form>
-      <div class="project-actions automation-resets">
-        <button class="ghost-btn" data-reset-project-usage="${escapeHtml(project.id)}" type="button">Сбросить счетчик дня (${Number(project.usedToday || 0)})</button>
-        <button class="ghost-btn" data-reset-project-total-usage="${escapeHtml(project.id)}" type="button">Сбросить счетчик проекта (${Number(project.usedTotal || 0)})</button>
-      </div>
     </section>
   `;
 }
@@ -52,22 +43,14 @@ export function bindProjectAutomationControls(root, store) {
       dailyLimit: payload.dailyLimit,
       projectLimit: payload.projectLimit
     });
-    store.updateProjectAutomation(payload.projectId, {
+    const automationPayload = {
       enabled: payload.enabled === "on",
-      targetCount: payload.targetCount,
-      batchSize: payload.batchSize,
-      concurrency: payload.concurrency,
       status: payload.enabled === "on" ? "running" : "paused",
       lastMessage: payload.enabled === "on" ? "Авторежим включен." : "Авторежим остановлен."
-    });
+    };
+    if (Object.hasOwn(payload, "targetCount")) automationPayload.targetCount = payload.targetCount;
+    if (Object.hasOwn(payload, "batchSize")) automationPayload.batchSize = payload.batchSize;
+    if (Object.hasOwn(payload, "concurrency")) automationPayload.concurrency = payload.concurrency;
+    store.updateProjectAutomation(payload.projectId, automationPayload);
   });
-}
-
-function automationNumberField(name, label, value, min, max) {
-  return `
-    <label class="stacked-field compact-field">
-      <span>${escapeHtml(label)}</span>
-      <input name="${name}" class="text-input" type="number" min="${min}" max="${max}" value="${Number(value)}">
-    </label>
-  `;
 }
