@@ -1,0 +1,17 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+test("flat bundled source files do not use import aliases", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const buildSource = readFileSync(new URL("../scripts/build-bundle.mjs", import.meta.url), "utf8");
+  const files = [...buildSource.matchAll(/"([^"]+\.js)"/g)].map((match) => match[1]);
+  const offenders = files.filter((file) => {
+    const source = readFileSync(join(root, file), "utf8");
+    return /^import\s*\{[\s\S]*?\bas\b[\s\S]*?\}\s*from\s*["'][^"']+["'];/m.test(source);
+  });
+
+  assert.deepEqual(offenders, []);
+});

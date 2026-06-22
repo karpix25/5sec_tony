@@ -6,9 +6,9 @@ import {
 } from "./local-cache-state.js";
 import { applyUiCache, readUiCache, saveUiCache } from "./ui-cache-state.js";
 import {
-  clearPendingRemoteSave as clearPendingRemoteSaveCache,
+  clearPendingRemoteSave,
   readPendingRemoteSave,
-  savePendingRemoteSave as writePendingRemoteSave
+  savePendingRemoteSave
 } from "./pending-remote-save-cache.js";
 
 const uiCacheKey = "anton-5-sec-ui-cache";
@@ -31,8 +31,8 @@ export function createStoreCache(normalize) {
     getPendingRemoteSaveHooks() {
       return {
         getPendingRemoteSave: () => readPendingRemoteSave(pendingRemoteSaveKey, storageVersion, normalize),
-        savePendingRemoteSave: (state, baseUpdatedAt) => writePendingRemoteSave(pendingRemoteSaveKey, storageVersion, state, baseUpdatedAt),
-        clearPendingRemoteSave: () => clearPendingRemoteSaveCache(pendingRemoteSaveKey)
+        savePendingRemoteSave: (state, baseUpdatedAt) => savePendingRemoteSave(pendingRemoteSaveKey, storageVersion, state, baseUpdatedAt),
+        clearPendingRemoteSave: () => clearPendingRemoteSave(pendingRemoteSaveKey)
       };
     },
     persist(state) {
