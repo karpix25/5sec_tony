@@ -1,7 +1,6 @@
 import { scenarioPatterns } from "./creative-patterns.js";
 import { createContentLayer } from "./content-layers.js";
-import { isPaymentProject, isTravelContentProject } from "./project-content-intent.js";
-import { travelContentSlots } from "./travel-content-slots.js";
+import { isPaymentProject } from "./project-content-intent.js";
 
 const genericSlots = scenarioPatterns.map((pattern) => ({
   id: pattern.id,
@@ -96,7 +95,6 @@ export function createContentSlot({ project, product, existingJobs = [] }) {
 }
 
 function pickContentSlots(project, product) {
-  if (isTravelContentProject(project, product)) return travelContentSlots;
   if (isPaymentProject(project, product)) return paymentSlots;
   return genericSlots;
 }

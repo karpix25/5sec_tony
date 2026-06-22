@@ -7,7 +7,7 @@ const hookStrategies = [
     trigger: "усталость от идеальных советов и недоверие к громким обещаниям",
     format: "comparison",
     scoreBonus: 5,
-    topic: ({ productName, proof }) => `Где вокруг ${productName} реальная польза, а где шум`,
+    topic: ({ subject }) => `Где реальная польза, а где шум: ${subject}`,
     instruction: "Начни с конфликта между обещаниями рынка и тем, что человек реально может проверить в жизни."
   },
   {
@@ -25,7 +25,7 @@ const hookStrategies = [
     trigger: "боязнь купить пустышку или ждать от продукта не того эффекта",
     format: "mistake-solution",
     scoreBonus: 5,
-    topic: ({ productName, pain }) => `Какие ожидания от ${productName} стоит проверить, если ${pain}`,
+    topic: ({ pain }) => `Какие ожидания стоит проверить, если ${pain}`,
     instruction: "Если используешь страх ошибки, называй саму проверку: ожидания, состав, формат, регулярность или красный флаг. Не пиши абстрактно про одну ошибку."
   },
   {
@@ -43,8 +43,8 @@ const hookStrategies = [
     trigger: "страх купить красивую упаковку вместо понятной привычки",
     format: "comparison",
     scoreBonus: 4,
-    topic: ({ productName, proof }) => `Как не переплатить за ${productName}, если важен факт: ${proof}`,
-    instruction: "Собери хук через контраст цены и пользы, но не делай его рекламным сравнением брендов."
+    topic: ({ proof }) => `Как отличить полезный факт от красивого обещания: ${proof}`,
+    instruction: "Собери хук через контраст обещаний и проверяемой пользы, но не делай его рекламным сравнением брендов или покупкой продукта."
   }
 ];
 
@@ -84,7 +84,7 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
     subhead: candidate.subhead || subheads[candidate.angleId] || "Сначала поймите ситуацию, потом добавляйте продукт.",
     points: [
       `Почему цепляет: ${pain || useCase}`,
-      `Миф: один продукт быстро все исправит`,
+      `Миф: один совет быстро все исправит`,
       `Факт: ${proof || safeStep}`,
       `Рабочий шаг: ${habit}`,
       `Проверьте: ожидания, регулярность и ограничения`
@@ -137,7 +137,7 @@ function buildInsightCandidates(profile) {
 
 function buildStrategyCandidate(strategy, profile) {
   const context = {
-    productName: profile.productName,
+    subject: pickTopicSubject(profile),
     pain: profile.primaryPain,
     useCase: profile.primaryUseCase,
     proof: profile.primaryProof
@@ -156,6 +156,13 @@ function buildStrategyCandidate(strategy, profile) {
     useCase: context.useCase,
     promptInstruction: strategy.instruction
   };
+}
+
+function pickTopicSubject(profile) {
+  return profile.primaryUseCase
+    || profile.primaryProof
+    || profile.description
+    || profile.productName;
 }
 
 function getHookStrategyInstruction(candidate) {

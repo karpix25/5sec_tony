@@ -118,7 +118,7 @@ test("travel project keeps payment-named bot as context, not payment topic engin
   const plan = createSemanticPlan({ project, product, brief });
   const text = `${slot.id} ${brief.semanticKey} ${brief.topic} ${brief.hook} ${plan.points.join(" ")}`.toLowerCase();
 
-  assert.match(slot.id, /local-rule|culture-mistake|hidden-place|travel-fact|tourist-trap|season-route/);
+  assert.doesNotMatch(slot.id, /card-rejected|subscription-deadline|business-tools|travel-booking|invoice-payment|commission-terms|support-route|safe-boundaries/);
   assert.doesNotMatch(`${brief.topic} ${brief.hook}`.toLowerCase(), /плати по миру|бот|ожидания от/);
   assert.match(text, /турист|путеше|поезд|стран|мест|культур|маршрут|достопримеч/);
   assert.doesNotMatch(text, /санкци|сбп|рубл|карта снова не проходит|зарубежн.*оплат|подписка сгорит/);
