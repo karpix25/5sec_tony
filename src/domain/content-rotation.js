@@ -94,6 +94,12 @@ export function createContentSlot({ project, product, existingJobs = [] }) {
   return enrichSlotWithLayer(slot, { project, product, existingJobs });
 }
 
+export function refreshContentSlotLayer(slot, { project, product, existingJobs = [] }) {
+  if (slot?.lockTopic) return slot;
+  const baseSlot = pickContentSlots(project, product).find((item) => item.id === slot?.id) || slot;
+  return enrichSlotWithLayer(baseSlot, { project, product, existingJobs });
+}
+
 function pickContentSlots(project, product) {
   if (isPaymentProject(project, product)) return paymentSlots;
   return genericSlots;

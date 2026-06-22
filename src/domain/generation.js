@@ -1,6 +1,6 @@
 import { generationStages } from "./entities.js";
 import { noAvatarCharacterId } from "./avatar-selection.js";
-import { createContentSlot } from "./content-rotation.js";
+import { createContentSlot, refreshContentSlotLayer } from "./content-rotation.js";
 import { getCompositionInstruction, pickCompositionMode } from "./composition-modes.js";
 import { getContentLayerInstruction } from "./content-layers.js";
 import { createMeaningBrief, createUniversalSemanticPlan, scoreMeaningBrief } from "./meaning-engine.js";
@@ -303,7 +303,9 @@ function cleanDesignReferenceText(value) {
 }
 
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
-  const slot = generationBrief.diversitySlot || createContentSlot({ project, product, existingJobs });
+  const slot = generationBrief.diversitySlot
+    ? refreshContentSlotLayer(generationBrief.diversitySlot, { project, product, existingJobs })
+    : createContentSlot({ project, product, existingJobs });
   const hasHookReference = Boolean(generationBrief.hookReference);
   const topicCandidate = !hasHookReference && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
     ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
