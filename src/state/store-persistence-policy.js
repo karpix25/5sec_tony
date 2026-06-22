@@ -24,6 +24,8 @@ function hasPersistedJobDelta(previous, next) {
     "imageData",
     "finalVideoUrl",
     "finalVideoHasAudio",
+    "quotaCountedAt",
+    "quotaCountedStatus",
     "failMsg",
     "diskStatus",
     "diskPath",

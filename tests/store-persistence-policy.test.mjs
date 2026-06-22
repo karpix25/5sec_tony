@@ -32,6 +32,28 @@ test("remote save keeps meaningful job persistence fields", () => {
   assert.equal(shouldSave, true);
 });
 
+test("remote save keeps job quota accounting fields", () => {
+  const previousState = {
+    jobs: [{ id: "job-1", status: "running", stage: "image", quotaCountedAt: "" }]
+  };
+  const nextState = {
+    jobs: [{
+      id: "job-1",
+      status: "done",
+      stage: "export",
+      finalVideoUrl: "https://cdn.example.com/final.mp4",
+      quotaCountedAt: "2026-06-22T10:00:00.000Z",
+      quotaCountedStatus: "done"
+    }]
+  };
+
+  const shouldSave = shouldScheduleRemoteSave(previousState, nextState, {
+    jobs: nextState.jobs
+  });
+
+  assert.equal(shouldSave, true);
+});
+
 test("remote save still runs for mixed patches beyond jobs", () => {
   const previousState = { jobs: [] };
   const nextState = { jobs: [], selectedProjectId: "project-2" };

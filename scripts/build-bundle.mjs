@@ -25,6 +25,7 @@ const files = [
   "src/domain/product-insights.js",
   "src/domain/product-content-focus.js",
   "src/domain/product-profile.js",
+  "src/domain/job-quota.js",
   "src/domain/project-automation.js",
   "src/domain/topic-candidates.js",
   "src/domain/meaning-engine.js",

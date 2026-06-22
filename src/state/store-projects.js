@@ -36,15 +36,6 @@ export function updateProjectEntity(project, payload) {
 export function withCreatedJobs(state, jobs, projectId) {
   if (!jobs.length) return { jobs: state.jobs };
   return {
-    jobs: [...jobs, ...state.jobs],
-    projects: state.projects.map((project) =>
-      project.id === projectId
-        ? {
-          ...project,
-          usedToday: Number(project.usedToday || 0) + jobs.length,
-          usedTotal: Number(project.usedTotal || 0) + jobs.length
-        }
-        : project
-    )
+    jobs: [...jobs, ...state.jobs]
   };
 }

@@ -18,7 +18,7 @@ test("automation settings normalize into safe limits", () => {
   assert.equal(automation.concurrency, 5);
 });
 
-test("automation state caps next batch by daily limit and active jobs", () => {
+test("automation state caps next batch by daily limit and active reservations", () => {
   const project = {
     id: "auto-project",
     dailyLimit: 10,
@@ -29,8 +29,8 @@ test("automation state caps next batch by daily limit and active jobs", () => {
   };
   const jobs = [
     { projectId: project.id, status: "running" },
-    { projectId: project.id, status: "done" },
-    { projectId: project.id, status: "done" }
+    { projectId: project.id, status: "done", finalVideoUrl: "/generated/one.mp4" },
+    { projectId: project.id, status: "done", finalVideoUrl: "/generated/two.mp4" }
   ];
 
   const state = getProjectAutomationState({ project, jobs });
@@ -39,7 +39,7 @@ test("automation state caps next batch by daily limit and active jobs", () => {
   assert.equal(state.completedJobs, 2);
   assert.equal(state.remainingDaily, 2);
   assert.equal(state.remainingProject, 3);
-  assert.equal(state.nextCount, 2);
+  assert.equal(state.nextCount, 1);
   assert.equal(state.canRun, true);
 });
 
@@ -60,10 +60,11 @@ test("automation state caps next batch by total project limit", () => {
   assert.equal(state.nextCount, 1);
 });
 
-test("store creates jobs only up to project daily limit", () => {
+test("store creates jobs only up to unreserved project daily limit", () => {
   const store = createStore();
   const state = store.getState();
   const project = state.projects.find((item) => item.id === state.selectedProjectId);
+  state.jobs = [];
   state.projects = state.projects.map((item) =>
     item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 18, projectLimit: 50, usedTotal: 48 } : item
   );
@@ -72,14 +73,16 @@ test("store creates jobs only up to project daily limit", () => {
   const updated = store.getState().projects.find((item) => item.id === project.id);
 
   assert.equal(jobs.length, 2);
-  assert.equal(updated.usedToday, 20);
-  assert.equal(updated.usedTotal, 50);
+  assert.equal(updated.usedToday, 18);
+  assert.equal(updated.usedTotal, 48);
+  assert.equal(store.createJobs(1).length, 0);
 });
 
-test("store creates jobs only up to total project limit", () => {
+test("store creates jobs only up to unreserved total project limit", () => {
   const store = createStore();
   const state = store.getState();
   const project = state.projects.find((item) => item.id === state.selectedProjectId);
+  state.jobs = [];
   state.projects = state.projects.map((item) =>
     item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 2, projectLimit: 5, usedTotal: 4 } : item
   );
@@ -88,8 +91,58 @@ test("store creates jobs only up to total project limit", () => {
   const updated = store.getState().projects.find((item) => item.id === project.id);
 
   assert.equal(jobs.length, 1);
-  assert.equal(updated.usedToday, 3);
-  assert.equal(updated.usedTotal, 5);
+  assert.equal(updated.usedToday, 2);
+  assert.equal(updated.usedTotal, 4);
+  assert.equal(store.createJobs(1).length, 0);
+});
+
+test("store counts daily usage only when a job succeeds once", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = state.projects.find((item) => item.id === state.selectedProjectId);
+  state.jobs = [];
+  state.projects = state.projects.map((item) =>
+    item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 18, projectLimit: 50, usedTotal: 48 } : item
+  );
+
+  const [job] = store.createJobs(1);
+  let updated = store.getState().projects.find((item) => item.id === project.id);
+  assert.equal(updated.usedToday, 18);
+  assert.equal(updated.usedTotal, 48);
+
+  store.patchJob(job.id, { status: "failed", failMsg: "provider error" });
+  updated = store.getState().projects.find((item) => item.id === project.id);
+  assert.equal(updated.usedToday, 18);
+  assert.equal(updated.usedTotal, 48);
+
+  store.patchJob(job.id, { status: "done", finalVideoUrl: "/generated/final.mp4" });
+  updated = store.getState().projects.find((item) => item.id === project.id);
+  const countedJob = store.getState().jobs.find((item) => item.id === job.id);
+  assert.equal(updated.usedToday, 19);
+  assert.equal(updated.usedTotal, 49);
+  assert.ok(countedJob.quotaCountedAt);
+
+  store.patchJob(job.id, { progress: 100, diskStatus: "done" });
+  updated = store.getState().projects.find((item) => item.id === project.id);
+  assert.equal(updated.usedToday, 19);
+  assert.equal(updated.usedTotal, 49);
+});
+
+test("store counts image-only review jobs as successful usage", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = state.projects.find((item) => item.id === state.selectedProjectId);
+  state.jobs = [];
+  state.projects = state.projects.map((item) =>
+    item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 0, projectLimit: 50, usedTotal: 0 } : item
+  );
+
+  const [job] = store.createJobs(1);
+  store.patchJob(job.id, { outputType: "image", status: "review", imageUrl: "/generated/image.png" });
+  const updated = store.getState().projects.find((item) => item.id === project.id);
+
+  assert.equal(updated.usedToday, 1);
+  assert.equal(updated.usedTotal, 1);
 });
 
 test("store distributes batch jobs across project products", () => {

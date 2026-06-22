@@ -1,6 +1,7 @@
 import { getDesignReferences } from "../domain/references.js";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { getProductsForProject } from "../domain/generation.js";
+import { countActiveQuotaReservations } from "../domain/job-quota.js";
 import { ensureGenerationBrief } from "./factories.js";
 import { createGenerationJobBatch } from "./job-batch.js";
 
@@ -37,14 +38,16 @@ export function getProjectSelectionContext(state, projectId, getProject) {
 }
 
 export function createSelectionJobBatch(state, context, count, options = {}) {
-  const dailyLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0));
-  const totalLeft = Math.max(0, Number(context.project.projectLimit || 0) - Number(context.project.usedTotal || 0));
+  const projectJobs = state.jobs.filter((item) => item.projectId === context.project.id);
+  const reserved = countActiveQuotaReservations(projectJobs);
+  const dailyLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0) - reserved);
+  const totalLeft = Math.max(0, Number(context.project.projectLimit || 0) - Number(context.project.usedTotal || 0) - reserved);
   const safeCount = Math.max(0, Math.min(Number(count || 1), dailyLeft, totalLeft));
   if (!safeCount) return [];
   return createGenerationJobBatch({
     context,
     count: safeCount,
     products: options.distributeProducts ? getProductsForProject(state.products, context.project.id) : [],
-    existingJobs: state.jobs.filter((item) => item.projectId === context.project.id)
+    existingJobs: projectJobs
   });
 }

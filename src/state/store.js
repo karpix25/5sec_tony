@@ -14,6 +14,7 @@ import {
   getSelectedGlobalAudioId
 } from "./global-assets.js";
 import { createStoreCache } from "./store-cache.js";
+import { patchJobWithQuotaAccounting } from "../domain/job-quota.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
 import { updateProjectEntity, withCreatedJobs } from "./store-projects.js";
 import { mergeHydratedReferenceState, normalizePersistedReferenceState } from "./reference-libraries.js";
@@ -421,9 +422,7 @@ export function createStore() {
       return jobs;
     },
     patchJob(jobId, payload) {
-      setState({
-        jobs: state.jobs.map((job) => (job.id === jobId ? { ...job, ...payload } : job))
-      });
+      setState(patchJobWithQuotaAccounting(state, jobId, payload));
     },
     replaceJob(jobId, jobNext) {
       setState({ jobs: state.jobs.map((job) => (job.id === jobId ? jobNext : job)) });

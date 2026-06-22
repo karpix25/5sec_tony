@@ -44,7 +44,7 @@ test("jobs-only updates refresh the visible automation counter", () => {
   };
   const state = {
     jobs: [
-      { projectId: "project-1", status: "done" },
+      { projectId: "project-1", status: "done", finalVideoUrl: "/generated/final.mp4" },
       { projectId: "project-1", status: "running" },
       { projectId: "project-1", status: "running" }
     ]
