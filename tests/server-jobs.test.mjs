@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
-import { handleServerJobsApi } from "../scripts/server-jobs.mjs";
+import { createServerJobsApiHandler, handleServerJobsApi } from "../scripts/server-jobs.mjs";
 
 test("server job runs image generation, final assembly, avatar usage and disk upload", async () => {
   const originalFetch = globalThis.fetch;
@@ -97,23 +97,162 @@ test("server job runs image generation, final assembly, avatar usage and disk up
   }
 });
 
-async function waitForServerJob(jobId, predicate) {
+test("server job persists image task id without waiting for browser polling", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const persisted = [];
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : {};
+    if (String(url).includes("/api/images/generate")) {
+      assert.equal(body.provider, "gpt-image-2");
+      return jsonResponse({ taskId: "image-task-persisted" });
+    }
+    if (String(url).includes("/api/images/status")) {
+      return jsonResponse({ state: "success", imageUrl: "https://cdn.example.com/no-browser.png" });
+    }
+    if (String(url).includes("/api/avatar-videos/composite")) {
+      return jsonResponse({ videoUrl: "/generated/no-browser.mp4", hasAudio: false });
+    }
+    if (String(url).includes("/api/yandex-disk/upload")) {
+      return jsonResponse({ diskPath: "disk:/no-browser.mp4" });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const handle = createServerJobsApiHandler({
+    serverJobs: new Map(),
+    persistServerJobSnapshot: async (job) => {
+      persisted.push({ ...job });
+      return true;
+    }
+  });
+
+  try {
+    const started = await callServerJobsApi("POST", "/api/jobs/run", {
+      job: {
+        id: "job-persist-task",
+        projectId: "project-1",
+        productId: "product-1",
+        outputType: "final-video",
+        prompt: "Persist task id"
+      },
+      context: { project: { id: "project-1", yandexDiskFolder: "" } }
+    }, handle);
+
+    assert.equal(started.status, 200);
+    await waitFor(() => persisted.some((job) => job.imageTaskId === "image-task-persisted"));
+    await waitFor(() => persisted.some((job) => job.status === "done"));
+    assert.equal(persisted.some((job) => job.status === "done" && job.finalVideoUrl === "/generated/no-browser.mp4"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("server job renders final video without requiring a ready avatar video", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  let compositeBody = null;
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/api/images/generate")) return jsonResponse({ taskId: "image-task-no-avatar" });
+    if (String(url).includes("/api/images/status")) {
+      return jsonResponse({ state: "success", imageUrl: "https://cdn.example.com/no-avatar.png" });
+    }
+    if (String(url).includes("/api/avatar-videos/composite")) {
+      compositeBody = JSON.parse(options.body || "{}");
+      return jsonResponse({ videoUrl: "/generated/no-avatar.mp4", hasAudio: false });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const handle = createServerJobsApiHandler({
+    serverJobs: new Map(),
+    persistServerJobSnapshot: async () => true
+  });
+
+  try {
+    await callServerJobsApi("POST", "/api/jobs/run", {
+      job: {
+        id: "job-no-avatar",
+        projectId: "project-1",
+        productId: "product-1",
+        characterId: "char-no-ready-video",
+        outputType: "final-video",
+        prompt: "Render without avatar"
+      },
+      context: {
+        selectedCharacterId: "char-no-ready-video",
+        project: {
+          id: "project-1",
+          yandexDiskFolder: "",
+          characters: [{ id: "char-no-ready-video", name: "No Video", avatarVideos: [] }]
+        }
+      }
+    }, handle);
+
+    const finalPayload = await waitForServerJob("job-no-avatar", (payload) => payload.job.status === "done", handle);
+    assert.equal(finalPayload.job.renderedWithoutAvatar, true);
+    assert.equal(finalPayload.job.finalVideoUrl, "/generated/no-avatar.mp4");
+    assert.equal(compositeBody.avatarVideoUrl, "");
+    assert.deepEqual(compositeBody.overlay, {});
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("missing in-memory server job is recovered from persisted state as retryable failure", async () => {
+  const persisted = [];
+  const handle = createServerJobsApiHandler({
+    serverJobs: new Map(),
+    loadPersistedServerJob: async () => ({
+      id: "job-orphaned",
+      status: "running",
+      stage: "image",
+      progress: 48,
+      failMsg: "Сервер ожидает картинку..."
+    }),
+    persistServerJobSnapshot: async (job) => {
+      persisted.push({ ...job });
+      return true;
+    }
+  });
+
+  const { status, payload } = await callServerJobsApi("GET", "/api/jobs/status?jobId=job-orphaned", null, handle);
+
+  assert.equal(status, 200);
+  assert.equal(payload.job.status, "failed");
+  assert.match(payload.job.failMsg, /перезапуском/);
+  assert.equal(persisted[0].status, "failed");
+});
+
+async function waitForServerJob(jobId, predicate, handle = handleServerJobsApi) {
   for (let index = 0; index < 30; index += 1) {
-    const { payload } = await callServerJobsApi("GET", `/api/jobs/status?jobId=${jobId}`);
+    const { payload } = await callServerJobsApi("GET", `/api/jobs/status?jobId=${jobId}`, null, handle);
     if (predicate(payload)) return payload;
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
   throw new Error("server job did not finish");
 }
 
-async function callServerJobsApi(method, path, body) {
+async function callServerJobsApi(method, path, body, handle = handleServerJobsApi) {
   const request = Readable.from(body ? [JSON.stringify(body)] : []);
   request.method = method;
   request.headers = { host: "127.0.0.1:4173" };
   const response = createJsonCaptureResponse();
-  const handled = await handleServerJobsApi(request, response, new URL(`http://127.0.0.1:4173${path}`));
+  const handled = await handle(request, response, new URL(`http://127.0.0.1:4173${path}`));
   assert.equal(handled, true);
   return response.readJson();
+}
+
+async function waitFor(predicate) {
+  for (let index = 0; index < 30; index += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("condition was not met");
 }
 
 function createJsonCaptureResponse() {

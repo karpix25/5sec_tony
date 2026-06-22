@@ -2,6 +2,7 @@ import { isNoAvatarCharacterId, noAvatarCharacterId } from "../src/domain/avatar
 import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../src/domain/avatar-video-rotation.js";
 import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
 import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
+import { loadPersistedServerJob, persistServerJobSnapshot } from "./server-job-state.mjs";
 
 const serverJobs = new Map();
 const successStates = ["success", "succeeded", "completed", "complete"];
@@ -10,31 +11,42 @@ const primaryProvider = "gpt-image-2";
 const fallbackProvider = "nano-banana-2";
 
 export async function handleServerJobsApi(request, response, url) {
-  if (request.method === "POST" && url.pathname === "/api/jobs/run") {
-    return startServerJob(request, response);
-  }
-  if (request.method === "GET" && url.pathname === "/api/jobs/status") {
-    return getServerJobStatus(response, url.searchParams.get("jobId"));
-  }
-  return false;
+  return createServerJobsApiHandler()(request, response, url);
 }
 
-async function startServerJob(request, response) {
+export function createServerJobsApiHandler(deps = {}) {
+  const jobs = deps.serverJobs || serverJobs;
+  const persistJob = deps.persistServerJobSnapshot || persistServerJobSnapshot;
+  const loadJob = deps.loadPersistedServerJob || loadPersistedServerJob;
+  return async function handleServerJobsApiWithDeps(request, response, url) {
+    if (request.method === "POST" && url.pathname === "/api/jobs/run") {
+      return startServerJob(request, response, { jobs, persistJob });
+    }
+    if (request.method === "GET" && url.pathname === "/api/jobs/status") {
+      return getServerJobStatus(response, url.searchParams.get("jobId"), { jobs, persistJob, loadJob });
+    }
+    return false;
+  };
+}
+
+async function startServerJob(request, response, deps) {
   try {
     const body = await readJson(request);
     const job = body.job || {};
     if (!job.id) return sendJson(response, 400, { error: "job.id is required" });
-    if (!serverJobs.has(job.id)) {
+    if (!deps.jobs.has(job.id)) {
       const origin = `http://${request.headers.host}`;
       const record = {
         job: { ...job, status: "running", stage: "image", progress: 18, failMsg: "Сервер запустил генерацию..." },
         context: body.context || {},
         origin,
-        avatarUsage: null
+        avatarUsage: null,
+        persistJob: deps.persistJob
       };
-      serverJobs.set(job.id, record);
-      runServerJob(record).catch((error) => {
-        patchServerJob(record, {
+      deps.jobs.set(job.id, record);
+      await persistServerJob(record);
+      runServerJob(record).catch(async (error) => {
+        await patchServerJob(record, {
           status: "failed",
           stage: "image",
           progress: 100,
@@ -42,15 +54,15 @@ async function startServerJob(request, response) {
         });
       });
     }
-    return sendJson(response, 200, getServerJobPayload(serverJobs.get(job.id)));
+    return sendJson(response, 200, getServerJobPayload(deps.jobs.get(job.id)));
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "Не удалось запустить серверную задачу" });
   }
 }
 
-function getServerJobStatus(response, jobId) {
-  const record = serverJobs.get(jobId || "");
-  if (!record) return sendJson(response, 404, { error: "server job not found" });
+async function getServerJobStatus(response, jobId, deps) {
+  const record = deps.jobs.get(jobId || "");
+  if (!record) return sendPersistedServerJobStatus(response, jobId, deps);
   return sendJson(response, 200, getServerJobPayload(record));
 }
 
@@ -60,7 +72,7 @@ async function runServerJob(record) {
 }
 
 async function runServerImageGeneration(record, provider) {
-  patchServerJob(record, {
+  await patchServerJob(record, {
     status: "running",
     stage: "image",
     progress: provider === fallbackProvider ? 26 : 24,
@@ -76,13 +88,13 @@ async function runServerImageGeneration(record, provider) {
     resolution: "1K",
     outputFormat: "png"
   });
-  patchServerJob(record, { imageTaskId: task.taskId, imageProvider: provider });
+  await patchServerJob(record, { imageTaskId: task.taskId, imageProvider: provider });
 
   for (let attempt = 0; attempt < 75; attempt += 1) {
     await delayServerJobPoll(attempt === 0 ? 6000 : 4000);
     const status = await getServerJson(record.origin, `/api/images/status?taskId=${encodeURIComponent(task.taskId)}`);
     if (successStates.includes(status.state) && status.imageUrl) {
-      patchServerJob(record, {
+      await patchServerJob(record, {
         status: "running",
         stage: "assembly",
         progress: 76,
@@ -96,7 +108,7 @@ async function runServerImageGeneration(record, provider) {
       if (provider === primaryProvider) return runServerImageGeneration(record, fallbackProvider);
       throw new Error(status.failMsg || "Генерация картинки завершилась ошибкой");
     }
-    patchServerJob(record, {
+    await patchServerJob(record, {
       status: "running",
       stage: "image",
       progress: Math.min(72, 24 + attempt * 4)
@@ -109,7 +121,7 @@ async function runServerImageGeneration(record, provider) {
 
 async function runServerFinalAssembly(record, backgroundImageUrl) {
   if (!requiresFinalVideo(record.job)) {
-    patchServerJob(record, { status: "review", stage: "approval", progress: 76, failMsg: "" });
+    await patchServerJob(record, { status: "review", stage: "approval", progress: 76, failMsg: "" });
     return;
   }
 
@@ -122,7 +134,7 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
   const renderWithoutAvatar = allowNoAvatar || !avatarVideoUrl;
   const audio = getServerJobAudio(record);
 
-  patchServerJob(record, {
+  await patchServerJob(record, {
     status: "running",
     stage: "assembly",
     progress: 88,
@@ -151,7 +163,7 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
     };
   }
 
-  patchServerJob(record, {
+  await patchServerJob(record, {
     status: "done",
     stage: "export",
     progress: 100,
@@ -167,19 +179,19 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
   if (!project.yandexDiskFolder) return;
   const avatarName = resolveServerJobAvatarName(project, record.job, record.context.selectedCharacterId);
   try {
-    patchServerJob(record, { diskStatus: "uploading", diskMessage: "Сервер сохраняет в Яндекс.Диск..." });
+    await patchServerJob(record, { diskStatus: "uploading", diskMessage: "Сервер сохраняет в Яндекс.Диск..." });
     const result = await postServerJson(record.origin, "/api/yandex-disk/upload", {
       fileUrl: finalVideoUrl,
       targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
       fileName: buildServerExportFileName(project, record.job)
     });
-    patchServerJob(record, {
+    await patchServerJob(record, {
       diskStatus: "done",
       diskPath: result.diskPath,
       diskMessage: "Сохранено в Яндекс.Диск"
     });
   } catch (error) {
-    patchServerJob(record, {
+    await patchServerJob(record, {
       diskStatus: "failed",
       diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск"
     });
@@ -190,8 +202,35 @@ function getServerJobPayload(record) {
   return { job: record.job, avatarUsage: record.avatarUsage };
 }
 
-function patchServerJob(record, payload) {
+async function patchServerJob(record, payload) {
   record.job = { ...record.job, ...payload };
+  await persistServerJob(record);
+}
+
+async function persistServerJob(record) {
+  try {
+    await record.persistJob?.(record.job);
+  } catch (error) {
+    console.warn(`[server-job:persist:error] ${error.message || error}`);
+  }
+}
+
+async function sendPersistedServerJobStatus(response, jobId, deps) {
+  const job = await deps.loadJob(jobId || "");
+  if (!job) return sendJson(response, 404, { error: "server job not found" });
+  if (isTerminalServerJob(job)) return sendJson(response, 200, { job, avatarUsage: null });
+  const failedJob = {
+    ...job,
+    status: "failed",
+    progress: 100,
+    failMsg: "Серверная задача была прервана перезапуском. Запустите генерацию заново."
+  };
+  await deps.persistJob(failedJob);
+  return sendJson(response, 200, { job: failedJob, avatarUsage: null });
+}
+
+function isTerminalServerJob(job) {
+  return ["done", "review", "failed"].includes(job?.status);
 }
 
 function getServerJobAudio(record) {
