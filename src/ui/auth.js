@@ -33,6 +33,14 @@ export function createAuthController(options = {}) {
     updateState({ status: "loading", error: "" });
     try {
       const session = await getCurrentAuthUser();
+      if (!getAuthPayloadUser(session) && !getTelegramInitData()) {
+        updateState({ status: "no-telegram", user: null, error: "" });
+        return;
+      }
+      if (shouldLoginFromTelegram(session)) {
+        await loginFromTelegram();
+        return;
+      }
       await acceptAuthPayload(session);
     } catch {
       await loginFromTelegram();
@@ -115,6 +123,17 @@ export function createAuthController(options = {}) {
     getState: () => state,
     render
   };
+}
+
+function shouldLoginFromTelegram(payload = {}) {
+  const user = getAuthPayloadUser(payload);
+  const initData = getTelegramInitData();
+  if (!user) return Boolean(initData);
+  return getAccessStatus(payload, user) !== "approved" && Boolean(initData);
+}
+
+function getAuthPayloadUser(payload = {}) {
+  return payload.user || payload.authUser || null;
 }
 
 export function renderAuthGate(state = createAuthState()) {
