@@ -1,5 +1,6 @@
 import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
 import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
+import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
 
@@ -69,6 +70,7 @@ async function handleSaveState(request, response, deps) {
       return sendJson(response, 400, { error: "state object is required" });
     }
     const result = await deps.withTransaction(async (tx) => {
+      const nextState = normalizeStateJobIds(body.state);
       const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
       if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
         return {
@@ -77,10 +79,10 @@ async function handleSaveState(request, response, deps) {
           state: await loadCurrentState(tx.query, deps, appStateKey)
         };
       }
-      await deps.saveNormalized(tx.query, appStateKey, body.state);
-      const legacyResult = await deps.saveLegacy(tx.query, appStateKey, body.state);
+      await deps.saveNormalized(tx.query, appStateKey, nextState);
+      const legacyResult = await deps.saveLegacy(tx.query, appStateKey, nextState);
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
-      if (!statesEqual(rebuiltState, body.state)) {
+      if (!statesEqual(rebuiltState, nextState)) {
         throw new Error("Relational state parity check failed");
       }
       return {

@@ -13,6 +13,7 @@ import { pickGenerationTopic } from "./generation-topic.js";
 import { createHookIntelligence, formatHookIntelligencePrompt } from "./hook-intelligence.js";
 import { createLayoutContentPlan, formatLayoutPlanPrompt } from "./layout-content-planner.js";
 import { formatCreativeQualityPrompt, validateCreativeBrief } from "./creative-quality-validator.js";
+import { createUniqueJobId } from "./job-identity.js";
 
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
@@ -196,7 +197,7 @@ export function createGenerationJob({ project, product, reference, character, au
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
   const inputReferences = getGenerationInputReferences({ reference, product, productVisualMode: brief.productVisualMode });
   return {
-    id: `job-${Math.floor(200 + Math.random() * 700)}`,
+    id: createUniqueJobId(existingJobs),
     projectId: project.id,
     productId: product.id,
     characterId: character?.id || noAvatarCharacterId,

@@ -1,4 +1,5 @@
 import { ensureStateSchema } from "./state-schema.mjs";
+import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 
 const uiKeys = [
   "selectedProjectId",
@@ -77,16 +78,17 @@ export async function loadNormalizedState(query, appStateKey) {
 }
 
 export async function saveNormalizedState(query, appStateKey, state) {
+  const normalizedState = normalizeStateJobIds(state);
   await ensureStateSchema(query);
   await clearNormalizedState(query, appStateKey);
 
-  await saveUiState(query, appStateKey, state);
-  await saveProjects(query, appStateKey, state.projects || []);
-  await saveProducts(query, appStateKey, state.products || []);
-  await saveJobs(query, appStateKey, state.jobs || []);
-  await saveGlobalAudio(query, appStateKey, state.audioLibrary || []);
-  await saveHookLibrary(query, appStateKey, state.hookLibrary || { activeVersionId: "", versions: [] });
-  await saveReelsResearch(query, appStateKey, state.reelsResearch);
+  await saveUiState(query, appStateKey, normalizedState);
+  await saveProjects(query, appStateKey, normalizedState.projects || []);
+  await saveProducts(query, appStateKey, normalizedState.products || []);
+  await saveJobs(query, appStateKey, normalizedState.jobs || []);
+  await saveGlobalAudio(query, appStateKey, normalizedState.audioLibrary || []);
+  await saveHookLibrary(query, appStateKey, normalizedState.hookLibrary || { activeVersionId: "", versions: [] });
+  await saveReelsResearch(query, appStateKey, normalizedState.reelsResearch);
 }
 
 export async function loadLegacyState(query, appStateKey) {

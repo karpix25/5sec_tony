@@ -124,6 +124,47 @@ test("state api saves relational tables and legacy mirror when postgres is confi
   assert.deepEqual(calls, [["normalized", state], ["legacy", state]]);
 });
 
+test("state api removes duplicate jobs before saving mirrors", async () => {
+  const calls = [];
+  let savedState = null;
+  const state = {
+    projects: [{ id: "project-1" }],
+    products: [],
+    jobs: [
+      { id: "job-1", title: "visible current" },
+      { id: "job-1", title: "stale duplicate" }
+    ]
+  };
+  const response = createJsonResponse();
+  const handleStateApi = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    saveNormalizedState: async (_query, _key, nextState) => {
+      savedState = nextState;
+      calls.push(["normalized", nextState.jobs.map((job) => job.title)]);
+    },
+    saveLegacyState: async (_query, _key, nextState) => {
+      calls.push(["legacy", nextState.jobs.map((job) => job.title)]);
+      return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
+    },
+    loadNormalizedState: async () => savedState,
+    withPostgresTransaction: async (callback) => callback({
+      query: async () => ({ rows: [] })
+    })
+  });
+
+  await handleStateApi(
+    createJsonRequest("POST", { state }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, [
+    ["normalized", ["visible current"]],
+    ["legacy", ["visible current"]]
+  ]);
+});
+
 test("state api rejects stale saves without overwriting current db state", async () => {
   const calls = [];
   const staleState = { projects: [{ id: "local-old" }], products: [], jobs: [] };
