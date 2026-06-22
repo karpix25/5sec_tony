@@ -1,20 +1,25 @@
 import { getPatternInstruction, pickScenarioPattern } from "./creative-patterns.js";
 import { adaptHookFromReference, selectHookReference } from "./hook-library.js";
 import { createHookProductBridge } from "./hook-product-bridge.js";
+import { writeHookFromFormula } from "./hook-formula-writer.js";
+import { getProductContentFocus } from "./product-content-focus.js";
 
-export function createMeaningBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
+export function createMeaningBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
   const pattern = generationBrief.meaningPattern || pickScenarioPattern({ project, existingJobs });
+  const focus = getProductContentFocus({ project, product });
   const angle = firstAvailable([
-    generationBrief.topic,
+    generationBrief.diversitySlot?.contentLayer?.subject,
     meaningFirstLine(project.keyScenarios),
     meaningFirstLine(project.audiencePains),
     meaningFirstListItem(product.pains),
-    meaningFirstListItem(product.facts),
+    focus.subject,
     product.offer,
+    generationBrief.topic,
     project.projectTheme,
     product.name
   ]);
   const hookReference = generationBrief.hookReference || selectHookReference({
+    hookLibrary,
     project,
     product,
     pattern,
@@ -38,7 +43,7 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     topic: hookBridge?.topic || generationBrief.topic || adaptTopic(pattern.topic, { project, product, angle }),
     hook,
     format: generationBrief.format || pattern.format || reference?.layoutType || "checklist",
-    visualObject: generationBrief.visualObject || adaptVisualObject(pattern.visualObject, { product }),
+    visualObject: generationBrief.visualObject || adaptVisualObject(pattern.visualObject, { project, product }),
     aiPlan: hookBridge?.aiPlan || null,
     notes: [
       generationBrief.notes || "",
@@ -95,87 +100,93 @@ export function scoreMeaningBrief({ brief, project }) {
 }
 
 function redFlagPlan({ product }) {
-  const pain = meaningFirstListItem(product.pains) || "сигнал повторяется несколько дней";
-  const fact = meaningFirstListItem(product.facts) || product.description || "мелкая привычка часто влияет сильнее, чем кажется";
+  const focus = getProductContentFocus({ product });
+  const pain = focus.pain || "важный сигнал легко пропустить";
+  const fact = focus.fact || "контекст меняет решение сильнее, чем кажется";
   return {
-    subhead: "Сначала проверьте, это разовая мелочь или повторяющийся сигнал.",
+    subhead: "Сначала отделите полезный факт от красивого обещания.",
     points: [
-      `В жизни: ${pain}`,
-      `Проверьте: когда это появляется чаще всего`,
+      `Сигнал: ${pain}`,
+      `Проверьте контекст: ${focus.context || fact}`,
       `Полезный факт: ${fact}`,
-      `Что сделать сегодня: уберите один лишний раздражитель`,
-      `Мягкий шаг: ${product.offer || product.name}`
+      `Что сделать: ${focus.action || "сравнить факты перед решением"}`,
+      `Следующий шаг: ${focus.action || product.offer || product.name}`
     ]
   };
 }
 
 function hiddenMistakePlan({ product }) {
-  const pain = meaningFirstListItem(product.pains) || "усталость списывают на обычный день";
-  const fact = meaningFirstListItem(product.facts) || product.description || "важны условия и регулярность";
+  const focus = getProductContentFocus({ product });
+  const pain = focus.pain || "важную деталь проверяют слишком поздно";
+  const fact = focus.fact || "мелкая деталь часто меняет итог";
   return {
-    subhead: "Проблема часто прячется в привычке, которую делают каждый день.",
+    subhead: "Проблема часто прячется не в выборе, а в пропущенной детали.",
     points: [
-      `Кажется мелочью: ${pain}`,
-      "Потом повторяется и становится фоном",
+      `Ошибка: ${pain}`,
+      `Что упускают: ${focus.context || fact}`,
       `Почему так бывает: ${fact}`,
-      "Лайфхак: меняйте не все, а один шаг",
-      `Следующий шаг: ${product.offer || product.name}`
+      `Как проверить: ${focus.action || "собрать факты до решения"}`,
+      `Следующий шаг: ${focus.action || product.offer || product.name}`
     ]
   };
 }
 
 function beforeCheckPlan({ product }) {
-  const pain = meaningFirstListItem(product.pains) || "силы есть, а восстановления нет";
-  const fact = meaningFirstListItem(product.facts) || product.description || "одна деталь меняет ощущение дня";
+  const focus = getProductContentFocus({ product });
+  const pain = focus.pain || "решение принимают без контекста";
+  const fact = focus.fact || "одна деталь меняет итог";
   return {
-    subhead: "Перед покупкой полезнее понять, что происходит в обычном дне.",
+    subhead: "Перед решением полезнее проверить факты, а не только красивую формулировку.",
     points: [
-      `Ситуация: ${pain}`,
+      `Ситуация: ${focus.context || pain}`,
       `Что часто упускают: ${fact}`,
-      "Что проверить сегодня: сон, воду и нагрузку",
-      "Если причина повторяется, нужен спокойный ритуал",
-      `Мягкий шаг: ${product.offer || product.name}`
+      `Что проверить: ${focus.action || "условия, место и контекст"}`,
+      "Если детали не сходятся, лучше перепроверить источник",
+      `Мягкий шаг: ${focus.action || product.offer || product.name}`
     ]
   };
 }
 
 function classificationPlan({ product }) {
-  const items = product.pains?.length ? product.pains : ["легкий сигнал", "повторяется часто", "мешает результату"];
+  const focus = getProductContentFocus({ product });
+  const items = focus.list.length ? focus.list.slice(0, 3) : ["важный факт", "контекст", "следующий шаг"];
   return {
-    subhead: "Отметьте, что повторяется чаще всего именно у вас.",
+    subhead: "Разложите тему на признаки, чтобы не принимать решение по красивой обложке.",
     points: items.map((item) => `Если так: ${item}`).concat([
-      `Почему важно: ${meaningFirstListItem(product.facts) || product.description || "важен повторяющийся паттерн"}`,
-      `Что попробовать: ${product.offer || product.name}`
+      `Почему важно: ${focus.fact || "важен конкретный факт"}`,
+      `Что попробовать: ${focus.action || product.offer || product.name}`
     ])
   };
 }
 
 function mythRealityPlan({ product }) {
-  const pain = meaningFirstListItem(product.pains) || "проблему списывают на лень";
-  const fact = meaningFirstListItem(product.facts) || product.description || "важны условия, ритм и контекст";
+  const focus = getProductContentFocus({ product });
+  const pain = focus.pain || "кажется, что одного общего совета достаточно";
+  const fact = focus.fact || "контекст важнее общей формулировки";
   return {
-    subhead: "Привычная версия часто мешает увидеть простую причину.",
+    subhead: "Привычное объяснение часто мешает увидеть полезный факт.",
     points: [
       `Миф: ${pain}`,
       `На деле: ${fact}`,
-      "Лайфхак: ищите повтор, а не виноватого",
-      "Полезно: начать с маленького вечернего шага",
-      `Мягкий шаг: ${product.offer || product.name}`
+      `Что проверить: ${focus.context || fact}`,
+      `Полезно: ${focus.action || "сравнить несколько источников"}`,
+      `Мягкий шаг: ${focus.action || product.offer || product.name}`
     ]
   };
 }
 
 function metaphorPlan({ product }) {
-  const pain = meaningFirstListItem(product.pains) || "день вроде прошел, а ресурс не вернулся";
-  const fact = meaningFirstListItem(product.facts) || product.description || "в маленькой повторяющейся детали";
+  const focus = getProductContentFocus({ product });
+  const pain = focus.pain || "все выглядит понятно, пока не появляется контекст";
+  const fact = focus.fact || "маленькая деталь меняет картину";
   return {
-    subhead: "Объясните проблему на примере, который человек видит каждый день.",
+    subhead: "Объясните тему через понятную ситуацию, а не через название продукта.",
     points: [
-      `Как в жизни: ${pain}`,
+      `Как в жизни: ${focus.context || pain}`,
       `Где застревает: ${fact}`,
-      "Что заметить сегодня: время, повтор и реакцию",
-      "Лайфхак: упростите один шаг рутины",
-      `Что может помочь: ${product.offer || product.name}`
+      `Что заметить: ${focus.subject || fact}`,
+      `Лайфхак: ${focus.action || "сначала проверить контекст"}`,
+      `Что может помочь: ${focus.action || product.offer || product.name}`
     ]
   };
 }
@@ -183,21 +194,34 @@ function metaphorPlan({ product }) {
 function adaptHook(template, { project, product, angle }) {
   const subject = shortSubject(project, product, angle);
   if (!subject) return template;
+  if (/норма|красн|флаг|ошиб|проверь|миф|почему|вещ|признак/i.test(template)) {
+    return writeHookFromFormula(template, {
+      subject,
+      object: subject,
+      problem: subject,
+      result: subject,
+      count: "5",
+      variantSeed: `${project?.id || ""} ${product?.id || ""} ${angle || ""}`
+    });
+  }
   if (/это/i.test(template)) return template.replace(/это/i, subject);
   return `${template}: ${subject}`;
 }
 
 function adaptTopic(template, { project, product, angle }) {
-  const context = angle || project.projectTheme || product.name;
+  const focus = getProductContentFocus({ project, product });
+  const context = angle || focus.subject || project.projectTheme || product.name;
   return `${template}: ${context}`;
 }
 
-function adaptVisualObject(template, { product }) {
-  return `${template}; главный объект — ${product.name}`;
+function adaptVisualObject(template, { product, project }) {
+  const focus = getProductContentFocus({ project, product });
+  return `${template}; главный объект — ${focus.subject || product.description || product.name}`;
 }
 
 function shortSubject(project, product, angle) {
-  return firstAvailable([angle, project.niche, project.projectTheme, product.name]).split(/[,.]/)[0].slice(0, 80);
+  const focus = getProductContentFocus({ project, product });
+  return firstAvailable([angle, focus.subject, project.niche, project.projectTheme, product.name]).split(/[,.]/)[0].slice(0, 80);
 }
 
 function getUniversalDisclaimer(project) {

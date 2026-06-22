@@ -1,5 +1,6 @@
 import { globalAudioLibrary, initialJobs, products, projects } from "../domain/entities.js";
 import { defaultGenerationBrief } from "./factories.js";
+import { createPersistedReferenceState } from "./reference-libraries.js";
 
 export function createInitialState() {
   return {
@@ -14,6 +15,7 @@ export function createInitialState() {
     selectedAudioId: globalAudioLibrary[0].id,
     selectedProjectTab: "project",
     generationBrief: defaultGenerationBrief,
-    freePrompt: "Сделать спорный, но правдивый хук без репутационного риска."
+    freePrompt: "Сделать спорный, но правдивый хук без репутационного риска.",
+    ...createPersistedReferenceState()
   };
 }

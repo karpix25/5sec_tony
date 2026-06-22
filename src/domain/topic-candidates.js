@@ -1,4 +1,5 @@
 import { buildProductProfile } from "./product-profile.js";
+import { getProductContentFocus } from "./product-content-focus.js";
 
 const hookStrategies = [
   {
@@ -52,7 +53,7 @@ export function buildTopicCandidates({ project, product, existingJobs = [], insi
   const profile = buildProductProfile({ project, product, insightMap });
   return [
     ...buildInsightCandidates(profile),
-    ...hookStrategies.map((strategy) => buildStrategyCandidate(strategy, profile))
+    ...hookStrategies.map((strategy) => buildStrategyCandidate(strategy, profile, { project, product }))
   ]
     .map((candidate) => scoreStrategyCandidate(candidate, profile, existingJobs))
     .sort((left, right) => right.score - left.score);
@@ -65,10 +66,11 @@ export function pickTopicCandidate({ project, product, existingJobs = [], insigh
 export function createTopicCandidatePlan({ project, product, candidate }) {
   if (!candidate) return null;
   const profile = buildProductProfile({ project, product });
-  const safeStep = profile.safeClaims[0] || product.offer || product.name;
-  const proof = candidate.proof || profile.primaryProof;
-  const useCase = candidate.useCase || profile.primaryUseCase;
-  const pain = candidate.pain || profile.primaryPain;
+  const focus = getProductContentFocus({ project, product });
+  const safeStep = focus.action || profile.safeClaims[0] || product.offer || focus.subject || product.name;
+  const proof = candidate.proof || focus.fact || profile.primaryProof;
+  const useCase = candidate.useCase || focus.subject || profile.primaryUseCase;
+  const pain = candidate.pain || focus.pain || profile.primaryPain;
   const habit = candidate.habit || safeStep;
 
   const subheads = {
@@ -76,7 +78,7 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
     "personal-result": "Человек должен сразу понять, что это даст именно ему в обычной жизни.",
     "mistake-fear": "Страх ошибки работает сильнее, когда проверка простая и конкретная.",
     "curiosity-gap": "Оставьте открытый вопрос, но закройте его полезной причиной, а не рекламой.",
-    "money-trap": "Контраст цены и пользы помогает не купить красивую пустышку."
+    "money-trap": "Контраст красивого обещания и проверяемого факта помогает принять спокойное решение."
   };
 
   return {
@@ -84,10 +86,10 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
     subhead: candidate.subhead || subheads[candidate.angleId] || "Сначала поймите ситуацию, потом добавляйте продукт.",
     points: [
       `Почему цепляет: ${pain || useCase}`,
-      `Миф: один совет быстро все исправит`,
+      `Миф: одного общего совета достаточно`,
       `Факт: ${proof || safeStep}`,
       `Рабочий шаг: ${habit}`,
-      `Проверьте: ожидания, регулярность и ограничения`
+      `Проверьте: контекст, источник и детали`
     ],
     disclaimer: "",
     hookPsychology: getHookStrategyInstruction(candidate)
@@ -135,12 +137,13 @@ function buildInsightCandidates(profile) {
   ]);
 }
 
-function buildStrategyCandidate(strategy, profile) {
+function buildStrategyCandidate(strategy, profile, { project, product }) {
+  const focus = getProductContentFocus({ project, product });
   const context = {
-    subject: pickTopicSubject(profile),
-    pain: profile.primaryPain,
-    useCase: profile.primaryUseCase,
-    proof: profile.primaryProof
+    subject: pickTopicSubject(profile, { project, product }),
+    pain: focus.pain || profile.primaryPain,
+    useCase: focus.subject || profile.primaryUseCase,
+    proof: focus.fact || profile.primaryProof
   };
   return {
     angleId: strategy.id,
@@ -158,9 +161,11 @@ function buildStrategyCandidate(strategy, profile) {
   };
 }
 
-function pickTopicSubject(profile) {
-  return profile.primaryUseCase
+function pickTopicSubject(profile, { project, product } = {}) {
+  const focus = getProductContentFocus({ project, product });
+  return focus.subject
     || profile.primaryProof
+    || profile.primaryUseCase
     || profile.description
     || profile.productName;
 }

@@ -218,59 +218,34 @@ test("ai brief can use generated topic for unlocked diversity slots", async () =
 });
 
 test("payment generation turns active hook references into headline and text plan", () => {
-  const previousWindow = globalThis.window;
-  const memory = new Map();
-  globalThis.window = {
-    localStorage: {
-      getItem: (key) => memory.get(key) || null,
-      setItem: (key, value) => memory.set(key, value)
-    }
-  };
+  const hookLibrary = applyHookDraft({ versions: [] }, createHookDraft({ text: "7 красных флагов [темы]" }));
+  const project = { ...projects.find((item) => item.id === "ppm"), projectTheme: "оплата зарубежных сервисов" };
+  const product = products.find((item) => item.id === "crosspay");
+  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], hookLibrary });
+  const plan = createSemanticPlan({ project, product, brief });
 
-  try {
-    applyHookDraft({ versions: [] }, createHookDraft({ text: "7 красных флагов [темы]" }));
-    const project = { ...projects.find((item) => item.id === "ppm"), projectTheme: "оплата зарубежных сервисов" };
-    const product = products.find((item) => item.id === "crosspay");
-    const brief = createAutoGenerationBrief({ project, product, reference: project.references[0] });
-    const plan = createSemanticPlan({ project, product, brief });
-
-    assert.equal(brief.hookReference.text, "7 красных флагов [темы]");
-    assert.match(brief.hook, /7 .*?(сигнал|признак|детал)/i);
-    assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
-    assert.equal(plan.headline, brief.hook);
-    assert.match(plan.points.join(" "), /Сигнал|Норма|Контекст/);
-  } finally {
-    globalThis.window = previousWindow;
-  }
+  assert.equal(brief.hookReference.text, "7 красных флагов [темы]");
+  assert.match(brief.hook, /7 .*?(сигнал|признак|детал|момент)/i);
+  assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
+  assert.equal(plan.headline, brief.hook);
+  assert.match(plan.points.join(" "), /Сигнал|Норма|Контекст/);
 });
 
 test("hook references override ai brief hook for final generation", () => {
-  const previousWindow = globalThis.window;
-  const memory = new Map();
-  globalThis.window = {
-    localStorage: {
-      getItem: (key) => memory.get(key) || null,
-      setItem: (key, value) => memory.set(key, value)
-    }
-  };
+  const hookLibrary = applyHookDraft({ versions: [] }, createHookDraft({ text: "7 красных флагов [темы]" }));
+  const project = { ...projects.find((item) => item.id === "ppm"), projectTheme: "оплата зарубежных сервисов" };
+  const product = products.find((item) => item.id === "crosspay");
+  const brief = createAutoGenerationBrief({
+    project,
+    product,
+    reference: project.references[0],
+    generationBrief: { hook: "Бронь держат недолго: успейте проверить оплату", pointCount: "4" },
+    hookLibrary
+  });
 
-  try {
-    applyHookDraft({ versions: [] }, createHookDraft({ text: "7 красных флагов [темы]" }));
-    const project = { ...projects.find((item) => item.id === "ppm"), projectTheme: "оплата зарубежных сервисов" };
-    const product = products.find((item) => item.id === "crosspay");
-    const brief = createAutoGenerationBrief({
-      project,
-      product,
-      reference: project.references[0],
-      generationBrief: { hook: "Бронь держат недолго: успейте проверить оплату", pointCount: "4" }
-    });
-
-    assert.match(brief.hook, /7 .*?(сигнал|признак|детал)/i);
-    assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
-    assert.equal(brief.pointCount, "7");
-  } finally {
-    globalThis.window = previousWindow;
-  }
+  assert.match(brief.hook, /7 .*?(сигнал|признак|детал|момент)/i);
+  assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
+  assert.equal(brief.pointCount, "7");
 });
 
 test("humanized ai plan becomes final visible payment text", () => {

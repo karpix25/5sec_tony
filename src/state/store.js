@@ -16,6 +16,7 @@ import {
 import { createStoreCache } from "./store-cache.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
 import { updateProjectEntity, withCreatedJobs } from "./store-projects.js";
+import { mergeHydratedReferenceState, normalizePersistedReferenceState } from "./reference-libraries.js";
 import { createStatePersistence } from "./state-persistence.js";
 import {
   createSelectionJobBatch,
@@ -59,7 +60,7 @@ export function createStore() {
   }
 
   function replaceState(nextState) {
-    const hydratedState = mergeHydratedStateWithUiState(nextState, state);
+    const hydratedState = mergeHydratedStateWithUiState(mergeHydratedReferenceState(nextState, state), state);
     state = normalize(hydrationSettled ? hydratedState : preservePreHydrationKeys(hydratedState, state, preHydrationLocalKeys));
     storeCache.persist(state);
     subscribers.forEach((subscriber) => subscriber(state, null));
@@ -153,6 +154,12 @@ export function createStore() {
     },
     updateGenerationBrief(payload) {
       setState({ generationBrief: ensureGenerationBrief(payload) });
+    },
+    updateHookLibrary(hookLibrary) {
+      setState({ hookLibrary });
+    },
+    updateReelsResearch(reelsResearch) {
+      setState({ reelsResearch });
     },
     updateProjectSettings(payload) {
       setState({
@@ -438,7 +445,12 @@ function normalize(nextState) {
   const hydratedProjects = nextState.projects.map(ensureProjectAssets);
   const hydratedProducts = nextState.products.map(ensureProductAssets);
   const audioLibrary = ensureGlobalAudioLibrary({ ...nextState, projects: hydratedProjects }, globalAudioLibrary);
-  const hydratedState = { ...nextState, projects: hydratedProjects, products: hydratedProducts, audioLibrary };
+  const hydratedState = normalizePersistedReferenceState({
+    ...nextState,
+    projects: hydratedProjects,
+    products: hydratedProducts,
+    audioLibrary
+  });
   const selectedProjectId = hydratedProjects.some((project) => project.id === nextState.selectedProjectId)
     ? nextState.selectedProjectId
     : hydratedProjects[0]?.id;

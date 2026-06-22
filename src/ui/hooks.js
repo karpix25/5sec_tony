@@ -1,7 +1,7 @@
 import {
   applyHookDraft,
   createHookDraft,
-  getHookLibrary
+  normalizeHookLibrary
 } from "../domain/hook-library.js";
 import { extractHooksFromImage, extractHooksFromPdf } from "../services/hook-ai.js";
 import { escapeHtml } from "./infographic.js";
@@ -9,8 +9,8 @@ import { escapeHtml } from "./infographic.js";
 let hooksDraft = null;
 let hooksImportError = "";
 
-export function renderHooksPanel() {
-  const library = getHookLibrary();
+export function renderHooksPanel(library) {
+  const normalizedLibrary = normalizeHookLibrary(library);
   return `
     <section class="embedded-panel hooks-panel">
       <div class="panel-head">
@@ -43,14 +43,14 @@ export function renderHooksPanel() {
           <small id="hook-import-status">После сохранения генератор будет использовать эти хуки как референс.</small>
         </section>
         <section class="hooks-preview">
-          ${hooksDraft ? renderDraft(hooksDraft) : hooksImportError ? renderImportError(hooksImportError) : renderActiveSummary(library)}
+          ${hooksDraft ? renderDraft(hooksDraft) : hooksImportError ? renderImportError(hooksImportError) : renderActiveSummary(normalizedLibrary)}
         </section>
       </div>
     </section>
   `;
 }
 
-export function bindHooksEvents(root, refresh) {
+export function bindHooksEvents(root, { getLibrary, saveLibrary, refresh }) {
   root.querySelector("#parse-hook-text")?.addEventListener("click", () => {
     hooksImportError = "";
     hooksDraft = createHookDraft({
@@ -64,7 +64,7 @@ export function bindHooksEvents(root, refresh) {
   root.querySelector("#extract-hook-pdf")?.addEventListener("click", () => runHookPdfExtract(root, refresh));
   root.querySelector("#apply-hook-draft")?.addEventListener("click", () => {
     if (!hooksDraft?.hooks?.length) return;
-    applyHookDraft(getHookLibrary(), hooksDraft);
+    saveLibrary(applyHookDraft(getLibrary(), hooksDraft));
     hooksDraft = null;
     refresh();
   });

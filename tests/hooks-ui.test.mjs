@@ -10,10 +10,10 @@ test("hooks panel shows empty helper when no active hooks or draft", () => {
 });
 
 test("parse hook text event builds a draft and enables apply action after refresh", () => {
-  const restoreWindow = installFakeStorageWindow();
   let parseClick = null;
   let applyClick = null;
   let refreshCount = 0;
+  let library = { activeVersionId: "", versions: [] };
   const titleField = { value: "Хуки тест" };
   const textField = { value: "Первый хук\nВторой хук" };
   const parseButton = { addEventListener: (_event, callback) => { parseClick = callback; } };
@@ -25,20 +25,20 @@ test("parse hook text event builds a draft and enables apply action after refres
     "#apply-hook-draft": applyButton
   });
 
-  try {
-    bindHooksEvents(root, () => { refreshCount += 1; });
-    parseClick();
+  bindHooksEvents(root, {
+    getLibrary: () => library,
+    saveLibrary: (nextLibrary) => { library = nextLibrary; },
+    refresh: () => { refreshCount += 1; }
+  });
+  parseClick();
 
-    assert.equal(refreshCount, 1);
-    const html = renderHooksPanel();
-    assert.match(html, /2 хуков готовы/);
+  assert.equal(refreshCount, 1);
+  const html = renderHooksPanel(library);
+  assert.match(html, /2 хуков готовы/);
 
-    applyClick();
-    assert.equal(refreshCount, 2);
-    assert.match(renderHooksPanel(), /Используются сейчас/);
-  } finally {
-    restoreWindow();
-  }
+  applyClick();
+  assert.equal(refreshCount, 2);
+  assert.match(renderHooksPanel(library), /Используются сейчас/);
 });
 
 function createHooksRoot(map) {
@@ -46,26 +46,5 @@ function createHooksRoot(map) {
     querySelector(selector) {
       return map[selector] || null;
     }
-  };
-}
-
-function installFakeStorageWindow() {
-  const originalWindow = globalThis.window;
-  const storage = new Map();
-  globalThis.window = {
-    localStorage: {
-      getItem(key) {
-        return storage.has(key) ? storage.get(key) : null;
-      },
-      setItem(key, value) {
-        storage.set(key, String(value));
-      },
-      removeItem(key) {
-        storage.delete(key);
-      }
-    }
-  };
-  return () => {
-    globalThis.window = originalWindow;
   };
 }

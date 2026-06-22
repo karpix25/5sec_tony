@@ -32,7 +32,7 @@ test("wellness generation brief uses product pains and facts for topic seed", ()
   });
 
   assert.match(brief.topic, /ритуал|покупк|шум|причин|мелоч|ожидан/i);
-  assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того|ожидан|красный флаг/i);
+  assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того|ожидан|красный флаг|момент|сигнал|ошиб/i);
   assert.ok(brief.topicCandidate);
 });
 

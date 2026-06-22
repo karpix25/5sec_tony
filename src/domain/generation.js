@@ -91,7 +91,7 @@ export function getProductsForProject(products, projectId) {
   return products.filter((product) => product.projectId === projectId);
 }
 
-export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [] }) {
+export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [], hookLibrary }) {
   const pains = product.pains.join(", ");
   const facts = product.facts.join("; ");
   const forbidden = product.forbidden.join("; ");
@@ -99,7 +99,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const remoteProductRefs = (product.references || []).filter((item) => isRemoteImageUrl(item.imageData)).length;
   const localProductRefs = (product.references || []).filter((item) => item.imageData && !isRemoteImageUrl(item.imageData)).length;
   const extra = freePrompt ? `Дополнительная задача: ${freePrompt}.` : "";
-  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
+  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
   const plan = createSemanticPlan({ project, product, brief });
   const profile = buildProductProfile({ project, product, insightMap: brief.productInsightMap });
   const visiblePoints = getVisibleImagePoints(plan.points);
@@ -190,8 +190,8 @@ function formatProductInsightPrompt(profile) {
   ].filter(Boolean).join(" ");
 }
 
-export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [] }) {
-  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
+export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [], hookLibrary }) {
+  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
   const inputReferences = getGenerationInputReferences({ reference, product, productVisualMode: brief.productVisualMode });
   return {
     id: `job-${Math.floor(200 + Math.random() * 700)}`,
@@ -203,7 +203,7 @@ export function createGenerationJob({ project, product, reference, character, au
     progress: 6,
     title: brief.hook,
     music: audio?.title || pickAudio(project),
-    prompt: buildImagePrompt({ project, product, reference, character, generationBrief: brief, freePrompt, existingJobs }),
+    prompt: buildImagePrompt({ project, product, reference, character, generationBrief: brief, freePrompt, existingJobs, hookLibrary }),
     referenceTitle: reference?.title || "",
     inputUrls: inputReferences.map((item) => item.url),
     inputRefs: inputReferences.map(({ role, title, isLocalData }) => ({ role, title, isLocalData })),
@@ -301,7 +301,7 @@ function cleanDesignReferenceText(value) {
     .join(" ");
 }
 
-export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
+export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
   const slot = generationBrief.diversitySlot || createContentSlot({ project, product, existingJobs });
   const hasHookReference = Boolean(generationBrief.hookReference);
   const topicCandidate = !hasHookReference && !slot.lockTopic && !generationBrief.topic && !generationBrief.hook && !isPaymentProject(project, product)
@@ -321,7 +321,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     format: generationBrief.format || topicCandidate?.format || lockedFormat,
     aiPlan: generationBrief.aiPlan || topicCandidatePlan || undefined
   };
-  const meaning = createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs });
+  const meaning = createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs, hookLibrary });
   const scenario = generationBrief.topic ? "" : pickNextScenario({ project, product, existingJobs });
   const desire = firstLine(project.audienceDesires) || product.offer || product.name;
   const fact = firstListItem(product.facts) || product.description || project.projectTheme;

@@ -164,7 +164,7 @@ function renderGlobalReferencePanel(state, context) {
     </div>
     <div class="settings-tab-panel">
       ${active === "audio" ? renderAudioSettings(context) : ""}
-      ${active === "hooks" ? renderHooksPanel() : ""}
+      ${active === "hooks" ? renderHooksPanel(state.hookLibrary) : ""}
     </div>
   `;
 }
@@ -367,7 +367,7 @@ function bindEvents(root, store, options = {}) {
     button.addEventListener("click", () => store.deleteAudio(button.dataset.deleteAudio));
   });
   bindAvatarOverlayComposerEvents(root, store);
-  bindHooksEvents(root, options.rerender || (() => renderApp(root, store, options)));
+  bindHooksEvents(root, { getLibrary: () => store.getState().hookLibrary, saveLibrary: (hookLibrary) => store.updateHookLibrary(hookLibrary), refresh: options.rerender || (() => renderApp(root, store, options)) });
 }
 
 function getFormPayload(form) {

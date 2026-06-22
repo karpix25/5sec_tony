@@ -1,3 +1,5 @@
+import { getProductContentFocus } from "./product-content-focus.js";
+
 const contentLayers = [
   {
     id: "life-pain",
@@ -72,8 +74,12 @@ export function getContentLayerInstruction(layer) {
 }
 
 function getLayerSubject(project, product, existingJobs) {
+  const focus = getProductContentFocus({ project, product });
   const subjects = uniqueLayerSubjects([
     ...layerListItems(product.pains),
+    ...layerListItems(project.keyScenarios),
+    ...layerListItems(product.facts),
+    ...focus.list,
     ...layerListItems(project.audiencePains),
     product.offer,
     project.projectTheme,

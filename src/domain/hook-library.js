@@ -1,21 +1,7 @@
-import { readJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
 import { adaptHookText } from "./hook-adapter.js";
 
-const hookStorageKey = "anton-hook-library";
-const hookStorageVersion = 1;
-
-export function getHookLibrary() {
-  const fallback = { activeVersionId: "", versions: [] };
-  return normalizeHookLibrary(readJsonStorage(hookStorageKey, {
-    fallback,
-    version: hookStorageVersion
-  }));
-}
-
-export function saveHookLibrary(library) {
-  const normalized = normalizeHookLibrary(library);
-  writeJsonStorage(hookStorageKey, normalized, { version: hookStorageVersion });
-  return normalized;
+export function createEmptyHookLibrary() {
+  return { activeVersionId: "", versions: [] };
 }
 
 export function createHookDraft({ title, sourceType = "text", text = "" }) {
@@ -40,7 +26,7 @@ export function applyHookDraft(library, draft) {
   const archived = normalizeHookLibrary(library).versions.map((item) =>
     item.status === "active" ? { ...item, status: "archive" } : item
   );
-  return saveHookLibrary({ activeVersionId: version.id, versions: [version, ...archived] });
+  return normalizeHookLibrary({ activeVersionId: version.id, versions: [version, ...archived] });
 }
 
 export function setHookVersionStatus(library, versionId, status) {
@@ -51,7 +37,7 @@ export function setHookVersionStatus(library, versionId, status) {
     }
     return version.id === versionId ? { ...version, status } : version;
   });
-  return saveHookLibrary({
+  return normalizeHookLibrary({
     activeVersionId: status === "active" ? versionId : versions.find((item) => item.status === "active")?.id || "",
     versions
   });
@@ -59,7 +45,7 @@ export function setHookVersionStatus(library, versionId, status) {
 
 export function toggleHookEnabled(library, hookId) {
   const next = normalizeHookLibrary(library);
-  return saveHookLibrary({
+  return normalizeHookLibrary({
     ...next,
     versions: next.versions.map((version) => ({
       ...version,
@@ -68,8 +54,8 @@ export function toggleHookEnabled(library, hookId) {
   });
 }
 
-export function selectHookReference({ project, product, pattern, slot, existingJobs = [] }) {
-  const library = getHookLibrary();
+export function selectHookReference({ hookLibrary, project, product, pattern, slot, existingJobs = [] }) {
+  const library = normalizeHookLibrary(hookLibrary);
   const active = library.versions.filter((version) => version.status === "active");
   const eligibleHooks = active.flatMap((version) => version.hooks)
     .filter((hook) => hook.enabled !== false)
@@ -104,7 +90,7 @@ function getReferenceHookPointCount(value) {
   return match ? match[1] : "";
 }
 
-function normalizeHookLibrary(library) {
+export function normalizeHookLibrary(library) {
   const versions = Array.isArray(library?.versions) ? library.versions.map(normalizeHookVersion) : [];
   const activeVersionId = library?.activeVersionId || versions.find((item) => item.status === "active")?.id || "";
   return { activeVersionId, versions };
