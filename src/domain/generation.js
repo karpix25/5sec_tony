@@ -303,7 +303,8 @@ function cleanDesignReferenceText(value) {
 
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const slot = generationBrief.diversitySlot || createContentSlot({ project, product, existingJobs });
-  const topicCandidate = !slot.lockTopic && !generationBrief.topic && !generationBrief.hook && !isPaymentProject(project, product)
+  const hasHookReference = Boolean(generationBrief.hookReference);
+  const topicCandidate = !hasHookReference && !slot.lockTopic && !generationBrief.topic && !generationBrief.hook && !isPaymentProject(project, product)
     ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
     : null;
   const topicCandidatePlan = !generationBrief.aiPlan && topicCandidate
@@ -324,7 +325,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const scenario = generationBrief.topic ? "" : pickNextScenario({ project, product, existingJobs });
   const desire = firstLine(project.audienceDesires) || product.offer || product.name;
   const fact = firstListItem(product.facts) || product.description || project.projectTheme;
-  const topic = generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
+  const topic = meaning.hookReference ? meaning.topic : generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
   const paymentHook = isPaymentProject(project, product) ? buildAutoHook({ project, product, topic, fact, desire, existingJobs }) : "";
   const referenceHook = meaning.hookReference ? meaning.hook : "";
   const hook = referenceHook || generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
@@ -352,7 +353,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
       existingJobs
     }),
     productInsightMap: profile.insightMap,
-    aiPlan: generationSeed.aiPlan,
+    aiPlan: generationSeed.aiPlan || (isPaymentProject(project, product) ? undefined : meaning.aiPlan) || undefined,
     productVisualMode: generationBrief.productVisualMode || getProductVisualMode({
       product,
       topic,

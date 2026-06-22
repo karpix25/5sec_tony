@@ -1,4 +1,5 @@
 import { buildProductProfile } from "./product-profile.js";
+import { normalizeHookPhrase } from "./hook-phrase-normalizer.js";
 
 const genericPlaceholderPattern = /\[.*?\]|\(.*?\)|\bчто-то\b|\bчего-то\b|\bвещей\b/gi;
 
@@ -40,10 +41,11 @@ function createHookAdaptationContext({ project, product, angle, profile, templat
   ]);
   const subject = hookAdapterFirstAvailable([
     angle,
+    profile.primaryUseCase,
+    profile.primaryPain,
     project?.projectTheme,
     project?.niche,
-    product?.name,
-    profile.primaryUseCase
+    product?.name
   ]);
   const scenario = hookAdapterFirstAvailable([
     angle,
@@ -73,7 +75,7 @@ function createHookAdaptationContext({ project, product, angle, profile, templat
     scenario: hookAdapterShortPhrase(scenario, 64),
     problem: hookAdapterShortPhrase(problem, 64),
     result: hookAdapterShortPhrase(result, 64),
-    object: hookAdapterShortPhrase(product?.name || subject, 64),
+    object: hookAdapterShortPhrase(profile.primaryUseCase || profile.primaryProof || subject || product?.name, 64),
     action: hookAdapterShortPhrase(project?.keyScenarios || profile.primaryUseCase || "это", 64)
   };
 }
@@ -153,6 +155,7 @@ function toConditionClause(value) {
   const phrase = hookAdapterShortPhrase(value, 64);
   if (!phrase) return "если ситуация повторяется";
   if (/^(если|когда|почему|зачем|перед|после|при)\b/i.test(phrase)) return phrase;
+  if (/^(о|об|про)\s+/i.test(phrase)) return `по теме: ${normalizeHookPhrase(phrase)}`;
   return `если ${hookAdapterLowercaseFirst(phrase)}`;
 }
 

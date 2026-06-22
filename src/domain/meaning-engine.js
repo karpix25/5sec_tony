@@ -1,5 +1,6 @@
 import { getPatternInstruction, pickScenarioPattern } from "./creative-patterns.js";
 import { adaptHookFromReference, selectHookReference } from "./hook-library.js";
+import { createHookProductBridge } from "./hook-product-bridge.js";
 
 export function createMeaningBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const pattern = generationBrief.meaningPattern || pickScenarioPattern({ project, existingJobs });
@@ -8,6 +9,8 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     meaningFirstLine(project.keyScenarios),
     meaningFirstLine(project.audiencePains),
     meaningFirstListItem(product.pains),
+    meaningFirstListItem(product.facts),
+    product.offer,
     project.projectTheme,
     product.name
   ]);
@@ -18,20 +21,29 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     slot: generationBrief.diversitySlot
   });
   const referenceHook = hookReference ? adaptHookFromReference(hookReference, { project, product, angle }) : "";
+  const hookBridge = createHookProductBridge({
+    hookReference,
+    adaptedHook: referenceHook,
+    project,
+    product,
+    angle
+  });
   const hook = referenceHook
     || generationBrief.hook
     || adaptHook(pattern.hook, { project, product, angle });
   return {
     pattern,
     hookReference,
-    topic: generationBrief.topic || adaptTopic(pattern.topic, { project, product, angle }),
+    topic: hookBridge?.topic || generationBrief.topic || adaptTopic(pattern.topic, { project, product, angle }),
     hook,
     format: generationBrief.format || pattern.format || reference?.layoutType || "checklist",
     visualObject: generationBrief.visualObject || adaptVisualObject(pattern.visualObject, { product }),
+    aiPlan: hookBridge?.aiPlan || null,
     notes: [
       generationBrief.notes || "",
       `Creative Strategy Engine: ${pattern.id}`,
       hookReference ? `Hook reference: ${hookReference.text}. Теги: ${(hookReference.tags || []).join(", ")}. Не копировать механически, адаптировать под тему.` : "",
+      hookBridge?.notes || "",
       getPatternInstruction(pattern)
     ].filter(Boolean).join(" ")
   };
