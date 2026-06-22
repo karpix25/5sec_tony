@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { projects, products } from "../src/domain/entities.js";
 import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } from "../src/domain/generation.js";
+import { createContentSlot } from "../src/domain/content-rotation.js";
 import { createContentLayer } from "../src/domain/content-layers.js";
 import { normalizeHumanizedPlan } from "../src/domain/text-humanizer.js";
 
@@ -83,6 +84,44 @@ test("content layer can choose adjacent topics around product", () => {
 
   assert.equal(layer.id, "adjacent-topic");
   assert.match(layer.instruction, /Тема может идти рядом с продуктом/);
+});
+
+test("travel project keeps payment-named bot as context, not payment topic engine", () => {
+  const project = {
+    ...projects[2],
+    id: "ppm",
+    name: "Плати по миру",
+    projectTheme: "Рекомендации и лайфхаки о туризме",
+    companyInfo: "Рекомендации и лайфхаки о туризме",
+    keyScenarios: "",
+    audiencePains: "",
+    audienceDesires: ""
+  };
+  const product = {
+    ...products.find((item) => item.id === "crosspay"),
+    id: "crosspay",
+    projectId: "ppm",
+    name: "Плати по миру бот в тг",
+    description: "Рекомендации для туристов в разных странах",
+    offer: "Давать интересные факты и рекомендации о туризме в другие страны",
+    facts: [
+      "интересные достопримечательности",
+      "культурные особенности",
+      "необычные факты о странах"
+    ],
+    components: "подсказки по странам, маршрутам и локальным особенностям",
+    pains: []
+  };
+
+  const slot = createContentSlot({ project, product, existingJobs: [] });
+  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs: [] });
+  const plan = createSemanticPlan({ project, product, brief });
+  const text = `${slot.id} ${brief.semanticKey} ${brief.topic} ${brief.hook} ${plan.points.join(" ")}`.toLowerCase();
+
+  assert.match(slot.id, /local-rule|culture-mistake|hidden-place|travel-fact|tourist-trap|season-route/);
+  assert.doesNotMatch(`${brief.topic} ${brief.hook}`.toLowerCase(), /плати по миру|бот|ожидания от/);
+  assert.match(text, /турист|путеше|поезд|стран|мест|культур|маршрут|достопримеч/);
+  assert.doesNotMatch(text, /санкци|сбп|рубл|карта снова не проходит|зарубежн.*оплат|подписка сгорит/);
 });
 
 test("image prompt forbids technical labels and repeated disclaimers", () => {

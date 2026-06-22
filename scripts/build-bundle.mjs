@@ -12,6 +12,8 @@ const files = [
   "src/domain/design-reference-candidate.js",
   "src/domain/creative-patterns.js",
   "src/domain/content-layers.js",
+  "src/domain/project-content-intent.js",
+  "src/domain/travel-content-slots.js",
   "src/domain/content-rotation.js",
   "src/domain/composition-modes.js",
   "src/domain/cta-overlay.js",

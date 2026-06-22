@@ -7,6 +7,7 @@ import { createMeaningBrief, createUniversalSemanticPlan, scoreMeaningBrief } fr
 import { createPaymentPlan, getScenarioVisualInstruction } from "./payment-plan.js";
 import { buildDesignReferenceConsistencyInstructions } from "./design-style-lock.js";
 import { buildProductProfile } from "./product-profile.js";
+import { isPaymentProject } from "./project-content-intent.js";
 import { createTopicCandidatePlan, pickTopicCandidate } from "./topic-candidates.js";
 
 const hookStarters = [
@@ -302,18 +303,21 @@ function cleanDesignReferenceText(value) {
 
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const slot = generationBrief.diversitySlot || createContentSlot({ project, product, existingJobs });
-  const topicCandidate = !generationBrief.topic && !generationBrief.hook && !isPaymentProject(project)
+  const topicCandidate = !slot.lockTopic && !generationBrief.topic && !generationBrief.hook && !isPaymentProject(project, product)
     ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
     : null;
   const topicCandidatePlan = !generationBrief.aiPlan && topicCandidate
     ? createTopicCandidatePlan({ project, product, candidate: topicCandidate })
     : null;
+  const lockedTopic = slot.lockTopic ? slot.topic : "";
+  const lockedHook = slot.lockTopic ? slot.hook : "";
+  const lockedFormat = slot.lockTopic ? slot.format : "";
   const generationSeed = {
     ...generationBrief,
     diversitySlot: slot,
-    topic: generationBrief.topic || topicCandidate?.topic || "",
-    hook: generationBrief.hook || topicCandidate?.hook || "",
-    format: generationBrief.format || topicCandidate?.format || "",
+    topic: generationBrief.topic || topicCandidate?.topic || lockedTopic,
+    hook: generationBrief.hook || topicCandidate?.hook || lockedHook,
+    format: generationBrief.format || topicCandidate?.format || lockedFormat,
     aiPlan: generationBrief.aiPlan || topicCandidatePlan || undefined
   };
   const meaning = createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs });
@@ -321,7 +325,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const desire = firstLine(project.audienceDesires) || product.offer || product.name;
   const fact = firstListItem(product.facts) || product.description || project.projectTheme;
   const topic = generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
-  const paymentHook = isPaymentProject(project) ? buildAutoHook({ project, product, topic, fact, desire, existingJobs }) : "";
+  const paymentHook = isPaymentProject(project, product) ? buildAutoHook({ project, product, topic, fact, desire, existingJobs }) : "";
   const referenceHook = meaning.hookReference ? meaning.hook : "";
   const hook = referenceHook || generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
   const hookPointCount = getHookPointCount(meaning.hookReference?.text || hook);
@@ -365,7 +369,7 @@ function getHookPointCount(value) {
 }
 
 export function createSemanticPlan({ project, product, brief }) {
-  if (isPaymentProject(project)) return createPaymentPlan({ product, brief });
+  if (isPaymentProject(project, product)) return createPaymentPlan({ product, brief });
   return createUniversalSemanticPlan({ project, product, brief });
 }
 
@@ -445,11 +449,6 @@ function lines(value) {
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
-}
-
-function isPaymentProject(project) {
-  const source = `${project.niche || ""} ${project.projectTheme || ""} ${project.companyInfo || ""}`.toLowerCase();
-  return /финтех|оплат|зарубеж|банк|санкци|рубл|подпис|сервис/.test(source);
 }
 
 function pickFormat(project, reference) {

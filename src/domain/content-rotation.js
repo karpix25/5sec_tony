@@ -1,5 +1,7 @@
 import { scenarioPatterns } from "./creative-patterns.js";
 import { createContentLayer } from "./content-layers.js";
+import { isPaymentProject, isTravelContentProject } from "./project-content-intent.js";
+import { travelContentSlots } from "./travel-content-slots.js";
 
 const genericSlots = scenarioPatterns.map((pattern) => ({
   id: pattern.id,
@@ -87,10 +89,16 @@ const paymentSlots = [
 ];
 
 export function createContentSlot({ project, product, existingJobs = [] }) {
-  const slots = isPaymentRotationProject(project) ? paymentSlots : genericSlots;
+  const slots = pickContentSlots(project, product);
   const used = new Set(existingJobs.map((job) => job.semanticKey || classifyJob(job, slots)));
   const slot = slots.find((item) => !used.has(item.id)) || slots[existingJobs.length % slots.length];
   return enrichSlotWithLayer(slot, { project, product, existingJobs });
+}
+
+function pickContentSlots(project, product) {
+  if (isTravelContentProject(project, product)) return travelContentSlots;
+  if (isPaymentProject(project, product)) return paymentSlots;
+  return genericSlots;
 }
 
 export function createRecentJobDigest(existingJobs = []) {
@@ -130,11 +138,6 @@ function classifyJob(job, slots) {
     return haystack.split(" ").some((word) => word.length > 5 && text.includes(word));
   });
   return matched?.id || "";
-}
-
-function isPaymentRotationProject(project) {
-  const source = `${project.niche || ""} ${project.projectTheme || ""} ${project.companyInfo || ""}`.toLowerCase();
-  return /финтех|оплат|зарубеж|банк|санкци|рубл|подпис|сервис/.test(source);
 }
 
 function normalizeRotationText(value) {
