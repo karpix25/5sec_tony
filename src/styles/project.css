@@ -1,9 +1,16 @@
 .project-settings-form {
-  max-width: 980px;
+  max-width: none;
   padding: var(--space-3);
   background: rgba(246, 242, 234, 0.56);
   border: 1px solid rgba(216, 208, 194, 0.72);
   border-radius: var(--radius-control);
+}
+
+.project-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
+  gap: var(--space-4);
+  align-items: start;
 }
 
 .project-settings-form .editor-textarea {
@@ -13,6 +20,13 @@
 .project-core-fields {
   display: grid;
   gap: var(--space-3);
+  min-width: 0;
+}
+
+.project-side-column {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .project-actions {
@@ -24,6 +38,31 @@
 
 .project-actions .ai-field-status {
   flex-basis: 100%;
+}
+
+.project-automation-card {
+  position: sticky;
+  top: var(--space-2);
+}
+
+.automation-form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.automation-head h3 {
+  margin: 4px 0 0;
+  font-size: 24px;
+}
+
+.automation-note {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.automation-resets {
+  margin-top: 0;
 }
 
 .yandex-folder-picker {
@@ -87,6 +126,14 @@
 }
 
 @media (max-width: 760px) {
+  .project-settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .project-automation-card {
+    position: static;
+  }
+
   .project-actions {
     display: grid;
     grid-template-columns: 1fr;

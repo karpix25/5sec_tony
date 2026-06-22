@@ -5,6 +5,7 @@ import { bindAvatarOverlayComposerEvents } from "./avatar-overlay-composer.js";
 import { renderAvatarSettings } from "./avatar.js";
 import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
+import { bindProjectAutomationControls } from "./project-automation-controls.js";
 import { warnButtonBlocked } from "./button-debug.js";
 import { syncProductDraftToFieldsModal } from "./product-form-sync.js";
 import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
@@ -16,6 +17,7 @@ import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft,
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
 import { renderProjectManagementSettings } from "./project.js";
+import { getProjectAutomationState } from "../domain/project-automation.js";
 import { bindQueuePanelEvents, renderQueuePanel } from "./queue.js";
 import { bindYandexFolderPickers } from "./yandex-folder-picker.js";
 
@@ -42,11 +44,9 @@ export function renderApp(root, store, options = {}) {
 }
 
 export function updatePersistenceStatus(root, status) {
-  const node = root.querySelector("[data-persistence-status]");
-  if (!node) return;
+  const node = root.querySelector("[data-persistence-status]"); if (!node) return;
   const view = getPersistenceStatusView(status);
-  node.className = `persistence-status ${view.tone}`;
-  node.textContent = view.label;
+  node.className = `persistence-status ${view.tone}`; node.textContent = view.label;
 }
 
 function renderSidebar(state, context, projectProducts) {
@@ -134,6 +134,7 @@ function isGlobalReferenceTab(state) {
 
 export function renderProjectSettingsTabs(state, context) {
   const active = state.selectedProjectTab || "project";
+  const automationState = getProjectAutomationState({ project: context.project, jobs: state.jobs });
   return `
     <div class="settings-tabs" role="tablist" aria-label="Настройки проекта">
       ${tabButton("project", "Управление", active)}
@@ -144,7 +145,7 @@ export function renderProjectSettingsTabs(state, context) {
       ${tabButton("queue", "Очередь", active)}
     </div>
     <div class="settings-tab-panel">
-      ${active === "project" ? renderProjectManagementSettings(context) : ""}
+      ${active === "project" ? renderProjectManagementSettings({ ...context, automationState }) : ""}
       ${active === "product" ? renderProductSettings({ ...context, product: { ...context.product, projectProductCount: getProductsForProject(state.products, context.project.id).length } }) : ""}
       ${active === "design" ? renderDesignSettings(context) : ""}
       ${active === "avatars" ? renderAvatarSettings(context) : ""}
@@ -206,6 +207,7 @@ function bindEvents(root, store, options = {}) {
   root.querySelector("#character-select")?.addEventListener("change", (event) => store.selectCharacter(event.target.value));
   root.querySelector("#audio-select")?.addEventListener("change", (event) => store.selectAudio(event.target.value));
   bindGenerationPanelEvents(root, store);
+  bindProjectAutomationControls(root, store);
   root.querySelector("#open-project-modal")?.addEventListener("click", () => openProjectModal(root));
   root.querySelector("#open-delete-project-modal")?.addEventListener("click", () => openDeleteProjectModal(root));
   root.querySelectorAll("[data-close-delete-project-modal]").forEach((button) => {

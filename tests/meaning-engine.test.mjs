@@ -300,8 +300,18 @@ test("humanized ai plan becomes final visible payment text", () => {
   assert.equal(plan.disclaimer, "Условия зависят от площадки");
 });
 
-test("project management UI exposes only operator fields", () => {
-  const html = renderProjectManagementSettings({ project: projects[2] });
+test("project management UI exposes limits and autorun controls on the right-side operator surface", () => {
+  const html = renderProjectManagementSettings({
+    project: projects[2],
+    automationState: {
+      automation: { enabled: true, targetCount: 10, batchSize: 2, concurrency: 1, lastMessage: "Авторежим включен." },
+      activeJobs: 1,
+      completedJobs: 6,
+      remainingDaily: 8,
+      remainingProject: 120,
+      remainingTarget: 3
+    }
+  });
 
   assert.match(html, /Ниша и суть проекта/);
   assert.match(html, /Кто покупает/);
@@ -311,6 +321,9 @@ test("project management UI exposes only operator fields", () => {
   assert.match(html, /disk:\/ВИДЕО/);
   assert.match(html, /Дневной лимит генераций/);
   assert.match(html, /Лимит на весь проект/);
+  assert.match(html, /Авторежим до лимита/);
+  assert.match(html, /Цель роликов/);
+  assert.match(html, /Параллельно/);
   assert.match(html, /data-reset-project-usage/);
   assert.match(html, /data-reset-project-total-usage/);
   assert.match(html, /Сохранить проект/);
@@ -379,6 +392,8 @@ test("generation panel does not render static preview mockup", () => {
   assert.doesNotMatch(html, /phone-preview/);
   assert.doesNotMatch(html, /preview-wrap/);
   assert.doesNotMatch(html, /Открыть превью/);
+  assert.doesNotMatch(html, /Авторежим до лимита/);
+  assert.doesNotMatch(html, /Цель роликов/);
 });
 
 test("generation panel allows selecting no-avatar mode", () => {

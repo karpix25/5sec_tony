@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { bindGenerationPanelEvents } from "../src/ui/generation.js";
+import { bindProjectAutomationControls } from "../src/ui/project-automation-controls.js";
 import { FakeElement } from "./helpers/fake-ui-dom.mjs";
 
 test("generation start clamps invalid count and switches to queue tab", () => {
@@ -28,14 +29,18 @@ test("generation start clamps invalid count and switches to queue tab", () => {
   ]);
 });
 
-test("generation automation form normalizes enabled payload into running or paused state", () => {
+test("project automation form saves limits and normalizes enabled payload into running or paused state", () => {
   const originalFormData = globalThis.FormData;
   const root = new FakeElement();
   const form = new FakeElement({ id: "automation-form", tagName: "form" });
-  const storeCalls = [];
+  const settingsCalls = [];
+  const automationCalls = [];
   const store = {
+    updateProjectSettings(payload) {
+      settingsCalls.push(payload);
+    },
     updateProjectAutomation(projectId, payload) {
-      storeCalls.push([projectId, payload]);
+      automationCalls.push([projectId, payload]);
     }
   };
 
@@ -51,17 +56,21 @@ test("generation automation form normalizes enabled payload into running or paus
   try {
     form.formValues = {
       projectId: "project-1",
+      dailyLimit: "24",
+      projectLimit: "400",
       enabled: "on",
       targetCount: "12",
       batchSize: "3",
       concurrency: "2"
     };
     root.append(form);
-    bindGenerationPanelEvents(root, store);
+    bindProjectAutomationControls(root, store);
     form.dispatchEvent({ type: "submit", target: form, currentTarget: form });
 
     form.formValues = {
       projectId: "project-1",
+      dailyLimit: "18",
+      projectLimit: "300",
       targetCount: "6",
       batchSize: "1",
       concurrency: "1"
@@ -71,7 +80,18 @@ test("generation automation form normalizes enabled payload into running or paus
     globalThis.FormData = originalFormData;
   }
 
-  assert.deepEqual(storeCalls, [
+  assert.deepEqual(settingsCalls, [
+    {
+      dailyLimit: "24",
+      projectLimit: "400"
+    },
+    {
+      dailyLimit: "18",
+      projectLimit: "300"
+    }
+  ]);
+
+  assert.deepEqual(automationCalls, [
     ["project-1", {
       enabled: true,
       targetCount: "12",
