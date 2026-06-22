@@ -82,7 +82,7 @@ test("preview modal survives app rerenders during generation", () => {
   assert.match(previewSource, /getPreviewStateKey/);
   assert.match(mainSource, /scheduleRender/);
   assert.match(mainSource, /renderAppSafely/);
-  assert.match(mainSource, /renderApp\(root, store, \{ rerender: renderAppSafely \}\)/);
+  assert.match(mainSource, /renderApp\(root, store, \{ auth, rerender: renderAppSafely \}\)/);
   assert.match(mainSource, /isJobsOnlyPatch/);
   assert.match(mainSource, /requestRenderFrame/);
   assert.match(mainSource, /updateQueuePanel\(root, pendingState/);

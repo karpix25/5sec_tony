@@ -20,6 +20,8 @@ import { renderProjectManagementSettings } from "./project.js";
 import { getProjectAutomationState } from "../domain/project-automation.js";
 import { bindQueuePanelEvents, renderQueuePanel } from "./queue.js";
 import { bindYandexFolderPickers } from "./yandex-folder-picker.js";
+import { bindWorkspaceAuthEvents, renderWorkspaceAuthAdmin } from "./auth-workspace.js";
+import { renderPersistenceStatus, updatePersistenceStatusView } from "./persistence-status.js";
 
 export function renderApp(root, store, options = {}) {
   const state = store.getState();
@@ -31,8 +33,9 @@ export function renderApp(root, store, options = {}) {
     <main class="shell">
       ${renderSidebar(state, context, projectProducts)}
       <section class="workspace">
-        ${renderHeader(context, persistenceStatus)}
+        ${renderHeader(context, persistenceStatus, options.auth)}
         ${renderOperationsPanel(state, context)}
+        ${renderWorkspaceAuthAdmin(options.auth)}
       </section>
     </main>
     ${renderCreateProjectModal(field)}
@@ -44,9 +47,7 @@ export function renderApp(root, store, options = {}) {
 }
 
 export function updatePersistenceStatus(root, status) {
-  const node = root.querySelector("[data-persistence-status]"); if (!node) return;
-  const view = getPersistenceStatusView(status);
-  node.className = `persistence-status ${view.tone}`; node.textContent = view.label;
+  updatePersistenceStatusView(root, status);
 }
 
 function renderSidebar(state, context, projectProducts) {
@@ -88,7 +89,8 @@ function sidebarNavButton(tab, label, active) {
   return `<button class="sidebar-nav-btn ${tab === active ? "active" : ""}" data-project-tab="${tab}" type="button">${label}</button>`;
 }
 
-function renderHeader({ project }, persistenceStatus) {
+function renderHeader({ project }, persistenceStatus, auth) {
+  const authState = auth?.getState?.() || {};
   return `
     <header class="topbar">
       <div>
@@ -99,19 +101,10 @@ function renderHeader({ project }, persistenceStatus) {
         <span>Экспорт</span>
         <strong>${escapeHtml(project.exportFolder)}</strong>
         ${renderPersistenceStatus(persistenceStatus)}
+        ${authState.user ? `<button class="ghost-btn" data-auth-logout type="button">Выйти</button>` : ""}
       </div>
     </header>
   `;
-}
-
-function renderPersistenceStatus(status = {}) {
-  const view = getPersistenceStatusView(status);
-  return `<small class="persistence-status ${view.tone}" data-persistence-status>${escapeHtml(view.label)}</small>`;
-}
-
-function getPersistenceStatusView(status = {}) {
-  const tone = ["saved", "saving", "loading", "error", "local"].includes(status.status) ? status.status : "local";
-  return { tone, label: status.message || "Локальный кэш" };
 }
 
 function renderOperationsPanel(state, context) {
@@ -220,6 +213,7 @@ function bindEvents(root, store, options = {}) {
     button.addEventListener("click", () => store.selectReference(button.dataset.selectReference));
   });
   bindYandexFolderPickers(root);
+  bindWorkspaceAuthEvents(root, options.auth);
   root.querySelectorAll("[data-close-project-modal]").forEach((button) => {
     button.addEventListener("click", () => closeProjectModal(root));
   });

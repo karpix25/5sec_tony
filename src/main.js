@@ -8,23 +8,39 @@ import { updateGenerationAutomationStats } from "./ui/generation-live.js";
 import { bindButtonDebug } from "./ui/button-debug.js";
 import { updateQueuePanel } from "./ui/queue.js";
 import { captureTransientUiState, restoreTransientUiState } from "./ui/transient-ui-state.js";
+import { createAuthController } from "./ui/auth.js";
 
 const root = document.querySelector("#app");
-const store = createStore();
+let store = null;
 let pendingFrame = 0;
 let needsFullRender = false;
-let pendingState = store.getState();
+let pendingState = null;
 
-bindButtonDebug(root, store);
-store.subscribe((state, patch) => scheduleRender(state, patch));
-store.subscribePersistence((status) => updatePersistenceStatus(root, status));
-renderAppSafely();
-Promise.resolve(store.whenHydrated?.())
-  .catch(() => null)
-  .finally(() => {
-    resumeRunningImageJobs(store);
-    startAutomationRunner(store);
-  });
+const auth = createAuthController({
+  root,
+  renderApprovedState: false,
+  onStateChange: (authState) => {
+    if (authState.status === "approved" && store) renderAppSafely();
+  },
+  onAuthorized: () => startStudio()
+});
+auth.start();
+
+function startStudio() {
+  if (store) return;
+  store = createStore();
+  pendingState = store.getState();
+  bindButtonDebug(root, store);
+  store.subscribe((state, patch) => scheduleRender(state, patch));
+  store.subscribePersistence((status) => updatePersistenceStatus(root, status));
+  renderAppSafely();
+  Promise.resolve(store.whenHydrated?.())
+    .catch(() => null)
+    .finally(() => {
+      resumeRunningImageJobs(store);
+      startAutomationRunner(store);
+    });
+}
 
 function scheduleRender(state, patch) {
   pendingState = state;
@@ -46,9 +62,10 @@ function flushRender() {
 }
 
 function renderAppSafely() {
+  if (!store) return;
   const preview = getOpenMediaPreviewState(root);
   const transientUiState = captureTransientUiState(root);
-  renderApp(root, store, { rerender: renderAppSafely });
+  renderApp(root, store, { auth, rerender: renderAppSafely });
   restoreMediaPreviewState(root, preview);
   restoreTransientUiState(root, transientUiState);
 }

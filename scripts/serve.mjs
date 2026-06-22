@@ -11,6 +11,7 @@ import { handleReelsResearchApi } from "./reels-research-api.mjs";
 import { handleServerJobsApi } from "./server-jobs.mjs";
 import { handleStateApi } from "./state-api.mjs";
 import { handleYandexDiskApi } from "./yandex-disk-api.mjs";
+import { handleAuthApi, requireApprovedUser } from "./auth/auth-api.mjs";
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
@@ -28,6 +29,8 @@ const types = {
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
+  if (await handleAuthApi(request, response, url)) return;
+  if (url.pathname.startsWith("/api/") && !await requireApprovedUser(request, response)) return;
   if (await handleHookPdfApi(request, response, url)) return;
   if (await handleReferenceAssetsApi(request, response, url)) return;
   if (await handleAvatarAlphaVideoApi(request, response, url)) return;
