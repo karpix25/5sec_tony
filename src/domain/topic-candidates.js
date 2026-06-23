@@ -1,5 +1,6 @@
 import { buildProductProfile } from "./product-profile.js";
 import { getProductContentFocus } from "./product-content-focus.js";
+import { createTravelTopicPlan } from "./travel-content-plan.js";
 
 const hookStrategies = [
   {
@@ -65,6 +66,8 @@ export function pickTopicCandidate({ project, product, existingJobs = [], insigh
 
 export function createTopicCandidatePlan({ project, product, candidate }) {
   if (!candidate) return null;
+  const travelPlan = createTravelTopicPlan({ project, product, candidate });
+  if (travelPlan) return travelPlan;
   const profile = buildProductProfile({ project, product });
   const focus = getProductContentFocus({ project, product });
   const safeStep = focus.action || profile.safeClaims[0] || product.offer || focus.subject || product.name;

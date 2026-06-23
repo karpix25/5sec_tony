@@ -175,6 +175,31 @@ test("travel project keeps payment-named bot as context, not payment topic engin
   assert.doesNotMatch(text, /санкци|сбп|рубл|карта снова не проходит|зарубежн.*оплат|подписка сгорит/);
 });
 
+test("travel fallback plan uses country-specific copy instead of internal labels", () => {
+  const project = {
+    ...projects.find((item) => item.id === "ppm"),
+    name: "Плати по миру",
+    projectTheme: "Рекомендации и лайфхаки о туризме",
+    companyInfo: "Рекомендации и лайфхаки о туризме",
+    keyScenarios: "",
+    audiencePains: ""
+  };
+  const product = {
+    ...products.find((item) => item.id === "crosspay"),
+    name: "Плати по миру бот в тг",
+    description: "Рекомендации для туристов в разных странах",
+    offer: "Давать интересные факты и рекомендации о туризме в другие страны",
+    facts: ["интересные достопримечательности", "культурные особенности", "необычные факты о странах"],
+    pains: []
+  };
+  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs: [] });
+  const plan = createSemanticPlan({ project, product, brief });
+  const visibleText = `${plan.subhead} ${plan.points.join(" ")}`;
+
+  assert.match(visibleText, /Япония|Турция|Италия|ОАЭ|Таиланд|Франция/);
+  assert.doesNotMatch(visibleText, /Сначала снимите шум|Почему цепляет|Миф:|Факт:|Рабочий шаг|одного общего совета достаточно/);
+});
+
 test("topic candidate fallback does not emit old visible labels", () => {
   const plan = createTopicCandidatePlan({
     project: projects[0],
