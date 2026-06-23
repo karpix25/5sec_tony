@@ -253,7 +253,7 @@ export function getGenerationInputReferences({ reference, product, productVisual
 function isRemoteImageUrl(value) { return /^https?:\/\//.test(String(value || "")); }
 function isDataImageUrl(value) { return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || "")); }
 function isImageReferenceUrl(value) {
-  return isRemoteImageUrl(value) || isDataImageUrl(value);
+  return isRemoteImageUrl(value) || isDataImageUrl(value) || /^\/api\/reference-assets\/[^/?#]+/.test(String(value || ""));
 }
 
 function getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode }) {

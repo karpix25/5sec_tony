@@ -6,6 +6,9 @@ const assets = new Map();
 let cachedPublicBaseUrl;
 
 export async function handleReferenceAssetsApi(request, response, url) {
+  if (request.method === "POST" && url.pathname === "/api/reference-assets") {
+    return saveReferenceAsset(request, response);
+  }
   if (request.method !== "GET" || !url.pathname.startsWith("/api/reference-assets/")) return false;
   const id = decodeURIComponent(url.pathname.replace("/api/reference-assets/", ""));
   const asset = assets.get(id);
@@ -23,6 +26,21 @@ export async function handleReferenceAssetsApi(request, response, url) {
   return true;
 }
 
+async function saveReferenceAsset(request, response) {
+  try {
+    const body = await readJson(request);
+    if (!isDataImageUrl(body.imageData)) {
+      return sendJson(response, 400, { error: "imageData must be a png, jpeg or webp data URL" });
+    }
+    const url = isS3AssetStorageConfigured()
+      ? await uploadDataUrlToS3(body.imageData, { prefix: "references" })
+      : storeReferenceAsset(body.imageData, "");
+    return sendJson(response, 200, { url, imageName: body.imageName || "" });
+  } catch (error) {
+    return sendJson(response, 502, { error: error.message || "Не удалось сохранить reference image" });
+  }
+}
+
 export async function resolveImageInputUrls(inputUrls, request) {
   const urls = Array.isArray(inputUrls) ? inputUrls.slice(0, 16) : [];
   const publicBaseUrl = await getPublicBaseUrl(request);
@@ -31,6 +49,14 @@ export async function resolveImageInputUrls(inputUrls, request) {
   for (const value of urls) {
     if (isRemoteUrl(value)) {
       resolved.push(value);
+      continue;
+    }
+    if (isSameOriginAssetUrl(value)) {
+      const publicBaseUrl = await getPublicBaseUrl(request);
+      if (!publicBaseUrl) {
+        throw new Error("Для сохраненных reference assets нужен публичный URL приложения: настройте PUBLIC_BASE_URL/APP_PUBLIC_URL/NGROK_URL или S3.");
+      }
+      resolved.push(`${publicBaseUrl.replace(/\/$/, "")}${value}`);
       continue;
     }
     if (!isDataImageUrl(value)) continue;
@@ -64,7 +90,8 @@ function storeReferenceAsset(dataUrl, publicBaseUrl) {
   const parsed = parseDataImageUrl(dataUrl);
   const id = randomUUID();
   assets.set(id, parsed);
-  return `${publicBaseUrl.replace(/\/$/, "")}/api/reference-assets/${encodeURIComponent(id)}`;
+  const path = `/api/reference-assets/${encodeURIComponent(id)}`;
+  return publicBaseUrl ? `${publicBaseUrl.replace(/\/$/, "")}${path}` : path;
 }
 
 function parseDataImageUrl(value) {
@@ -122,7 +149,38 @@ function isDataImageUrl(value) {
   return dataUrlPattern.test(String(value || ""));
 }
 
+function isSameOriginAssetUrl(value) {
+  return /^\/api\/reference-assets\/[^/?#]+/.test(String(value || ""));
+}
+
 function isLocalHost(host) {
   const hostname = String(host || "").replace(/^\[/, "").split("]")[0].split(":")[0];
   return /^localhost$/i.test(hostname) || /^127\./.test(hostname) || hostname === "0.0.0.0" || hostname === "::1";
+}
+
+function readJson(request) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    request.on("data", (chunk) => {
+      data += chunk;
+      if (data.length > 15 * 1024 * 1024) {
+        reject(new Error("Reference image request is too large"));
+        request.destroy();
+      }
+    });
+    request.on("end", () => {
+      try {
+        resolve(data ? JSON.parse(data) : {});
+      } catch (error) {
+        reject(error);
+      }
+    });
+    request.on("error", reject);
+  });
+}
+
+function sendJson(response, status, payload) {
+  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+  response.end(JSON.stringify(payload));
+  return true;
 }

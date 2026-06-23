@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Readable } from "node:stream";
 import { projects, products } from "../src/domain/entities.js";
 import { createGenerationJob } from "../src/domain/generation.js";
-import { resolveImageInputUrls, summarizeInputRefs } from "../scripts/reference-assets.mjs";
+import { handleReferenceAssetsApi, resolveImageInputUrls, summarizeInputRefs } from "../scripts/reference-assets.mjs";
 
 const tinyPng = "data:image/png;base64,iVBORw0KGgo=";
 
@@ -47,6 +48,62 @@ test("reference asset resolver publishes data urls through public base url", asy
   assert.equal(resolved.length, 2);
   assert.match(resolved[0], /^https:\/\/studio\.example\.com\/api\/reference-assets\//);
   assert.equal(resolved[1], "https://cdn.example.com/style.png");
+});
+
+test("reference asset API stores uploaded data url and returns a small preview URL", async () => {
+  const response = createJsonCaptureResponse();
+  const request = Readable.from([JSON.stringify({ imageData: tinyPng, imageName: "style.png" })]);
+  request.method = "POST";
+  request.headers = { host: "127.0.0.1:4173" };
+
+  const handled = await handleReferenceAssetsApi(request, response, new URL("http://127.0.0.1:4173/api/reference-assets"));
+  const { status, payload } = response.readJson();
+
+  assert.equal(handled, true);
+  assert.equal(status, 200);
+  assert.match(payload.url, /^\/api\/reference-assets\//);
+  assert.equal(payload.imageName, "style.png");
+  assert.equal(payload.url.includes("base64"), false);
+});
+
+test("reference asset resolver expands saved same-origin asset paths for providers", async () => {
+  const previousPublicBase = process.env.PUBLIC_BASE_URL;
+  process.env.PUBLIC_BASE_URL = "https://studio.example.com";
+
+  try {
+    const resolved = await resolveImageInputUrls(["/api/reference-assets/ref-1"], {
+      headers: { host: "127.0.0.1:4173" }
+    });
+
+    assert.deepEqual(resolved, ["https://studio.example.com/api/reference-assets/ref-1"]);
+  } finally {
+    if (previousPublicBase === undefined) delete process.env.PUBLIC_BASE_URL;
+    else process.env.PUBLIC_BASE_URL = previousPublicBase;
+  }
+});
+
+test("generation job keeps saved design reference asset paths for image handoff", () => {
+  const project = {
+    ...projects[0],
+    references: [{
+      ...projects[0].references[0],
+      imageData: "/api/reference-assets/design-1"
+    }]
+  };
+  const product = products.find((item) => item.projectId === project.id);
+  const job = createGenerationJob({
+    project,
+    product,
+    reference: project.references[0],
+    character: project.characters[0]
+  });
+
+  assert.equal(job.inputUrls.includes("/api/reference-assets/design-1"), true);
+  assert.deepEqual(job.inputRefs.find((item) => item.role === "design"), {
+    role: "design",
+    title: project.references[0].title,
+    isLocalData: false
+  });
 });
 
 test("reference asset logs distinguish product references", () => {
@@ -97,3 +154,19 @@ test("generation job skips product image inputs in no-package mode", () => {
   assert.deepEqual(job.inputUrls, []);
   assert.match(job.prompt, /Не показывать упаковку продукта вообще/);
 });
+
+function createJsonCaptureResponse() {
+  return {
+    status: 200,
+    data: "",
+    writeHead(status) {
+      this.status = status;
+    },
+    end(data) {
+      this.data = data || "";
+    },
+    readJson() {
+      return { status: this.status, payload: this.data ? JSON.parse(this.data) : {} };
+    }
+  };
+}

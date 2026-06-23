@@ -3,6 +3,7 @@ import { getContext } from "../state/store.js";
 import { getAudioPayloads, renderAudioSettings } from "./audio.js";
 import { bindAvatarOverlayComposerEvents } from "./avatar-overlay-composer.js";
 import { renderAvatarSettings } from "./avatar.js";
+import { bindDesignReferenceFormEvents } from "./design-form.js";
 import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
 import { bindProjectAutomationControls } from "./project-automation-controls.js";
@@ -271,16 +272,7 @@ function bindEvents(root, store, options = {}) {
       closeProductReferenceModal(root);
     });
   });
-  root.querySelector("#reference-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    getAssetPayload(event.currentTarget).then((payload) => {
-      if (!payload.imageData) {
-        store.createDesignReferenceTemplate(payload);
-        return;
-      }
-      store.createReference({ ...payload, promptComment: payload.prompt, takeaways: payload.prompt });
-    });
-  });
+  bindDesignReferenceFormEvents(root, store);
   root.querySelector("#avatar-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     store.createCharacter(getFormPayload(event.currentTarget));
@@ -416,15 +408,6 @@ async function runCreateProductFromPhotos(root, store, form) {
   } catch (error) {
     if (status) status.textContent = error.message || "Не удалось создать продукт по фото.";
   }
-}
-
-async function getAssetPayload(form) {
-  const file = form.querySelector("input[type='file']")?.files?.[0];
-  const payload = getFormPayload(form);
-  if (!file) return payload;
-  payload.imageName = file.name;
-  payload.imageData = await readFileAsDataUrl(file);
-  return payload;
 }
 
 function readFileAsDataUrl(file) {
