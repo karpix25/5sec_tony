@@ -21,8 +21,12 @@ export async function loginWithTelegramInitData(initData, options = {}) {
 }
 
 export function startTelegramBrowserLogin(returnTo = getCurrentReturnTo()) {
+  globalThis.location.href = getTelegramBrowserLoginUrl(returnTo);
+}
+
+export function getTelegramBrowserLoginUrl(returnTo = getCurrentReturnTo()) {
   const query = new URLSearchParams({ returnTo });
-  globalThis.location.href = `/api/auth/telegram/start?${query}`;
+  return `/api/auth/telegram/start?${query}`;
 }
 
 export async function logoutAuthUser(options = {}) {

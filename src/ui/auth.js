@@ -1,5 +1,6 @@
 import {
   getCurrentAuthUser,
+  getTelegramBrowserLoginUrl,
   listAdminAuthUsers,
   logoutAuthUser,
   runAdminAuthUserAction,
@@ -156,7 +157,7 @@ function renderAuthActions(state) {
   if (state.status === "loading") return "<button class=\"primary-btn\" type=\"button\" disabled>Проверяем доступ...</button>";
   if (state.status === "approved") return "<button class=\"secondary-btn\" data-auth-logout type=\"button\">Выйти</button>";
   if (["error", "login"].includes(state.status)) {
-    return "<button class=\"primary-btn\" data-auth-login type=\"button\">Войти через Telegram</button>";
+    return `<a class="primary-btn" data-auth-login href="${escapeHtml(getTelegramBrowserLoginUrl())}">Войти через Telegram</a>`;
   }
   return "<button class=\"ghost-btn\" data-auth-refresh type=\"button\">Обновить статус</button>";
 }
