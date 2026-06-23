@@ -195,8 +195,9 @@ test("travel fallback asks ai for country-specific copy without hardcoded countr
   const plan = createSemanticPlan({ project, product, brief });
   const visibleText = `${plan.subhead} ${plan.points.join(" ")}`;
 
-  assert.match(visibleText, /конкретную страну|придумать тему из продукта/i);
+  assert.match(visibleText, /Общий совет|Необычная деталь|конкретной страны/i);
   assert.doesNotMatch(visibleText, /Япония|Турция|Италия|ОАЭ|Таиланд|Франция/);
+  assert.doesNotMatch(visibleText, /AI должен|придумать тему|готовые страны|из кода/i);
   assert.doesNotMatch(visibleText, /Сначала снимите шум|Почему цепляет|Миф:|Факт:|Рабочий шаг|одного общего совета достаточно/);
 });
 
