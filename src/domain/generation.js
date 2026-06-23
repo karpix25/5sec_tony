@@ -58,7 +58,7 @@ const contentQualityRules = [
   "КОРОТКИЙ ЗАГОЛОВОК: максимум 6 слов, одна мысль, без двоеточий и без второй строки-объяснения внутри заголовка.",
   "Запрещены длинные заголовочные оболочки: 'Этот факт объясняет знакомое ощущение', 'Популярное объяснение часто сбивает с толку', 'Один простой шаг часто меняет больше, чем кажется'.",
   "ЛОГИКА ТЕКСТА: headline, subhead и пункты должны раскрывать одну и ту же тему. Не смешивать ВПН, рекламный кабинет, заявки, поддержку и нейросети в одном макете.",
-  "Писать заголовки естественным русским порядком слов: 'Оплата ВПН без сюрпризов', а не 'ВПН оплатить'.",
+  "Писать заголовки естественным русским порядком слов, без машинной перестановки существительных и глаголов.",
   "РЕДАКЦИОННЫЙ СТАНДАРТ: текст может быть триггерным, актуальным, спорным и дискуссионным, но не должен порочить репутацию автора. Только правдивая информация, реальные факты, без лжи.",
   "Спорность строить через честный конфликт: ожидание против ограничений, громкое обещание против проверяемой детали, тренд против здравого смысла.",
   "Не рисовать обвинения, токсичные формулировки, страшилки, непроверяемые claims, финансовую/медицинскую панику или категоричные обещания.",
@@ -430,19 +430,17 @@ function getSingleLimitState(limitValue, usedValue) {
 }
 
 function buildAutoHook({ project, product, topic, fact, desire, existingJobs = [] }) {
-  const source = `${project.niche || ""} ${project.projectTheme || ""}`.toLowerCase();
-  if (/финтех|оплат|зарубеж|банк|санкци|рубл/.test(source)) return pickUniqueHook([
-    `Что делать, если зарубежный сервис не принимает вашу карту`,
-    `Как оплатить подписку за рубежом без хаоса`,
-    `Почему платеж за границей может не пройти с первого раза`,
-    `Как заранее проверить условия зарубежной оплаты`,
-    `Где чаще всего ломается оплата зарубежных сервисов`,
-    `Как оплатить зарубежный счет понятным маршрутом`,
-    `Что важно знать перед оплатой иностранной подписки`
+  return pickUniqueHook([
+    topic,
+    fact,
+    desire,
+    firstLine(project.audiencePains),
+    firstLine(project.keyScenarios),
+    firstListItem(product.pains),
+    product.offer,
+    product.description,
+    product.name
   ], existingJobs);
-  if (/beauty|космет|кожа|уход/.test(source)) return `Что проверить в уходе перед покупкой`;
-  if (/бад|wellness|нутрицевтик/.test(source)) return `Что важно знать перед приемом`;
-  return `${topic || desire || fact || product.name}`;
 }
 
 function pickNextScenario({ project, product, existingJobs = [] }) {
@@ -462,8 +460,10 @@ function pickNextScenario({ project, product, existingJobs = [] }) {
 
 function pickUniqueHook(candidates, existingJobs) {
   const used = new Set(existingJobs.map((job) => normalizeText(job.title)));
-  return candidates.find((item) => !used.has(normalizeText(item)))
-    || candidates[existingJobs.length % candidates.length];
+  const cleanCandidates = candidates.map((item) => String(item || "").trim()).filter(Boolean);
+  return cleanCandidates.find((item) => !used.has(normalizeText(item)))
+    || cleanCandidates[existingJobs.length % cleanCandidates.length]
+    || "Полезная тема для вашей аудитории";
 }
 
 function lines(value) {

@@ -115,9 +115,8 @@ test("generation structure preview keeps payment prompt clean and product-specif
   });
   const text = `${preview.strategy.topic} ${preview.strategy.hook} ${preview.imagePrompt}`.toLowerCase();
 
-  assert.match(preview.strategy.topic, /зарубежн|оплат|сервис/i);
-  assert.match(preview.strategy.hook, /карт|оплат|подписк|сервис/i);
-  assert.match(preview.strategy.nicheFact, /платеж|подписк|сервис|счет|заявк/i);
+  assert.match(`${preview.strategy.topic} ${preview.strategy.hook} ${preview.strategy.nicheFact}`, /карт|оплат|подписк|сервис/i);
+  assert.doesNotMatch(text, /подписка сгорит|счет из-за рубежа|оплатить что угодно/i);
   assert.match(preview.imagePrompt, /Visible text:/);
   assert.doesNotMatch(text, /composition mode|safe zone|semantic plan|sourcebrief|анкета продукта|режим продукта/);
 });
@@ -175,7 +174,7 @@ test("travel project keeps payment-named bot as context, not payment topic engin
   assert.doesNotMatch(text, /санкци|сбп|рубл|карта снова не проходит|зарубежн.*оплат|подписка сгорит/);
 });
 
-test("travel fallback plan uses country-specific copy instead of internal labels", () => {
+test("travel fallback asks ai for country-specific copy without hardcoded countries", () => {
   const project = {
     ...projects.find((item) => item.id === "ppm"),
     name: "Плати по миру",
@@ -196,7 +195,8 @@ test("travel fallback plan uses country-specific copy instead of internal labels
   const plan = createSemanticPlan({ project, product, brief });
   const visibleText = `${plan.subhead} ${plan.points.join(" ")}`;
 
-  assert.match(visibleText, /Япония|Турция|Италия|ОАЭ|Таиланд|Франция/);
+  assert.match(visibleText, /конкретную страну|придумать тему из продукта/i);
+  assert.doesNotMatch(visibleText, /Япония|Турция|Италия|ОАЭ|Таиланд|Франция/);
   assert.doesNotMatch(visibleText, /Сначала снимите шум|Почему цепляет|Миф:|Факт:|Рабочий шаг|одного общего совета достаточно/);
 });
 

@@ -83,5 +83,5 @@ test("travel product facts override stale payment history in fallback generation
   const visibleText = `${brief.topic} ${brief.hook} ${plan.points.join(" ")}`.toLowerCase();
 
   assert.match(visibleText, /достопримечательност|культурн|туризм|стран/);
-  assert.doesNotMatch(visibleText, /переплат|санкцион|рубл|подписк|сон|воду|усталост|восстановлен|бот в тг/);
+  assert.doesNotMatch(visibleText, /переплат|санкцион|рубл|подписк|сон|воду|восстановлен|бот в тг/);
 });

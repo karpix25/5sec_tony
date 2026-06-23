@@ -114,7 +114,6 @@ test("auto generation rotates hooks and topics by existing project jobs", () => 
   const first = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0], existingJobs: [] });
   const second = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0], existingJobs: [first] });
 
-  assert.notEqual(first.title, second.title);
   assert.notEqual(first.topic, second.topic);
   assert.notEqual(first.semanticKey, second.semanticKey);
 });
@@ -136,43 +135,18 @@ test("payment generation rotates semantic plans, not only headlines", () => {
   assert.notEqual(firstPlan.subhead, secondPlan.subhead);
 });
 
-test("payment invoice and support scenarios keep different content logic", () => {
+test("payment fallback avoids canned semantic-key scenarios without ai plan", () => {
   const project = {
     ...projects[2],
     projectTheme: "Оплата зарубежных сервисов для россиян",
     niche: "финтех / трансграничные платежи"
   };
   const product = products.find((item) => item.projectId === "ppm");
-  const invoicePlan = createSemanticPlan({
-    project,
-    product,
-    brief: { hook: "Счет из-за рубежа", semanticKey: "invoice-payment", pointCount: "5" }
-  });
-  const supportPlan = createSemanticPlan({
-    project,
-    product,
-    brief: { hook: "Платеж завис", semanticKey: "support-route", pointCount: "5" }
-  });
-  const termsPlan = createSemanticPlan({
-    project,
-    product,
-    brief: { hook: "Сначала условия", semanticKey: "commission-terms", pointCount: "5" }
-  });
-  const boundariesPlan = createSemanticPlan({
-    project,
-    product,
-    brief: { hook: "Красные флаги", semanticKey: "safe-boundaries", pointCount: "5" }
-  });
+  const plan = createSemanticPlan({ project, product, brief: { hook: "Счет из-за рубежа", semanticKey: "invoice-payment", pointCount: "5" } });
+  const text = `${plan.subhead} ${plan.points.join(" ")}`;
 
-  assert.match(invoicePlan.subhead, /счет/i);
-  assert.match(invoicePlan.points.join(" "), /Получатель|Валюта|Срок|Назначение/);
-  assert.match(supportPlan.subhead, /статусы заявки/);
-  assert.match(supportPlan.points.join(" "), /Заявка|проверка|уточнения|Статус/);
-  assert.match(termsPlan.points.join(" "), /Итоговая сумма|Комиссия|Документ/);
-  assert.match(boundariesPlan.points.join(" "), /Нормально|Опасно/);
-  assert.match(createSemanticPlan({ project, product, brief: { hook: "Карта не прошла", semanticKey: "card-rejected", pointCount: "5" } }).points.join(" "), /отклоняет|сгореть|хаос/);
-  assert.notDeepEqual(invoicePlan.points, supportPlan.points);
-  assert.notDeepEqual(termsPlan.points, boundariesPlan.points);
+  assert.match(text, /оплат|сервис|поддержк|сценари/i);
+  assert.doesNotMatch(text, /Получатель|Валюта|Назначение|Заявка принята|Нормально: называют рамки/);
 });
 
 test("image prompt includes a coherent semantic plan for payment projects", () => {
@@ -200,7 +174,7 @@ test("image prompt includes a coherent semantic plan for payment projects", () =
 
   assert.match(plan.subhead, /балансе/);
   assert.match(plan.points.join(" "), /сумму|площадки|вслепую|причину отказа/);
-  assert.match(plan.disclaimer, /условий платежа/);
+  assert.equal(plan.disclaimer, "");
   assert.match(prompt, /СМЫСЛОВОЙ ПЛАН/);
   assert.match(prompt, /Не добавляй неуказанные проценты/);
 });

@@ -1,250 +1,60 @@
-const paymentDisclaimer = "Итог зависит от правил площадки, страны и актуальных условий платежа";
-
 export function createPaymentPlan({ product, brief }) {
-  if (brief.aiPlan?.points?.length) {
-    return formatPaymentPlan({
-      product,
-      brief,
-      plan: {
-        subhead: brief.finalContent?.subhead || brief.aiPlan.subhead || brief.topic,
-        points: brief.aiPlan.points
-      },
+  const plan = brief.aiPlan?.points?.length
+    ? {
       headline: brief.finalContent?.headline || brief.aiPlan.headline || brief.hook,
-      disclaimer: brief.finalContent?.disclaimer || brief.aiPlan.disclaimer || paymentDisclaimer
-    });
-  }
-  const hookPlan = brief.hookReference ? createHookDrivenPaymentPlan({ brief }) : null;
-  if (hookPlan) return formatPaymentPlan({ product, brief, plan: hookPlan });
-
-  const plan = paymentPlans[brief.semanticKey] || paymentPlans["card-rejected"];
+      subhead: brief.finalContent?.subhead || brief.aiPlan.subhead || brief.topic,
+      points: brief.aiPlan.points,
+      disclaimer: brief.finalContent?.disclaimer || brief.aiPlan.disclaimer || ""
+    }
+    : createProductFallbackPlan({ product, brief });
   return formatPaymentPlan({ product, brief, plan });
 }
 
 export function getScenarioVisualInstruction(brief) {
-  const instructions = {
-    "invoice-payment": "Сценарная разница: это НЕ общий процесс поддержки. Сделай инфографику-анатомию счета/invoice: крупный документ справа, выноски к полям получатель, валюта, срок, назначение, подтверждение. Не превращай в обычные шаги оплаты.",
-    "support-route": "Сценарная разница: это НЕ invoice и НЕ чеклист перед оплатой. Сделай карту статусов поддержки: чат, заявка, проверка, уточнение, маршрут найден, статус на связи. Главный объект — смартфон с чатом/тикетом.",
-    "business-tools": "Сценарная разница: это карта рабочих сервисов, а не платежная инструкция. Покажи набор SaaS/облака/реклама/аккаунты и риск остановки доступа.",
-    "subscription-deadline": "Сценарная разница: это дедлайн подписки. Покажи календарь, дату списания, таймер и риск остановки доступа.",
-    "travel-booking": "Сценарная разница: это бронь или билет. Покажи билет, карту, отель/самолет и срок удержания брони.",
-    "commission-terms": "Сценарная разница: это чек-лист условий сделки ДО оплаты. Главный объект — лист условий/договор/квитанция с отметками: сумма, срок, комиссия, ограничения, документ. Не делай сравнение хорошее/плохое.",
-    "safe-boundaries": "Сценарная разница: это НЕ условия сделки. Это сравнение доверия: две колонки 'прозрачно' против 'риск'. В каждой строке пара противоположностей. Не делай обычный чек-лист оплаты."
-  };
-  return instructions[brief.semanticKey] || "";
+  if (!brief?.semanticKey && !brief?.topic && !brief?.visualObject) return "";
+  return [
+    "Сценарий и визуальную метафору выводи из AI-брифа, продукта и активного дизайн-референса.",
+    "Не используй готовые платежные темы из кода; если данных мало, покажи понятную ситуацию, проверку и следующий шаг из анкеты продукта."
+  ].join(" ");
 }
 
-function formatPaymentPlan({ product, brief, plan, headline = brief.hook, disclaimer = paymentDisclaimer }) {
+function createProductFallbackPlan({ product, brief }) {
+  const points = uniqueText([
+    brief.productFact,
+    brief.scrollStopperAngle,
+    firstItem(product.pains),
+    product.components,
+    product.offer,
+    product.description
+  ]);
   return {
-    headline,
-    subhead: plan.subhead,
-    points: plan.points.slice(0, Number(brief.pointCount) || 5),
+    headline: brief.hook || brief.topic || product.name,
+    subhead: brief.topic || brief.scrollStopperAngle || product.description || product.offer || product.name,
+    points: points.length ? points : [product.offer, product.description, product.name].filter(Boolean),
+    disclaimer: ""
+  };
+}
+
+function formatPaymentPlan({ product, brief, plan }) {
+  return {
+    headline: plan.headline || brief.hook || product.name,
+    subhead: plan.subhead || brief.topic || product.description || "",
+    points: (plan.points || []).slice(0, Number(brief.pointCount) || 5),
     cta: brief.cta || product.name,
-    disclaimer
+    disclaimer: plan.disclaimer || ""
   };
 }
 
-function createHookDrivenPaymentPlan({ brief }) {
-  const source = `${brief.hook || ""} ${brief.hookReference?.text || ""} ${(brief.hookReference?.tags || []).join(" ")}`.toLowerCase();
-  const scenario = getPaymentScenarioFacts(brief.semanticKey);
-  if (/красн|флаг|опасн|риск/.test(source)) return redFlagHookPlan(scenario);
-  if (/ошиб|не делайте|лома|стоить/.test(source)) return mistakeHookPlan(scenario);
-  if (/проверь|чек|пункт|признак|перед/.test(source)) return checklistHookPlan(scenario);
-  return signalHookPlan(scenario);
+function firstItem(value) {
+  return Array.isArray(value) ? value[0] : String(value || "").split(/\n|;/)[0];
 }
 
-function redFlagHookPlan(scenario) {
-  return {
-    subhead: "Сначала отделите нормальный процесс от обещаний, где легко потерять контроль",
-    points: [
-      `Норма: ${scenario.normal}`,
-      `Красный флаг: ${scenario.risk}`,
-      "Если условия не называют заранее — это не ускорение, а риск",
-      "Если просят лишние данные — остановитесь и уточните причину",
-      "Если нет статуса и подтверждения — платеж лучше не запускать"
-    ]
-  };
-}
-
-function mistakeHookPlan(scenario) {
-  return {
-    subhead: "Платеж чаще ломается из-за одного неверного шага до старта",
-    points: [
-      `Ошибка: ${scenario.mistake}`,
-      `Последствие: ${scenario.consequence}`,
-      "Сначала проверьте площадку, срок, сумму и ограничения",
-      "Не повторяйте оплату вслепую, если первый платеж не прошел",
-      "Правильный маршрут начинается с понятных условий"
-    ]
-  };
-}
-
-function checklistHookPlan(scenario) {
-  return {
-    subhead: "Короткий чек-лист до платежа снимает большую часть хаоса",
-    points: [
-      `Что оплачиваем: ${scenario.object}`,
-      "Какая сумма, валюта и срок актуальны сейчас",
-      "Какие ограничения есть у площадки или страны",
-      "Какие данные реально нужны для заявки",
-      "Какое подтверждение останется после оплаты"
-    ]
-  };
-}
-
-function signalHookPlan(scenario) {
-  return {
-    subhead: "Разберите ситуацию простыми признаками, а не обещанием в одну фразу",
-    points: [
-      scenario.normal,
-      scenario.risk,
-      scenario.mistake,
-      scenario.consequence,
-      "Дальше нужен понятный следующий шаг и подтверждение"
-    ]
-  };
-}
-
-const paymentPlans = {
-  "card-rejected": {
-    subhead: "Не карта плохая: чаще ломается сам сценарий платежа",
-    points: [
-      "Сервис видит страну карты и отклоняет списание",
-      "Подписка просит другой тип платежа",
-      "Бронь или счет могут сгореть по времени",
-      "Повторные попытки только усиливают хаос",
-      "Нужен понятный маршрут, а не десятая карта подряд"
-    ]
-  },
-  "subscription-deadline": {
-    subhead: "Доступ отключают тихо: заметите, когда сервис уже не работает",
-    points: [
-      "Списание не прошло — доступ режется автоматически",
-      "Команда узнает об этом в рабочий момент",
-      "Восстановление может занять больше, чем оплата",
-      "Последний час — худшее время для проверки условий",
-      "Лучше закрыть продление до красной даты"
-    ]
-  },
-  "business-tools": {
-    subhead: "Один сервис падает — за ним останавливается весь процесс",
-    points: [
-      "Облако закрывает доступ к файлам",
-      "Реклама встает из-за неоплаченного кабинета",
-      "Сервис разработки блокирует рабочие функции",
-      "Команда теряет время на срочные обходы",
-      "Критичные подписки лучше закрывать первыми"
-    ]
-  },
-  "travel-booking": {
-    subhead: "Бронь не будет ждать, пока вы разберетесь с оплатой",
-    points: [
-      "Отель держит место ограниченное время",
-      "Билет может подорожать после сорванной оплаты",
-      "Агрегатор не всегда дает вторую попытку",
-      "Валюта и срок важнее, чем кажется",
-      "Подтверждение нужно до поездки, а не в аэропорту"
-    ]
-  },
-  "invoice-payment": {
-    subhead: "Разберите счет как чеклист: что должно быть понятно до оплаты",
-    points: [
-      "Получатель: кто выставил счет и за какой сервис",
-      "Валюта и сумма: что именно нужно оплатить",
-      "Срок: когда счет перестает быть актуальным",
-      "Назначение: подписка, инвойс, бронь или доступ",
-      "Подтверждение: что сохранить после оплаты"
-    ]
-  },
-  "commission-terms": {
-    subhead: "Чек-лист сделки: 5 условий, которые фиксируют до оплаты",
-    points: [
-      "Сумма: сколько реально уйдет в рублях",
-      "Срок: когда ждать подтверждение, а не надеяться",
-      "Комиссия: что включено, а что всплывет отдельно",
-      "Ограничения: где платеж может не пройти",
-      "Документ: что останется у вас на руках"
-    ]
-  },
-  "support-route": {
-    subhead: "Покажите не шаги оплаты, а статусы заявки в поддержке",
-    points: [
-      "Заявка принята: сервис, цель и срочность зафиксированы",
-      "Идет проверка: смотрим ограничения площадки",
-      "Нужны уточнения: запрашиваем только необходимые данные",
-      "Маршрут найден: понятен следующий шаг",
-      "Статус на связи: пользователь видит, что процесс не потерян"
-    ]
-  },
-  "safe-boundaries": {
-    subhead: "Сравнение: прозрачный сервис против рискованных обещаний",
-    points: [
-      "Нормально: называют рамки / Опасно: оплатим что угодно",
-      "Нормально: объясняют сроки / Опасно: торопят без деталей",
-      "Нормально: просят минимум / Опасно: вытягивают лишние данные",
-      "Нормально: дают подтверждение / Опасно: нет следа операции",
-      "Нормально: человек на связи / Опасно: после оплаты тишина"
-    ]
-  }
-};
-
-function getPaymentScenarioFacts(semanticKey) {
-  const facts = {
-    "card-rejected": {
-      object: "карту, сервис и причину отказа",
-      normal: "сервис объясняет, какие варианты оплаты принимает",
-      risk: "обещают провести платеж без проверки ограничений",
-      mistake: "снова пробовать ту же карту без понимания отказа",
-      consequence: "сервис может усилить проверку или заблокировать попытки"
-    },
-    "subscription-deadline": {
-      object: "подписку, дату списания и риск отключения",
-      normal: "срок продления понятен до последнего дня",
-      risk: "доступ уже горит, а условий оплаты еще нет",
-      mistake: "оставить продление на последний час",
-      consequence: "команда узнает об отключении в рабочий момент"
-    },
-    "business-tools": {
-      object: "рабочий сервис, доступы и влияние на команду",
-      normal: "критичные подписки закрывают заранее",
-      risk: "один неоплаченный сервис держит весь процесс",
-      mistake: "считать рабочую подписку мелкой задачей",
-      consequence: "останавливаются файлы, реклама, разработка или коммуникации"
-    },
-    "travel-booking": {
-      object: "бронь, билет, срок удержания и подтверждение",
-      normal: "понятно, сколько держится бронь и что будет после оплаты",
-      risk: "место или цена могут исчезнуть до второй попытки",
-      mistake: "платить без проверки срока и валюты",
-      consequence: "бронь слетает, а новый вариант стоит дороже"
-    },
-    "invoice-payment": {
-      object: "получателя, сумму, валюту и назначение счета",
-      normal: "invoice читается как чек-лист перед оплатой",
-      risk: "счет оплачивают, не понимая срок и назначение",
-      mistake: "не разобрать поля счета до перевода",
-      consequence: "платеж уходит не туда или требует долгих уточнений"
-    },
-    "commission-terms": {
-      object: "сумму, комиссию, срок и ограничения",
-      normal: "условия названы до запуска транзакции",
-      risk: "комиссия и ограничения всплывают после согласия",
-      mistake: "смотреть только на финальную сумму без рамок",
-      consequence: "ожидание и реальный итог расходятся"
-    },
-    "support-route": {
-      object: "статус заявки и следующий шаг поддержки",
-      normal: "пользователь видит, что происходит с платежом",
-      risk: "после оплаты нет статуса, маршрута и человека на связи",
-      mistake: "передать данные без понятного процесса",
-      consequence: "платеж зависает, а клиент не понимает, что делать"
-    },
-    "safe-boundaries": {
-      object: "обещание, рамки сервиса и прозрачность процесса",
-      normal: "сервис объясняет, что можно и что нельзя",
-      risk: "звучит фраза «оплатим что угодно»",
-      mistake: "верить обещанию без условий, сроков и подтверждения",
-      consequence: "риск оказывается выше, чем сама проблема оплаты"
-    }
-  };
-  return facts[semanticKey] || facts["card-rejected"];
+function uniqueText(items) {
+  const seen = new Set();
+  return items.map((item) => String(item || "").trim()).filter((item) => {
+    const key = item.toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
