@@ -12,9 +12,10 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
   const formatType = getEffectiveFormatType({ brief, format });
   return limitImagePrompt([
     packagePrompt,
-    "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ: не менять тему и видимые формулировки.",
+    getTextContractRule(formatType),
     getFormatLock(formatType),
     getReferenceTraceContract(formatType),
+    getRankingAdaptationContract(formatType, content),
     formatLayoutPlanPrompt(brief.layoutContentPlan),
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
@@ -35,14 +36,33 @@ function getFormatLock(formatType = "") {
   return "ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK: сохранить leaderboard/top-chart skeleton из дизайн-референса: плотный постер, крупная заголовочная зона, служебная строка/легенда, повторяемые ранговые колонки или rank cards, номера мест, короткие value labels, светящиеся рамки/разделители. Не превращать в минималистичный белый checklist, обычный список с иконками или product flat lay.";
 }
 
+function getTextContractRule(formatType = "") {
+  if (formatType !== "ranking_leaderboard") {
+    return "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ: не менять тему и видимые формулировки.";
+  }
+  return "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ ДЛЯ TOP-CHART: сохранить тему и смысл, но адаптировать видимый текст под leaderboard skeleton; не копировать checklist wording дословно, если оно ломает количество и форму rank cards.";
+}
+
 function getReferenceTraceContract(formatType = "") {
   if (formatType !== "ranking_leaderboard") return "";
   return [
     "REFERENCE TRACE CONTRACT: финальное изображение должно быть узнаваемой адаптацией приложенного top-chart reference, а не новой инфографикой по теме.",
     "Повтори геометрию: темный насыщенный фон, крупный верхний headline block, маленькая source/legend strip под заголовком, сетка из многих вертикальных ranked cards/bars, glow outlines, gold/white/blue contrast, нижний ряд компактных mini rank cards.",
     "Разрешено менять только смысл, подписи и объекты под новый продукт; нельзя менять skeleton на белый лист, четыре колонки, checklist rows, icon list, flat lay, аптечный минимализм или обычный poster.",
-    "Если контента меньше чем слотов в референсе, заполни 8-12 rank cards короткими безопасными признаками/критериями; не растягивай 4 пункта на весь экран."
+    "Если контента меньше чем слотов в референсе, заполни 8-12 rank cards короткими безопасными признаками/критериями; не растягивай 4 пункта на весь экран.",
+    "Палитра дизайн-референса важнее палитры продукта: не уходить в зеленый wellness poster, если референс темно-синий/золотой/cyan."
   ].join(" ");
+}
+
+function getRankingAdaptationContract(formatType = "", content = {}) {
+  if (formatType !== "ranking_leaderboard") return "";
+  const count = Array.isArray(content.points) ? content.points.length : 0;
+  return [
+    "RANKING ADAPTATION OVERRIDE: если исходный сценарий похож на checklist, диагностическую карточку или содержит 4-6 пунктов, НЕ сохранять эту структуру.",
+    "Перепаковать тему в TOP 10 или TOP 12 chart: крупный заголовок начинается с ТОП, subtitle/legend должен совпадать с числом rank cards, а не повторять старое число вроде '5 маркеров'.",
+    count && count < 8 ? `Исходных пунктов ${count}; это сырье для смысла, а не количество карточек. Финальный макет должен иметь 8-12 коротких rank cards.` : "",
+    "Не использовать крупный продуктовый bottle/glass flat lay как фон для leaderboard; продукт допускается только как маленький сигнал, если он не разрушает chart skeleton."
+  ].filter(Boolean).join(" ");
 }
 
 function formatContentPoint(point) {

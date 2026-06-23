@@ -58,6 +58,36 @@ test("creative team leaderboard prompt locks reference structure", () => {
   assert.match(prompt, /Не превращать в минималистичный белый checklist/);
 });
 
+test("leaderboard prompt adapts short checklist copy into chart slots", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const prompt = buildImagePrompt({
+    project,
+    product,
+    reference: {
+      title: "Чарт",
+      layoutType: "ranking_leaderboard",
+      takeaways: "dark blue top chart, gold headline, cyan glowing rank cards"
+    },
+    generationBrief: {
+      imagePromptPackage: { prompt: "Adapt the wellness checklist into the chart reference." },
+      designFormatBrief: { formatType: "ranking_leaderboard", structureName: "Top chart" },
+      contentScript: {
+        headline: "Усталость или сигнал организма?",
+        subhead: "5 маркеров, что пора пересмотреть привычки",
+        points: ["Кожа стала тусклой", "Энергия падает к 16:00", "Трудно концентрироваться", "Сложно пить воду", "Тяжелый подъем"]
+      }
+    }
+  });
+
+  assert.match(prompt, /адаптировать видимый текст под leaderboard skeleton/);
+  assert.match(prompt, /НЕ сохранять эту структуру/);
+  assert.match(prompt, /TOP 10 или TOP 12 chart/);
+  assert.match(prompt, /не повторять старое число вроде '5 маркеров'/);
+  assert.match(prompt, /Исходных пунктов 5/);
+  assert.match(prompt, /не уходить в зеленый wellness poster/);
+});
+
 test("creative team prompt keeps leaderboard lock when ai format brief is wrong", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
@@ -148,6 +178,7 @@ test("creative team brief runner executes role chain and flattens legacy fields"
     { creativeBrief: { topic: "Почему вечерняя рутина срывается", formatIntent: "saveable_note", productBridge: "продукт уместен как часть рутины" } },
     { hookSet: [{ hook: "Вечерний ритуал срывается не случайно" }], recommendedHook: "Вечерний ритуал срывается не случайно" },
     { contentScript: { headline: "Ритуал срывается вечером", subhead: "Причина часто в ожиданиях", points: ["Сначала уберите шум", "Проверьте привычку"] } },
+    { formatCompliance: { formatMatched: false, issues: ["Нужно больше rank cards"], fixedContentScript: { headline: "ТОП вечерних сбоев", subhead: "Ритуалы | проверь привычки", points: ["1: Шум", "2: Экран", "3: Кофе", "4: Поздний ужин", "5: Свет", "6: Стресс", "7: Режим", "8: Телефон"] }, finalRules: [] } },
     { visualBrief: { mainVisualObject: "вечерняя полка", productUsage: "small_signal" } },
     { safetyReview: { generationAllowed: true, issues: [], fixedContentScript: { headline: "", subhead: "", points: [] }, fixedVisualBrief: {}, finalWarnings: [] } },
     { imagePromptPackage: { provider: "gpt-image-2", prompt: "Create vertical 9:16 infographic", inputRefs: [], promptBudgetNotes: { mustKeep: [], canDropIfTooLong: [] } } }
@@ -171,16 +202,20 @@ test("creative team brief runner executes role chain and flattens legacy fields"
     }
   });
 
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 10);
   assert.equal(draft.productPassport.productName, "Магний");
   assert.equal(draft.designFormatBrief.formatType, "ranking_leaderboard");
   assert.equal(draft.topic, "Почему вечерняя рутина срывается");
   assert.equal(draft.hook, "Вечерний ритуал срывается не случайно");
-  assert.equal(draft.plan.headline, "Ритуал срывается вечером");
+  assert.equal(draft.plan.headline, "ТОП вечерних сбоев");
+  assert.equal(draft.contentScript.points.length, 8);
+  assert.equal(draft.formatCompliance.formatMatched, false);
   assert.equal(draft.imagePromptPackage.prompt, "Create vertical 9:16 infographic");
   assert.equal(calls[1].model, "vision-model");
   assert.equal(Array.isArray(calls[1].content), true);
   assert.match(calls[1].content[0].text, /format architect/);
   assert.equal(calls[1].content[1].image_url.url, "https://studio.example.com/api/reference-assets/design-1");
   assert.match(calls[5].content, /ranking_leaderboard/);
+  assert.match(calls[6].content, /format compliance editor/);
+  assert.match(calls[9].content, /ТОП вечерних сбоев/);
 });

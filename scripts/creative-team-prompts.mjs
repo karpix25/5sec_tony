@@ -1,5 +1,6 @@
 import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldFormatShellBan } from "../src/domain/generation-format-contract.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
+import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
 
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
@@ -36,10 +37,12 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
   const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(body, productPassport, attentionMap, designFormatBrief) });
   const hookSet = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: hookProducerInstruction(body, productPassport, creativeBrief) });
   const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, designFormatBrief) });
-  const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(body, productPassport, creativeBrief, contentScript, designFormatBrief) });
-  const safetyReview = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: safetyEditorInstruction(body, productPassport, creativeBrief, contentScript, visualBrief) });
-  const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief) });
-  return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript, visualBrief, safetyReview, imagePromptPackage, body });
+  const formatCompliance = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: formatComplianceInstruction({ commonRules: commonRoleRules, productPassport, creativeBrief, contentScript, designFormatBrief }) });
+  const compliantScript = getCompliantContentScript(contentScript, formatCompliance);
+  const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(body, productPassport, creativeBrief, compliantScript, designFormatBrief) });
+  const safetyReview = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: safetyEditorInstruction(body, productPassport, creativeBrief, compliantScript, visualBrief) });
+  const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, compliantScript, visualBrief, safetyReview, designFormatBrief) });
+  return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript: compliantScript, formatCompliance, visualBrief, safetyReview, imagePromptPackage, body });
 }
 
 export function humanizeTextInstruction(body) {
@@ -118,7 +121,7 @@ function designFormatBriefInstruction(body, productPassport) {
         formatType: "ranking_leaderboard|comparison_grid|checklist_cards|timeline|symptom_poster|single_thesis|other",
         structureName: "",
         layoutSlots: [{ id: "", role: "headline|subtitle|source_bar|rank_card|value_label|image_slot|logo_slot|caption|note", textCapacity: "short|medium|number|none", repeatCount: 0, required: true }],
-        textContract: { headlineShape: "", itemShape: "", maxItems: 0, mustIncludeNumbers: false, avoidTextTypes: [] },
+        textContract: { headlineShape: "", subheadShape: "", itemShape: "", minItems: 0, maxItems: 0, preferredItems: 0, mustIncludeNumbers: false, avoidTextTypes: [], forbiddenCarryoverText: [] },
         visualGrammar: { composition: "", background: "", palette: "", typography: "", framesAndDividers: "", imageTreatment: "", hierarchy: "" },
         adaptationRules: [],
         doNotCopy: []
@@ -129,6 +132,7 @@ function designFormatBriefInstruction(body, productPassport) {
         "Если к сообщению приложена картинка designReference, считай ее главным источником структуры. Текстовые поля title/layoutType/promptComment вторичны и могут быть устаревшими.",
         "Смотри на референс не только как на стиль, а как на макет: заголовочная зона, служебные подписи, повторяемые карточки, шкалы, фото-слоты, иерархия и плотность.",
         "Если референс похож на рейтинг, топ, leaderboard или список мест, выбери formatType=ranking_leaderboard и задай сценаристу структуру ранжированных пунктов.",
+        "Для ranking_leaderboard задай textContract: preferredItems 8-12, headlineShape начинается с ТОП, subheadShape как legend/source strip, itemShape 2-5 слов, forbiddenCarryoverText включает старые числа и checklist-формулы вроде '5 маркеров'.",
         "Опиши, какие смысловые слоты должен заполнить сценарист: например headline, subtitle, source_bar, rank_card, value_label, image_slot, caption.",
         "Укажи textCapacity честно: если в слот влезает только число или 2-4 слова, не разрешай длинные фразы.",
         "Копируй структуру, ритм, сетку, иерархию, цветовую логику и типографический характер; не копируй людей, бренды, логотипы, чужой текст и чужие claims.",
@@ -193,7 +197,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, 
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], invisibleNotes: { productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: ["Headline максимум 6 слов.", "Subhead одна короткая строка.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под слоты designFormatBrief: если формат ranking_leaderboard, points должны быть короткими ранжированными пунктами, а не обычным списком советов.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: ["Headline максимум 6 слов.", "Subhead одна короткая строка.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       creativeBrief,
       hookSet,
@@ -272,6 +276,7 @@ function flattenCreativeTeamDraft(parts) {
     recommendedHook: hookPayload.recommendedHook,
     contentScript: fixedScript,
     visualBrief: Object.keys(safetyReview?.fixedVisualBrief || {}).length ? safetyReview.fixedVisualBrief : visualBrief,
+    formatCompliance: parts.formatCompliance.formatCompliance || parts.formatCompliance,
     safetyReview,
     imagePromptPackage,
     semanticKey: parts.body.diversitySlot?.id || creativeBrief.topic || "",
@@ -286,6 +291,19 @@ function flattenCreativeTeamDraft(parts) {
     productPositiveBridge: creativeBrief.productBridge || fixedScript.invisibleNotes?.productBridge || "",
     plan: { headline: fixedScript.headline, subhead: fixedScript.subhead, points: fixedScript.points || [], disclaimer: "" },
     qualityChecks: { generationAllowed: safetyReview.generationAllowed !== false, issues: safetyReview.issues || [], finalWarnings: safetyReview.finalWarnings || [] }
+  };
+}
+
+function getCompliantContentScript(contentScript, formatCompliance) {
+  const baseScript = contentScript.contentScript || contentScript || {};
+  const compliance = formatCompliance.formatCompliance || formatCompliance || {};
+  const fixed = compliance.fixedContentScript || {};
+  if (!fixed.headline && !fixed.subhead && !Array.isArray(fixed.points)) return baseScript;
+  return {
+    ...baseScript,
+    headline: fixed.headline || baseScript.headline || "",
+    subhead: fixed.subhead || baseScript.subhead || "",
+    points: Array.isArray(fixed.points) && fixed.points.length ? fixed.points : baseScript.points || []
   };
 }
 
