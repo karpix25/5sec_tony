@@ -29,9 +29,11 @@ export async function openTelegramLogin(clientId, options = {}) {
   await ensureTelegramOidcLibrary();
   const login = globalThis.Telegram?.Login;
   if (!login?.auth) throw new Error("Telegram Login Library не загрузилась");
+  const redirectUri = options.redirectUri || getTelegramLoginRedirectUri();
   return new Promise((resolve, reject) => {
     login.auth({
       client_id: normalizeTelegramClientId(clientId),
+      redirect_uri: redirectUri,
       scope: options.scope || "profile",
       lang: options.lang || "ru"
     }, (result) => {
@@ -42,6 +44,11 @@ export async function openTelegramLogin(clientId, options = {}) {
       reject(new Error(result?.error || "Telegram Login отменен"));
     });
   });
+}
+
+export function getTelegramLoginRedirectUri(source = globalThis.location) {
+  if (!source?.origin) throw new Error("Telegram redirect_uri отсутствует");
+  return `${source.origin}${source.pathname || "/"}`;
 }
 
 export async function loginWithTelegramIdToken(idToken, options = {}) {
