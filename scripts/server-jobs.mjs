@@ -4,6 +4,7 @@ import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
 import { limitImagePrompt } from "../src/domain/image-prompt-budget.js";
 import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
 import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
+import { createOperationLogger, summarizeJobForLog, summarizeServerJobContext } from "./operation-logger.mjs";
 import { loadPersistedServerJob, persistServerJobSnapshot } from "./server-job-state.mjs";
 
 const serverJobs = new Map();
@@ -11,6 +12,7 @@ const successStates = ["success", "succeeded", "completed", "complete"];
 const failStates = ["fail", "failed", "error"];
 const primaryProvider = "gpt-image-2";
 const fallbackProvider = "nano-banana-2";
+const logger = createOperationLogger("server-job");
 
 export async function handleServerJobsApi(request, response, url) {
   return createServerJobsApiHandler()(request, response, url);
@@ -36,6 +38,11 @@ async function startServerJob(request, response, deps) {
     const body = await readJson(request);
     const job = body.job || {};
     if (!job.id) return sendJson(response, 400, { error: "job.id is required" });
+    logger.log("run:request", {
+      job: summarizeJobForLog(job),
+      context: summarizeServerJobContext(body.context || {}),
+      alreadyRunning: deps.jobs.has(job.id)
+    });
     if (!deps.jobs.has(job.id)) {
       const origin = getInternalServerOrigin();
       const record = {
@@ -47,7 +54,13 @@ async function startServerJob(request, response, deps) {
       };
       deps.jobs.set(job.id, record);
       await persistServerJob(record);
+      logger.log("run:accepted", {
+        job: summarizeJobForLog(record.job),
+        origin,
+        context: summarizeServerJobContext(record.context)
+      });
       runServerJob(record).catch(async (error) => {
+        logger.log("run:unhandled-error", { job: summarizeJobForLog(record.job), error: error.message || error });
         await patchServerJob(record, {
           status: "failed",
           stage: "image",
@@ -58,22 +71,36 @@ async function startServerJob(request, response, deps) {
     }
     return sendJson(response, 200, getServerJobPayload(deps.jobs.get(job.id)));
   } catch (error) {
+    logger.log("run:request-error", { error: error.message || error });
     return sendJson(response, 502, { error: error.message || "Не удалось запустить серверную задачу" });
   }
 }
 
 async function getServerJobStatus(response, jobId, deps) {
   const record = deps.jobs.get(jobId || "");
-  if (!record) return sendPersistedServerJobStatus(response, jobId, deps);
+  if (!record) {
+    logger.log("status:miss", { jobId: jobId || "" });
+    return sendPersistedServerJobStatus(response, jobId, deps);
+  }
+  logger.log("status:hit", { job: summarizeJobForLog(record.job) });
   return sendJson(response, 200, getServerJobPayload(record));
 }
 
 async function runServerJob(record) {
+  logger.log("pipeline:start", { job: summarizeJobForLog(record.job) });
   const image = await runServerImageGeneration(record, primaryProvider);
   await runServerFinalAssembly(record, image.imageUrl);
+  logger.log("pipeline:done", { job: summarizeJobForLog(record.job) });
 }
 
 async function runServerImageGeneration(record, provider) {
+  logger.log("image:start", {
+    job: summarizeJobForLog(record.job),
+    provider,
+    promptChars: String(record.job.prompt || "").length,
+    inputUrls: Array.isArray(record.job.inputUrls) ? record.job.inputUrls.length : 0,
+    inputRefs: Array.isArray(record.job.inputRefs) ? record.job.inputRefs.length : 0
+  });
   await patchServerJob(record, {
     status: "running",
     stage: "image",
@@ -90,11 +117,22 @@ async function runServerImageGeneration(record, provider) {
     resolution: "1K",
     outputFormat: "png"
   });
+  logger.log("image:task-created", { job: summarizeJobForLog(record.job), provider, taskId: task.taskId || "" });
   await patchServerJob(record, { imageTaskId: task.taskId, imageProvider: provider });
 
   for (let attempt = 0; attempt < 75; attempt += 1) {
     await delayServerJobPoll(attempt === 0 ? 6000 : 4000);
     const status = await getServerJson(record.origin, `/api/images/status?taskId=${encodeURIComponent(task.taskId)}`);
+    logger.log("image:poll", {
+      job: summarizeJobForLog(record.job),
+      provider,
+      taskId: task.taskId || "",
+      attempt: attempt + 1,
+      state: status.state || "",
+      progress: status.progress || 0,
+      hasImageUrl: Boolean(status.imageUrl),
+      failMsg: status.failMsg || ""
+    });
     if (successStates.includes(status.state) && status.imageUrl) {
       await patchServerJob(record, {
         status: "running",
@@ -104,9 +142,16 @@ async function runServerImageGeneration(record, provider) {
         imageData: status.imageUrl,
         failMsg: "Картинка готова, сервер собирает видео..."
       });
+      logger.log("image:ready", { job: summarizeJobForLog(record.job), provider, taskId: task.taskId || "" });
       return status;
     }
     if (failStates.includes(status.state)) {
+      logger.log("image:provider-failed", {
+        job: summarizeJobForLog(record.job),
+        provider,
+        taskId: task.taskId || "",
+        failMsg: status.failMsg || ""
+      });
       if (provider === primaryProvider) return runServerImageGeneration(record, fallbackProvider);
       throw new Error(status.failMsg || "Генерация картинки завершилась ошибкой");
     }
@@ -117,12 +162,14 @@ async function runServerImageGeneration(record, provider) {
     });
   }
 
+  logger.log("image:timeout", { job: summarizeJobForLog(record.job), provider, taskId: task.taskId || "" });
   if (provider === primaryProvider) return runServerImageGeneration(record, fallbackProvider);
   throw new Error("Не удалось получить картинку за 5 минут. Попробуйте запустить еще раз.");
 }
 
 async function runServerFinalAssembly(record, backgroundImageUrl) {
   if (!requiresFinalVideo(record.job)) {
+    logger.log("assembly:skip-final-video", { job: summarizeJobForLog(record.job) });
     await patchServerJob(record, { status: "review", stage: "approval", progress: 76, failMsg: "" });
     return;
   }
@@ -135,6 +182,14 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
   const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
   const renderWithoutAvatar = allowNoAvatar || !avatarVideoUrl;
   const audio = getServerJobAudio(record);
+  logger.log("assembly:start", {
+    job: summarizeJobForLog(record.job),
+    renderWithoutAvatar,
+    allowNoAvatar,
+    hasAvatarVideoUrl: Boolean(avatarVideoUrl),
+    avatarVideoId: avatarVideo?.id || "",
+    hasAudio: Boolean(audio?.fileData)
+  });
 
   await patchServerJob(record, {
     status: "running",
@@ -155,6 +210,11 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
       ? resolveServerNoAvatarCtaOverlay(project)
       : avatarVideo?.ctaOverlay || { enabled: false }
   });
+  logger.log("assembly:composite-created", {
+    job: summarizeJobForLog(record.job),
+    videoUrl: result.videoUrl || "",
+    hasAudio: Boolean(result.hasAudio)
+  });
 
   if (!renderWithoutAvatar && avatarVideoPick && avatarVideo?.id) {
     record.avatarUsage = {
@@ -163,6 +223,7 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
       nextIndex: avatarVideoPick.nextIndex,
       nextCharacterIndex: avatarVideoPick.nextCharacterIndex
     };
+    logger.log("avatar-usage:reserved", { job: summarizeJobForLog(record.job), avatarUsage: record.avatarUsage });
   }
 
   await patchServerJob(record, {
@@ -178,9 +239,17 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
 
 async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
   const project = record.context.project || {};
-  if (!project.yandexDiskFolder) return;
+  if (!project.yandexDiskFolder) {
+    logger.log("disk:skip", { job: summarizeJobForLog(record.job), reason: "project has no yandexDiskFolder" });
+    return;
+  }
   const avatarName = resolveServerJobAvatarName(project, record.job, record.context.selectedCharacterId);
   try {
+    logger.log("disk:start", {
+      job: summarizeJobForLog(record.job),
+      targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
+      fileName: buildServerExportFileName(project, record.job)
+    });
     await patchServerJob(record, { diskStatus: "uploading", diskMessage: "Сервер сохраняет в Яндекс.Диск..." });
     const result = await postServerJson(record.origin, "/api/yandex-disk/upload", {
       fileUrl: finalVideoUrl,
@@ -192,11 +261,13 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
       diskPath: result.diskPath,
       diskMessage: "Сохранено в Яндекс.Диск"
     });
+    logger.log("disk:done", { job: summarizeJobForLog(record.job), diskPath: result.diskPath || "" });
   } catch (error) {
     await patchServerJob(record, {
       diskStatus: "failed",
       diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск"
     });
+    logger.log("disk:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
   }
 }
 
@@ -209,21 +280,29 @@ function getServerJobPayload(record) {
 }
 
 async function patchServerJob(record, payload) {
+  const previous = summarizeJobForLog(record.job);
   record.job = { ...record.job, ...payload };
+  logger.log("patch", { before: previous, patch: payload, after: summarizeJobForLog(record.job) });
   await persistServerJob(record);
 }
 
 async function persistServerJob(record) {
   try {
     await record.persistJob?.(record.job);
+    logger.log("persist:done", { job: summarizeJobForLog(record.job) });
   } catch (error) {
+    logger.log("persist:error", { job: summarizeJobForLog(record.job), error: error.message || error });
     console.warn(`[server-job:persist:error] ${error.message || error}`);
   }
 }
 
 async function sendPersistedServerJobStatus(response, jobId, deps) {
   const job = await deps.loadJob(jobId || "");
-  if (!job) return sendJson(response, 404, { error: "server job not found" });
+  if (!job) {
+    logger.log("status:persisted-miss", { jobId: jobId || "" });
+    return sendJson(response, 404, { error: "server job not found" });
+  }
+  logger.log("status:persisted-hit", { job: summarizeJobForLog(job) });
   if (isTerminalServerJob(job)) return sendJson(response, 200, { job, avatarUsage: null });
   const failedJob = {
     ...job,
@@ -232,6 +311,7 @@ async function sendPersistedServerJobStatus(response, jobId, deps) {
     failMsg: "Серверная задача была прервана перезапуском. Запустите генерацию заново."
   };
   await deps.persistJob(failedJob);
+  logger.log("status:persisted-interrupted", { job: summarizeJobForLog(failedJob) });
   return sendJson(response, 200, { job: failedJob, avatarUsage: null });
 }
 
@@ -271,17 +351,33 @@ function requiresFinalVideo(job) {
 }
 
 async function postServerJson(origin, path, body) {
+  const timer = logger.time("http:post", { path, body });
   const response = await fetch(`${origin}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
-  return readServerJson(response);
+  try {
+    const payload = await readServerJson(response);
+    timer.done({ status: response.status, payload });
+    return payload;
+  } catch (error) {
+    timer.fail(error, { status: response.status });
+    throw error;
+  }
 }
 
 async function getServerJson(origin, path) {
+  const timer = logger.time("http:get", { path });
   const response = await fetch(`${origin}${path}`);
-  return readServerJson(response);
+  try {
+    const payload = await readServerJson(response);
+    timer.done({ status: response.status, payload });
+    return payload;
+  } catch (error) {
+    timer.fail(error, { status: response.status });
+    throw error;
+  }
 }
 
 async function readServerJson(response) {
