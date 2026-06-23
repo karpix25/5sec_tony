@@ -28,6 +28,7 @@ const files = [
   "src/domain/curiosity-content.js",
   "src/domain/generation-format-contract.js",
   "src/domain/image-prompt-budget.js",
+  "src/domain/creative-team-image-prompt.js",
   "src/domain/provider-error-message.js",
   "src/domain/product-insights.js",
   "src/domain/product-content-focus.js",

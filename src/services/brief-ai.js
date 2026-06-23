@@ -27,18 +27,27 @@ export async function generateAiBrief({ project, product, reference, existingJob
 }
 
 function normalizeAiBrief(draft, diversitySlot) {
+  const creativeBrief = draft.creativeBrief || {};
+  const contentScript = draft.contentScript || draft.plan || {};
   const topic = diversitySlot.lockTopic
     ? diversitySlot.topic
-    : draft.topic || diversitySlot.topic || "";
+    : draft.topic || creativeBrief.topic || diversitySlot.topic || "";
+  const hook = draft.hook || draft.recommendedHook || diversitySlot.hook || "";
+  const plan = draft.plan || {
+    headline: contentScript.headline || hook,
+    subhead: contentScript.subhead || "",
+    points: Array.isArray(contentScript.points) ? contentScript.points : []
+  };
   return {
+    ...draft,
     topic,
-    hook: draft.hook || diversitySlot.hook || "",
-    format: draft.format || diversitySlot.format || "",
-    pointCount: draft.pointCount || "",
-    visualObject: draft.visualObject || diversitySlot.visualObject || "",
+    hook,
+    format: draft.format || creativeBrief.formatIntent || diversitySlot.format || "",
+    pointCount: draft.pointCount || String(plan.points?.length || ""),
+    visualObject: draft.visualObject || draft.visualBrief?.mainVisualObject || diversitySlot.visualObject || "",
     cta: draft.cta || "",
     notes: "AI-сгенерированный бриф на основе проекта, продукта и истории тем.",
-    aiPlan: draft.plan || {},
+    aiPlan: plan,
     productInsightMap: buildProductInsightMap({ insightMap: draft.productInsightMap }),
     sourceHook: draft.sourceHook || draft.hookReference?.text || "",
     hookIntelligence: draft.hookIntelligence || {},

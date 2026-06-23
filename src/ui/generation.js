@@ -2,6 +2,8 @@ import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
 import { runImageJob } from "./job-runner.js";
 import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
+import { generateAiBrief } from "../services/brief-ai.js";
+import { getContext } from "../state/store.js";
 
 export function renderStudioPanel(state, context) {
   return `
@@ -15,8 +17,8 @@ export function renderStudioPanel(state, context) {
           ${renderReferenceSelect(context)}
           ${renderCharacterSelect(context)}
           ${renderAudioSelect(context)}
-          <div class="auto-generation-note">
-            Система сама подберет тему, хук, формат и объекты на основе проекта, продукта, референсов и истории генераций.
+          <div id="creative-team-status" class="auto-generation-note">
+            AI-команда соберет паспорт продукта, угол внимания, сценарий и короткий промпт для картинки.
           </div>
           <label class="stacked-field">
             <span>Количество</span>
@@ -29,12 +31,49 @@ export function renderStudioPanel(state, context) {
 }
 
 export function bindGenerationPanelEvents(root, store) {
-  root.querySelector("#create-job")?.addEventListener("click", () => {
+  root.querySelector("#create-job")?.addEventListener("click", async () => {
     const count = Math.max(1, Math.min(10, Number(root.querySelector("#generation-count")?.value || 1)));
-    const jobs = store.createJobs(count);
+    const jobs = canRunCreativeTeamPreflight(store) && typeof store.createJob === "function"
+      ? await createCreativeTeamJobs(root, store, count)
+      : store.createJobs(count);
     store.selectProjectTab("queue");
     jobs.forEach((job) => runImageJob(store, job.id));
   });
+}
+
+function canRunCreativeTeamPreflight(store) {
+  return typeof store.getState === "function" && typeof store.updateGenerationBrief === "function";
+}
+
+async function runCreativeTeamPreflight(root, store, batch = {}) {
+  const status = root.querySelector("#creative-team-status");
+  const state = store.getState();
+  const context = getContext(state);
+  const batchLabel = batch.count > 1 ? ` ${batch.index + 1}/${batch.count}` : "";
+  if (status) status.textContent = `AI-команда собирает паспорт продукта, сценарий и промпт${batchLabel}...`;
+  try {
+    const brief = await generateAiBrief({
+      project: context.project,
+      product: context.product,
+      reference: context.reference,
+      existingJobs: state.jobs?.filter((job) => job.projectId === context.project.id) || [],
+      hookLibrary: context.hookLibrary
+    });
+    store.updateGenerationBrief(brief);
+    if (status) status.textContent = "AI-команда подготовила сценарий и промпт.";
+  } catch (error) {
+    if (status) status.textContent = error.message || "AI-команда недоступна, используем локальный fallback.";
+  }
+}
+
+async function createCreativeTeamJobs(root, store, count) {
+  const jobs = [];
+  for (let index = 0; index < count; index += 1) {
+    await runCreativeTeamPreflight(root, store, { index, count });
+    const job = store.createJob();
+    if (job) jobs.push(job);
+  }
+  return jobs;
 }
 
 function renderReferenceSelect({ project, reference }) {

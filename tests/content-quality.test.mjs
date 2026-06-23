@@ -27,6 +27,7 @@ test("semantic fallback raises life pain before product solution", () => {
 test("ai brief instructions demand shareable life facts", () => {
   const source = [
     readFileSync(new URL("../scripts/openrouter-api.mjs", import.meta.url), "utf8"),
+    readFileSync(new URL("../scripts/creative-team-prompts.mjs", import.meta.url), "utf8"),
     readFileSync(new URL("../src/domain/generation-format-contract.js", import.meta.url), "utf8")
   ].join("\n");
 
