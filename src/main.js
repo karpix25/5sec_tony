@@ -9,18 +9,20 @@ import { bindButtonDebug } from "./ui/button-debug.js";
 import { updateQueuePanel } from "./ui/queue.js";
 import { captureTransientUiState, restoreTransientUiState } from "./ui/transient-ui-state.js";
 import { createAuthController } from "./ui/auth.js";
+import { renderStudioLoading } from "./ui/studio-loading.js";
 
 const root = document.querySelector("#app");
 let store = null;
 let pendingFrame = 0;
 let needsFullRender = false;
 let pendingState = null;
+let firstRenderReady = false;
 
 const auth = createAuthController({
   root,
   renderApprovedState: false,
   onStateChange: (authState) => {
-    if (authState.status === "approved" && store) renderAppSafely();
+    if (authState.status === "approved" && store && firstRenderReady) renderAppSafely();
   },
   onAuthorized: () => startStudio()
 });
@@ -32,11 +34,16 @@ function startStudio() {
   pendingState = store.getState();
   bindButtonDebug(root, store);
   store.subscribe((state, patch) => scheduleRender(state, patch));
-  store.subscribePersistence((status) => updatePersistenceStatus(root, status));
-  renderAppSafely();
+  store.subscribePersistence((status) => {
+    if (firstRenderReady) updatePersistenceStatus(root, status);
+    else renderStudioLoading(root, status);
+  });
+  renderStudioLoading(root, store.getPersistenceStatus?.());
   Promise.resolve(store.whenHydrated?.())
     .catch(() => null)
     .finally(() => {
+      firstRenderReady = true;
+      renderAppSafely();
       resumeRunningImageJobs(store);
       startAutomationRunner(store);
     });
@@ -44,6 +51,7 @@ function startStudio() {
 
 function scheduleRender(state, patch) {
   pendingState = state;
+  if (!firstRenderReady) return;
   needsFullRender ||= !isJobsOnlyPatch(patch);
   if (pendingFrame) return;
   pendingFrame = requestRenderFrame(flushRender);

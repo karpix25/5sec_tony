@@ -88,6 +88,7 @@ const files = [
   "src/ui/auth-admin.js",
   "src/ui/auth.js",
   "src/ui/auth-workspace.js",
+  "src/ui/studio-loading.js",
   "src/ui/persistence-status.js",
   "src/ui/design.js",
   "src/ui/hooks.js",
