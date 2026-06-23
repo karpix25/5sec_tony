@@ -25,7 +25,8 @@ export async function getTelegramLoginConfig(options = {}) {
   return readAuthResponse(response, "Не удалось загрузить Telegram Login");
 }
 
-export function openTelegramLogin(clientId, options = {}) {
+export async function openTelegramLogin(clientId, options = {}) {
+  await ensureTelegramOidcLibrary();
   const login = globalThis.Telegram?.Login;
   if (!login?.auth) throw new Error("Telegram Login Library не загрузилась");
   return new Promise((resolve, reject) => {
@@ -151,7 +152,7 @@ function normalizeTelegramClientId(clientId) {
 }
 
 function ensureTelegramWidgetLibrary() {
-  if (globalThis.Telegram?.Login?.auth) return Promise.resolve();
+  if (document.querySelector("script[data-anton-telegram-widget-library-loaded]")) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const existing = document.querySelector("script[data-anton-telegram-widget-library]");
     if (existing) {
@@ -163,8 +164,33 @@ function ensureTelegramWidgetLibrary() {
     script.async = true;
     script.src = "https://telegram.org/js/telegram-widget.js?22";
     script.dataset.antonTelegramWidgetLibrary = "true";
-    script.onload = () => resolve();
+    script.onload = () => {
+      script.dataset.antonTelegramWidgetLibraryLoaded = "true";
+      resolve();
+    };
     script.onerror = () => reject(new Error("Telegram Widget Library не загрузилась"));
+    document.head.appendChild(script);
+  });
+}
+
+function ensureTelegramOidcLibrary() {
+  if (document.querySelector("script[data-anton-telegram-oidc-library-loaded]")) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector("script[data-anton-telegram-oidc-library]");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Telegram Login Library не загрузилась")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = "https://telegram.org/js/telegram-login.js";
+    script.dataset.antonTelegramOidcLibrary = "true";
+    script.onload = () => {
+      script.dataset.antonTelegramOidcLibraryLoaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error("Telegram Login Library не загрузилась"));
     document.head.appendChild(script);
   });
 }
