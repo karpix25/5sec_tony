@@ -35,7 +35,7 @@ async function startServerJob(request, response, deps) {
     const job = body.job || {};
     if (!job.id) return sendJson(response, 400, { error: "job.id is required" });
     if (!deps.jobs.has(job.id)) {
-      const origin = `http://${request.headers.host}`;
+      const origin = getInternalServerOrigin();
       const record = {
         job: { ...job, status: "running", stage: "image", progress: 18, failMsg: "Сервер запустил генерацию..." },
         context: body.context || {},
@@ -196,6 +196,10 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
       diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск"
     });
   }
+}
+
+function getInternalServerOrigin() {
+  return `http://127.0.0.1:${process.env.PORT || 4173}`;
 }
 
 function getServerJobPayload(record) {

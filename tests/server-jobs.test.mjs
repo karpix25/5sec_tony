@@ -90,6 +90,7 @@ test("server job runs image generation, final assembly, avatar usage and disk up
       nextIndex: 0,
       nextCharacterIndex: 0
     });
+    assert.equal(fetchCalls.every((call) => call.url.startsWith("http://127.0.0.1:4173/")), true);
     assert.equal(fetchCalls.some((call) => call.url.includes("/api/avatar-videos/composite")), true);
   } finally {
     globalThis.fetch = originalFetch;
@@ -240,7 +241,7 @@ async function waitForServerJob(jobId, predicate, handle = handleServerJobsApi) 
 async function callServerJobsApi(method, path, body, handle = handleServerJobsApi) {
   const request = Readable.from(body ? [JSON.stringify(body)] : []);
   request.method = method;
-  request.headers = { host: "127.0.0.1:4173" };
+  request.headers = { host: "n8n-5sec.ap2dy7.easypanel.host" };
   const response = createJsonCaptureResponse();
   const handled = await handle(request, response, new URL(`http://127.0.0.1:4173${path}`));
   assert.equal(handled, true);
