@@ -275,7 +275,7 @@ function getPublicTelegramConfig(deps = {}) {
   const botUsername = getTelegramBotUsername(deps.telegram || deps);
   const botId = getTelegramBotId(deps.telegram || deps);
   const payload = {
-    mode: botUsername ? "widget" : "oidc",
+    mode: "oidc",
     botUsername,
     botId
   };
