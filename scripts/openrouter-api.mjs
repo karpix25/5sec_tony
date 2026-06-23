@@ -1,5 +1,6 @@
 import { getOpenRouterErrorMessage, parseJsonDraft, readOpenRouterPayload } from "./openrouter-response.mjs";
 import { humanizeTextInstruction, runCreativeTeamBrief } from "./creative-team-prompts.mjs";
+import { resolveImageInputUrls } from "./reference-assets.mjs";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -71,11 +72,20 @@ async function generateBrief(request, response) {
     if (!token) return sendJson(response, 500, { error: "OPENROUTER_API_KEY is not configured" });
     const body = await readJson(request);
     logGenerationPayload("brief", body);
-    const draft = await runCreativeTeamBrief({ token, body, model: writingModel, callOpenRouter, parseJsonDraft });
+    const bodyWithReferenceImages = await attachDesignReferenceImageUrls(body, request);
+    const draft = await runCreativeTeamBrief({ token, body: bodyWithReferenceImages, model: writingModel, referenceModel: visionModel, callOpenRouter, parseJsonDraft });
     return sendJson(response, 200, { model: writingModel, draft });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "OpenRouter request failed" });
   }
+}
+
+async function attachDesignReferenceImageUrls(body, request) {
+  const reference = body.activeDesignReference || body.reference || {};
+  const rawUrls = [reference.imageUrl, reference.imageData].filter(Boolean).slice(0, 1);
+  if (!rawUrls.length) return body;
+  const designReferenceImageUrls = await resolveImageInputUrls(rawUrls, request);
+  return designReferenceImageUrls.length ? { ...body, designReferenceImageUrls } : body;
 }
 
 async function humanizeGenerationText(request, response) {

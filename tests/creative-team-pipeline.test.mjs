@@ -101,6 +101,29 @@ test("leaderboard final prompt allows ranking instead of old top ban", () => {
   assert.match(prompt, /8-12 очень коротких rank-card/);
 });
 
+test("creative team image prompt renders object points as text", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const prompt = buildImagePrompt({
+    project,
+    product,
+    reference: { title: "Чарт", layoutType: "ranking_leaderboard" },
+    generationBrief: {
+      imagePromptPackage: { prompt: "Use chart reference." },
+      designFormatBrief: { formatType: "ranking_leaderboard" },
+      contentScript: {
+        headline: "Утренний рейтинг",
+        subhead: "Что проверить первым",
+        points: [{ rank: "1", text: "Вода утром" }, { rank: "2", text: "Ритм завтрака" }]
+      }
+    }
+  });
+
+  assert.doesNotMatch(prompt, /\[object Object\]/);
+  assert.match(prompt, /1: Вода утром/);
+  assert.match(prompt, /2: Ритм завтрака/);
+});
+
 test("creative team visual brief controls product visibility mode", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
@@ -130,12 +153,19 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   const draft = await runCreativeTeamBrief({
     token: "token",
     model: "test-model",
-    callOpenRouter: async (_token, _model, messages) => {
-      calls.push(messages[1].content);
+    referenceModel: "vision-model",
+    callOpenRouter: async (_token, model, messages) => {
+      calls.push({ model, content: messages[1].content });
       return JSON.stringify(responses.shift());
     },
     parseJsonDraft: JSON.parse,
-    body: { project: projects[0], product: products[0], reference: projects[0].references[0], existingJobs: [] }
+    body: {
+      project: projects[0],
+      product: products[0],
+      reference: projects[0].references[0],
+      designReferenceImageUrls: ["https://studio.example.com/api/reference-assets/design-1"],
+      existingJobs: []
+    }
   });
 
   assert.equal(calls.length, 9);
@@ -145,6 +175,9 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.equal(draft.hook, "Вечерний ритуал срывается не случайно");
   assert.equal(draft.plan.headline, "Ритуал срывается вечером");
   assert.equal(draft.imagePromptPackage.prompt, "Create vertical 9:16 infographic");
-  assert.match(calls[1], /format architect/);
-  assert.match(calls[5], /ranking_leaderboard/);
+  assert.equal(calls[1].model, "vision-model");
+  assert.equal(Array.isArray(calls[1].content), true);
+  assert.match(calls[1].content[0].text, /format architect/);
+  assert.equal(calls[1].content[1].image_url.url, "https://studio.example.com/api/reference-assets/design-1");
+  assert.match(calls[5].content, /ranking_leaderboard/);
 });

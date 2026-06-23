@@ -1,4 +1,5 @@
 import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldFormatShellBan } from "../src/domain/generation-format-contract.js";
+import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
@@ -27,9 +28,10 @@ const commonRoleRules = [
 
 const roleSystemPrompt = "Ты senior-участник AI-креативной команды. Пиши по-русски. Верни только JSON без markdown.";
 
-export async function runCreativeTeamBrief({ token, body, model, callOpenRouter, parseJsonDraft }) {
+export async function runCreativeTeamBrief({ token, body, model, referenceModel, callOpenRouter, parseJsonDraft }) {
+  body = createCreativeTeamPayload(body);
   const productPassport = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: productPassportInstruction(body) });
-  const designFormatBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: designFormatBriefInstruction(body, productPassport) });
+  const designFormatBrief = await runRole({ token, model: referenceModel || model, callOpenRouter, parseJsonDraft, instruction: designFormatBriefInstruction(body, productPassport), imageUrls: body.designReferenceImageUrls });
   const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport, designFormatBrief) });
   const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(body, productPassport, attentionMap, designFormatBrief) });
   const hookSet = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: hookProducerInstruction(body, productPassport, creativeBrief) });
@@ -66,10 +68,13 @@ export function humanizeTextInstruction(body) {
   });
 }
 
-async function runRole({ token, model, callOpenRouter, parseJsonDraft, instruction }) {
+async function runRole({ token, model, callOpenRouter, parseJsonDraft, instruction, imageUrls = [] }) {
+  const userContent = imageUrls.length
+    ? [{ type: "text", text: instruction }, ...imageUrls.map((url) => ({ type: "image_url", image_url: { url } }))]
+    : instruction;
   const content = await callOpenRouter(token, model, [
     { role: "system", content: roleSystemPrompt },
-    { role: "user", content: instruction }
+    { role: "user", content: userContent }
   ]);
   return parseJsonDraft(content);
 }
@@ -121,6 +126,7 @@ function designFormatBriefInstruction(body, productPassport) {
     },
     {
       rules: [
+        "Если к сообщению приложена картинка designReference, считай ее главным источником структуры. Текстовые поля title/layoutType/promptComment вторичны и могут быть устаревшими.",
         "Смотри на референс не только как на стиль, а как на макет: заголовочная зона, служебные подписи, повторяемые карточки, шкалы, фото-слоты, иерархия и плотность.",
         "Если референс похож на рейтинг, топ, leaderboard или список мест, выбери formatType=ranking_leaderboard и задай сценаристу структуру ранжированных пунктов.",
         "Опиши, какие смысловые слоты должен заполнить сценарист: например headline, subtitle, source_bar, rank_card, value_label, image_slot, caption.",

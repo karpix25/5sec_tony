@@ -8,7 +8,7 @@ const defaultLayout = {
 
 const layoutRules = [
   {
-    test: /ranking[_-]?leaderboard|leaderboard|top[- ]?chart|top\s*\d+|топ\s*\d+|рейтинг|ранг|rank|мест[ао]|value label/i,
+    test: /ranking[_-]?leaderboard|leaderboard|top[- ]?chart|top\s*\d+|топ\s*\d+|рейтинг|ранг|rank|мест[ао]|value label|чарт/i,
     layoutType: "ranking_leaderboard",
     contentShape: "heroTitle, sourceBar, rankedItems[8-21]{rank,valueLabel,imageSlot,caption}, lowerMiniRanks",
     imageTextInstruction: "Оформи как плотный leaderboard/top chart: крупный верхний title, служебная строка/легенда, много повторяемых вертикальных rank-card или bar-card блоков, номера мест, короткие value labels, светящиеся рамки/разделители. Не делать белый чеклист с иконками."

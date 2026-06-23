@@ -17,7 +17,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
     formatLayoutPlanPrompt(brief.layoutContentPlan),
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
-    Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.join(" | ")}.` : "",
+    Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.map(formatContentPoint).join(" | ")}.` : "",
     formatType ? `ФОРМАТ РЕФЕРЕНСА: ${formatType}${format.structureName ? `, ${format.structureName}` : ""}.` : "",
     slots.length ? `Слоты макета: ${slots.map((slot) => `${slot.id || slot.role}:${slot.role}/${slot.textCapacity}`).join(" | ")}.` : "",
     grammar.composition ? `Композиция референса: ${grammar.composition}.` : "",
@@ -32,6 +32,13 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
 function getFormatLock(formatType = "") {
   if (formatType !== "ranking_leaderboard") return "";
   return "ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK: сохранить leaderboard/top-chart skeleton из дизайн-референса: плотный постер, крупная заголовочная зона, служебная строка/легенда, повторяемые ранговые колонки или rank cards, номера мест, короткие value labels, светящиеся рамки/разделители. Не превращать в минималистичный белый checklist, обычный список с иконками или product flat lay.";
+}
+
+function formatContentPoint(point) {
+  if (!point || typeof point !== "object") return String(point || "");
+  return [point.rank, point.title, point.label, point.text, point.caption]
+    .filter(Boolean)
+    .join(": ");
 }
 
 function getEffectiveFormatType({ brief = {}, format = {} }) {

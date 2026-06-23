@@ -46,6 +46,39 @@ test("brief service sends hook library and active design reference context", asy
   }
 });
 
+test("brief service strips base64 images from creative team payload", async () => {
+  const previousFetch = globalThis.fetch;
+  let requestBody = null;
+  let uploadBody = null;
+  const dataUrl = `data:image/png;base64,${"a".repeat(2000)}`;
+  globalThis.fetch = async (url, options) => {
+    if (String(url).includes("/api/reference-assets")) {
+      uploadBody = JSON.parse(options.body);
+      return { ok: true, json: async () => ({ url: "/api/reference-assets/ref-uploaded" }) };
+    }
+    requestBody = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ draft: { topic: "Тема", hook: "Хук" } }) };
+  };
+  try {
+    await generateAiBrief({
+      project: { id: "p1", references: [{ id: "r1", title: "Чарт", imageData: dataUrl }] },
+      product: { id: "prod1", references: [{ title: "Фото", imageData: dataUrl }] },
+      reference: { id: "r1", title: "Чарт", imageData: dataUrl },
+      existingJobs: []
+    });
+
+    const payload = JSON.stringify(requestBody);
+    assert.match(uploadBody.imageData, /data:image\/png;base64/);
+    assert.doesNotMatch(payload, /data:image\/png;base64/);
+    assert.equal(requestBody.reference.imageData, undefined);
+    assert.equal(requestBody.reference.imageUrl, "/api/reference-assets/ref-uploaded");
+    assert.equal(requestBody.reference.hasImage, true);
+    assert.equal(requestBody.product.references[0].imageData, undefined);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("hook service surfaces plain-text API errors", async () => {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: false, text: async () => "hooks backend unavailable" });

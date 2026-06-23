@@ -2,28 +2,39 @@ import { createContentSlot, createRecentJobDigest } from "../domain/content-rota
 import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
 import { buildProductInsightMap } from "../domain/product-insights.js";
 import { normalizeHookLibrary } from "../domain/hook-library.js";
+import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
+import { uploadReferenceAsset } from "./reference-assets.js";
+
+const briefAiDataImagePattern = /^data:image\/(?:png|jpe?g|webp);base64,/i;
 
 export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot, hookLibrary }) {
   const slot = diversitySlot || createContentSlot({ project, product, existingJobs });
   const hookDigest = createHookLibraryDigest(hookLibrary);
-  const activeDesignReference = createDesignReferenceDigest(reference);
+  const preparedReference = await ensureReferenceAssetUrl(reference);
+  const activeDesignReference = createDesignReferenceDigest(preparedReference);
   const response = await fetch("/api/generation/brief", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: JSON.stringify(createCreativeTeamPayload({
       project,
       product,
-      reference,
+      reference: preparedReference,
       activeDesignReference,
-      layoutContentPlan: createLayoutContentPlan(reference),
+      layoutContentPlan: createLayoutContentPlan(preparedReference),
       hookLibrary: hookDigest,
       existingJobs: createRecentJobDigest(existingJobs),
       diversitySlot: slot
-    })
+    }))
   });
   const payload = await readServicePayload(response);
   if (!response.ok) throw new Error(payload.error || "OpenRouter brief generation failed");
   return normalizeAiBrief(payload.draft || {}, slot);
+}
+
+async function ensureReferenceAssetUrl(reference = {}) {
+  if (!briefAiDataImagePattern.test(String(reference.imageData || ""))) return reference;
+  const uploaded = await uploadReferenceAsset({ imageData: reference.imageData, imageName: reference.imageName || reference.title || "design-reference" });
+  return { ...reference, imageData: uploaded.url, imageUrl: uploaded.url };
 }
 
 function normalizeAiBrief(draft, diversitySlot) {
@@ -96,7 +107,9 @@ function createDesignReferenceDigest(reference) {
     headlineStyle: reference?.headlineStyle || "",
     fontStyle: reference?.fontStyle || "",
     imageName: reference?.imageName || "",
-    palette: reference?.palette || ""
+    palette: reference?.palette || "",
+    imageUrl: reference?.imageUrl || reference?.imageData || "",
+    imageData: reference?.imageData || reference?.imageUrl || ""
   };
 }
 

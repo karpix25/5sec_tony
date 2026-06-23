@@ -40,3 +40,19 @@ test("leaderboard reference outranks ai-provided checklist format", () => {
   assert.equal(brief.format, "ranking_leaderboard");
   assert.equal(brief.compositionMode?.id, "leaderboard-bars");
 });
+
+test("uploaded chart reference title is treated as leaderboard", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const reference = {
+    id: "uploaded-chart",
+    title: "Чарт",
+    layoutType: "symptoms",
+    promptComment: "Чарт, дизайн, размеры"
+  };
+  const layout = createLayoutContentPlan(reference);
+  const brief = createAutoGenerationBrief({ project, product, reference });
+
+  assert.equal(layout.layoutType, "ranking_leaderboard");
+  assert.equal(brief.format, "ranking_leaderboard");
+});

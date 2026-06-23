@@ -1,4 +1,4 @@
-const rankingPattern = /ranking[_-]?leaderboard|leaderboard|top[- ]?chart|top\s*\d+|топ\s*\d+|рейтинг|ранг|rank|мест[ао]|value label/i;
+const rankingPattern = /ranking[_-]?leaderboard|leaderboard|top[- ]?chart|top\s*\d+|топ\s*\d+|рейтинг|ранг|rank|мест[ао]|value label|чарт/i;
 
 export function getReferenceFormatSignal(reference = {}) {
   const source = [
