@@ -5,7 +5,7 @@ import { buildProductProfile } from "./product-profile.js";
 export function createCuriosityContentPlan({ project, product, brief, layoutPlan, hookIntelligence, existingJobs = [] }) {
   const productFact = createProductFact({ project, product, brief });
   const curiosityAngle = createCuriosityAngle({ brief, productFact, hookIntelligence });
-  const finalContent = createFinalContent({ brief, productFact, curiosityAngle, layoutPlan });
+  const finalContent = createFinalContent({ project, product, brief, productFact, curiosityAngle, layoutPlan });
   const creativeQuality = validateCreativeBrief({
     draft: {
       ...brief,
@@ -85,19 +85,19 @@ function createCuriosityAngle({ brief, productFact, hookIntelligence }) {
   };
 }
 
-function createFinalContent({ brief, productFact, curiosityAngle, layoutPlan }) {
+function createFinalContent({ project, product, brief, productFact, curiosityAngle, layoutPlan }) {
   const aiPlan = normalizeAiPlan(brief.aiPlan);
   const points = aiPlan.points.length
     ? aiPlan.points
     : createFallbackPoints({ productFact, curiosityAngle, layoutPlan });
-  return {
+  return sanitizeVisibleContent({
     headline: cleanHeadline(aiPlan.headline || brief.hook, productFact, curiosityAngle),
     subhead: cleanSentence(aiPlan.subhead || curiosityAngle.conflict),
     points: fitPointCount(uniquePoints(points), brief.pointCount),
     disclaimer: "",
     layoutType: layoutPlan?.layoutType || "",
     curiosityAngle
-  };
+  }, { project, product, productFact, curiosityAngle });
 }
 
 function normalizeAiPlan(plan) {
@@ -190,6 +190,63 @@ function uniquePoints(points) {
     seen.add(key);
     return true;
   });
+}
+
+function sanitizeVisibleContent(content, context) {
+  const points = (content.points || []).map((point) => sanitizeVisiblePoint(point, context));
+  const cleanPoints = ensureMinimumVisiblePoints(uniquePoints(points), context);
+  return {
+    ...content,
+    headline: sanitizeHeadline(content.headline, context),
+    subhead: sanitizeVisiblePoint(content.subhead, context),
+    points: cleanPoints
+  };
+}
+
+function sanitizeHeadline(value, context) {
+  const clean = sanitizeVisiblePoint(value, context);
+  if (/(на|про|о)\s+непонятн|:\s*непонятн/i.test(clean)) {
+    return limitWords(buildFallbackHeadline(context.productFact, context.curiosityAngle), 8);
+  }
+  return clean;
+}
+
+function sanitizeVisiblePoint(value, context) {
+  const clean = removeTechnicalLabel(cleanSentence(value));
+  if (!hasRestrictedVisibleClaim(clean, context)) return clean;
+  return safeVisibleReplacement(context);
+}
+
+function removeTechnicalLabel(value) {
+  return value.replace(/^(знакомая ситуация|что обычно упускают|проверяемая деталь|что сделать сегодня|на что смотреть|ситуация|факт|шаг|кажется|на деле|проверьте|риск|сигнал|ошибка|ожидание|причина|контекст|проверка|полезный шаг)\s*[:—-]\s*/i, "");
+}
+
+function hasRestrictedVisibleClaim(value, { project, product }) {
+  const text = value.toLowerCase();
+  const source = `${project?.name || ""} ${project?.projectTheme || ""} ${product?.name || ""} ${product?.description || ""}`.toLowerCase();
+  const beauty = /космет|сыворот|кожа|уход|гиалурон|коллаген/.test(source);
+  const wellness = /бад|wellness|нутрицевтик|витамин|хлорофилл|магни/.test(source);
+  if (beauty && /гарант|мгнов|моменталь|леч|восстанавливает|увлажняющ.*фактор|минус\s*\d+/.test(text)) return true;
+  if (wellness && /гарант|леч|детокс|похуд|диагноз|очищ.*кож|восстанавливает/.test(text)) return true;
+  return false;
+}
+
+function safeVisibleReplacement({ product, productFact }) {
+  const source = `${product?.components || ""} ${product?.name || ""}`.toLowerCase();
+  if (/гиалурон|коллаген/.test(source)) {
+    return "Смотрите на состав, регулярность и ощущения после нанесения";
+  }
+  return productFact.action || productFact.fact || "Смотрите на проверяемую деталь, а не на обещание";
+}
+
+function ensureMinimumVisiblePoints(points, { productFact }) {
+  const extra = [
+    productFact.action,
+    productFact.fact,
+    "Сравните ожидание, состав и сценарий применения",
+    "Один спокойный шаг лучше громкого обещания"
+  ];
+  return uniquePoints([...points, ...extra]).slice(0, Math.max(4, points.length));
 }
 
 function fitPointCount(points, count) {

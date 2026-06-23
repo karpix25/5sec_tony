@@ -20,7 +20,7 @@ test("semantic fallback raises life pain before product solution", () => {
   const plan = createSemanticPlan({ project, product, brief });
   const text = `${plan.subhead} ${plan.points.join(" ")}`.toLowerCase();
 
-  assert.match(text, /в жизни|ситуац|полезн|привычк|факт|следующий шаг/);
+  assert.match(text, /ситуац|привычк|ожидан|сценар|шаг|ритуал/);
   assert.doesNotMatch(text, /проверьте, что именно известно|действуйте только|вывод делайте/);
 });
 
@@ -219,7 +219,8 @@ test("topic candidate fallback does not emit old visible labels", () => {
   const text = plan.points.join(" ");
 
   assert.doesNotMatch(text, /Почему цепляет|Миф:|Факт:|Рабочий шаг/);
-  assert.match(text, /Знакомая ситуация|Проверяемая деталь|Что сделать сегодня/);
+  assert.doesNotMatch(text, /Знакомая ситуация|Проверяемая деталь|Что сделать сегодня|Что обычно упускают/);
+  assert.match(text, /усталость утром|регулярность|поставить ритуал/i);
 });
 
 test("image prompt forbids technical labels and repeated disclaimers", () => {

@@ -71,32 +71,39 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
   const profile = buildProductProfile({ project, product });
   const focus = getProductContentFocus({ project, product });
   const safeStep = focus.action || profile.safeClaims[0] || product.offer || focus.subject || product.name;
-  const proof = candidate.proof || focus.fact || profile.primaryProof;
+  const proof = pickVisibleProof(candidate.proof || focus.fact || profile.primaryProof);
   const useCase = candidate.useCase || focus.subject || profile.primaryUseCase;
   const pain = candidate.pain || focus.pain || profile.primaryPain;
   const habit = candidate.habit || safeStep;
 
-  const subheads = {
-    "authority-break": "Сначала снимите шум и покажите, что реально можно проверить без веры блогерам.",
-    "personal-result": "Человек должен сразу понять, что это даст именно ему в обычной жизни.",
-    "mistake-fear": "Страх ошибки работает сильнее, когда проверка простая и конкретная.",
-    "curiosity-gap": "Оставьте открытый вопрос, но закройте его полезной причиной, а не рекламой.",
-    "money-trap": "Контраст красивого обещания и проверяемого факта помогает принять спокойное решение."
-  };
-
   return {
     headline: "",
-    subhead: candidate.subhead || subheads[candidate.angleId] || "Сначала поймите ситуацию, потом добавляйте продукт.",
-    points: [
-      `Знакомая ситуация: ${pain || useCase}`,
-      `Что обычно упускают: одного общего совета мало`,
-      `Проверяемая деталь: ${proof || safeStep}`,
-      `Что сделать сегодня: ${habit}`,
-      `На что смотреть: контекст, источник и детали`
-    ],
+    subhead: buildCandidateSubhead({ pain, proof, useCase }),
+    points: buildCandidatePoints({ pain, proof, useCase, habit, safeStep }),
     disclaimer: "",
     hookPsychology: getHookStrategyInstruction(candidate)
   };
+}
+
+function buildCandidateSubhead({ pain, proof, useCase }) {
+  const subject = proof || pain || useCase;
+  if (!subject) return "Красивое обещание не заменяет понятную проверку.";
+  return `Смотрите на ${subject}, а не на общий совет.`;
+}
+
+function pickVisibleProof(value) {
+  const text = String(value || "").trim();
+  if (/без .*обещ|не является|не заменяет|запрещ|нельзя/i.test(text)) return "";
+  return text;
+}
+
+function buildCandidatePoints({ pain, proof, useCase, habit, safeStep }) {
+  return uniqueCandidatePoints([
+    pain || useCase,
+    proof ? `Один общий совет не заменяет проверку: ${proof}` : "",
+    habit || safeStep,
+    "Сравните ожидание, состав и сценарий применения"
+  ]);
 }
 
 function buildInsightCandidates(profile) {
@@ -183,6 +190,16 @@ function getHookStrategyInstruction(candidate) {
     candidate.proof ? `Безопасный факт: ${candidate.proof}.` : "",
     "Финальный хук нужно сгенерировать под конкретный продукт, боль аудитории и факты анкеты; не брать готовую фразу из шаблона."
   ].filter(Boolean).join(" ");
+}
+
+function uniqueCandidatePoints(points) {
+  const seen = new Set();
+  return points.map((point) => String(point || "").trim()).filter((point) => {
+    const key = normalizeTopicCandidateText(point);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function scoreStrategyCandidate(candidate, profile, existingJobs) {

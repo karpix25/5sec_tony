@@ -1,7 +1,7 @@
 export function writeHookFromFormula(template, context) {
   const shape = classifyHookFormula(template);
   const count = context.count || "5";
-  const focus = cleanHookFocus(context.subject || context.object || context.scenario || "это");
+  const focus = pickHookFocus([context.subject, context.object, context.scenario, context.result, context.problem]);
   const problem = cleanHookFocus(context.problem || focus);
   const result = cleanHookFocus(context.result || focus);
   const seed = `${template || ""} ${focus} ${problem} ${context.variantSeed || ""}`;
@@ -58,6 +58,17 @@ function cleanHookFocus(value) {
     .replace(/\s{2,}/g, " ")
     .trim()
     .replace(/[:.!?]+$/g, "");
+}
+
+function pickHookFocus(values) {
+  return values.map(cleanHookFocus).find((value) => value && !isWeakHookFocus(value))
+    || "состав и ожидания";
+}
+
+function isWeakHookFocus(value) {
+  return /^(это|непонятно|что-то|чего-то|польза|результат|детали?)$/i.test(value)
+    || /^непонятно\b/i.test(value)
+    || value.length < 5;
 }
 
 function pickFormulaVariant(items, seed) {
