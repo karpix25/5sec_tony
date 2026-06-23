@@ -1,4 +1,5 @@
 import { verifyTelegramInitData } from "./telegram-init-data.mjs";
+import { verifyTelegramLoginWidgetUser } from "./telegram-login-widget.mjs";
 import { clearSessionCookie, createSessionCookie, readSessionFromCookie } from "./session.mjs";
 import {
   createCodeChallenge,
@@ -41,6 +42,9 @@ export function createAuthApiHandler(deps = {}) {
     }
     if (request.method === "POST" && url.pathname === "/api/auth/telegram") {
       return handleTelegramLogin(request, response, deps);
+    }
+    if (request.method === "POST" && url.pathname === "/api/auth/telegram/widget") {
+      return handleTelegramWidgetLogin(request, response, deps);
     }
     if (request.method === "POST" && url.pathname === "/api/auth/telegram/oidc") {
       return handleTelegramIdTokenLogin(request, response, deps);
@@ -108,10 +112,27 @@ async function handleTelegramLogin(request, response, deps) {
 
 function handleTelegramConfig(response, deps) {
   try {
-    const config = (deps.getTelegramOidcConfig || getTelegramOidcConfig)(deps.oidc || deps);
-    return sendJson(response, 200, { clientId: config.clientId, scope: config.scope });
+    return sendJson(response, 200, getPublicTelegramConfig(deps));
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "telegram_config_failed" });
+  }
+}
+
+async function handleTelegramWidgetLogin(request, response, deps) {
+  try {
+    const body = await readJsonBody(request);
+    const verified = (deps.verifyTelegramLoginWidgetUser || verifyTelegramLoginWidgetUser)(
+      body.user || body,
+      deps.telegram || deps
+    );
+    const user = await (deps.upsertTelegramUser || upsertTelegramUser)(verified.user, deps);
+    response.setHeader?.("Set-Cookie", createSessionCookie({
+      telegramId: user.telegramId,
+      role: user.role
+    }, deps.session || deps));
+    return sendJson(response, 200, { user });
+  } catch (error) {
+    return sendJson(response, 401, { error: error.message || "telegram_widget_auth_failed" });
   }
 }
 
@@ -248,4 +269,25 @@ function redirect(response, location) {
   });
   response.end();
   return true;
+}
+
+function getPublicTelegramConfig(deps = {}) {
+  const botUsername = getTelegramBotUsername(deps.telegram || deps);
+  const payload = {
+    mode: botUsername ? "widget" : "oidc",
+    botUsername
+  };
+  try {
+    const config = (deps.getTelegramOidcConfig || getTelegramOidcConfig)(deps.oidc || deps);
+    payload.clientId = config.clientId;
+    payload.scope = config.scope;
+  } catch {
+    if (!botUsername) throw new Error("TELEGRAM_BOT_USERNAME or TELEGRAM_CLIENT_ID is required");
+  }
+  return payload;
+}
+
+function getTelegramBotUsername(options = {}) {
+  const value = options.botUsername || process.env.TELEGRAM_BOT_USERNAME || process.env.TELEGRAM_LOGIN_BOT_USERNAME || "";
+  return String(value).replace(/^@/, "").trim();
 }

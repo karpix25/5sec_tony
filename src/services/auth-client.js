@@ -54,6 +54,35 @@ export async function loginWithTelegramIdToken(idToken, options = {}) {
   return readAuthResponse(response, "Не удалось войти через Telegram");
 }
 
+export async function loginWithTelegramWidgetUser(user, options = {}) {
+  if (!user?.id) throw new Error("Telegram user отсутствует");
+  const response = await fetch("/api/auth/telegram/widget", {
+    method: "POST",
+    headers: authJsonHeaders,
+    body: JSON.stringify({ user }),
+    signal: options.signal
+  });
+  return readAuthResponse(response, "Не удалось войти через Telegram");
+}
+
+export function mountTelegramLoginWidget(container, options = {}, onAuth = () => {}) {
+  if (!container) return;
+  const botUsername = String(options.botUsername || "").replace(/^@/, "").trim();
+  if (!botUsername) throw new Error("TELEGRAM_BOT_USERNAME is required");
+  const callbackName = `__antonTelegramWidgetAuth_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  globalThis[callbackName] = (user) => onAuth(user);
+  container.innerHTML = "";
+  const script = document.createElement("script");
+  script.async = true;
+  script.src = "https://telegram.org/js/telegram-widget.js?22";
+  script.setAttribute("data-telegram-login", botUsername);
+  script.setAttribute("data-size", options.size || "large");
+  script.setAttribute("data-userpic", "false");
+  script.setAttribute("data-radius", "8");
+  script.setAttribute("data-onauth", `${callbackName}(user)`);
+  container.appendChild(script);
+}
+
 export function startTelegramBrowserLogin(returnTo = getCurrentReturnTo()) {
   globalThis.location.href = getTelegramBrowserLoginUrl(returnTo);
 }

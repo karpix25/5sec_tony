@@ -71,6 +71,10 @@
   border-top: 1px solid var(--color-line);
 }
 
+.auth-telegram-widget {
+  min-height: 44px;
+}
+
 .auth-user-summary small,
 .auth-muted,
 .auth-user-main small {

@@ -11,7 +11,24 @@ test("auth api exposes Telegram Login client config", async () => {
 
   assert.equal(handled, true);
   assert.equal(response.status, 200);
-  assert.deepEqual(JSON.parse(response.body), { clientId: "123", scope: "openid profile" });
+  assert.deepEqual(JSON.parse(response.body), {
+    mode: "oidc",
+    botUsername: "",
+    clientId: "123",
+    scope: "openid profile"
+  });
+});
+
+test("auth api prefers classic Telegram widget config when bot username exists", async () => {
+  const response = createResponse();
+  const handled = await createAuthApiHandler({
+    botUsername: "@anton_bot",
+    botToken: "token"
+  })(createRequest("", "GET"), response, new URL("http://localhost/api/auth/telegram/config"));
+
+  assert.equal(handled, true);
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(response.body), { mode: "widget", botUsername: "anton_bot" });
 });
 
 test("auth api accepts Telegram Login id_token and sets a session", async () => {
@@ -25,6 +42,27 @@ test("auth api accepts Telegram Login id_token and sets a session", async () => 
     createRequest(JSON.stringify({ idToken: "signed-token" }), "POST"),
     response,
     new URL("http://localhost/api/auth/telegram/oidc")
+  );
+
+  assert.equal(handled, true);
+  assert.equal(response.status, 200);
+  assert.match(String(response.headers["Set-Cookie"]), /anton_auth_session=/);
+  assert.deepEqual(JSON.parse(response.body), {
+    user: { telegramId: "42", role: "admin", status: "approved" }
+  });
+});
+
+test("auth api accepts classic Telegram widget user and sets a session", async () => {
+  const response = createResponse();
+  const handler = createAuthApiHandler({
+    verifyTelegramLoginWidgetUser: (user) => ({ user: { id: String(user.id), firstName: user.first_name, raw: user } }),
+    upsertTelegramUser: async (user) => ({ telegramId: user.id, role: "admin", status: "approved" }),
+    sessionSecret: "test-secret"
+  });
+  const handled = await handler(
+    createRequest(JSON.stringify({ user: { id: 42, first_name: "Anton", hash: "hash" } }), "POST"),
+    response,
+    new URL("http://localhost/api/auth/telegram/widget")
   );
 
   assert.equal(handled, true);
