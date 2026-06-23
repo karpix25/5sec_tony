@@ -4,7 +4,8 @@ import {
   listAdminAuthUsers,
   loginWithTelegramInitData,
   logoutAuthUser,
-  runAdminAuthUserAction
+  runAdminAuthUserAction,
+  startTelegramBrowserLogin
 } from "../services/auth-client.js";
 import { escapeHtml } from "./infographic.js";
 import { renderAdminAuthPanel } from "./auth-admin.js";
@@ -34,7 +35,7 @@ export function createAuthController(options = {}) {
     try {
       const session = await getCurrentAuthUser();
       if (!getAuthPayloadUser(session) && !getTelegramInitData()) {
-        updateState({ status: "no-telegram", user: null, error: "" });
+        updateState({ status: "login", user: null, error: "" });
         return;
       }
       if (shouldLoginFromTelegram(session)) {
@@ -50,7 +51,7 @@ export function createAuthController(options = {}) {
   async function loginFromTelegram() {
     const initData = getTelegramInitData();
     if (!initData) {
-      updateState({ status: "no-telegram", error: "" });
+      startTelegramBrowserLogin();
       return;
     }
     try {
@@ -75,7 +76,7 @@ export function createAuthController(options = {}) {
     updateState({ status: "loading", error: "" });
     try {
       await logoutAuthUser();
-      updateState(createAuthState({ status: "no-telegram" }));
+      updateState(createAuthState({ status: "login" }));
     } catch (error) {
       updateState({ status: "error", error: error.message || "Ошибка выхода" });
     }
@@ -116,6 +117,7 @@ export function createAuthController(options = {}) {
 
   return {
     start,
+    loginWithTelegram: loginFromTelegram,
     retryTelegramLogin: loginFromTelegram,
     logout,
     loadAdminUsers,
@@ -159,7 +161,9 @@ export function renderAuthGate(state = createAuthState()) {
 }
 
 export function bindAuthGateEvents(root, controller) {
-  root.querySelector("[data-auth-login]")?.addEventListener("click", () => controller.start());
+  root.querySelector("[data-auth-login]")?.addEventListener("click", () => {
+    (controller.loginWithTelegram || controller.start)();
+  });
   root.querySelector("[data-auth-logout]")?.addEventListener("click", () => controller.logout());
   root.querySelector("[data-auth-admin-refresh]")?.addEventListener("click", () => controller.loadAdminUsers());
   root.querySelectorAll("[data-auth-admin-status]").forEach((button) => {
@@ -173,8 +177,8 @@ export function bindAuthGateEvents(root, controller) {
 function renderAuthActions(state) {
   if (state.status === "loading") return "<button class=\"primary-btn\" type=\"button\" disabled>Проверяем доступ...</button>";
   if (state.status === "approved") return "<button class=\"secondary-btn\" data-auth-logout type=\"button\">Выйти</button>";
-  if (["error", "no-telegram"].includes(state.status)) {
-    return "<button class=\"primary-btn\" data-auth-login type=\"button\">Повторить вход</button>";
+  if (["error", "login"].includes(state.status)) {
+    return "<button class=\"primary-btn\" data-auth-login type=\"button\">Войти через Telegram</button>";
   }
   return "<button class=\"ghost-btn\" data-auth-login type=\"button\">Обновить статус</button>";
 }
@@ -193,11 +197,11 @@ function renderUserSummary(user = {}) {
 function getAuthView(state) {
   return {
     loading: { tone: "loading", title: "Проверяем доступ", message: "Сверяем Telegram-сессию и статус одобрения." },
+    login: { tone: "empty", title: "Вход через Telegram", message: "Войдите через Telegram Login. После первого входа администратор одобрит доступ." },
     approved: { tone: "approved", title: "Доступ открыт", message: "Аккаунт одобрен, можно запускать студию." },
     pending: { tone: "pending", title: "Заявка на проверке", message: "Администратор должен одобрить доступ перед входом." },
     rejected: { tone: "rejected", title: "Заявка отклонена", message: "Доступ не выдан. Напишите администратору, если это ошибка." },
     blocked: { tone: "blocked", title: "Доступ заблокирован", message: "Этот Telegram-аккаунт не может войти в студию." },
-    "no-telegram": { tone: "empty", title: "Откройте внутри Telegram", message: "Для входа нужен Telegram Mini App initData. Позже сюда можно добавить OIDC." },
     error: { tone: "error", title: "Не удалось войти", message: "Проверьте подключение или попробуйте снова." }
   }[state.status] || { tone: "error", title: "Неизвестный статус", message: "Обновите страницу или повторите вход." };
 }

@@ -20,6 +20,11 @@ export async function loginWithTelegramInitData(initData, options = {}) {
   return readAuthResponse(response, "Не удалось войти через Telegram");
 }
 
+export function startTelegramBrowserLogin(returnTo = getCurrentReturnTo()) {
+  const query = new URLSearchParams({ returnTo });
+  globalThis.location.href = `/api/auth/telegram/start?${query}`;
+}
+
 export async function logoutAuthUser(options = {}) {
   const response = await fetch("/api/auth/logout", { method: "POST", signal: options.signal });
   return readAuthResponse(response, "Не удалось выйти");
@@ -65,4 +70,10 @@ async function readAuthResponse(response, fallbackMessage) {
   } catch {}
   if (!response.ok) throw new Error(payload.error || payload.message || fallbackMessage);
   return payload;
+}
+
+function getCurrentReturnTo() {
+  const location = globalThis.location;
+  if (!location) return "/";
+  return `${location.pathname || "/"}${location.search || ""}${location.hash || ""}`;
 }

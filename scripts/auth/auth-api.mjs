@@ -1,6 +1,23 @@
 import { verifyTelegramInitData } from "./telegram-init-data.mjs";
 import { clearSessionCookie, createSessionCookie, readSessionFromCookie } from "./session.mjs";
 import {
+  createCodeChallenge,
+  createCodeVerifier,
+  createOidcState,
+  createOidcStateCookie,
+  clearOidcStateCookie,
+  normalizeReturnTo,
+  readOidcStateCookie
+} from "./oidc-state.mjs";
+import {
+  buildAuthorizationUrl,
+  exchangeTelegramCode,
+  extractTelegramOidcUser,
+  getRedirectUri,
+  getTelegramOidcConfig,
+  verifyTelegramIdToken
+} from "./telegram-oidc.mjs";
+import {
   getUserByTelegramId,
   isAdminUser,
   isApprovedUser,
@@ -13,6 +30,12 @@ export const handleAuthApi = createAuthApiHandler();
 
 export function createAuthApiHandler(deps = {}) {
   return async function handleAuthApiRequest(request, response, url) {
+    if (request.method === "GET" && url.pathname === "/api/auth/telegram/start") {
+      return handleTelegramOidcStart(request, response, url, deps);
+    }
+    if (request.method === "GET" && url.pathname === "/api/auth/telegram/callback") {
+      return handleTelegramOidcCallback(request, response, url, deps);
+    }
     if (request.method === "POST" && url.pathname === "/api/auth/telegram") {
       return handleTelegramLogin(request, response, deps);
     }
@@ -77,6 +100,52 @@ async function handleTelegramLogin(request, response, deps) {
   }
 }
 
+function handleTelegramOidcStart(request, response, url, deps) {
+  try {
+    const config = (deps.getTelegramOidcConfig || getTelegramOidcConfig)(deps.oidc || deps);
+    const redirectUri = (deps.getRedirectUri || getRedirectUri)(request, deps.oidc || deps);
+    const state = createOidcState();
+    const codeVerifier = createCodeVerifier();
+    const returnTo = normalizeReturnTo(url.searchParams.get("returnTo"));
+    const authUrl = buildAuthorizationUrl({
+      clientId: config.clientId,
+      redirectUri,
+      scope: config.scope,
+      state,
+      codeChallenge: createCodeChallenge(codeVerifier)
+    });
+    response.setHeader?.("Set-Cookie", createOidcStateCookie({ state, codeVerifier, redirectUri, returnTo }, deps.session || deps));
+    return redirect(response, authUrl);
+  } catch (error) {
+    return sendJson(response, 500, { error: error.message || "telegram_oidc_start_failed" });
+  }
+}
+
+async function handleTelegramOidcCallback(request, response, url, deps) {
+  try {
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    if (!code || !state) throw new Error("Telegram OIDC callback is missing code or state");
+    const stored = readOidcStateCookie(request.headers?.cookie, deps.session || deps);
+    if (!stored?.state || stored.state !== state) throw new Error("Telegram OIDC state is invalid");
+    const tokens = await (deps.exchangeTelegramCode || exchangeTelegramCode)({
+      code,
+      redirectUri: stored.redirectUri,
+      codeVerifier: stored.codeVerifier
+    }, deps.oidc || deps);
+    const claims = await (deps.verifyTelegramIdToken || verifyTelegramIdToken)(tokens.id_token, deps.oidc || deps);
+    const user = await (deps.upsertTelegramUser || upsertTelegramUser)(extractTelegramOidcUser(claims), deps);
+    response.setHeader?.("Set-Cookie", [
+      clearOidcStateCookie(deps.session || deps),
+      createSessionCookie({ telegramId: user.telegramId, role: user.role }, deps.session || deps)
+    ]);
+    return redirect(response, normalizeReturnTo(stored.returnTo));
+  } catch (error) {
+    response.setHeader?.("Set-Cookie", clearOidcStateCookie(deps.session || deps));
+    return redirect(response, `/?auth_error=${encodeURIComponent(error.message || "telegram_oidc_failed")}`);
+  }
+}
+
 async function handleMe(request, response, deps) {
   const user = await getCurrentAuthUser(request, deps);
   return sendJson(response, 200, { user, authenticated: Boolean(user), approved: isApprovedUser(user), admin: isAdminUser(user) });
@@ -138,5 +207,14 @@ function sendJson(response, status, payload) {
     "Cache-Control": "no-store"
   });
   response.end(JSON.stringify(payload));
+  return true;
+}
+
+function redirect(response, location) {
+  response.writeHead(302, {
+    Location: location,
+    "Cache-Control": "no-store"
+  });
+  response.end();
   return true;
 }
