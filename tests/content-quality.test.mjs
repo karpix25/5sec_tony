@@ -62,6 +62,10 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /Правда, реальные факты, без лжи/);
   assert.match(source, /громкий совет против проверяемой детали/);
   assert.match(source, /нельзя защитить фактами/);
+  assert.match(source, /layout grammar/);
+  assert.match(source, /format architect/);
+  assert.match(source, /ranking_leaderboard/);
+  assert.match(source, /Смотри на референс не только как на стиль/);
   assert.doesNotMatch(source, /top-list \| myth-fact/);
 });
 

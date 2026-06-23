@@ -108,7 +108,6 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const hookIntelligenceInstruction = formatHookIntelligencePrompt(brief.hookIntelligence);
   const creativeQualityInstruction = formatCreativeQualityPrompt(brief.creativeQuality);
   const finalContentInstruction = formatFinalContentPrompt(brief.finalContent);
-
   return limitImagePrompt([
     "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
     "КРИТИЧНО: если переданы reference images, использовать их как главный источник визуального дизайна: палитра, типографика, свет, контраст, форма карточек, материалы, фактуры и ритм.",
@@ -369,6 +368,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     finalContent: editorial.finalContent,
     meaningScore: scoreMeaningBrief({ brief: meaning, project }),
     productPassport: generationBrief.productPassport || null,
+    designFormatBrief: generationBrief.designFormatBrief || null,
     creativeBrief: generationBrief.creativeBrief || null,
     contentScript: generationBrief.contentScript || null,
     visualBrief: generationBrief.visualBrief || null,

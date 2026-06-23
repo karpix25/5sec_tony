@@ -103,6 +103,20 @@ test("generation brief is auto-created from project and product context", () => 
   assert.ok(brief.compositionMode?.id);
 });
 
+test("ai design format keeps leaderboard composition mode", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const brief = createAutoGenerationBrief({
+    project,
+    product,
+    reference: project.references[0],
+    generationBrief: { format: "ranking_leaderboard" }
+  });
+
+  assert.equal(brief.format, "ranking_leaderboard");
+  assert.equal(brief.compositionMode?.id, "leaderboard-bars");
+});
+
 test("auto generation rotates hooks and topics by existing project jobs", () => {
   const project = {
     ...projects[2],

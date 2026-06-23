@@ -29,14 +29,15 @@ const roleSystemPrompt = "Ты senior-участник AI-креативной �
 
 export async function runCreativeTeamBrief({ token, body, model, callOpenRouter, parseJsonDraft }) {
   const productPassport = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: productPassportInstruction(body) });
-  const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport) });
-  const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(body, productPassport, attentionMap) });
+  const designFormatBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: designFormatBriefInstruction(body, productPassport) });
+  const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport, designFormatBrief) });
+  const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(body, productPassport, attentionMap, designFormatBrief) });
   const hookSet = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: hookProducerInstruction(body, productPassport, creativeBrief) });
-  const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(body, productPassport, creativeBrief, hookSet) });
-  const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(body, productPassport, creativeBrief, contentScript) });
+  const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, designFormatBrief) });
+  const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(body, productPassport, creativeBrief, contentScript, designFormatBrief) });
   const safetyReview = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: safetyEditorInstruction(body, productPassport, creativeBrief, contentScript, visualBrief) });
-  const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview) });
-  return flattenCreativeTeamDraft({ productPassport, attentionMap, creativeBrief, hookSet, contentScript, visualBrief, safetyReview, imagePromptPackage, body });
+  const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief) });
+  return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript, visualBrief, safetyReview, imagePromptPackage, body });
 }
 
 export function humanizeTextInstruction(body) {
@@ -103,7 +104,40 @@ function productPassportInstruction(body) {
   ));
 }
 
-function attentionMapInstruction(body, productPassport) {
+function designFormatBriefInstruction(body, productPassport) {
+  return JSON.stringify(basePayload(
+    "Проанализируй designReference как формат, структуру и визуальную грамматику для будущей инфографики.",
+    "Ты design reference analyst и format architect для вертикальных соцсетей.",
+    {
+      designFormatBrief: {
+        formatType: "ranking_leaderboard|comparison_grid|checklist_cards|timeline|symptom_poster|single_thesis|other",
+        structureName: "",
+        layoutSlots: [{ id: "", role: "headline|subtitle|source_bar|rank_card|value_label|image_slot|logo_slot|caption|note", textCapacity: "short|medium|number|none", repeatCount: 0, required: true }],
+        textContract: { headlineShape: "", itemShape: "", maxItems: 0, mustIncludeNumbers: false, avoidTextTypes: [] },
+        visualGrammar: { composition: "", background: "", palette: "", typography: "", framesAndDividers: "", imageTreatment: "", hierarchy: "" },
+        adaptationRules: [],
+        doNotCopy: []
+      }
+    },
+    {
+      rules: [
+        "Смотри на референс не только как на стиль, а как на макет: заголовочная зона, служебные подписи, повторяемые карточки, шкалы, фото-слоты, иерархия и плотность.",
+        "Если референс похож на рейтинг, топ, leaderboard или список мест, выбери formatType=ranking_leaderboard и задай сценаристу структуру ранжированных пунктов.",
+        "Опиши, какие смысловые слоты должен заполнить сценарист: например headline, subtitle, source_bar, rank_card, value_label, image_slot, caption.",
+        "Укажи textCapacity честно: если в слот влезает только число или 2-4 слова, не разрешай длинные фразы.",
+        "Копируй структуру, ритм, сетку, иерархию, цветовую логику и типографический характер; не копируй людей, бренды, логотипы, чужой текст и чужие claims.",
+        "Если референс содержит цифры или источники, не придумывай реальные цифры для продукта; разрешай условные ранги, признаки или критерии только если это безопасно.",
+        "Для продукта вроде крема для лица адаптируй leaderboard как рейтинг признаков, ситуаций, ошибок, зон применения или критериев выбора, а не как список богатых людей."
+      ],
+      productPassport,
+      designReference: body.activeDesignReference || body.reference,
+      layoutContentPlan: body.layoutContentPlan,
+      freePrompt: body.freePrompt
+    }
+  ));
+}
+
+function attentionMapInstruction(body, productPassport, designFormatBrief) {
   return JSON.stringify(basePayload(
     "На основе productPassport найди сильные углы внимания для соцсетей.",
     "Ты audience strategist для коротких соцсетей.",
@@ -111,21 +145,23 @@ function attentionMapInstruction(body, productPassport) {
     {
       rules: ["Думай моментами узнавания: боль, ошибка, риск, желание, сомнение, бытовая ситуация, проверка перед покупкой.", "Каждый angle пригоден для одного короткого ролика или инфографики.", "Не используй зашитые сценарии; выводи углы из паспорта продукта."],
       productPassport,
+      designFormatBrief,
       recentJobs: (body.existingJobs || []).slice(0, 30)
     }
   ));
 }
 
-function creativeBriefInstruction(body, productPassport, attentionMap) {
+function creativeBriefInstruction(body, productPassport, attentionMap, designFormatBrief) {
   return JSON.stringify(basePayload(
     "Выбери один лучший angle и преврати его в креативную идею для одного вертикального поста 9:16.",
     "Ты creative director.",
     { creativeBrief: { topic: "", coreIdea: "", hookPromise: "", viewerTakeaway: "", productBridge: "", whyNow: "", avoidRepeating: [], formatIntent: "checklist|comparison|myth_vs_reality|mistake_check|mini_diagnostic|saveable_note" } },
     {
-      rules: ["Идея понятна за 1 секунду.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", `Допустимые форматы: ${modernFormatOptions}.`],
+      rules: ["Идея понятна за 1 секунду.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", "Если designFormatBrief задает сильную структуру, выбирай идею, которая естественно ложится в эту структуру.", `Допустимые форматы: ${modernFormatOptions}.`],
       mandatorySlot: body.diversitySlot,
       productPassport,
       attentionMap,
+      designFormatBrief,
       recentJobs: (body.existingJobs || []).slice(0, 30)
     }
   ));
@@ -145,30 +181,32 @@ function hookProducerInstruction(body, productPassport, creativeBrief) {
   ));
 }
 
-function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet) {
+function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, designFormatBrief) {
   return JSON.stringify(basePayload(
     "Напиши финальный смысловой сценарий для одного экрана.",
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], invisibleNotes: { productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: ["Headline максимум 6 слов.", "Subhead одна короткая строка.", "4-6 блоков, каждый добавляет новый смысл.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: ["Headline максимум 6 слов.", "Subhead одна короткая строка.", "4-6 блоков, каждый добавляет новый смысл.", "Подгони текст под слоты designFormatBrief: если формат ranking_leaderboard, points должны быть короткими ранжированными пунктами, а не обычным списком советов.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       creativeBrief,
-      hookSet
+      hookSet,
+      designFormatBrief
     }
   ));
 }
 
-function artDirectorInstruction(body, productPassport, creativeBrief, contentScript) {
+function artDirectorInstruction(body, productPassport, creativeBrief, contentScript, designFormatBrief) {
   return JSON.stringify(basePayload(
     "Создай visual brief для генерации изображения.",
     "Ты art director для вертикальных инфографик 9:16.",
     { visualBrief: { composition: "", styleDirection: "", mainVisualObject: "", productUsage: "exact_product|small_signal|do_not_show", textHierarchy: "", safeZoneNotes: "", negativeVisuals: [], referenceUsage: { useFromReference: [], doNotCopyFromReference: [] } } },
     {
-      rules: ["Дизайн-референс использовать как стиль, не как копию.", "Не копировать чужой текст, продукт, логотипы и обещания.", "Продукт показывать только если это уместно по productVisibilityRules.", "Важный текст держать в safe zone.", "Нижнюю часть не перегружать: там может быть видео-оверлей."],
+      rules: ["Дизайн-референс использовать как структуру и стиль, не как копию.", "Сохрани layout grammar из designFormatBrief: композицию, повторяемые блоки, визуальный ритм, иерархию, рамки, шкалы и плотность.", "Если formatType=ranking_leaderboard, опиши вертикальный рейтинг/таблицу с повторяемыми карточками и короткими value labels, адаптированными под продукт.", "Не копировать чужой текст, продукт, логотипы и обещания.", "Продукт показывать только если это уместно по productVisibilityRules.", "Важный текст держать в safe zone.", "Нижнюю часть не перегружать: там может быть видео-оверлей."],
       productPassport,
       creativeBrief,
       contentScript,
+      designFormatBrief,
       designReference: body.activeDesignReference || body.reference,
       layoutContentPlan: body.layoutContentPlan
     }
@@ -191,17 +229,18 @@ function safetyEditorInstruction(body, productPassport, creativeBrief, contentSc
   ));
 }
 
-function imagePromptEngineerInstruction(body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview) {
+function imagePromptEngineerInstruction(body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief) {
   return JSON.stringify(basePayload(
     "Собери короткий финальный prompt для GPT Image 2.",
     "Ты prompt engineer для GPT Image 2.",
     { imagePromptPackage: { provider: "gpt-image-2", prompt: "", inputRefs: [{ role: "design|product", title: "", required: true }], promptBudgetNotes: { mustKeep: [], canDropIfTooLong: [] } } },
     {
-      rules: ["Включи vertical 9:16 infographic.", "Весь видимый текст строго на русском.", "Headline, subhead и points — финальный текстовый контракт.", "Стиль из designReference.", "Правила использования продукта.", "Safe zone.", "Запрет CTA, футера, дисклеймера, логотипов и неуказанных claims.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
+      rules: ["Включи vertical 9:16 infographic.", "Весь видимый текст строго на русском.", "Headline, subhead и points — финальный текстовый контракт.", "Стиль и layout grammar из designFormatBrief/designReference.", "Правила использования продукта.", "Safe zone.", "Запрет CTA, футера, дисклеймера, логотипов и неуказанных claims.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
       productPassport,
       creativeBrief,
       contentScript: safetyReview?.safetyReview?.fixedContentScript?.headline ? safetyReview.safetyReview.fixedContentScript : contentScript,
       visualBrief: Object.keys(safetyReview?.safetyReview?.fixedVisualBrief || {}).length ? safetyReview.safetyReview.fixedVisualBrief : visualBrief,
+      designFormatBrief,
       designReference: body.activeDesignReference || body.reference
     }
   ));
@@ -209,6 +248,7 @@ function imagePromptEngineerInstruction(body, productPassport, creativeBrief, co
 
 function flattenCreativeTeamDraft(parts) {
   const passport = parts.productPassport.productPassport || parts.productPassport;
+  const designFormatBrief = parts.designFormatBrief.designFormatBrief || parts.designFormatBrief;
   const attentionMap = parts.attentionMap.attentionMap || parts.attentionMap;
   const creativeBrief = parts.creativeBrief.creativeBrief || parts.creativeBrief;
   const hookPayload = normalizeHookPayload(parts.hookSet);
@@ -219,6 +259,7 @@ function flattenCreativeTeamDraft(parts) {
   const fixedScript = safetyReview?.fixedContentScript?.headline ? safetyReview.fixedContentScript : contentScript;
   return {
     productPassport: passport,
+    designFormatBrief,
     attentionMap,
     creativeBrief,
     hookSet: hookPayload.hookSet,
@@ -230,7 +271,7 @@ function flattenCreativeTeamDraft(parts) {
     semanticKey: parts.body.diversitySlot?.id || creativeBrief.topic || "",
     topic: parts.body.diversitySlot?.lockTopic ? parts.body.diversitySlot.topic : creativeBrief.topic,
     hook: hookPayload.recommendedHook,
-    format: creativeBrief.formatIntent,
+    format: designFormatBrief.formatType || creativeBrief.formatIntent,
     pointCount: String((fixedScript.points || []).length || 5),
     visualObject: visualBrief.mainVisualObject || "",
     cta: "",
