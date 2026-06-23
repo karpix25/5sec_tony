@@ -235,7 +235,7 @@ function imagePromptEngineerInstruction(body, productPassport, creativeBrief, co
     "Ты prompt engineer для GPT Image 2.",
     { imagePromptPackage: { provider: "gpt-image-2", prompt: "", inputRefs: [{ role: "design|product", title: "", required: true }], promptBudgetNotes: { mustKeep: [], canDropIfTooLong: [] } } },
     {
-      rules: ["Включи vertical 9:16 infographic.", "Весь видимый текст строго на русском.", "Headline, subhead и points — финальный текстовый контракт.", "Стиль и layout grammar из designFormatBrief/designReference.", "Правила использования продукта.", "Safe zone.", "Запрет CTA, футера, дисклеймера, логотипов и неуказанных claims.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
+      rules: ["Включи vertical 9:16 infographic.", "Весь видимый текст строго на русском.", "Headline, subhead и points — финальный текстовый контракт.", "Стиль и layout grammar из designFormatBrief/designReference.", "Если formatType=ranking_leaderboard, финальный prompt обязан описывать leaderboard/top-chart skeleton: крупный верхний title, легенда/source bar, повторяемые ранговые колонки или rank cards, номера мест и короткие value labels; запрети превращение в белый checklist с иконками.", "Правила использования продукта.", "Safe zone.", "Запрет CTA, футера, дисклеймера, логотипов и неуказанных claims.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
       productPassport,
       creativeBrief,
       contentScript: safetyReview?.safetyReview?.fixedContentScript?.headline ? safetyReview.safetyReview.fixedContentScript : contentScript,

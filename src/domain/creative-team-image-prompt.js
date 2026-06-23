@@ -11,6 +11,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
   return limitImagePrompt([
     packagePrompt,
     "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ: не менять тему и видимые формулировки.",
+    getFormatLock(format),
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
     Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.join(" | ")}.` : "",
@@ -23,6 +24,11 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
     visual.negativeVisuals?.length ? `Не показывать: ${visual.negativeVisuals.join("; ")}.` : "",
     freePrompt ? `Дополнительная задача оператора: ${String(freePrompt).trim().slice(0, 600)}.` : ""
   ].filter(Boolean).join(" "));
+}
+
+function getFormatLock(format = {}) {
+  if (format.formatType !== "ranking_leaderboard") return "";
+  return "ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK: сохранить leaderboard/top-chart skeleton из дизайн-референса: плотный постер, крупная заголовочная зона, служебная строка/легенда, повторяемые ранговые колонки или rank cards, номера мест, короткие value labels, светящиеся рамки/разделители. Не превращать в минималистичный белый checklist, обычный список с иконками или product flat lay.";
 }
 
 export function getCreativeTeamProductVisualMode(brief = {}) {

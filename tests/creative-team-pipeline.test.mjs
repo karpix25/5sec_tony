@@ -30,6 +30,31 @@ test("creative team image prompt package overrides legacy prompt builder", () =>
   assert.doesNotMatch(prompt, /СМЫСЛОВОЙ ПЛАН ДЛЯ ТЕКСТА/);
 });
 
+test("creative team leaderboard prompt locks reference structure", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const prompt = buildImagePrompt({
+    project,
+    product,
+    reference: project.references[0],
+    generationBrief: {
+      imagePromptPackage: { prompt: "Use the provided design reference." },
+      designFormatBrief: {
+        formatType: "ranking_leaderboard",
+        structureName: "Top chart",
+        layoutSlots: [{ id: "rank", role: "rank_card", textCapacity: "short" }]
+      },
+      contentScript: { headline: "Топ признаков", subhead: "Короткая легенда", points: ["1. Первый сигнал", "2. Второй сигнал"] },
+      visualBrief: { productUsage: "small_signal" }
+    }
+  });
+
+  assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
+  assert.match(prompt, /leaderboard\/top-chart skeleton/);
+  assert.match(prompt, /ранговые колонки|rank cards/);
+  assert.match(prompt, /Не превращать в минималистичный белый checklist/);
+});
+
 test("creative team visual brief controls product visibility mode", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);

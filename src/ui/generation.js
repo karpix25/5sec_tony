@@ -31,14 +31,37 @@ export function renderStudioPanel(state, context) {
 }
 
 export function bindGenerationPanelEvents(root, store) {
-  root.querySelector("#create-job")?.addEventListener("click", async () => {
+  root.querySelector("#create-job")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    if (button?.dataset?.busy === "true") return;
     const count = Math.max(1, Math.min(10, Number(root.querySelector("#generation-count")?.value || 1)));
-    const jobs = canRunCreativeTeamPreflight(store) && typeof store.createJob === "function"
-      ? await createCreativeTeamJobs(root, store, count)
-      : store.createJobs(count);
+    const status = root.querySelector("#creative-team-status");
+    setLaunchBusy(button, status, true);
     store.selectProjectTab("queue");
-    jobs.forEach((job) => runImageJob(store, job.id));
+    let jobs = [];
+    try {
+      jobs = canRunCreativeTeamPreflight(store) && typeof store.createJob === "function"
+        ? await createCreativeTeamJobs(root, store, count)
+        : store.createJobs(count);
+    } catch (error) {
+      if (status) status.textContent = `${error.message || "AI-команда недоступна"}. Создаем задачу локально.`;
+      jobs = createFallbackJobs(store, count);
+    } finally {
+      setLaunchBusy(button, status, false);
+    }
+    jobs.forEach((job) => {
+      if (job?.id) runImageJob(store, job.id);
+    });
   });
+}
+
+function setLaunchBusy(button, status, busy) {
+  if (button?.dataset) button.dataset.busy = busy ? "true" : "false";
+  if (button) {
+    if (busy) button.setAttribute("disabled", "");
+    else button.removeAttribute("disabled");
+  }
+  if (busy && status) status.textContent = "Запуск принят. Открываем очередь и готовим AI-бриф...";
 }
 
 function canRunCreativeTeamPreflight(store) {
@@ -74,6 +97,12 @@ async function createCreativeTeamJobs(root, store, count) {
     if (job) jobs.push(job);
   }
   return jobs;
+}
+
+function createFallbackJobs(store, count) {
+  if (typeof store.createJobs === "function") return store.createJobs(count) || [];
+  if (typeof store.createJob !== "function") return [];
+  return Array.from({ length: count }, () => store.createJob()).filter(Boolean);
 }
 
 function renderReferenceSelect({ project, reference }) {

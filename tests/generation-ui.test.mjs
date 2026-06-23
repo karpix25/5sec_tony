@@ -25,8 +25,8 @@ test("generation start clamps invalid count and switches to queue tab", () => {
   createJobButton.dispatchEvent({ type: "click", target: createJobButton });
 
   assert.deepEqual(calls, [
-    ["createJobs", 10],
-    ["selectProjectTab", "queue"]
+    ["selectProjectTab", "queue"],
+    ["createJobs", 10]
   ]);
 });
 
@@ -82,9 +82,9 @@ test("generation start prepares creative team brief before creating jobs", async
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.deepEqual(calls, [
+      ["selectProjectTab", "queue"],
       ["updateGenerationBrief", "Почему вечерний ритуал срывается"],
-      ["createJob"],
-      ["selectProjectTab", "queue"]
+      ["createJob"]
     ]);
     assert.equal(status.textContent, "AI-команда подготовила сценарий и промпт.");
   } finally {
@@ -146,13 +146,68 @@ test("generation batch prepares a fresh creative brief for each job", async () =
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.deepEqual(calls, [
+      ["selectProjectTab", "queue"],
       ["updateGenerationBrief", "Хук 1"],
       ["createJob"],
       ["updateGenerationBrief", "Хук 2"],
-      ["createJob"],
-      ["selectProjectTab", "queue"]
+      ["createJob"]
     ]);
     assert.equal(status.textContent, "AI-команда подготовила сценарий и промпт.");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("generation start switches to queue and creates fallback job when ai brief fails", async () => {
+  const previousFetch = globalThis.fetch;
+  const root = new FakeElement();
+  const createJobButton = new FakeElement({ id: "create-job", tagName: "button" });
+  const countInput = new FakeElement({ id: "generation-count", value: "1" });
+  const status = new FakeElement({ id: "creative-team-status" });
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const calls = [];
+  globalThis.fetch = async () => ({
+    ok: false,
+    json: async () => ({ error: "OpenRouter upstream 502" })
+  });
+  const store = {
+    getState: () => ({
+      projects: [project],
+      products: [product],
+      selectedProjectId: project.id,
+      selectedProductId: product.id,
+      selectedReferenceId: project.references[0].id,
+      selectedCharacterId: "no-avatar",
+      selectedAudioId: "",
+      audioLibrary: [],
+      hookLibrary: {},
+      jobs: []
+    }),
+    updateGenerationBrief(brief) {
+      calls.push(["updateGenerationBrief", brief.hook]);
+    },
+    createJob() {
+      calls.push(["createJob"]);
+      return null;
+    },
+    selectProjectTab(tab) {
+      calls.push(["selectProjectTab", tab]);
+    }
+  };
+
+  try {
+    root.append(createJobButton, countInput, status);
+    bindGenerationPanelEvents(root, store);
+    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+    assert.deepEqual(calls, [["selectProjectTab", "queue"]]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.deepEqual(calls, [
+      ["selectProjectTab", "queue"],
+      ["createJob"]
+    ]);
+    assert.equal(status.textContent, "OpenRouter upstream 502");
   } finally {
     globalThis.fetch = previousFetch;
   }
