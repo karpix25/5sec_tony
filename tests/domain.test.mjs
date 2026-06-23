@@ -126,12 +126,12 @@ test("payment generation rotates semantic plans, not only headlines", () => {
     niche: "финтех / трансграничные платежи"
   };
   const product = products.find((item) => item.projectId === "ppm");
-  const first = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0], existingJobs: [] });
-  const second = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0], existingJobs: [first] });
-  const firstPlan = createSemanticPlan({ project, product, brief: createAutoGenerationBrief({ project, product, reference: project.references[0], generationBrief: first, existingJobs: [] }) });
-  const secondPlan = createSemanticPlan({ project, product, brief: createAutoGenerationBrief({ project, product, reference: project.references[0], generationBrief: second, existingJobs: [first] }) });
+  const firstBrief = createAutoGenerationBrief({ project, product, reference: project.references[0], generationBrief: { semanticKey: "card-rejected", aiPlan: { headline: "Карта снова не проходит", subhead: "Причина не всегда в балансе", points: ["Проверьте сервис", "Проверьте правила площадки", "Не повторяйте платеж вслепую"] } } });
+  const secondBrief = createAutoGenerationBrief({ project, product, reference: project.references[0], generationBrief: { semanticKey: "invoice-payment", aiPlan: { headline: "Счет выглядит понятным", subhead: "Но важны поля внутри", points: ["Кому платите", "За что платите", "Какой срок указан"] } } });
+  const firstPlan = createSemanticPlan({ project, product, brief: firstBrief });
+  const secondPlan = createSemanticPlan({ project, product, brief: secondBrief });
 
-  assert.notEqual(first.semanticKey, second.semanticKey);
+  assert.notEqual(firstBrief.semanticKey, secondBrief.semanticKey);
   assert.notDeepEqual(firstPlan.points, secondPlan.points);
   assert.notEqual(firstPlan.subhead, secondPlan.subhead);
 });
@@ -182,19 +182,24 @@ test("image prompt includes a coherent semantic plan for payment projects", () =
     niche: "финтех / трансграничные платежи"
   };
   const product = products.find((item) => item.projectId === "ppm");
-  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], generationBrief: {} });
-  const plan = createSemanticPlan({ project, product, brief });
-  const prompt = buildImagePrompt({
+  const brief = createAutoGenerationBrief({
     project,
     product,
     reference: project.references[0],
-    character: project.characters[0],
-    generationBrief: brief,
-    freePrompt: ""
+    generationBrief: {
+      topic: "проверка причины отказа оплаты",
+      hook: "Карта снова не проходит",
+      productFact: "зарубежный сервис может отказать не из-за суммы, а из-за правил конкретной площадки",
+      scrollStopperAngle: "деньги есть, но оплата все равно срывается",
+      productPositiveBridge: "сначала понять причину отказа, потом выбирать маршрут оплаты",
+      aiPlan: { headline: "Карта снова не проходит", subhead: "Иногда дело не в балансе", points: ["Сервис смотрит не только на сумму", "Правила площадки могут отличаться", "Повторять платеж вслепую рискованно", "Сначала уточните причину отказа"] }
+    }
   });
+  const plan = createSemanticPlan({ project, product, brief });
+  const prompt = buildImagePrompt({ project, product, reference: project.references[0], character: project.characters[0], generationBrief: brief, freePrompt: "" });
 
-  assert.match(plan.subhead, /оплат|сценари|карта|проходит|достаточно/);
-  assert.match(plan.points.join(" "), /страны или типа карты|причину отказа|статус|подтверждение/);
+  assert.match(plan.subhead, /балансе/);
+  assert.match(plan.points.join(" "), /сумму|площадки|вслепую|причину отказа/);
   assert.match(plan.disclaimer, /условий платежа/);
   assert.match(prompt, /СМЫСЛОВОЙ ПЛАН/);
   assert.match(prompt, /Не добавляй неуказанные проценты/);
