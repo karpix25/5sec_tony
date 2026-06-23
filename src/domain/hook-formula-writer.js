@@ -22,7 +22,7 @@ export function writeHookFromFormula(template, context) {
       `Что чаще всего ломает результат, когда речь про ${focus}`,
       `Неочевидная ошибка: ${focus}`
     ],
-    "myth-reality": [
+    "expectation-shift": [
       `Заблуждение про ${focus}, из-за которого легко ошибиться`,
       `Что про ${focus} кажется нормой, но часто подводит`,
       `Правда про ${focus}, которую обычно узнают поздно`
@@ -33,9 +33,9 @@ export function writeHookFromFormula(template, context) {
       `Почему про ${focus} легко промахнуться`
     ],
     list: [
-      `${count} вещей, которые стоит знать про ${focus}`,
       `${count} деталей, которые меняют взгляд на ${focus}`,
-      `${count} пунктов про ${focus}, которые лучше сохранить`
+      `Что стоит знать про ${focus} перед решением`,
+      `Какие детали про ${focus} легко пропустить`
     ]
   };
 
@@ -46,7 +46,7 @@ export function classifyHookFormula(value) {
   const source = String(value || "").toLowerCase();
   if (/красн|флаг|опасн|риск/.test(source)) return "red-flag";
   if (/ошиб|стоить|лома|не делайте/.test(source)) return "mistake";
-  if (/миф|правд|реальн|норма/.test(source)) return "myth-reality";
+  if (/миф|правд|реальн|норма|ожидан/.test(source)) return "expectation-shift";
   if (/проверь|чек|пункт|признак/.test(source)) return "checklist";
   if (/почему|зачем|что будет/.test(source)) return "curiosity";
   return "list";

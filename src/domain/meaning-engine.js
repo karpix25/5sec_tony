@@ -42,7 +42,7 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     hookReference,
     topic: hookBridge?.topic || generationBrief.topic || adaptTopic(pattern.topic, { project, product, angle }),
     hook,
-    format: generationBrief.format || pattern.format || reference?.layoutType || "checklist",
+    format: generationBrief.format || pattern.format || reference?.layoutType || "story-card",
     visualObject: generationBrief.visualObject || adaptVisualObject(pattern.visualObject, { project, product }),
     aiPlan: hookBridge?.aiPlan || null,
     notes: [
@@ -66,12 +66,14 @@ export function createUniversalSemanticPlan({ project, product, brief }) {
     };
   }
 
-  const patternId = brief.meaningPatternId || brief.meaningPattern?.id || "before-check";
+  const patternId = brief.meaningPatternId || brief.meaningPattern?.id || "decision-check";
   const builders = {
     "red-flag": redFlagPlan,
     "hidden-mistake": hiddenMistakePlan,
+    "decision-check": beforeCheckPlan,
     "before-check": beforeCheckPlan,
     "classification": classificationPlan,
+    "expectation-shift": expectationShiftPlan,
     "myth-reality": mythRealityPlan,
     metaphor: metaphorPlan
   };
@@ -159,21 +161,23 @@ function classificationPlan({ product }) {
   };
 }
 
-function mythRealityPlan({ product }) {
+function expectationShiftPlan({ product }) {
   const focus = getProductContentFocus({ product });
   const pain = focus.pain || "кажется, что одного общего совета достаточно";
   const fact = focus.fact || "контекст важнее общей формулировки";
   return {
     subhead: "Привычное объяснение часто мешает увидеть полезный факт.",
     points: [
-      `Миф: ${pain}`,
-      `На деле: ${fact}`,
+      `Ожидание: ${pain}`,
+      `Что видно на деле: ${fact}`,
       `Что проверить: ${focus.context || fact}`,
       `Полезно: ${focus.action || "сравнить несколько источников"}`,
       `Мягкий шаг: ${focus.action || product.offer || product.name}`
     ]
   };
 }
+
+const mythRealityPlan = expectationShiftPlan;
 
 function metaphorPlan({ product }) {
   const focus = getProductContentFocus({ product });

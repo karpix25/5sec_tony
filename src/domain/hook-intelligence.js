@@ -3,7 +3,7 @@ const hookTypeRules = [
     id: "collection",
     test: /n\s+обязательн|n\s+лучш|количество|полезн.+продукт|приложен|книг/i,
     mechanism: "FOMO и сохранение подборки",
-    structure: "top-list",
+    structure: "saveable-collection",
     promise: "зритель получит короткую подборку, которую можно сохранить"
   },
   {

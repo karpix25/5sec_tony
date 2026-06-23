@@ -85,11 +85,11 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
     headline: "",
     subhead: candidate.subhead || subheads[candidate.angleId] || "Сначала поймите ситуацию, потом добавляйте продукт.",
     points: [
-      `Почему цепляет: ${pain || useCase}`,
-      `Миф: одного общего совета достаточно`,
-      `Факт: ${proof || safeStep}`,
-      `Рабочий шаг: ${habit}`,
-      `Проверьте: контекст, источник и детали`
+      `Знакомая ситуация: ${pain || useCase}`,
+      `Что обычно упускают: одного общего совета мало`,
+      `Проверяемая деталь: ${proof || safeStep}`,
+      `Что сделать сегодня: ${habit}`,
+      `На что смотреть: контекст, источник и детали`
     ],
     disclaimer: "",
     hookPsychology: getHookStrategyInstruction(candidate)

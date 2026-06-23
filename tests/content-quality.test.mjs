@@ -7,6 +7,7 @@ import { createContentSlot } from "../src/domain/content-rotation.js";
 import { createContentLayer } from "../src/domain/content-layers.js";
 import { createGenerationStructurePreview } from "../src/domain/generation-structure-preview.js";
 import { normalizeHumanizedPlan } from "../src/domain/text-humanizer.js";
+import { createTopicCandidatePlan } from "../src/domain/topic-candidates.js";
 
 test("semantic fallback raises life pain before product solution", () => {
   const project = {
@@ -24,7 +25,10 @@ test("semantic fallback raises life pain before product solution", () => {
 });
 
 test("ai brief instructions demand shareable life facts", () => {
-  const source = readFileSync(new URL("../scripts/openrouter-api.mjs", import.meta.url), "utf8");
+  const source = [
+    readFileSync(new URL("../scripts/openrouter-api.mjs", import.meta.url), "utf8"),
+    readFileSync(new URL("../src/domain/generation-format-contract.js", import.meta.url), "utf8")
+  ].join("\n");
 
   assert.match(source, /интересный факт или жизненное наблюдение/);
   assert.match(source, /сохраню или отправлю другу/);
@@ -39,9 +43,9 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /Не выбирай упаковку как visualObject по умолчанию/);
   assert.match(source, /Хук должен быть понятным без расшифровки ниже/);
   assert.match(source, /CTA не нужен/);
-  assert.match(source, /4-6 плотных смысловых блоков/);
-  assert.match(source, /сохраняемый скрин/);
-  assert.match(source, /рабочая схема/);
+  assert.match(source, /story-card \| situation-map \| expectation-shift/);
+  assert.match(source, /ФОРМАТ НОВЫХ ТЕМ/);
+  assert.match(source, /Запрещены старые оболочки тем/);
   assert.match(source, /читать дольше 5 секунд/);
   assert.match(source, /Продукт не должен быть в каждом посте/);
   assert.match(source, /Headline максимум 6 слов/);
@@ -55,8 +59,9 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /триггерный, актуальный, спорный/);
   assert.match(source, /не порочащий репутацию автора/);
   assert.match(source, /Правда, реальные факты, без лжи/);
-  assert.match(source, /миф против факта/);
+  assert.match(source, /громкий совет против проверяемой детали/);
   assert.match(source, /нельзя защитить фактами/);
+  assert.doesNotMatch(source, /top-list \| myth-fact/);
 });
 
 test("content layers rotate beyond direct product ads", () => {
@@ -170,6 +175,27 @@ test("travel project keeps payment-named bot as context, not payment topic engin
   assert.doesNotMatch(text, /санкци|сбп|рубл|карта снова не проходит|зарубежн.*оплат|подписка сгорит/);
 });
 
+test("topic candidate fallback does not emit old visible labels", () => {
+  const plan = createTopicCandidatePlan({
+    project: projects[0],
+    product: products.find((item) => item.id === "magnesium"),
+    candidate: {
+      angleId: "personal-result",
+      strategyLabel: "личная выгода",
+      trigger: "усталость утром",
+      promptInstruction: "Собери бытовую проверку без старого шаблона.",
+      pain: "усталость утром",
+      useCase: "вечерняя рутина",
+      proof: "регулярность важнее разового рывка",
+      habit: "поставить ритуал на одно время"
+    }
+  });
+  const text = plan.points.join(" ");
+
+  assert.doesNotMatch(text, /Почему цепляет|Миф:|Факт:|Рабочий шаг/);
+  assert.match(text, /Знакомая ситуация|Проверяемая деталь|Что сделать сегодня/);
+});
+
 test("image prompt forbids technical labels and repeated disclaimers", () => {
   const project = projects[0];
   const product = products.find((item) => item.id === "magnesium");
@@ -183,9 +209,10 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /ЛОГИКА ТЕКСТА/);
   assert.match(job.prompt, /РЕДАКЦИОННЫЙ СТАНДАРТ/);
   assert.match(job.prompt, /Только правдивая информация, реальные факты, без лжи/);
-  assert.match(job.prompt, /миф против факта/);
+  assert.match(job.prompt, /громкое обещание против проверяемой детали/);
   assert.match(job.prompt, /НЕ ПЕРЕГРУЖАТЬ МАКЕТ/);
-  assert.match(job.prompt, /СОХРАНЯЕМЫЙ СКРИН/);
+  assert.match(job.prompt, /ФОРМАТ НОВЫХ ТЕМ/);
+  assert.match(job.prompt, /Запрещены старые оболочки тем/);
   assert.match(job.prompt, /4-6 коротких смысловых блоков/);
   assert.match(job.prompt, /Номера использовать только если выбранный дизайн-референс явно построен на нумерации/);
   assert.match(job.prompt, /Смысловые блоки как сырье для текста, не готовая разметка/);

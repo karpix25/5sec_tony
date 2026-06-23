@@ -16,12 +16,12 @@ export const scenarioPatterns = [
     planShape: "ошибка -> почему опасно -> как заметить -> как исправить"
   },
   {
-    id: "before-check",
-    format: "checklist",
-    hook: "Не делайте это, пока не проверите 3 пункта",
-    topic: "Что проверить перед действием",
-    visualObject: "чеклист с 3-5 крупными пунктами",
-    planShape: "проверка -> риск -> критерий -> решение"
+    id: "decision-check",
+    format: "decision-map",
+    hook: "Сначала проверьте одну деталь",
+    topic: "Какая деталь меняет решение в обычной ситуации",
+    visualObject: "карта решения с короткими выносками",
+    planShape: "ситуация -> риск -> критерий -> спокойное решение"
   },
   {
     id: "classification",
@@ -32,12 +32,12 @@ export const scenarioPatterns = [
     planShape: "признак -> что значит -> чем грозит -> что делать"
   },
   {
-    id: "myth-reality",
-    format: "comparison",
-    hook: "Вы верите в миф, который мешает результату",
-    topic: "Как популярный миф мешает принять решение",
-    visualObject: "миф против реальности",
-    planShape: "миф -> реальность -> доказуемый факт -> безопасный вывод"
+    id: "expectation-shift",
+    format: "expectation-shift",
+    hook: "Ожидание часто сбивает с решения",
+    topic: "Где ожидание расходится с реальной ситуацией",
+    visualObject: "контраст ожидания и проверяемой детали",
+    planShape: "ожидание -> реальная деталь -> что это меняет -> безопасный вывод"
   },
   {
     id: "metaphor",
@@ -78,8 +78,8 @@ function findExplicitPattern(project) {
   const source = `${project.allowedTriggers || ""} ${project.keyScenarios || ""}`.toLowerCase();
   if (/красн|флаг|опасн/.test(source)) return scenarioPatterns.find((item) => item.id === "red-flag");
   if (/ошиб/.test(source)) return scenarioPatterns.find((item) => item.id === "hidden-mistake");
-  if (/чеклист|провер/.test(source)) return scenarioPatterns.find((item) => item.id === "before-check");
+  if (/чеклист|провер/.test(source)) return scenarioPatterns.find((item) => item.id === "decision-check");
   if (/признак|симптом|тип|классиф/.test(source)) return scenarioPatterns.find((item) => item.id === "classification");
-  if (/миф/.test(source)) return scenarioPatterns.find((item) => item.id === "myth-reality");
+  if (/миф|ожидан/.test(source)) return scenarioPatterns.find((item) => item.id === "expectation-shift");
   return null;
 }

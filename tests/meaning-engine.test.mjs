@@ -125,7 +125,7 @@ test("generic first-person hook gets rewritten into niche-specific hook", () => 
   const adapted = adaptHookFromReference(hook, { project, product, angle: "карта не проходит" });
 
   assert.doesNotMatch(adapted, /\(|\)|что-то|Я /i);
-  assert.match(adapted, /5 /);
+  assert.doesNotMatch(adapted, /5 вещей|топ-5/i);
   assert.match(adapted, /карта не проходит|оплата зарубежных подписок/i);
 });
 

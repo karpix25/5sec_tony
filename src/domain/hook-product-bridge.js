@@ -64,8 +64,8 @@ function classifyHookBridgeShape(value) {
   const source = String(value || "").toLowerCase();
   if (/красн|флаг|опасн|риск/.test(source)) return "red-flag";
   if (/ошиб|стоить|лома|не делайте/.test(source)) return "mistake";
-  if (/миф|правд|реальн|норма/.test(source)) return "myth-reality";
-  if (/проверь|чек|пункт|признак|вещ/.test(source)) return "checklist";
+  if (/миф|правд|реальн|норма|ожидан/.test(source)) return "expectation-shift";
+  if (/проверь|чек|пункт|признак|вещ/.test(source)) return "decision-check";
   if (/почему|зачем|что будет/.test(source)) return "curiosity";
   return "useful-angle";
 }
@@ -74,8 +74,8 @@ function buildBridgeTopic(shape, context) {
   const byShape = {
     "red-flag": `Как отличить нормальную ситуацию от тревожного сигнала: ${context.pain}`,
     mistake: `Какая ошибка мешает получить пользу: ${context.pain}`,
-    "myth-reality": `Какой миф мешает понять ситуацию: ${context.pain}`,
-    checklist: `Что проверить заранее: ${context.useCase}`,
+    "expectation-shift": `Где ожидание расходится с реальной ситуацией: ${context.pain}`,
+    "decision-check": `Что проверить заранее: ${context.useCase}`,
     curiosity: `Почему это происходит: ${context.pain}`,
     "useful-angle": `Полезный разбор: ${context.useCase}`
   };
@@ -86,8 +86,8 @@ function buildBridgeSubhead(shape, context) {
   const byShape = {
     "red-flag": "Покажите зрителю, какой сигнал стоит заметить до решения.",
     mistake: "Ошибка должна быть конкретной: что человек делает и почему результат ломается.",
-    "myth-reality": "Сначала разрушьте привычное объяснение, потом дайте проверяемый факт.",
-    checklist: "Карточка должна работать как короткая проверка перед действием.",
+    "expectation-shift": "Сначала покажите привычное ожидание, потом дайте проверяемый факт.",
+    "decision-check": "Карточка должна работать как короткая проверка перед действием.",
     curiosity: "Откройте причину знакомой ситуации без рекламного давления.",
     "useful-angle": "Дайте самостоятельную пользу, а продукт оставьте мягким контекстом."
   };
@@ -98,8 +98,8 @@ function buildBridgePoints(shape, context) {
   const firstPoint = {
     "red-flag": `Сигнал: ${context.pain}`,
     mistake: `Ошибка: ${context.pain}`,
-    "myth-reality": `Миф: все решается одним советом`,
-    checklist: `Проверьте: ${context.useCase}`,
+    "expectation-shift": `Ожидание: все решается одним советом`,
+    "decision-check": `Проверка: ${context.useCase}`,
     curiosity: `Причина: ${context.proof}`,
     "useful-angle": `Ситуация: ${context.useCase}`
   }[shape] || `Ситуация: ${context.useCase}`;
@@ -107,7 +107,7 @@ function buildBridgePoints(shape, context) {
   return [
     firstPoint,
     `Контекст: ${context.useCase}`,
-    `Факт: ${context.proof}`,
+    `Проверяемая деталь: ${context.proof}`,
     `Полезный шаг: ${context.step}`
   ];
 }

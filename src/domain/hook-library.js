@@ -174,7 +174,7 @@ function scoreHookReference(hook, { project, pattern, slot }) {
 
   if (pattern?.id === "red-flag" && tags.includes("красный флаг")) score += 4;
   if (pattern?.id === "hidden-mistake" && tags.includes("ошибка")) score += 4;
-  if (pattern?.id === "myth-reality" && tags.includes("сравнение")) score += 4;
+  if (["expectation-shift", "myth-reality"].includes(pattern?.id) && tags.includes("сравнение")) score += 4;
   if (/check|list|scheme|comparison/.test(format) && tags.includes("чеклист")) score += 2;
   if (/high|высок/.test(String(project?.hookAggression || "").toLowerCase()) && hook.aggression === "высокая") score += 1;
   if (/сред/.test(String(project?.hookAggression || "").toLowerCase()) && hook.aggression === "средняя") score += 1;
