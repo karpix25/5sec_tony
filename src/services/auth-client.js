@@ -191,7 +191,7 @@ function ensureTelegramOidcLibrary() {
     }
     const script = document.createElement("script");
     script.async = true;
-    script.src = "https://telegram.org/js/telegram-login.js";
+    script.src = "https://telegram.org/js/telegram-login.js?20260623";
     script.dataset.antonTelegramOidcLibrary = "true";
     script.onload = () => {
       script.dataset.antonTelegramOidcLibraryLoaded = "true";
