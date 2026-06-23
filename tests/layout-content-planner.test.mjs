@@ -4,6 +4,8 @@ import { createLayoutContentPlan } from "../src/domain/layout-content-planner.js
 
 test("layout planner maps active design references to distinct content shapes", () => {
   const cases = [
+    [{ layoutType: "ranking_leaderboard", title: "Top chart" }, "ranking_leaderboard"],
+    [{ title: "TOP 21 leaderboard", takeaways: "светящиеся колонки, ранги, value labels" }, "ranking_leaderboard"],
     [{ id: "viral-pink-symptoms", title: "Viral symptoms poster" }, "symptoms-poster"],
     [{ title: "Beauty grid + состав" }, "beauty-grid"],
     [{ title: "IOS блокнотт" }, "checklist-note"],

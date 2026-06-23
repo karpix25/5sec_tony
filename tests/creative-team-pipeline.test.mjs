@@ -55,6 +55,52 @@ test("creative team leaderboard prompt locks reference structure", () => {
   assert.match(prompt, /Не превращать в минималистичный белый checklist/);
 });
 
+test("creative team prompt keeps leaderboard lock when ai format brief is wrong", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const prompt = buildImagePrompt({
+    project,
+    product,
+    reference: {
+      title: "TOP 21 leaderboard",
+      layoutType: "ranking_leaderboard",
+      takeaways: "темный постер, rank cards, glowing vertical columns, value labels"
+    },
+    generationBrief: {
+      imagePromptPackage: { prompt: "Create a skincare infographic from the reference." },
+      designFormatBrief: {
+        formatType: "checklist_cards",
+        structureName: "Wrong checklist",
+        layoutSlots: [{ id: "point", role: "icon_row", textCapacity: "medium" }]
+      },
+      contentScript: { headline: "Что проверить утром", subhead: "Короткая легенда", points: ["1. Тон", "2. Текстура"] },
+      visualBrief: { productUsage: "small_signal" }
+    }
+  });
+
+  assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
+  assert.match(prompt, /ranking_leaderboard/);
+  assert.match(prompt, /rankedItems\[8-21\]/);
+  assert.match(prompt, /Не превращать в минималистичный белый checklist/);
+});
+
+test("leaderboard final prompt allows ranking instead of old top ban", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const prompt = buildImagePrompt({
+    project,
+    product,
+    reference: {
+      title: "TOP 21 leaderboard",
+      layoutType: "ranking_leaderboard",
+      takeaways: "rank cards, value labels"
+    }
+  });
+
+  assert.match(prompt, /ранги и номера разрешены только для layout формата ranking_leaderboard/);
+  assert.match(prompt, /8-12 очень коротких rank-card/);
+});
+
 test("creative team visual brief controls product visibility mode", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);

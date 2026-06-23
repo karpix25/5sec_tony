@@ -14,6 +14,7 @@ const files = [
   "src/domain/content-layers.js",
   "src/domain/project-content-intent.js",
   "src/domain/content-rotation.js",
+  "src/domain/reference-format.js",
   "src/domain/composition-modes.js",
   "src/domain/cta-overlay.js",
   "src/domain/design-style-lock.js",

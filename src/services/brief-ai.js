@@ -89,9 +89,13 @@ function createDesignReferenceDigest(reference) {
     title: reference?.title || "",
     layoutType: reference?.layoutType || "",
     visualObject: reference?.visualObject || "",
+    promptComment: reference?.promptComment || "",
     takeaways: reference?.takeaways || "",
+    avoidCopy: reference?.avoidCopy || "",
     textDensity: reference?.textDensity || "",
     headlineStyle: reference?.headlineStyle || "",
+    fontStyle: reference?.fontStyle || "",
+    imageName: reference?.imageName || "",
     palette: reference?.palette || ""
   };
 }

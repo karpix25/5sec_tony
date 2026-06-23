@@ -90,10 +90,11 @@ function createFinalContent({ project, product, brief, productFact, curiosityAng
   const points = aiPlan.points.length
     ? aiPlan.points
     : createFallbackPoints({ productFact, curiosityAngle, layoutPlan });
+  const layoutPoints = expandPointsForLayout(uniquePoints(points), { productFact, curiosityAngle, layoutPlan });
   return sanitizeVisibleContent({
     headline: cleanHeadline(aiPlan.headline || brief.hook, productFact, curiosityAngle),
     subhead: cleanSentence(aiPlan.subhead || curiosityAngle.conflict),
-    points: fitPointCount(uniquePoints(points), brief.pointCount),
+    points: fitPointCount(layoutPoints, brief.pointCount),
     disclaimer: "",
     layoutType: layoutPlan?.layoutType || "",
     curiosityAngle
@@ -132,6 +133,21 @@ function createFallbackPoints({ productFact, curiosityAngle, layoutPlan }) {
     ];
   }
   return base;
+}
+
+function expandPointsForLayout(points, { productFact, curiosityAngle, layoutPlan }) {
+  if (layoutPlan?.layoutType !== "ranking_leaderboard") return points;
+  return uniquePoints([
+    ...points,
+    `1. Сценарий: ${productFact.situation}`,
+    `2. Факт: ${productFact.fact}`,
+    `3. Проверка: ${productFact.action}`,
+    `4. Контраст: ожидание против реального сценария`,
+    `5. Сигнал: что видно до покупки`,
+    `6. Ошибка: решать только по обещанию`,
+    `7. Польза: ${curiosityAngle.question}`,
+    `8. Выбор: спокойная проверка важнее громкого claims`
+  ]);
 }
 
 function cleanHeadline(value, productFact, angle) {
@@ -250,7 +266,7 @@ function ensureMinimumVisiblePoints(points, { productFact }) {
 }
 
 function fitPointCount(points, count) {
-  const limit = Math.max(3, Math.min(6, Number(count) || 5));
+  const limit = Math.max(3, Math.min(12, Number(count) || 5));
   return points.slice(0, limit);
 }
 

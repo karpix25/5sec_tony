@@ -53,6 +53,7 @@ function renderReferenceForm(reference) {
         <div><span class="eyebrow">Дизайн-референс</span><h2>Создать или добавить стиль</h2></div>
       </div>
       ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
+      ${designLayoutField()}
       ${designFileField("Файл референса", "imageFile")}
       ${designField("Промт", "prompt", "Опишите стиль с нуля или добавьте комментарии к загруженному файлу: фон, сетка, типографика, плашки, плотность, что важно повторять.", "textarea", "", true)}
       <div class="form-actions">
@@ -112,6 +113,25 @@ function designField(label, name, placeholder, type = "input", value = "", requi
     ? `<textarea name="${name}" class="textarea editor-textarea" placeholder="${escapeHtml(placeholder)}" ${requiredAttr}>${escapeHtml(value)}</textarea>`
     : `<input name="${name}" class="text-input" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${requiredAttr} />`;
   return `<label class="stacked-field"><span>${escapeHtml(label)}</span>${control}</label>`;
+}
+
+function designLayoutField() {
+  const options = [
+    ["infographic-template", "Авто / общий шаблон"],
+    ["ranking_leaderboard", "Топ / рейтинг / leaderboard"],
+    ["symptoms", "Постер с признаками"],
+    ["beauty-grid", "Сетка / beauty grid"],
+    ["checklist-note", "Заметка / чеклист"],
+    ["minimal-thesis", "Минималистичный тезис"]
+  ];
+  return `
+    <label class="stacked-field">
+      <span>Структура</span>
+      <select name="layoutType" class="select">
+        ${options.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join("")}
+      </select>
+    </label>
+  `;
 }
 
 function designFileField(label, name) {

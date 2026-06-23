@@ -44,7 +44,7 @@ export function createReferenceEntity(payload = {}) {
     promptComment: payload.promptComment || "",
     takeaways: payload.takeaways || "",
     avoidCopy: payload.avoidCopy || "Не копировать текст, смысл, чужие утверждения, чужой продукт, логотипы и персонажа.",
-    layoutType: payload.layoutType || "symptoms",
+    layoutType: payload.layoutType || "infographic-template",
     palette: payload.palette || "",
     fontStyle: payload.fontStyle || payload.headlineStyle || "",
     headlineStyle: payload.headlineStyle || "",

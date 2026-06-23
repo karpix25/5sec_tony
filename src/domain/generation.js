@@ -15,6 +15,7 @@ import { createLayoutContentPlan, formatLayoutPlanPrompt } from "./layout-conten
 import { formatCreativeQualityPrompt } from "./creative-quality-validator.js";
 import { createCuriosityContentPlan, formatFinalContentPrompt } from "./curiosity-content.js";
 import { createUniqueJobId } from "./job-identity.js";
+import { getReferenceFormatSignal, resolveGenerationFormat, resolvePointCountForFormat } from "./reference-format.js";
 import { modernImageFormatRule, oldFormatShellBan } from "./generation-format-contract.js";
 import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budget.js";
 import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "./creative-team-image-prompt.js";
@@ -62,7 +63,7 @@ const contentQualityRules = [
   "Не рисовать обвинения, токсичные формулировки, страшилки, непроверяемые claims, финансовую/медицинскую панику или категоричные обещания.",
   modernImageFormatRule,
   oldFormatShellBan,
-  "ПЛОТНОСТЬ БЕЗ КАШИ: 4-6 коротких смысловых блоков; каждый блок содержит мини-заголовок и короткое объяснение. Номера использовать только если выбранный дизайн-референс явно построен на нумерации.",
+  "ПЛОТНОСТЬ БЕЗ КАШИ: обычно 4-6 коротких смысловых блоков; для ranking_leaderboard/top-chart использовать 8-12 очень коротких rank-card пунктов. Номера использовать только если выбранный дизайн-референс явно построен на нумерации.",
   "Текст должен удерживать взгляд дольше 5 секунд, но оставаться читаемым с телефона: без длинных абзацев, без микрошрифта и без случайной сетки.",
   "Метафоры использовать только если они мгновенно объясняют проблему. Не уводить тему в случайные объекты вроде кофемашины, телефона или батарейки, если связь с продуктом и болью не очевидна за одну строку.",
   "НЕ ДУБЛИРОВАТЬ ТЕКСТ: каждый пункт должен давать новый смысл; не повторять одну мысль в заголовке, подписи, пункте и CTA.",
@@ -328,7 +329,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     diversitySlot: slot,
     topic: seedTopic,
     hook: generationBrief.hook || topicCandidate?.hook || lockedHook,
-    format: generationBrief.format || topicCandidate?.format || lockedFormat,
+    format: resolveGenerationFormat({ reference, requestedFormat: generationBrief.format, candidateFormat: topicCandidate?.format, lockedFormat }),
     aiPlan: generationBrief.aiPlan || topicCandidatePlan || undefined
   };
   const meaning = createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs, hookLibrary });
@@ -352,7 +353,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     topic,
     hook,
     format,
-    pointCount: hookPointCount || generationBrief.pointCount || pickPointCount(product),
+    pointCount: resolvePointCountForFormat({ format, hookCount: hookPointCount, requested: generationBrief.pointCount, product }),
     visualObject: generationBrief.visualObject || profile.primaryVisual || meaning.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name,
     cta: generationBrief.cta || "",
     salesLevel: generationBrief.salesLevel || "expert",
@@ -378,7 +379,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     contentLayer: slot.contentLayer || generationBrief.contentLayer || null,
     contentLayerId: slot.contentLayer?.id || generationBrief.contentLayerId || "",
     compositionMode: generationBrief.compositionMode || pickCompositionMode({
-      format: generationSeed.format || meaning.format || slot.format || pickFormat(project, reference),
+      format: format || meaning.format || slot.format || pickFormat(project, reference),
       existingJobs
     }),
     productInsightMap: profile.insightMap,
@@ -392,12 +393,10 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   };
   return brief;
 }
-
 function getHookPointCount(value) {
   const match = String(value || "").match(/\b([3-9])\b/);
   return match ? match[1] : "";
 }
-
 export function createSemanticPlan({ project, product, brief }) {
   if (isPaymentProject(project, product)) return createPaymentPlan({ product, brief });
   return createUniversalSemanticPlan({ project, product, brief });
@@ -478,22 +477,18 @@ function normalizeText(value) {
 
 function pickFormat(project, reference) {
   const source = `${project.allowedTriggers || ""} ${project.keyScenarios || ""}`.toLowerCase();
+  const referenceFormat = getReferenceFormatSignal(reference);
+  if (referenceFormat) return referenceFormat;
   if (/ошибк/.test(source)) return "mistake-solution";
   if (/чеклист|провер/.test(source)) return "checklist";
   if (/сравн/.test(source)) return "comparison";
   return reference?.layoutType || "checklist";
 }
 
-function pickPointCount(product) {
-  const count = Math.max(product.pains?.length || 0, product.facts?.length || 0);
-  return String(Math.min(6, Math.max(4, count || 5)));
-}
 function firstLine(value) {
   return String(value || "").split(/\n/).map((item) => item.trim()).find(Boolean) || "";
 }
-function firstListItem(value) {
-  return Array.isArray(value) ? value.find(Boolean) || "" : firstLine(value);
-}
+function firstListItem(value) { return Array.isArray(value) ? value.find(Boolean) || "" : firstLine(value); }
 function pickAudio(project) {
   return project.audioLibrary?.[0]?.title || "Project audio random";
 }

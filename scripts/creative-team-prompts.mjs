@@ -187,7 +187,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, 
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], invisibleNotes: { productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: ["Headline максимум 6 слов.", "Subhead одна короткая строка.", "4-6 блоков, каждый добавляет новый смысл.", "Подгони текст под слоты designFormatBrief: если формат ranking_leaderboard, points должны быть короткими ранжированными пунктами, а не обычным списком советов.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: ["Headline максимум 6 слов.", "Subhead одна короткая строка.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под слоты designFormatBrief: если формат ranking_leaderboard, points должны быть короткими ранжированными пунктами, а не обычным списком советов.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       creativeBrief,
       hookSet,
