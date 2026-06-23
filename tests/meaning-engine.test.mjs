@@ -372,6 +372,9 @@ test("generation panel does not render static preview mockup", () => {
   assert.doesNotMatch(html, /Открыть превью/);
   assert.doesNotMatch(html, /Авторежим до лимита/);
   assert.doesNotMatch(html, /Цель роликов/);
+  assert.doesNotMatch(html, /Новая структура/);
+  assert.doesNotMatch(html, /Чистый prompt/);
+  assert.doesNotMatch(html, /create-structure-preview/);
 });
 
 test("generation panel allows selecting no-avatar mode", () => {
