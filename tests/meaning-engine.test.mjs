@@ -353,6 +353,7 @@ test("generation style selector hides CTA references", () => {
   assert.match(html, /Белый фон \+ плашки/);
   assert.doesNotMatch(html, /Закажи консультацию за 4 секунды/);
   assert.doesNotMatch(html, /CTA 4 сек/);
+  assert.doesNotMatch(html, /generation-cta-panel|Плашка \/ текст|ЧИТАЙ ОПИСАНИЕ/);
 });
 
 test("generation panel does not render static preview mockup", () => {
@@ -390,8 +391,8 @@ test("generation panel allows selecting no-avatar mode", () => {
   });
 
   assert.match(html, /<option value="__no_avatar__"[^>]*selected[^>]*>Без аватара<\/option>/);
-  assert.match(html, /Плашка \/ текст/);
-  assert.match(html, /Эти настройки работают и в режиме без аватара/);
+  assert.doesNotMatch(html, /Плашка \/ текст/);
+  assert.doesNotMatch(html, /Эти настройки работают и в режиме без аватара/);
 });
 
 test("generation operation panels hide provider and task identifiers", () => {

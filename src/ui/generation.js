@@ -2,7 +2,6 @@ import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
 import { runImageJob } from "./job-runner.js";
 import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
-import { bindCtaOverlayControlEvents, renderCtaOverlayControls } from "./cta-overlay-controls.js";
 
 export function renderStudioPanel(state, context) {
   return `
@@ -19,7 +18,6 @@ export function renderStudioPanel(state, context) {
           <div class="auto-generation-note">
             Система сама подберет тему, хук, формат и объекты на основе проекта, продукта, референсов и истории генераций.
           </div>
-          ${renderGenerationCtaSettings(context.project)}
           <label class="stacked-field">
             <span>Количество</span>
             <input id="generation-count" class="text-input" type="number" min="1" max="10" value="1" />
@@ -36,23 +34,6 @@ export function bindGenerationPanelEvents(root, store) {
     const jobs = store.createJobs(count);
     store.selectProjectTab("queue");
     jobs.forEach((job) => runImageJob(store, job.id));
-  });
-  bindCtaOverlayControlEvents(root, {
-    filter(form) {
-      return Boolean(form?.closest(".generation-cta-panel"));
-    },
-    onChange(_projectId, payload) {
-      store.updateProjectCtaOverlay(payload);
-    },
-    onGenerate(_projectId, payload) {
-      store.createProjectCtaCandidate(payload);
-    },
-    onApprove() {
-      store.approveProjectCtaCandidate();
-    },
-    onReset() {
-      store.resetProjectCtaOverlay();
-    }
   });
 }
 
@@ -83,15 +64,6 @@ function renderAudioSelect({ audioLibrary, audio }) {
     <select id="audio-select" class="select">
       ${audioLibrary.map((item) => briefOption(item.id, item.title, audio?.id)).join("")}
     </select>
-  `;
-}
-
-function renderGenerationCtaSettings(project) {
-  return `
-    <section class="generation-cta-panel">
-      <div class="generation-cta-note">Эти настройки работают и в режиме без аватара.</div>
-      ${renderCtaOverlayControls({ targetId: project.id, ctaOverlay: project.ctaOverlay, scope: "project" })}
-    </section>
   `;
 }
 
