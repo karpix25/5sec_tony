@@ -25,6 +25,7 @@ const files = [
   "src/domain/hook-intelligence.js",
   "src/domain/layout-content-planner.js",
   "src/domain/creative-quality-validator.js",
+  "src/domain/generation-format-contract.js",
   "src/domain/product-insights.js",
   "src/domain/product-content-focus.js",
   "src/domain/product-profile.js",
