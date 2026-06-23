@@ -20,6 +20,7 @@ import { modernImageFormatRule, oldFormatShellBan } from "./generation-format-co
 import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budget.js";
 import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "./creative-team-image-prompt.js";
 import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
+import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avatar-overlay-zone.js";
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
   "Не использовать английские слова, английские заголовки, латиницу, lorem ipsum, pseudo-English и UI labels вроде Subscribe, Payment, Error, Loading, Failed.",
@@ -89,7 +90,11 @@ export function getProductsForProject(products, projectId) {
 }
 export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [], hookLibrary }) {
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
-  const creativeTeamPrompt = buildCreativeTeamImagePrompt(brief, { freePrompt });
+  const avatarReservedZonePrompt = formatAvatarReservedZonePrompt(createAvatarReservedZone({
+    character,
+    ctaOverlay: project?.ctaOverlay
+  }));
+  const creativeTeamPrompt = buildCreativeTeamImagePrompt(brief, { freePrompt, avatarReservedZonePrompt });
   if (creativeTeamPrompt) return creativeTeamPrompt;
   const pains = compactImagePromptSource(product.pains.join(", "), 700);
   const facts = compactImagePromptSource(product.facts.join("; "), 900);
@@ -117,6 +122,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     ...designReferenceRules,
     ...buildDesignReferenceConsistencyInstructions(reference),
     ...socialSafeZoneRules,
+    avatarReservedZonePrompt,
     "Не добавлять аватара/персонажа в саму картинку. Персонаж будет наложен отдельно на этапе видео.",
     "Смыслы и формулировки создать только на основе компании, ЦА, выбранного продукта и брифа генерации.",
     compositionInstruction,

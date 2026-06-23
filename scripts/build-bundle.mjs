@@ -9,6 +9,7 @@ const files = [
   "src/domain/avatar-video.js",
   "src/domain/avatar-video-rotation.js",
   "src/domain/avatar-selection.js",
+  "src/domain/avatar-overlay-zone.js",
   "src/domain/design-reference-candidate.js",
   "src/domain/creative-patterns.js",
   "src/domain/content-layers.js",

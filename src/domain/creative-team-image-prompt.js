@@ -1,7 +1,7 @@
 import { limitImagePrompt } from "./image-prompt-budget.js";
 import { formatLayoutPlanPrompt } from "./layout-content-planner.js";
 
-export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
+export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarReservedZonePrompt = "" } = {}) {
   const packagePrompt = brief.imagePromptPackage?.prompt || "";
   if (!packagePrompt) return "";
   const content = brief.contentScript || brief.finalContent || brief.aiPlan || {};
@@ -20,6 +20,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
     getRankingAdaptationContract(formatType, content),
     safePackagePrompt,
     formatLayoutPlanPrompt(brief.layoutContentPlan),
+    avatarReservedZonePrompt,
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
     Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.map(formatContentPoint).join(" | ")}.` : "",
