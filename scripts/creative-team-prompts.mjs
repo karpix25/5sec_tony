@@ -1,5 +1,6 @@
 import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldFormatShellBan } from "../src/domain/generation-format-contract.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
+import { getDesignTextContractViolations, normalizeContentScriptForDesignContract } from "../src/domain/design-text-contract.js";
 import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
 
 const commonRoleRules = [
@@ -33,16 +34,27 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
   body = createCreativeTeamPayload(body);
   const productPassport = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: productPassportInstruction(body) });
   const designFormatBrief = await runRole({ token, model: referenceModel || model, callOpenRouter, parseJsonDraft, instruction: designFormatBriefInstruction(body, productPassport), imageUrls: body.designReferenceImageUrls });
+  const normalizedDesignFormatBrief = resolveDesignFormatBrief(designFormatBrief.designFormatBrief || designFormatBrief, body);
   const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport, designFormatBrief) });
   const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(body, productPassport, attentionMap, designFormatBrief) });
   const hookSet = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: hookProducerInstruction(body, productPassport, creativeBrief) });
   const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, designFormatBrief) });
   const formatCompliance = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: formatComplianceInstruction({ commonRules: commonRoleRules, productPassport, creativeBrief, contentScript, designFormatBrief }) });
-  const compliantScript = getCompliantContentScript(contentScript, formatCompliance);
+  const complianceScript = getCompliantContentScript(contentScript, formatCompliance);
+  const contractViolations = getDesignTextContractViolations({ contentScript: complianceScript, designFormatBrief: normalizedDesignFormatBrief });
+  const compliantScript = contractViolations.length
+    ? normalizeContentScriptForDesignContract({ contentScript: complianceScript, designFormatBrief: normalizedDesignFormatBrief })
+    : complianceScript;
   const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(body, productPassport, creativeBrief, compliantScript, designFormatBrief) });
   const safetyReview = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: safetyEditorInstruction(body, productPassport, creativeBrief, compliantScript, visualBrief) });
-  const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, compliantScript, visualBrief, safetyReview, designFormatBrief) });
-  return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript: compliantScript, formatCompliance, visualBrief, safetyReview, imagePromptPackage, body });
+  const safetyScript = getSafetyFixedContentScript(compliantScript, safetyReview);
+  const safetyContractViolations = getDesignTextContractViolations({ contentScript: safetyScript, designFormatBrief: normalizedDesignFormatBrief });
+  const finalScript = safetyContractViolations.length
+    ? normalizeContentScriptForDesignContract({ contentScript: safetyScript, designFormatBrief: normalizedDesignFormatBrief })
+    : safetyScript;
+  const finalSafetyReview = withFinalContentScript(safetyReview, finalScript, safetyContractViolations);
+  const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, finalScript, visualBrief, finalSafetyReview, designFormatBrief) });
+  return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript: finalScript, formatCompliance, textContractViolations: [...new Set([...contractViolations, ...safetyContractViolations])], visualBrief, safetyReview: finalSafetyReview, imagePromptPackage, body });
 }
 
 export function humanizeTextInstruction(body) {
@@ -258,7 +270,7 @@ function imagePromptEngineerInstruction(body, productPassport, creativeBrief, co
 
 function flattenCreativeTeamDraft(parts) {
   const passport = parts.productPassport.productPassport || parts.productPassport;
-  const designFormatBrief = parts.designFormatBrief.designFormatBrief || parts.designFormatBrief;
+  const designFormatBrief = resolveDesignFormatBrief(parts.designFormatBrief.designFormatBrief || parts.designFormatBrief, parts.body);
   const attentionMap = parts.attentionMap.attentionMap || parts.attentionMap;
   const creativeBrief = parts.creativeBrief.creativeBrief || parts.creativeBrief;
   const hookPayload = normalizeHookPayload(parts.hookSet);
@@ -267,6 +279,13 @@ function flattenCreativeTeamDraft(parts) {
   const safetyReview = parts.safetyReview.safetyReview || parts.safetyReview;
   const imagePromptPackage = parts.imagePromptPackage.imagePromptPackage || parts.imagePromptPackage;
   const fixedScript = safetyReview?.fixedContentScript?.headline ? safetyReview.fixedContentScript : contentScript;
+  const finalViolations = getDesignTextContractViolations({ contentScript: fixedScript, designFormatBrief });
+  const finalScript = finalViolations.length
+    ? normalizeContentScriptForDesignContract({ contentScript: fixedScript, designFormatBrief })
+    : fixedScript;
+  const outputSafetyReview = finalViolations.length
+    ? { ...safetyReview, fixedContentScript: { headline: finalScript.headline || "", subhead: finalScript.subhead || "", points: finalScript.points || [] } }
+    : safetyReview;
   return {
     productPassport: passport,
     designFormatBrief,
@@ -274,24 +293,31 @@ function flattenCreativeTeamDraft(parts) {
     creativeBrief,
     hookSet: hookPayload.hookSet,
     recommendedHook: hookPayload.recommendedHook,
-    contentScript: fixedScript,
-    visualBrief: Object.keys(safetyReview?.fixedVisualBrief || {}).length ? safetyReview.fixedVisualBrief : visualBrief,
+    contentScript: finalScript,
+    visualBrief: Object.keys(outputSafetyReview?.fixedVisualBrief || {}).length ? outputSafetyReview.fixedVisualBrief : visualBrief,
     formatCompliance: parts.formatCompliance.formatCompliance || parts.formatCompliance,
-    safetyReview,
+    textContractViolations: [...new Set([...(parts.textContractViolations || []), ...finalViolations])],
+    safetyReview: outputSafetyReview,
     imagePromptPackage,
     semanticKey: parts.body.diversitySlot?.id || creativeBrief.topic || "",
     topic: parts.body.diversitySlot?.lockTopic ? parts.body.diversitySlot.topic : creativeBrief.topic,
     hook: hookPayload.recommendedHook,
     format: designFormatBrief.formatType || creativeBrief.formatIntent,
-    pointCount: String((fixedScript.points || []).length || 5),
+    pointCount: String((finalScript.points || []).length || 5),
     visualObject: visualBrief.mainVisualObject || "",
     cta: "",
     sourceHook: hookPayload.recommendedHook,
     productFact: passport.safeFacts?.[0] || "",
-    productPositiveBridge: creativeBrief.productBridge || fixedScript.invisibleNotes?.productBridge || "",
-    plan: { headline: fixedScript.headline, subhead: fixedScript.subhead, points: fixedScript.points || [], disclaimer: "" },
-    qualityChecks: { generationAllowed: safetyReview.generationAllowed !== false, issues: safetyReview.issues || [], finalWarnings: safetyReview.finalWarnings || [] }
+    productPositiveBridge: creativeBrief.productBridge || finalScript.invisibleNotes?.productBridge || "",
+    plan: { headline: finalScript.headline, subhead: finalScript.subhead, points: finalScript.points || [], disclaimer: "" },
+    qualityChecks: { generationAllowed: outputSafetyReview.generationAllowed !== false, issues: outputSafetyReview.issues || [], finalWarnings: outputSafetyReview.finalWarnings || [] }
   };
+}
+
+function resolveDesignFormatBrief(designFormatBrief = {}, body = {}) {
+  const formatSignals = [designFormatBrief.formatType, body.reference?.layoutType, body.activeDesignReference?.layoutType, body.diversitySlot?.format];
+  if (formatSignals.includes("ranking_leaderboard")) return { ...designFormatBrief, formatType: "ranking_leaderboard" };
+  return designFormatBrief;
 }
 
 function getCompliantContentScript(contentScript, formatCompliance) {
@@ -304,6 +330,34 @@ function getCompliantContentScript(contentScript, formatCompliance) {
     headline: fixed.headline || baseScript.headline || "",
     subhead: fixed.subhead || baseScript.subhead || "",
     points: Array.isArray(fixed.points) && fixed.points.length ? fixed.points : baseScript.points || []
+  };
+}
+
+function getSafetyFixedContentScript(contentScript, safetyReview) {
+  const review = safetyReview.safetyReview || safetyReview || {};
+  const fixed = review.fixedContentScript || {};
+  if (!fixed.headline && !fixed.subhead && !Array.isArray(fixed.points)) return contentScript;
+  return {
+    ...contentScript,
+    headline: fixed.headline || contentScript.headline || "",
+    subhead: fixed.subhead || contentScript.subhead || "",
+    points: Array.isArray(fixed.points) && fixed.points.length ? fixed.points : contentScript.points || []
+  };
+}
+
+function withFinalContentScript(safetyReview, finalScript, safetyContractViolations) {
+  if (!safetyContractViolations.length) return safetyReview;
+  const review = safetyReview.safetyReview || safetyReview || {};
+  return {
+    safetyReview: {
+      ...review,
+      fixedContentScript: {
+        headline: finalScript.headline || "",
+        subhead: finalScript.subhead || "",
+        points: finalScript.points || []
+      },
+      finalWarnings: [...(review.finalWarnings || []), "Text was normalized again after safety to preserve design reference format."]
+    }
   };
 }
 

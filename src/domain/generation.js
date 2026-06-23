@@ -19,6 +19,7 @@ import { getReferenceFormatSignal, resolveGenerationFormat, resolvePointCountFor
 import { modernImageFormatRule, oldFormatShellBan } from "./generation-format-contract.js";
 import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budget.js";
 import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "./creative-team-image-prompt.js";
+import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
   "Не использовать английские слова, английские заголовки, латиницу, lorem ipsum, pseudo-English и UI labels вроде Subscribe, Payment, Error, Loading, Failed.",
@@ -99,7 +100,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const extra = freePrompt ? `Дополнительная задача: ${compactImagePromptSource(freePrompt, 600)}.` : "";
   const plan = createSemanticPlan({ project, product, brief });
   const profile = buildProductProfile({ project, product, insightMap: brief.productInsightMap });
-  const visiblePoints = getVisibleImagePoints(plan.points);
+  const visiblePoints = getVisibleImagePoints(plan.points, brief.format);
   const visiblePointCount = String(visiblePoints.length);
   const visiblePointSource = formatVisiblePointSource(visiblePoints);
   const designCopyPrompt = compactImagePromptSource(cleanDesignReferenceText(reference?.takeaways), 900);
@@ -138,7 +139,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     "CTA: не добавлять на изображение. Финальная картинка должна быть полезной карточкой без кнопки, без стрелки действия, без футера и без нижней рекламной или защитной плашки.",
     "Логика текста: каждый следующий пункт должен продолжать предыдущий. Не смешивай список задач, шаги процесса и преимущества в одном блоке.",
     "Reels-паттерн: один экран — одна мысль; хук читается за 1 секунду; визуал должен быть классификацией, сравнением, метафорой или чеклистом, а не случайным набором карточек.",
-    `Формат смыслов: ${brief.format}; количество видимых пунктов: ${visiblePointCount}, больше не добавлять.`,
+    formatPointCountInstruction(brief.format, visiblePointCount),
     `Главный визуальный объект: ${brief.visualObject}.`,
     getScenarioVisualInstruction(brief),
     reference?.id === "viral-pink-symptoms" ? "ОБЯЗАТЕЛЬНЫЙ СТИЛЬ РЕФЕРЕНСА: не делать чистый corporate SaaS poster. Нужна viral Reels-инфографика как референс: розово-персиковый фон, верхняя hot-pink glow-плашка с белым текстом и черной обводкой, большой serif-тезис ниже, плотная колонка коротких пунктов с 3D-иконками слева, крупный 3D-объект справа. Без персонажа в картинке; нижнюю часть держать чистой для будущего видео-оверлея." : "",
@@ -282,15 +283,6 @@ function getProductVisualMode({ product, topic, hook, visualObject }) {
   return /продукт|упаков|состав|этикет|как пить|как приним|прием|принимать|дозиров|курс|банка|флакон|капсул|таблет|выбор|что внутри|обзор/.test(source)
     ? "exact-product"
     : "no-package";
-}
-
-function getVisibleImagePoints(points) {
-  const source = Array.isArray(points) ? points.filter(Boolean) : [];
-  return source.slice(0, 6);
-}
-
-function formatVisiblePointSource(points) {
-  return points.map((point) => String(point).replace(/\s+/g, " ").trim()).join(" | ");
 }
 
 function cleanDesignReferenceText(value) {
