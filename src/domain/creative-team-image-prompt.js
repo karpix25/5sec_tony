@@ -14,6 +14,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
     packagePrompt,
     "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ: не менять тему и видимые формулировки.",
     getFormatLock(formatType),
+    getReferenceTraceContract(formatType),
     formatLayoutPlanPrompt(brief.layoutContentPlan),
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
@@ -32,6 +33,16 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt } = {}) {
 function getFormatLock(formatType = "") {
   if (formatType !== "ranking_leaderboard") return "";
   return "ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK: сохранить leaderboard/top-chart skeleton из дизайн-референса: плотный постер, крупная заголовочная зона, служебная строка/легенда, повторяемые ранговые колонки или rank cards, номера мест, короткие value labels, светящиеся рамки/разделители. Не превращать в минималистичный белый checklist, обычный список с иконками или product flat lay.";
+}
+
+function getReferenceTraceContract(formatType = "") {
+  if (formatType !== "ranking_leaderboard") return "";
+  return [
+    "REFERENCE TRACE CONTRACT: финальное изображение должно быть узнаваемой адаптацией приложенного top-chart reference, а не новой инфографикой по теме.",
+    "Повтори геометрию: темный насыщенный фон, крупный верхний headline block, маленькая source/legend strip под заголовком, сетка из многих вертикальных ranked cards/bars, glow outlines, gold/white/blue contrast, нижний ряд компактных mini rank cards.",
+    "Разрешено менять только смысл, подписи и объекты под новый продукт; нельзя менять skeleton на белый лист, четыре колонки, checklist rows, icon list, flat lay, аптечный минимализм или обычный poster.",
+    "Если контента меньше чем слотов в референсе, заполни 8-12 rank cards короткими безопасными признаками/критериями; не растягивай 4 пункта на весь экран."
+  ].join(" ");
 }
 
 function formatContentPoint(point) {

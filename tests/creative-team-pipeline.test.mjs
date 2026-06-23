@@ -50,8 +50,11 @@ test("creative team leaderboard prompt locks reference structure", () => {
   });
 
   assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
+  assert.match(prompt, /REFERENCE TRACE CONTRACT/);
   assert.match(prompt, /leaderboard\/top-chart skeleton/);
   assert.match(prompt, /ранговые колонки|rank cards/);
+  assert.match(prompt, /темный насыщенный фон/);
+  assert.match(prompt, /нельзя менять skeleton на белый лист/);
   assert.match(prompt, /Не превращать в минималистичный белый checklist/);
 });
 
