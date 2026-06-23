@@ -273,9 +273,11 @@ function redirect(response, location) {
 
 function getPublicTelegramConfig(deps = {}) {
   const botUsername = getTelegramBotUsername(deps.telegram || deps);
+  const botId = getTelegramBotId(deps.telegram || deps);
   const payload = {
     mode: botUsername ? "widget" : "oidc",
-    botUsername
+    botUsername,
+    botId
   };
   try {
     const config = (deps.getTelegramOidcConfig || getTelegramOidcConfig)(deps.oidc || deps);
@@ -290,4 +292,11 @@ function getPublicTelegramConfig(deps = {}) {
 function getTelegramBotUsername(options = {}) {
   const value = options.botUsername || process.env.TELEGRAM_BOT_USERNAME || process.env.TELEGRAM_LOGIN_BOT_USERNAME || "";
   return String(value).replace(/^@/, "").trim();
+}
+
+function getTelegramBotId(options = {}) {
+  const value = options.botId || process.env.TELEGRAM_BOT_ID || process.env.TELEGRAM_CLIENT_ID || "";
+  if (value) return String(value).trim();
+  const token = options.botToken || process.env.TELEGRAM_BOT_TOKEN || "";
+  return String(token).split(":")[0] || "";
 }

@@ -14,6 +14,7 @@ test("auth api exposes Telegram Login client config", async () => {
   assert.deepEqual(JSON.parse(response.body), {
     mode: "oidc",
     botUsername: "",
+    botId: "",
     clientId: "123",
     scope: "openid profile"
   });
@@ -23,12 +24,12 @@ test("auth api prefers classic Telegram widget config when bot username exists",
   const response = createResponse();
   const handled = await createAuthApiHandler({
     botUsername: "@anton_bot",
-    botToken: "token"
+    botToken: "123:token"
   })(createRequest("", "GET"), response, new URL("http://localhost/api/auth/telegram/config"));
 
   assert.equal(handled, true);
   assert.equal(response.status, 200);
-  assert.deepEqual(JSON.parse(response.body), { mode: "widget", botUsername: "anton_bot" });
+  assert.deepEqual(JSON.parse(response.body), { mode: "widget", botUsername: "anton_bot", botId: "123" });
 });
 
 test("auth api accepts Telegram Login id_token and sets a session", async () => {

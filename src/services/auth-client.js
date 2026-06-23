@@ -65,22 +65,22 @@ export async function loginWithTelegramWidgetUser(user, options = {}) {
   return readAuthResponse(response, "Не удалось войти через Telegram");
 }
 
-export function mountTelegramLoginWidget(container, options = {}, onAuth = () => {}) {
-  if (!container) return;
-  const botUsername = String(options.botUsername || "").replace(/^@/, "").trim();
-  if (!botUsername) throw new Error("TELEGRAM_BOT_USERNAME is required");
-  const callbackName = `__antonTelegramWidgetAuth_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  globalThis[callbackName] = (user) => onAuth(user);
-  container.innerHTML = "";
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = "https://telegram.org/js/telegram-widget.js?22";
-  script.setAttribute("data-telegram-login", botUsername);
-  script.setAttribute("data-size", options.size || "large");
-  script.setAttribute("data-userpic", "false");
-  script.setAttribute("data-radius", "8");
-  script.setAttribute("data-onauth", `${callbackName}(user)`);
-  container.appendChild(script);
+export async function openTelegramWidgetLogin(botId, options = {}) {
+  await ensureTelegramWidgetLibrary();
+  const login = globalThis.Telegram?.Login;
+  if (!login?.auth) throw new Error("Telegram Widget Library не загрузилась");
+  return new Promise((resolve, reject) => {
+    login.auth({
+      bot_id: normalizeTelegramClientId(botId),
+      lang: options.lang || "ru"
+    }, (user) => {
+      if (user?.id) {
+        resolve(user);
+        return;
+      }
+      reject(new Error("Telegram Login отменен"));
+    });
+  });
 }
 
 export function startTelegramBrowserLogin(returnTo = getCurrentReturnTo()) {
@@ -148,4 +148,23 @@ function getCurrentReturnTo() {
 function normalizeTelegramClientId(clientId) {
   const numeric = Number(clientId);
   return Number.isSafeInteger(numeric) ? numeric : String(clientId);
+}
+
+function ensureTelegramWidgetLibrary() {
+  if (globalThis.Telegram?.Login?.auth) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector("script[data-anton-telegram-widget-library]");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Telegram Widget Library не загрузилась")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = "https://telegram.org/js/telegram-widget.js?22";
+    script.dataset.antonTelegramWidgetLibrary = "true";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Telegram Widget Library не загрузилась"));
+    document.head.appendChild(script);
+  });
 }

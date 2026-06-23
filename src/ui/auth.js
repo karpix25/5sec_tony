@@ -5,8 +5,8 @@ import {
   loginWithTelegramIdToken,
   loginWithTelegramWidgetUser,
   logoutAuthUser,
-  mountTelegramLoginWidget,
   openTelegramLogin,
+  openTelegramWidgetLogin,
   runAdminAuthUserAction,
 } from "../services/auth-client.js";
 import { escapeHtml } from "./infographic.js";
@@ -54,30 +54,17 @@ export function createAuthController(options = {}) {
     try {
       const config = await ensureTelegramLoginConfig();
       if (config.mode === "widget" && config.botUsername) {
-        updateState({ status: "login", error: "" });
-        return;
+        const user = await openTelegramWidgetLogin(config.botId || config.clientId);
+        const session = await loginWithTelegramWidgetUser(user);
+        await acceptAuthPayload(session);
+      } else {
+        const result = await openTelegramLogin(config.clientId, { scope: config.scope });
+        const session = await loginWithTelegramIdToken(result.id_token);
+        await acceptAuthPayload(session);
       }
-      const result = await openTelegramLogin(config.clientId, { scope: config.scope });
-      const session = await loginWithTelegramIdToken(result.id_token);
-      await acceptAuthPayload(session);
     } catch (error) {
       updateState({ status: "error", error: error.message || "Ошибка входа" });
     }
-  }
-
-  async function loginWithTelegramWidget(user) {
-    updateState({ status: "loading", error: "" });
-    try {
-      const session = await loginWithTelegramWidgetUser(user);
-      await acceptAuthPayload(session);
-    } catch (error) {
-      updateState({ status: "error", error: error.message || "Ошибка входа" });
-    }
-  }
-
-  function mountLoginWidget(container) {
-    if (telegramLoginConfig?.mode !== "widget" || !telegramLoginConfig.botUsername) return;
-    mountTelegramLoginWidget(container, telegramLoginConfig, loginWithTelegramWidget);
   }
 
   async function ensureTelegramLoginConfig() {
@@ -132,7 +119,7 @@ export function createAuthController(options = {}) {
     if (!root) return;
     if (state.status === "approved" && !renderApprovedState) return;
     root.innerHTML = renderAuthGate(state);
-    bindAuthGateEvents(root, { start, logout, loadAdminUsers, runAdminAction, mountLoginWidget });
+    bindAuthGateEvents(root, { start, logout, loadAdminUsers, runAdminAction, loginWithTelegram: loginFromTelegram });
   }
 
   function updateState(patch) {
@@ -180,8 +167,6 @@ export function renderAuthGate(state = createAuthState()) {
 }
 
 export function bindAuthGateEvents(root, controller) {
-  const widgetRoot = root.querySelector("[data-auth-telegram-widget]");
-  if (widgetRoot) controller.mountLoginWidget?.(widgetRoot);
   root.querySelector("[data-auth-login]")?.addEventListener("click", () => {
     (controller.loginWithTelegram || controller.start)();
   });
@@ -200,9 +185,6 @@ function renderAuthActions(state) {
   if (state.status === "loading") return "<button class=\"primary-btn\" type=\"button\" disabled>Проверяем доступ...</button>";
   if (state.status === "approved") return "<button class=\"secondary-btn\" data-auth-logout type=\"button\">Выйти</button>";
   if (["error", "login"].includes(state.status)) {
-    if (state.telegramLoginConfig?.mode === "widget") {
-      return "<div class=\"auth-telegram-widget\" data-auth-telegram-widget></div>";
-    }
     return "<button class=\"primary-btn\" data-auth-login type=\"button\">Войти через Telegram</button>";
   }
   return "<button class=\"ghost-btn\" data-auth-refresh type=\"button\">Обновить статус</button>";
