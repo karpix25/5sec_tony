@@ -1,8 +1,6 @@
 import {
   getCurrentAuthUser,
-  getTelegramInitData,
   listAdminAuthUsers,
-  loginWithTelegramInitData,
   logoutAuthUser,
   runAdminAuthUserAction,
   startTelegramBrowserLogin
@@ -34,32 +32,18 @@ export function createAuthController(options = {}) {
     updateState({ status: "loading", error: "" });
     try {
       const session = await getCurrentAuthUser();
-      if (!getAuthPayloadUser(session) && !getTelegramInitData()) {
+      if (!getAuthPayloadUser(session)) {
         updateState({ status: "login", user: null, error: "" });
-        return;
-      }
-      if (shouldLoginFromTelegram(session)) {
-        await loginFromTelegram();
         return;
       }
       await acceptAuthPayload(session);
     } catch {
-      await loginFromTelegram();
+      updateState({ status: "login", user: null, error: "" });
     }
   }
 
   async function loginFromTelegram() {
-    const initData = getTelegramInitData();
-    if (!initData) {
-      startTelegramBrowserLogin();
-      return;
-    }
-    try {
-      const session = await loginWithTelegramInitData(initData);
-      await acceptAuthPayload(session);
-    } catch (error) {
-      updateState({ status: "error", error: error.message || "Ошибка входа" });
-    }
+    startTelegramBrowserLogin();
   }
 
   async function acceptAuthPayload(payload = {}) {
@@ -127,13 +111,6 @@ export function createAuthController(options = {}) {
   };
 }
 
-function shouldLoginFromTelegram(payload = {}) {
-  const user = getAuthPayloadUser(payload);
-  const initData = getTelegramInitData();
-  if (!user) return Boolean(initData);
-  return getAccessStatus(payload, user) !== "approved" && Boolean(initData);
-}
-
 function getAuthPayloadUser(payload = {}) {
   return payload.user || payload.authUser || null;
 }
@@ -164,6 +141,7 @@ export function bindAuthGateEvents(root, controller) {
   root.querySelector("[data-auth-login]")?.addEventListener("click", () => {
     (controller.loginWithTelegram || controller.start)();
   });
+  root.querySelector("[data-auth-refresh]")?.addEventListener("click", () => controller.start());
   root.querySelector("[data-auth-logout]")?.addEventListener("click", () => controller.logout());
   root.querySelector("[data-auth-admin-refresh]")?.addEventListener("click", () => controller.loadAdminUsers());
   root.querySelectorAll("[data-auth-admin-status]").forEach((button) => {
@@ -180,7 +158,7 @@ function renderAuthActions(state) {
   if (["error", "login"].includes(state.status)) {
     return "<button class=\"primary-btn\" data-auth-login type=\"button\">Войти через Telegram</button>";
   }
-  return "<button class=\"ghost-btn\" data-auth-login type=\"button\">Обновить статус</button>";
+  return "<button class=\"ghost-btn\" data-auth-refresh type=\"button\">Обновить статус</button>";
 }
 
 function renderUserSummary(user = {}) {
