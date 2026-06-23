@@ -8,4 +8,4 @@ cmds = ["npm install"]
 cmds = ["npm run build:bundle"]
 
 [start]
-cmd = "npm start"
+cmd = "AUTH_DISABLED=true npm start"

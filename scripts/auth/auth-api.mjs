@@ -65,6 +65,7 @@ export function createAuthApiHandler(deps = {}) {
 }
 
 export async function requireApprovedUser(request, response, deps = {}) {
+  if (isAuthDisabled(deps)) return getDisabledAuthUser();
   const user = await getCurrentAuthUser(request, deps);
   if (!user) {
     sendJson(response, 401, { error: "auth_required" });
@@ -88,6 +89,7 @@ export async function requireAdmin(request, response, deps = {}) {
 }
 
 export async function getCurrentAuthUser(request, deps = {}) {
+  if (isAuthDisabled(deps)) return getDisabledAuthUser();
   const session = readSessionFromCookie(request.headers?.cookie, deps.session || deps);
   if (!session?.telegramId) return null;
   return deps.getUserByTelegramId
@@ -201,6 +203,22 @@ async function handleTelegramOidcCallback(request, response, url, deps) {
 async function handleMe(request, response, deps) {
   const user = await getCurrentAuthUser(request, deps);
   return sendJson(response, 200, { user, authenticated: Boolean(user), approved: isApprovedUser(user), admin: isAdminUser(user) });
+}
+
+function isAuthDisabled(deps = {}) {
+  const value = deps.authDisabled ?? process.env.AUTH_DISABLED;
+  return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
+}
+
+function getDisabledAuthUser() {
+  return {
+    telegramId: "auth-disabled",
+    firstName: "Auth",
+    lastName: "Disabled",
+    username: "auth_disabled",
+    role: "user",
+    status: "approved"
+  };
 }
 
 function handleLogout(response, deps) {

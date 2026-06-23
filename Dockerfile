@@ -15,6 +15,7 @@ RUN npm run build:bundle
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4173
+ENV AUTH_DISABLED=true
 
 EXPOSE 4173
 

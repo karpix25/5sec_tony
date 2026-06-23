@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { createAuthApiHandler } from "../scripts/auth/auth-api.mjs";
+import { createAuthApiHandler, requireApprovedUser } from "../scripts/auth/auth-api.mjs";
 
 test("auth api exposes Telegram Login client config", async () => {
   const response = createResponse();
@@ -76,6 +76,37 @@ test("auth api accepts classic Telegram widget user and sets a session", async (
   assert.deepEqual(JSON.parse(response.body), {
     user: { telegramId: "42", role: "admin", status: "approved" }
   });
+});
+
+test("auth api bypasses Telegram when auth is disabled", async () => {
+  const response = createResponse();
+  const handler = createAuthApiHandler({ authDisabled: true });
+  const handled = await handler(createRequest("", "GET"), response, new URL("http://localhost/api/auth/me"));
+
+  assert.equal(handled, true);
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(response.body), {
+    user: {
+      telegramId: "auth-disabled",
+      firstName: "Auth",
+      lastName: "Disabled",
+      username: "auth_disabled",
+      role: "user",
+      status: "approved"
+    },
+    authenticated: true,
+    approved: true,
+    admin: false
+  });
+});
+
+test("api auth guard allows requests when auth is disabled", async () => {
+  const response = createResponse();
+  const user = await requireApprovedUser(createRequest("", "GET"), response, { authDisabled: true });
+
+  assert.equal(response.status, 0);
+  assert.equal(user.status, "approved");
+  assert.equal(user.telegramId, "auth-disabled");
 });
 
 function createRequest(body = "", method = "GET") {
