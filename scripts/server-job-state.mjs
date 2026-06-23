@@ -37,8 +37,6 @@ export async function persistServerJobSnapshot(job, deps = {}) {
     if (!current) return false;
     const merged = { ...current, ...job };
     await updateRelationalJobRow(tx.query, merged);
-    await updateLegacyJob(tx.query, merged);
-    await touchAppState(tx.query);
     return true;
   });
 }
@@ -106,21 +104,9 @@ async function updateRelationalJobRow(query, job) {
   );
 }
 
-async function updateLegacyJob(query, job) {
-  const state = await loadLegacyState(query);
-  if (!state?.jobs?.length) return false;
-  const jobs = state.jobs.map((item) => item.id === job.id ? { ...item, ...job } : item);
-  await query("update app_state set data = $2::jsonb, updated_at = now() where id = $1", [appStateKey, JSON.stringify({ ...state, jobs })]);
-  return true;
-}
-
 async function loadLegacyState(query) {
   const result = await query("select data from app_state where id = $1 limit 1", [appStateKey]);
   return asObject(result.rows[0]?.data);
-}
-
-async function touchAppState(query) {
-  await query("update app_state set updated_at = now() where id = $1", [appStateKey]);
 }
 
 async function hasRelationalJobsTable(query) {
