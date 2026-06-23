@@ -58,11 +58,11 @@ export function createMeaningBrief({ project, product, reference, generationBrie
 export function createUniversalSemanticPlan({ project, product, brief }) {
   if (brief.aiPlan?.points?.length) {
     return {
-      headline: brief.hook,
-      subhead: brief.aiPlan.subhead || brief.topic,
+      headline: brief.finalContent?.headline || brief.aiPlan.headline || brief.hook,
+      subhead: brief.finalContent?.subhead || brief.aiPlan.subhead || brief.topic,
       points: brief.aiPlan.points.slice(0, Number(brief.pointCount) || 5),
       cta: brief.cta || product.name,
-      disclaimer: brief.aiPlan.disclaimer || getUniversalDisclaimer(project)
+      disclaimer: brief.finalContent?.disclaimer || brief.aiPlan.disclaimer || getUniversalDisclaimer(project)
     };
   }
 

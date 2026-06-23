@@ -34,7 +34,7 @@ test("meaning engine adapts viral patterns for non-payment projects", () => {
   assert.ok(brief.meaningPatternId);
   assert.match(brief.hook, /ошиб|проверь|результат|хаос|не замеч|обсуждают|не покуп|тратить/i);
   assert.match(brief.notes, /Creative Strategy Engine/);
-  assert.equal(plan.headline, brief.hook);
+  assert.equal(plan.headline, brief.finalContent.headline);
   assert.ok(plan.points.length >= 3);
 });
 
@@ -227,8 +227,8 @@ test("payment generation turns active hook references into headline and text pla
   assert.equal(brief.hookReference.text, "7 красных флагов [темы]");
   assert.match(brief.hook, /7 .*?(сигнал|признак|детал|момент)/i);
   assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
-  assert.equal(plan.headline, brief.hook);
-  assert.match(plan.points.join(" "), /Сигнал|Норма|Контекст/);
+  assert.equal(plan.headline, brief.finalContent.headline);
+  assert.match(plan.points.join(" "), /карта|сервис|сумм|статус|подтверждение/);
 });
 
 test("hook references override ai brief hook for final generation", () => {
@@ -272,7 +272,7 @@ test("humanized ai plan becomes final visible payment text", () => {
     }
   });
 
-  assert.equal(plan.headline, "Где прячутся риски в зарубежном счете перед оплатой");
+  assert.equal(plan.headline, "Деньги уйдут, а за что — непонятно");
   assert.match(plan.points.join(" "), /без тумана/);
   assert.equal(plan.disclaimer, "Условия зависят от площадки");
 });

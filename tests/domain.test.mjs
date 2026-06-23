@@ -193,8 +193,8 @@ test("image prompt includes a coherent semantic plan for payment projects", () =
     freePrompt: ""
   });
 
-  assert.match(plan.subhead, /ломается|отключают|останавливается|не будет ждать/);
-  assert.match(plan.points.join(" "), /отклоняет|сгореть|хаос|доступ/);
+  assert.match(plan.subhead, /оплат|сценари|карта|проходит|достаточно/);
+  assert.match(plan.points.join(" "), /страны или типа карты|причину отказа|статус|подтверждение/);
   assert.match(plan.disclaimer, /условий платежа/);
   assert.match(prompt, /СМЫСЛОВОЙ ПЛАН/);
   assert.match(prompt, /Не добавляй неуказанные проценты/);

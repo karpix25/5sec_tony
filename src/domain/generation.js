@@ -12,7 +12,8 @@ import { createTopicCandidatePlan, pickTopicCandidate } from "./topic-candidates
 import { pickGenerationTopic } from "./generation-topic.js";
 import { createHookIntelligence, formatHookIntelligencePrompt } from "./hook-intelligence.js";
 import { createLayoutContentPlan, formatLayoutPlanPrompt } from "./layout-content-planner.js";
-import { formatCreativeQualityPrompt, validateCreativeBrief } from "./creative-quality-validator.js";
+import { formatCreativeQualityPrompt } from "./creative-quality-validator.js";
+import { createCuriosityContentPlan, formatFinalContentPrompt } from "./curiosity-content.js";
 import { createUniqueJobId } from "./job-identity.js";
 import { modernImageFormatRule, oldFormatShellBan } from "./generation-format-contract.js";
 const russianImageTextRules = [
@@ -109,6 +110,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const layoutContentInstruction = formatLayoutPlanPrompt(brief.layoutContentPlan);
   const hookIntelligenceInstruction = formatHookIntelligencePrompt(brief.hookIntelligence);
   const creativeQualityInstruction = formatCreativeQualityPrompt(brief.creativeQuality);
+  const finalContentInstruction = formatFinalContentPrompt(brief.finalContent);
 
   return [
     "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
@@ -123,6 +125,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     layoutContentInstruction,
     hookIntelligenceInstruction,
     creativeQualityInstruction,
+    finalContentInstruction,
     getContentLayerInstruction(brief.contentLayer),
     ...productVisibilityRules,
     getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode: brief.productVisualMode }),
@@ -205,7 +208,7 @@ export function createGenerationJob({ project, product, reference, character, au
     status: "queued",
     stage: generationStages[0],
     progress: 6,
-    title: brief.hook,
+    title: brief.finalContent?.headline || brief.hook,
     music: audio?.title || pickAudio(project),
     prompt: buildImagePrompt({ project, product, reference, character, generationBrief: brief, freePrompt, existingJobs, hookLibrary }),
     referenceTitle: reference?.title || "",
@@ -220,6 +223,7 @@ export function createGenerationJob({ project, product, reference, character, au
     hookIntelligence: brief.hookIntelligence,
     layoutContentPlan: brief.layoutContentPlan,
     creativeQuality: brief.creativeQuality,
+    aiPlan: brief.aiPlan, productFact: brief.productFact, curiosityAngle: brief.curiosityAngle, finalContent: brief.finalContent,
     productVisualMode: brief.productVisualMode,
     compositionMode: brief.compositionMode?.id || "",
     diversitySlot: brief.diversitySlot,
@@ -250,14 +254,8 @@ export function getGenerationInputReferences({ reference, product, productVisual
     .slice(0, 16);
 }
 
-function isRemoteImageUrl(value) {
-  return /^https?:\/\//.test(String(value || ""));
-}
-
-function isDataImageUrl(value) {
-  return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || ""));
-}
-
+function isRemoteImageUrl(value) { return /^https?:\/\//.test(String(value || "")); }
+function isDataImageUrl(value) { return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || "")); }
 function isImageReferenceUrl(value) {
   return isRemoteImageUrl(value) || isDataImageUrl(value);
 }
@@ -349,29 +347,29 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const profile = buildProductProfile({ project, product, insightMap: generationBrief.productInsightMap });
   const hookIntelligence = createHookIntelligence(meaning.hookReference?.text || hook);
   const layoutContentPlan = createLayoutContentPlan(reference, hookIntelligence);
-  const creativeQuality = validateCreativeBrief({
-    draft: { ...generationBrief, topic, hook, plan: generationSeed.aiPlan },
-    project,
-    product,
-    layoutPlan: layoutContentPlan,
-    hookIntelligence,
-    existingJobs
-  });
+  const format = generationSeed.format || meaning.format || slot.format || pickFormat(project, reference);
+  const semanticKey = generationBrief.semanticKey || slot.id;
+  const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap };
+  const editorial = createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs, brief: editorialBrief });
+  const creativeQuality = editorial.creativeQuality;
   const brief = {
     topic,
     hook,
-    format: generationSeed.format || meaning.format || slot.format || pickFormat(project, reference),
+    format,
     pointCount: hookPointCount || generationBrief.pointCount || pickPointCount(product),
     visualObject: generationBrief.visualObject || profile.primaryVisual || meaning.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name,
     cta: generationBrief.cta || "",
     salesLevel: generationBrief.salesLevel || "expert",
     notes: meaning.notes || `Контентный слот: ${slot.angle || slot.id}. Автоматически собрать смыслы из проекта, ЦА, продукта и выбранного референса.`,
-    semanticKey: generationBrief.semanticKey || slot.id,
+    semanticKey,
     meaningPatternId: meaning.pattern.id,
     hookReference: meaning.hookReference || null,
     hookIntelligence,
     layoutContentPlan,
     creativeQuality,
+    productFact: editorial.productFact,
+    curiosityAngle: editorial.curiosityAngle,
+    finalContent: editorial.finalContent,
     meaningScore: scoreMeaningBrief({ brief: meaning, project }),
     topicCandidate,
     diversitySlot: slot,
@@ -382,7 +380,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
       existingJobs
     }),
     productInsightMap: profile.insightMap,
-    aiPlan: generationSeed.aiPlan || (isPaymentProject(project, product) ? undefined : meaning.aiPlan) || undefined,
+    aiPlan: editorial.finalContent,
     productVisualMode: generationBrief.productVisualMode || getProductVisualMode({
       product,
       topic,

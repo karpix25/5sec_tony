@@ -6,11 +6,11 @@ export function createPaymentPlan({ product, brief }) {
       product,
       brief,
       plan: {
-        subhead: brief.aiPlan.subhead || brief.topic,
+        subhead: brief.finalContent?.subhead || brief.aiPlan.subhead || brief.topic,
         points: brief.aiPlan.points
       },
-      headline: brief.hook,
-      disclaimer: brief.aiPlan.disclaimer || paymentDisclaimer
+      headline: brief.finalContent?.headline || brief.aiPlan.headline || brief.hook,
+      disclaimer: brief.finalContent?.disclaimer || brief.aiPlan.disclaimer || paymentDisclaimer
     });
   }
   const hookPlan = brief.hookReference ? createHookDrivenPaymentPlan({ brief }) : null;
