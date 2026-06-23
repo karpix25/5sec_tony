@@ -1,5 +1,6 @@
 import { statusLabels } from "../domain/entities.js";
 import { isNoAvatarCharacterId } from "../domain/avatar-selection.js";
+import { humanizeProviderErrorMessage } from "../domain/provider-error-message.js";
 import { escapeHtml } from "./infographic.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 
@@ -189,9 +190,5 @@ function isFinalVideoJob(job) {
 }
 
 function humanizeQueueMessage(message = "") {
-  return String(message)
-    .replaceAll("Kie.ai", "Сервис генерации")
-    .replaceAll("GPT Image 2", "Основной способ")
-    .replaceAll("Nano Banana 2", "резервный способ")
-    .replaceAll("taskId", "номер задачи");
+  return humanizeProviderErrorMessage(message);
 }

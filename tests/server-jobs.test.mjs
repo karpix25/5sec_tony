@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
+import { IMAGE_PROMPT_MAX_CHARS } from "../src/domain/image-prompt-budget.js";
 import { createServerJobsApiHandler, handleServerJobsApi } from "../scripts/server-jobs.mjs";
 
 test("server job runs image generation, final assembly, avatar usage and disk upload", async () => {
@@ -198,6 +199,57 @@ test("server job renders final video without requiring a ready avatar video", as
     assert.equal(finalPayload.job.finalVideoUrl, "/generated/no-avatar.mp4");
     assert.equal(compositeBody.avatarVideoUrl, "");
     assert.deepEqual(compositeBody.overlay, {});
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("server job limits old overlong prompts before image generation request", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const overlongPrompt = [
+    "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
+    "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
+    Array.from({ length: 900 }, () => "длинный старый контекст проекта").join(". "),
+    "Заголовок: Важная тема.",
+    "Подзаголовок: Короткое объяснение."
+  ].join(" ");
+  let imagePrompt = "";
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/api/images/generate")) {
+      imagePrompt = JSON.parse(options.body || "{}").prompt || "";
+      return jsonResponse({ taskId: "image-task-limited-prompt" });
+    }
+    if (String(url).includes("/api/images/status")) {
+      return jsonResponse({ state: "success", imageUrl: "https://cdn.example.com/limited-prompt.png" });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const handle = createServerJobsApiHandler({
+    serverJobs: new Map(),
+    persistServerJobSnapshot: async () => true
+  });
+
+  try {
+    await callServerJobsApi("POST", "/api/jobs/run", {
+      job: {
+        id: "job-overlong-prompt",
+        projectId: "project-1",
+        productId: "product-1",
+        outputType: "image",
+        prompt: overlongPrompt
+      },
+      context: { project: { id: "project-1", yandexDiskFolder: "" } }
+    }, handle);
+
+    const payload = await waitForServerJob("job-overlong-prompt", (item) => item.job.status === "review", handle);
+    assert.equal(payload.job.imageUrl, "https://cdn.example.com/limited-prompt.png");
+    assert.ok(imagePrompt.length <= IMAGE_PROMPT_MAX_CHARS);
+    assert.match(imagePrompt, /ЯЗЫК НА ИЗОБРАЖЕНИИ/);
+    assert.match(imagePrompt, /Заголовок: Важная тема/);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

@@ -16,6 +16,7 @@ import { formatCreativeQualityPrompt } from "./creative-quality-validator.js";
 import { createCuriosityContentPlan, formatFinalContentPrompt } from "./curiosity-content.js";
 import { createUniqueJobId } from "./job-identity.js";
 import { modernImageFormatRule, oldFormatShellBan } from "./generation-format-contract.js";
+import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budget.js";
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
   "Не использовать английские слова, английские заголовки, латиницу, lorem ipsum, pseudo-English и UI labels вроде Subscribe, Payment, Error, Loading, Failed.",
@@ -91,20 +92,20 @@ export function getProductsForProject(products, projectId) {
 }
 
 export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [], hookLibrary }) {
-  const pains = product.pains.join(", ");
-  const facts = product.facts.join("; ");
-  const forbidden = product.forbidden.join("; ");
-  const productRefs = (product.references || []).map((item) => `${item.title}: ${item.promptComment || item.imageName}`).join("; ");
+  const pains = compactImagePromptSource(product.pains.join(", "), 700);
+  const facts = compactImagePromptSource(product.facts.join("; "), 900);
+  const forbidden = compactImagePromptSource(product.forbidden.join("; "), 700);
+  const productRefs = compactImagePromptSource((product.references || []).map((item) => `${item.title}: ${compactImagePromptSource(item.promptComment || item.imageName, 280)}`).join("; "), 1100);
   const remoteProductRefs = (product.references || []).filter((item) => isRemoteImageUrl(item.imageData)).length;
   const localProductRefs = (product.references || []).filter((item) => item.imageData && !isRemoteImageUrl(item.imageData)).length;
-  const extra = freePrompt ? `Дополнительная задача: ${freePrompt}.` : "";
+  const extra = freePrompt ? `Дополнительная задача: ${compactImagePromptSource(freePrompt, 600)}.` : "";
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
   const plan = createSemanticPlan({ project, product, brief });
   const profile = buildProductProfile({ project, product, insightMap: brief.productInsightMap });
   const visiblePoints = getVisibleImagePoints(plan.points);
   const visiblePointCount = String(visiblePoints.length);
   const visiblePointSource = formatVisiblePointSource(visiblePoints);
-  const designCopyPrompt = cleanDesignReferenceText(reference?.takeaways);
+  const designCopyPrompt = compactImagePromptSource(cleanDesignReferenceText(reference?.takeaways), 900);
   const fixedFontStyle = reference?.fontStyle || reference?.headlineStyle || "";
   const compositionInstruction = getCompositionInstruction(brief.compositionMode);
   const layoutContentInstruction = formatLayoutPlanPrompt(brief.layoutContentPlan);
@@ -112,7 +113,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const creativeQualityInstruction = formatCreativeQualityPrompt(brief.creativeQuality);
   const finalContentInstruction = formatFinalContentPrompt(brief.finalContent);
 
-  return [
+  return limitImagePrompt([
     "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
     "КРИТИЧНО: если переданы reference images, использовать их как главный источник визуального дизайна: палитра, типографика, свет, контраст, форма карточек, материалы, фактуры и ритм.",
     "Дизайн-референс использовать только как визуальный стиль; не копировать его текст, смысл, продукт, логотипы, персонажа или обещания.",
@@ -146,30 +147,30 @@ export function buildImagePrompt({ project, product, reference, character, gener
     getScenarioVisualInstruction(brief),
     reference?.id === "viral-pink-symptoms" ? "ОБЯЗАТЕЛЬНЫЙ СТИЛЬ РЕФЕРЕНСА: не делать чистый corporate SaaS poster. Нужна viral Reels-инфографика как референс: розово-персиковый фон, верхняя hot-pink glow-плашка с белым текстом и черной обводкой, большой serif-тезис ниже, плотная колонка коротких пунктов с 3D-иконками слева, крупный 3D-объект справа. Без персонажа в картинке; нижнюю часть держать чистой для будущего видео-оверлея." : "",
     `Tone of voice: ${project.toneOfVoice || "экспертный"}. Визуальный стиль брать из выбранного дизайн-референса, а не из текстового поля проекта.`,
-    project.projectTheme ? `Тема проекта: ${project.projectTheme}.` : "",
-    project.niche ? `Ниша: ${project.niche}.` : "",
-    project.keyScenarios ? `Сценарные кластеры: ${project.keyScenarios}.` : "",
-    project.audiencePains ? `Боли аудитории: ${project.audiencePains}.` : "",
-    project.audienceDesires ? `Желания аудитории: ${project.audienceDesires}.` : "",
-    project.audienceObjections ? `Возражения аудитории: ${project.audienceObjections}.` : "",
-    project.allowedTriggers ? `Разрешенные триггеры: ${project.allowedTriggers}.` : "",
-    project.forbiddenTriggers ? `Запрещенные триггеры: ${project.forbiddenTriggers}.` : "",
-    project.hookAggression ? `Степень агрессивности хуков: ${project.hookAggression}.` : "",
-    project.contentRestrictions ? `Контентные ограничения: ${project.contentRestrictions}.` : "",
-    project.companyInfo ? `Компания: ${project.companyInfo}.` : "",
-    project.companyAudience ? `ЦА компании: ${project.companyAudience}.` : "",
-    project.restrictions ? `Ограничения проекта: ${project.restrictions}.` : "",
+    project.projectTheme ? `Тема проекта: ${compactImagePromptSource(project.projectTheme, 500)}.` : "",
+    project.niche ? `Ниша: ${compactImagePromptSource(project.niche, 300)}.` : "",
+    project.keyScenarios ? `Сценарные кластеры: ${compactImagePromptSource(project.keyScenarios, 650)}.` : "",
+    project.audiencePains ? `Боли аудитории: ${compactImagePromptSource(project.audiencePains, 650)}.` : "",
+    project.audienceDesires ? `Желания аудитории: ${compactImagePromptSource(project.audienceDesires, 550)}.` : "",
+    project.audienceObjections ? `Возражения аудитории: ${compactImagePromptSource(project.audienceObjections, 550)}.` : "",
+    project.allowedTriggers ? `Разрешенные триггеры: ${compactImagePromptSource(project.allowedTriggers, 500)}.` : "",
+    project.forbiddenTriggers ? `Запрещенные триггеры: ${compactImagePromptSource(project.forbiddenTriggers, 500)}.` : "",
+    project.hookAggression ? `Степень агрессивности хуков: ${compactImagePromptSource(project.hookAggression, 220)}.` : "",
+    project.contentRestrictions ? `Контентные ограничения: ${compactImagePromptSource(project.contentRestrictions, 650)}.` : "",
+    project.companyInfo ? `Компания: ${compactImagePromptSource(project.companyInfo, 700)}.` : "",
+    project.companyAudience ? `ЦА компании: ${compactImagePromptSource(project.companyAudience, 600)}.` : "",
+    project.restrictions ? `Ограничения проекта: ${compactImagePromptSource(project.restrictions, 650)}.` : "",
     formatProductInsightPrompt(profile),
     `Референс подачи: ${reference?.title || "лучший проектный инфографический стиль"}.`,
     designCopyPrompt ? `Дополнительная визуальная инструкция к копированию дизайна: ${designCopyPrompt}.` : "",
-    reference?.avoidCopy ? `Что НЕ копировать из референса: ${reference.avoidCopy}.` : "",
-    reference?.palette ? `Палитра как ориентир: ${reference.palette}.` : "",
-    fixedFontStyle ? `ФИКСИРОВАННЫЙ ШРИФТ СТИЛЯ: во всех генерациях с этим дизайн-референсом использовать одну и ту же типографику: ${fixedFontStyle}. Не менять семейство, характер, вес, контраст и обводку шрифта между вариантами.` : "",
-    reference?.headlineStyle ? `Стиль заголовка: ${reference.headlineStyle}.` : "",
-    reference?.textDensity ? `Плотность текста: ${reference.textDensity}.` : "",
+    reference?.avoidCopy ? `Что НЕ копировать из референса: ${compactImagePromptSource(reference.avoidCopy, 450)}.` : "",
+    reference?.palette ? `Палитра как ориентир: ${compactImagePromptSource(reference.palette, 350)}.` : "",
+    fixedFontStyle ? `ФИКСИРОВАННЫЙ ШРИФТ СТИЛЯ: во всех генерациях с этим дизайн-референсом использовать одну и ту же типографику: ${compactImagePromptSource(fixedFontStyle, 450)}. Не менять семейство, характер, вес, контраст и обводку шрифта между вариантами.` : "",
+    reference?.headlineStyle ? `Стиль заголовка: ${compactImagePromptSource(reference.headlineStyle, 350)}.` : "",
+    reference?.textDensity ? `Плотность текста: ${compactImagePromptSource(reference.textDensity, 220)}.` : "",
     "Аватар/персонаж: не рисовать и не встраивать в изображение.",
-    `Продукт: ${product.name}. ${product.description ? `Описание: ${product.description}.` : ""}`,
-    product.components ? `Состав или активные компоненты: ${product.components}.` : "",
+    `Продукт: ${product.name}. ${product.description ? `Описание: ${compactImagePromptSource(product.description, 650)}.` : ""}`,
+    product.components ? `Состав или активные компоненты: ${compactImagePromptSource(product.components, 600)}.` : "",
     productRefs ? `Референсы продукта: ${productRefs}.` : "",
     `Боли: ${pains}. Оффер: ${product.offer}.`,
     `Факты, которые можно использовать: ${facts}.`,
@@ -180,7 +181,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     "Текст короткий, крупный, без мелкой каши. Не придумывай медицинские/финансовые гарантии. Не добавляй неуказанные проценты, комиссии, баланс карты или фейковые UI-данные.",
     "ПЕРЕД ОТВЕТОМ проверь: все слова, которые ты рисуешь на изображении, написаны по-русски; английский UI/text запрещен.",
     extra
-  ].filter(Boolean).join(" ");
+  ].filter(Boolean).join(" "));
 }
 
 function formatProductInsightPrompt(profile) {

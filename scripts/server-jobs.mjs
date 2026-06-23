@@ -1,6 +1,8 @@
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../src/domain/avatar-video-rotation.js";
 import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
+import { limitImagePrompt } from "../src/domain/image-prompt-budget.js";
+import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
 import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
 import { loadPersistedServerJob, persistServerJobSnapshot } from "./server-job-state.mjs";
 
@@ -80,7 +82,7 @@ async function runServerImageGeneration(record, provider) {
     failMsg: provider === fallbackProvider ? "Основной способ не ответил, пробуем резервный..." : "Сервер ожидает картинку..."
   });
   const task = await postServerJson(record.origin, "/api/images/generate", {
-    prompt: record.job.prompt,
+    prompt: limitImagePrompt(record.job.prompt),
     inputUrls: record.job.inputUrls || [],
     inputRefs: record.job.inputRefs || [],
     provider,
@@ -284,7 +286,7 @@ async function getServerJson(origin, path) {
 
 async function readServerJson(response) {
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Server job API failed: ${response.status}`);
+  if (!response.ok) throw new Error(humanizeProviderErrorMessage(payload.error || `Server job API failed: ${response.status}`));
   return payload;
 }
 
