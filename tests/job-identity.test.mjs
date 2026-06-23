@@ -25,3 +25,15 @@ test("state normalization keeps the first visible job when duplicate ids already
 
   assert.deepEqual(normalized.jobs.map((job) => job.title), ["visible current", "other"]);
 });
+
+test("state normalization fills legacy job persistence defaults", () => {
+  const normalized = normalizeStateJobIds({
+    jobs: [{ id: "job-1", projectId: "project-1", productId: "product-1" }]
+  });
+
+  assert.deepEqual(normalized.jobs[0].inputRefs, []);
+  assert.deepEqual(normalized.jobs[0].inputUrls, []);
+  assert.equal(normalized.jobs[0].diversitySlot, null);
+  assert.equal(normalized.jobs[0].finalVideoHasAudio, false);
+  assert.equal(normalized.jobs[0].outputType, "");
+});

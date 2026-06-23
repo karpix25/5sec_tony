@@ -1,3 +1,27 @@
+const jobPersistenceDefaults = {
+  characterId: "",
+  status: "",
+  stage: "",
+  progress: 0,
+  title: "",
+  topic: "",
+  music: "",
+  prompt: "",
+  referenceTitle: "",
+  outputType: "",
+  finalVideoUrl: "",
+  finalVideoHasAudio: false,
+  semanticKey: "",
+  meaningPatternId: "",
+  productVisualMode: "",
+  compositionMode: "",
+  contentLayerId: "",
+  format: "",
+  inputUrls: [],
+  inputRefs: [],
+  diversitySlot: null
+};
+
 export function createUniqueJobId(existingJobs = []) {
   const usedIds = new Set(existingJobs.map((job) => job?.id).filter(Boolean));
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -9,8 +33,8 @@ export function createUniqueJobId(existingJobs = []) {
 
 export function normalizeStateJobIds(state) {
   if (!Array.isArray(state?.jobs)) return state;
-  const jobs = dedupeJobsById(state.jobs);
-  return jobs.length === state.jobs.length ? state : { ...state, jobs };
+  const jobs = dedupeJobsById(state.jobs).map(normalizeJobForPersistence);
+  return { ...state, jobs };
 }
 
 export function dedupeJobsById(jobs = []) {
@@ -26,4 +50,14 @@ export function dedupeJobsById(jobs = []) {
 function createJobToken() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function normalizeJobForPersistence(job) {
+  return {
+    ...jobPersistenceDefaults,
+    ...job,
+    inputUrls: Array.isArray(job.inputUrls) ? job.inputUrls : [],
+    inputRefs: Array.isArray(job.inputRefs) ? job.inputRefs : [],
+    diversitySlot: job.diversitySlot ?? null
+  };
 }
