@@ -20,6 +20,40 @@ export async function loginWithTelegramInitData(initData, options = {}) {
   return readAuthResponse(response, "Не удалось войти через Telegram");
 }
 
+export async function getTelegramLoginConfig(options = {}) {
+  const response = await fetch("/api/auth/telegram/config", { method: "GET", signal: options.signal });
+  return readAuthResponse(response, "Не удалось загрузить Telegram Login");
+}
+
+export function openTelegramLogin(clientId, options = {}) {
+  const login = globalThis.Telegram?.Login;
+  if (!login?.auth) throw new Error("Telegram Login Library не загрузилась");
+  return new Promise((resolve, reject) => {
+    login.auth({
+      client_id: normalizeTelegramClientId(clientId),
+      scope: options.scope || "profile",
+      lang: options.lang || "ru"
+    }, (result) => {
+      if (result?.id_token) {
+        resolve(result);
+        return;
+      }
+      reject(new Error(result?.error || "Telegram Login отменен"));
+    });
+  });
+}
+
+export async function loginWithTelegramIdToken(idToken, options = {}) {
+  if (!idToken) throw new Error("Telegram id_token отсутствует");
+  const response = await fetch("/api/auth/telegram/oidc", {
+    method: "POST",
+    headers: authJsonHeaders,
+    body: JSON.stringify({ idToken }),
+    signal: options.signal
+  });
+  return readAuthResponse(response, "Не удалось войти через Telegram");
+}
+
 export function startTelegramBrowserLogin(returnTo = getCurrentReturnTo()) {
   globalThis.location.href = getTelegramBrowserLoginUrl(returnTo);
 }
@@ -80,4 +114,9 @@ function getCurrentReturnTo() {
   const location = globalThis.location;
   if (!location) return "/";
   return `${location.pathname || "/"}${location.search || ""}${location.hash || ""}`;
+}
+
+function normalizeTelegramClientId(clientId) {
+  const numeric = Number(clientId);
+  return Number.isSafeInteger(numeric) ? numeric : String(clientId);
 }

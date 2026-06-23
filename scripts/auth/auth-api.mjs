@@ -30,6 +30,9 @@ export const handleAuthApi = createAuthApiHandler();
 
 export function createAuthApiHandler(deps = {}) {
   return async function handleAuthApiRequest(request, response, url) {
+    if (request.method === "GET" && url.pathname === "/api/auth/telegram/config") {
+      return handleTelegramConfig(response, deps);
+    }
     if (request.method === "GET" && url.pathname === "/api/auth/telegram/start") {
       return handleTelegramOidcStart(request, response, url, deps);
     }
@@ -38,6 +41,9 @@ export function createAuthApiHandler(deps = {}) {
     }
     if (request.method === "POST" && url.pathname === "/api/auth/telegram") {
       return handleTelegramLogin(request, response, deps);
+    }
+    if (request.method === "POST" && url.pathname === "/api/auth/telegram/oidc") {
+      return handleTelegramIdTokenLogin(request, response, deps);
     }
     if (request.method === "GET" && url.pathname === "/api/auth/me") {
       return handleMe(request, response, deps);
@@ -97,6 +103,31 @@ async function handleTelegramLogin(request, response, deps) {
     return sendJson(response, 200, { user });
   } catch (error) {
     return sendJson(response, 401, { error: error.message || "telegram_auth_failed" });
+  }
+}
+
+function handleTelegramConfig(response, deps) {
+  try {
+    const config = (deps.getTelegramOidcConfig || getTelegramOidcConfig)(deps.oidc || deps);
+    return sendJson(response, 200, { clientId: config.clientId, scope: config.scope });
+  } catch (error) {
+    return sendJson(response, 500, { error: error.message || "telegram_config_failed" });
+  }
+}
+
+async function handleTelegramIdTokenLogin(request, response, deps) {
+  try {
+    const body = await readJsonBody(request);
+    if (!body.idToken) throw new Error("Telegram id_token is required");
+    const claims = await (deps.verifyTelegramIdToken || verifyTelegramIdToken)(body.idToken, deps.oidc || deps);
+    const user = await (deps.upsertTelegramUser || upsertTelegramUser)(extractTelegramOidcUser(claims), deps);
+    response.setHeader?.("Set-Cookie", createSessionCookie({
+      telegramId: user.telegramId,
+      role: user.role
+    }, deps.session || deps));
+    return sendJson(response, 200, { user });
+  } catch (error) {
+    return sendJson(response, 401, { error: error.message || "telegram_oidc_failed" });
   }
 }
 

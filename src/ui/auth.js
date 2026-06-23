@@ -1,10 +1,11 @@
 import {
   getCurrentAuthUser,
-  getTelegramBrowserLoginUrl,
+  getTelegramLoginConfig,
   listAdminAuthUsers,
+  loginWithTelegramIdToken,
   logoutAuthUser,
+  openTelegramLogin,
   runAdminAuthUserAction,
-  startTelegramBrowserLogin
 } from "../services/auth-client.js";
 import { escapeHtml } from "./infographic.js";
 import { renderAdminAuthPanel } from "./auth-admin.js";
@@ -28,12 +29,14 @@ export function createAuthController(options = {}) {
   const onStateChange = options.onStateChange || (() => {});
   const renderApprovedState = options.renderApprovedState !== false;
   let state = createAuthState(options.initialState);
+  let telegramLoginConfig = null;
 
   async function start() {
     updateState({ status: "loading", error: "" });
     try {
       const session = await getCurrentAuthUser();
       if (!getAuthPayloadUser(session)) {
+        await ensureTelegramLoginConfig();
         updateState({ status: "login", user: null, error: "" });
         return;
       }
@@ -44,7 +47,20 @@ export function createAuthController(options = {}) {
   }
 
   async function loginFromTelegram() {
-    startTelegramBrowserLogin();
+    updateState({ status: "loading", error: "" });
+    try {
+      const config = await ensureTelegramLoginConfig();
+      const result = await openTelegramLogin(config.clientId, { scope: config.scope });
+      const session = await loginWithTelegramIdToken(result.id_token);
+      await acceptAuthPayload(session);
+    } catch (error) {
+      updateState({ status: "error", error: error.message || "Ошибка входа" });
+    }
+  }
+
+  async function ensureTelegramLoginConfig() {
+    if (!telegramLoginConfig) telegramLoginConfig = await getTelegramLoginConfig();
+    return telegramLoginConfig;
   }
 
   async function acceptAuthPayload(payload = {}) {
@@ -157,7 +173,7 @@ function renderAuthActions(state) {
   if (state.status === "loading") return "<button class=\"primary-btn\" type=\"button\" disabled>Проверяем доступ...</button>";
   if (state.status === "approved") return "<button class=\"secondary-btn\" data-auth-logout type=\"button\">Выйти</button>";
   if (["error", "login"].includes(state.status)) {
-    return `<a class="primary-btn" data-auth-login href="${escapeHtml(getTelegramBrowserLoginUrl())}">Войти через Telegram</a>`;
+    return "<button class=\"primary-btn\" data-auth-login type=\"button\">Войти через Telegram</button>";
   }
   return "<button class=\"ghost-btn\" data-auth-refresh type=\"button\">Обновить статус</button>";
 }
