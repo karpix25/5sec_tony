@@ -13,7 +13,7 @@ test("product settings save reads form without resetting values", () => {
   assert.doesNotMatch(handler[0], /getFormPayload\(event\.currentTarget\)/);
 });
 
-test("product questionnaire fields are explicitly attached to settings form", () => {
+test("product questionnaire fields are open inside settings form by default", () => {
   const product = projects[0].products?.[0] || {
     name: "Хлорофил",
     description: "Описание",
@@ -24,13 +24,17 @@ test("product questionnaire fields are explicitly attached to settings form", ()
     references: [{ title: "Фото", imageData: "data:image/png;base64,a" }]
   };
   const html = renderProductSettings({ product });
+  const formEnd = html.indexOf("</form>");
 
-  assert.ok(html.indexOf("id=\"product-fields-modal\"") > html.indexOf("</form>"));
-  assert.match(html, /name="description"[^>]+form="product-settings-form"/);
-  assert.match(html, /name="pains"[^>]+form="product-settings-form"/);
-  assert.match(html, /name="offer"[^>]+form="product-settings-form"/);
-  assert.match(html, /name="facts"[^>]+form="product-settings-form"/);
-  assert.match(html, /name="forbidden"[^>]+form="product-settings-form"/);
+  assert.doesNotMatch(html, /id="product-fields-modal"/);
+  assert.doesNotMatch(html, /id="open-product-fields-modal"/);
+  assert.doesNotMatch(html, /Сначала загрузите фото продукта/);
+  assert.ok(html.indexOf('name="description"') > 0 && html.indexOf('name="description"') < formEnd);
+  assert.ok(html.indexOf('name="pains"') > 0 && html.indexOf('name="pains"') < formEnd);
+  assert.ok(html.indexOf('name="offer"') > 0 && html.indexOf('name="offer"') < formEnd);
+  assert.ok(html.indexOf('name="facts"') > 0 && html.indexOf('name="facts"') < formEnd);
+  assert.ok(html.indexOf('name="components"') > 0 && html.indexOf('name="components"') < formEnd);
+  assert.ok(html.indexOf('name="forbidden"') > 0 && html.indexOf('name="forbidden"') < formEnd);
 });
 
 test("product settings disables delete for the last product in project", () => {
@@ -66,5 +70,5 @@ test("product screen has a single save changes action", () => {
   const matches = html.match(/Сохранить изменения/g) || [];
 
   assert.equal(matches.length, 1);
-  assert.match(html, /Сохранить анкету/);
+  assert.doesNotMatch(html, /Сохранить анкету/);
 });

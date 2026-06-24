@@ -8,7 +8,6 @@ import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
 import { bindProjectAutomationControls } from "./project-automation-controls.js";
 import { warnButtonBlocked } from "./button-debug.js";
-import { syncProductDraftToFieldsModal } from "./product-form-sync.js";
 import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
 import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewModal } from "./modals.js";
@@ -224,14 +223,10 @@ function bindEvents(root, store, options = {}) {
     closeProjectModal(root);
   });
   root.querySelector("#open-product-modal")?.addEventListener("click", () => openProductModal(root));
-  root.querySelector("#open-product-fields-modal")?.addEventListener("click", () => openProductFieldsModal(root));
   root.querySelector("#open-product-reference-modal")?.addEventListener("click", () => openProductReferenceModal(root));
   root.querySelector("#open-delete-product-modal")?.addEventListener("click", () => openDeleteProductModal(root));
   root.querySelectorAll("[data-close-product-modal]").forEach((button) => {
     button.addEventListener("click", () => closeProductModal(root));
-  });
-  root.querySelectorAll("[data-close-product-fields-modal]").forEach((button) => {
-    button.addEventListener("click", () => closeProductFieldsModal(root));
   });
   root.querySelectorAll("[data-close-product-reference-modal]").forEach((button) => {
     button.addEventListener("click", () => closeProductReferenceModal(root));
@@ -408,12 +403,20 @@ async function runCreateProductFromPhotos(root, store, form) {
   const state = store.getState();
   const context = getContext(state);
   try {
-    if (status) status.textContent = "Создаем продукт и анализируем фото...";
     const images = await getProductPhotoPayloads(form);
     const base = getFormSnapshot(form);
+    if (!images.length) {
+      if (status) status.textContent = "Создаем продукт...";
+      store.createProduct(productPayloadFromDraft(base));
+      form.reset();
+      closeProductModal(root);
+      return;
+    }
+    if (status) status.textContent = "Создаем продукт и анализируем фото...";
     const result = await analyzeProductPhotos({ project: context.project, product: base, images });
     const references = productReferencesFromImages(images, result.draft?.promptComment);
     store.createProduct(productPayloadFromDraft(base, result.draft || {}, references));
+    form.reset();
     closeProductModal(root);
   } catch (error) {
     if (status) status.textContent = error.message || "Не удалось создать продукт по фото.";
@@ -450,18 +453,6 @@ function openProductModal(root) {
 
 function closeProductModal(root) {
   const modal = root.querySelector("#product-modal");
-  if (modal) modal.hidden = true;
-}
-
-function openProductFieldsModal(root) {
-  const modal = root.querySelector("#product-fields-modal");
-  if (!modal) return;
-  syncProductDraftToFieldsModal(root);
-  modal.hidden = false;
-}
-
-function closeProductFieldsModal(root) {
-  const modal = root.querySelector("#product-fields-modal");
   if (modal) modal.hidden = true;
 }
 
