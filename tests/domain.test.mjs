@@ -259,6 +259,21 @@ test("store updates project settings and uses them in prompt", () => {
   assert.match(prompt, /Визуальный стиль брать из выбранного дизайн-референса/);
 });
 
+test("store saves project object arrays as readable text", () => {
+  const store = createStore();
+  store.updateProjectSettings({
+    companyAudience: [
+      { segment: "Женщины 25-35", need: "хотят простую бьюти-рутину" },
+      { segment: "Мамы", need: "ищут быстрый уход" }
+    ]
+  });
+
+  const project = store.getState().projects.find((item) => item.id === store.getState().selectedProjectId);
+
+  assert.equal(project.companyAudience, "Женщины 25-35 — хотят простую бьюти-рутину\nМамы — ищут быстрый уход");
+  assert.doesNotMatch(project.companyAudience, /\[object Object\]/);
+});
+
 test("store migrates legacy Yandex Disk folder paths to video root", () => {
   const project = ensureProjectAssets({
     ...projects[0],

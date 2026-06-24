@@ -4,33 +4,42 @@ import { normalizeProjectDailyLimit, normalizeProjectTotalLimit } from "./store-
 
 export function updateProjectEntity(project, payload) {
   const value = (name, fallback = "") => Object.hasOwn(payload, name) ? payload[name] : (project[name] || fallback);
+  const textValue = (name, fallback = "") => projectTextValue(value(name, fallback));
   const projectAbout = Object.hasOwn(payload, "projectTheme") ? payload.projectTheme : null;
-  const exportFolder = value("exportFolder", project.exportFolder);
-  const yandexDiskFolder = value("yandexDiskFolder", project.yandexDiskFolder || defaultProjectYandexDiskFolder(project.name || "Проект"));
+  const exportFolder = textValue("exportFolder", project.exportFolder);
+  const yandexDiskFolder = textValue("yandexDiskFolder", project.yandexDiskFolder || defaultProjectYandexDiskFolder(project.name || "Проект"));
   return {
     ...project,
-    name: payload.name || project.name,
+    name: projectTextValue(payload.name || project.name),
     exportFolder,
     yandexDiskFolder,
     dailyLimit: normalizeProjectDailyLimit(value("dailyLimit", project.dailyLimit || 20)),
     projectLimit: normalizeProjectTotalLimit(value("projectLimit", project.projectLimit || 500)),
-    projectTheme: value("projectTheme"),
-    niche: value("niche"),
-    keyScenarios: value("keyScenarios"),
-    audiencePains: value("audiencePains"),
-    audienceDesires: value("audienceDesires"),
-    audienceObjections: value("audienceObjections"),
-    allowedTriggers: value("allowedTriggers"),
-    forbiddenTriggers: value("forbiddenTriggers"),
-    hookAggression: value("hookAggression", "Средняя"),
-    contentRestrictions: value("contentRestrictions"),
-    companyInfo: Object.hasOwn(payload, "companyInfo") ? payload.companyInfo : (projectAbout ?? project.companyInfo ?? ""),
-    companyAudience: value("companyAudience"),
-    toneOfVoice: value("toneOfVoice"),
-    restrictions: value("restrictions"),
-    style: value("style", project.style),
+    projectTheme: textValue("projectTheme"),
+    niche: textValue("niche"),
+    keyScenarios: textValue("keyScenarios"),
+    audiencePains: textValue("audiencePains"),
+    audienceDesires: textValue("audienceDesires"),
+    audienceObjections: textValue("audienceObjections"),
+    allowedTriggers: textValue("allowedTriggers"),
+    forbiddenTriggers: textValue("forbiddenTriggers"),
+    hookAggression: textValue("hookAggression", "Средняя"),
+    contentRestrictions: textValue("contentRestrictions"),
+    companyInfo: projectTextValue(Object.hasOwn(payload, "companyInfo") ? payload.companyInfo : (projectAbout ?? project.companyInfo ?? "")),
+    companyAudience: textValue("companyAudience"),
+    toneOfVoice: textValue("toneOfVoice"),
+    restrictions: textValue("restrictions"),
+    style: textValue("style", project.style),
     automation: normalizeProjectAutomation(project.automation)
   };
+}
+
+function projectTextValue(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(projectTextValue).filter(Boolean).join("\n");
+  if (typeof value === "object") return Object.values(value).map(projectTextValue).filter(Boolean).join(" — ");
+  return String(value);
 }
 
 export function withCreatedJobs(state, jobs, projectId) {

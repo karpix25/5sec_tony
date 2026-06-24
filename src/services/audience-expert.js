@@ -20,7 +20,7 @@ function normalizeAudienceDraft(draft) {
     forbiddenTriggers: audienceLines(draft.forbiddenTriggers),
     hookAggression: audienceClean(draft.hookAggression),
     contentRestrictions: audienceLines(draft.contentRestrictions),
-    companyAudience: audienceClean(draft.companyAudience),
+    companyAudience: audienceLines(draft.companyAudience),
     toneOfVoice: audienceClean(draft.toneOfVoice),
     restrictions: audienceLines(draft.restrictions)
   };
@@ -32,6 +32,10 @@ function audienceLines(value) {
 }
 
 function audienceClean(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) return value.map(audienceClean).filter(Boolean).join("\n");
+  if (typeof value === "object") return Object.values(value).map(audienceClean).filter(Boolean).join(" — ");
   return String(value || "").trim();
 }
 

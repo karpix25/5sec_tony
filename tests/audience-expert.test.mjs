@@ -28,6 +28,30 @@ test("audience expert normalizes arrays into newline separated fields", async ()
   }
 });
 
+test("audience expert normalizes object audience segments into text", async () => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      draft: {
+        companyAudience: [
+          { segment: "Женщины 25-35", need: "хотят простую бьюти-рутину" },
+          { segment: "Мамы", need: "ищут быстрый уход" }
+        ]
+      }
+    })
+  });
+
+  try {
+    const draft = await generateAudienceExpertDraft({ project: {}, draft: {}, products: [] });
+
+    assert.equal(draft.companyAudience, "Женщины 25-35 — хотят простую бьюти-рутину\nМамы — ищут быстрый уход");
+    assert.doesNotMatch(draft.companyAudience, /\[object Object\]/);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("audience expert surfaces plain text backend errors", async () => {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
