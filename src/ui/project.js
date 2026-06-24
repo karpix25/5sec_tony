@@ -20,7 +20,6 @@ export function renderProjectManagementSettings({ project, automationState }) {
           ${projectTextField(projectBriefFields.name.label, "name", projectBriefFields.name.placeholder, project.name)}
           ${projectYandexFolderField(project.yandexDiskFolder || yandexDiskRoot)}
           ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
-          ${projectBriefField("projectTheme", project.projectTheme || project.companyInfo, false)}
           ${projectBriefField("companyAudience", project.companyAudience, false)}
           ${projectBriefField("toneOfVoice", project.toneOfVoice, false)}
           ${projectBriefField("keyScenarios", project.keyScenarios, false)}

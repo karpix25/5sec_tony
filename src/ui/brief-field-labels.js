@@ -3,10 +3,6 @@ export const projectBriefFields = {
     label: "Клиент/Бренд",
     placeholder: "Например: SONRE, СОНРЕ - ударение на Е"
   },
-  projectTheme: {
-    label: "1. Общая концепция",
-    placeholder: "Коротко: что за бренд, категория, задача контента и главный смысл проекта."
-  },
   companyAudience: {
     label: "Целевая аудитория",
     placeholder: "Кто покупает: пол, возраст, интересы, боли, желания и жизненная ситуация."
