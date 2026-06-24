@@ -379,6 +379,7 @@ export function createStore() {
       });
     },
     createCharacter: avatarWorkflow.createCharacter,
+    uploadCharacter: avatarWorkflow.uploadCharacter,
     approveAvatar: avatarWorkflow.approveAvatar,
     rejectAvatar: avatarWorkflow.rejectAvatar,
     setCharacterActive: avatarWorkflow.setCharacterActive,

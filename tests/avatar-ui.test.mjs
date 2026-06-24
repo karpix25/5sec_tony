@@ -5,7 +5,7 @@ import { renderAvatarSettings } from "../src/ui/avatar.js";
 import { bindAvatarOverlayComposerEvents } from "../src/ui/avatar-overlay-composer.js";
 import { FakeElement } from "./helpers/fake-ui-dom.mjs";
 
-test("avatar settings sort creation first and hide sections in toggles", () => {
+test("avatar settings uploads avatars and hides generation review flow", () => {
   const project = {
     ...projects[0],
     characters: [{
@@ -19,13 +19,18 @@ test("avatar settings sort creation first and hide sections in toggles", () => {
     }]
   };
   const html = renderAvatarSettings({ project, character: project.characters[0] });
+  const avatarForm = html.match(/<form id="avatar-form"[\s\S]*?<\/form>/)?.[0] || "";
 
-  assert.ok(html.indexOf("Создать аватар") < html.indexOf("Проверка аватара"));
-  assert.ok(html.indexOf("Проверка аватара") < html.indexOf("Аватары проекта"));
+  assert.ok(html.indexOf("Загрузить аватар") < html.indexOf("Аватары проекта"));
   assert.match(html, /<details class="avatar-toggle-section" open>/);
   assert.match(html, /<details class="avatar-toggle-section" >/);
   assert.match(html, /<details class="avatar-overlay-composer" open>/);
-  assert.match(html, /name="prompt"/);
+  assert.match(html, /name="imageFile"/);
+  assert.match(html, /Хромакей-видео будет создано из загруженного изображения активного аватара/);
+  assert.doesNotMatch(html, /Проверка аватара/);
+  assert.doesNotMatch(html, /data-approve-avatar/);
+  assert.doesNotMatch(avatarForm, /name="prompt"/);
+  assert.doesNotMatch(html, /Создать аватар/);
   assert.match(html, /яркая плашка в стиле проекта/);
 });
 

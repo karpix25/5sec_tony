@@ -275,7 +275,7 @@ function bindEvents(root, store, options = {}) {
   bindDesignReferenceFormEvents(root, store);
   root.querySelector("#avatar-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    store.createCharacter(getFormPayload(event.currentTarget));
+    getAvatarUploadPayload(event.currentTarget).then((payload) => store.uploadCharacter(payload));
   });
   root.querySelector("#avatar-video-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -360,6 +360,16 @@ function getFormPayload(form) {
   const payload = Object.fromEntries(new FormData(form).entries());
   form.reset();
   return payload;
+}
+
+function getAvatarUploadPayload(form) {
+  const file = form.querySelector("input[type='file']")?.files?.[0];
+  const payload = Object.fromEntries(new FormData(form).entries());
+  if (!file) return Promise.resolve(payload);
+  return readFileAsDataUrl(file).then((imageData) => {
+    form.reset();
+    return { ...payload, imageName: file.name, imageData };
+  });
 }
 
 function getFormSnapshot(form) {

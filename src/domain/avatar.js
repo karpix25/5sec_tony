@@ -57,6 +57,26 @@ export function approveAvatarCandidate(projectId, candidate) {
   };
 }
 
+export function createUploadedAvatarCharacter(projectId, payload) {
+  const name = payload.name || payload.imageName || "Загруженный аватар";
+  const id = createAvatarId("char");
+  return {
+    id,
+    name,
+    status: "approved",
+    isActive: true,
+    prompt: payload.prompt || payload.imageName || "загруженное изображение аватара",
+    imageData: payload.imageData || payload.imageUrl || "",
+    imageName: payload.imageName || "",
+    provider: "upload",
+    taskId: "",
+    s3Key: buildAvatarS3Key(projectId, id),
+    createdAt: new Date().toISOString(),
+    approvedAt: new Date().toISOString(),
+    avatarVideos: []
+  };
+}
+
 function buildAvatarPrompt(project, { name, prompt }) {
   return [
     "Kie.ai avatar generation request.",

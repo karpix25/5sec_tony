@@ -1,4 +1,10 @@
-import { approveAvatarCandidate, attachAvatarTask, createAvatarCandidate, updateAvatarCandidate } from "../domain/avatar.js";
+import {
+  approveAvatarCandidate,
+  attachAvatarTask,
+  createAvatarCandidate,
+  createUploadedAvatarCharacter,
+  updateAvatarCandidate
+} from "../domain/avatar.js";
 import { createAvatarTask, getAvatarTaskStatus } from "../services/kie-client.js";
 import { createAvatarVideoWorkflow } from "./avatar-video-workflow.js";
 
@@ -23,6 +29,18 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
       } catch (error) {
         patchAvatarCandidate(candidate.id, (item) => failItem(item, error, "Kie.ai request failed"));
       }
+    },
+    uploadCharacter(payload) {
+      if (!payload?.imageData) return;
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      const character = createUploadedAvatarCharacter(project.id, payload);
+      setState({
+        projects: state.projects.map((item) =>
+          item.id === project.id ? { ...item, characters: [character, ...item.characters] } : item
+        ),
+        selectedCharacterId: character.id
+      });
     },
     approveAvatar(candidateId) {
       const state = getState();

@@ -3,6 +3,22 @@ import assert from "node:assert/strict";
 import { updateAvatarCandidate } from "../src/domain/avatar.js";
 import { createStore } from "../src/state/store.js";
 
+test("store uploads avatar as approved active character without review", () => {
+  const store = createStore();
+  const imageData = "data:image/png;base64,AVATAR";
+
+  store.uploadCharacter({ name: "Uploaded Avatar", imageName: "avatar.png", imageData });
+
+  const project = getSelectedProject(store);
+  const uploaded = project.characters.find((item) => item.name === "Uploaded Avatar");
+  assert.equal(uploaded.status, "approved");
+  assert.equal(uploaded.provider, "upload");
+  assert.equal(uploaded.imageData, imageData);
+  assert.equal(uploaded.imageName, "avatar.png");
+  assert.equal(project.avatarCandidates.length, 0);
+  assert.equal(store.getState().selectedCharacterId, uploaded.id);
+});
+
 test("store reviews Kie.ai avatar candidates and stores approved avatar with s3 key", async () => {
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;

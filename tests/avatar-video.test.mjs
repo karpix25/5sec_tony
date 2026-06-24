@@ -376,16 +376,12 @@ test("store sends local avatar image to chroma key video API", async () => {
 
   try {
     const store = createStore();
-    const state = store.getState();
-    const project = getSelectedProject(store);
-    const character = { ...project.characters[0], imageData: localAvatar };
-    state.projects = state.projects.map((item) =>
-      item.id === project.id ? { ...item, characters: [character] } : item
-    );
+    store.uploadCharacter({ name: "Uploaded Avatar", imageName: "avatar.png", imageData: localAvatar });
     await store.createAvatarVideo({ motionPrompt: "small hand wave" });
     await waitFor(() => getSelectedProject(store).characters[0].avatarVideos?.[0]?.alphaStatus === "ready");
 
     const video = getSelectedProject(store).characters[0].avatarVideos[0];
+    assert.equal(getSelectedProject(store).characters[0].provider, "upload");
     assert.equal(video.imageTaskId, "task_local_chroma_image");
     assert.equal(video.chromaImageUrl, "https://cdn.example.com/local-chroma.png");
     assert.equal(video.taskId, "task_local_avatar_video");

@@ -4,20 +4,23 @@ import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderAvatarSettings({ project, character }) {
   return `
-    ${renderAvatarCreatePanel()}
-    ${renderToggleSection("Проверка аватара", renderAvatarCandidate(project.avatarCandidates?.[0]))}
+    ${renderAvatarUploadPanel()}
     ${renderToggleSection("Аватары проекта", renderApprovedAvatars(project.characters, character?.id))}
     ${renderAvatarVideoPanel(character)}
     ${renderAvatarOverlayComposer({ project, character })}
   `;
 }
 
-function renderAvatarCreatePanel() {
-  return renderToggleSection("Создать аватар", `
+function renderAvatarUploadPanel() {
+  return renderToggleSection("Загрузить аватар", `
     <form id="avatar-form" class="ops-form text-editor-form avatar-generator">
       ${avatarField("Имя аватара", "name", "Например: Эксперт Антон", "input", true)}
-      ${avatarField("Описание образа", "prompt", "Лицо, возраст, одежда, эмоция, фон, роль, стабильные признаки.", "textarea", true)}
-      <button class="secondary-btn" type="submit">Создать аватар</button>
+      <label class="stacked-field">
+        <span>Картинка аватара</span>
+        <input name="imageFile" class="file-input" type="file" accept="image/*" required />
+      </label>
+      <small class="avatar-system-note">Хромакей-видео будет создано из загруженного изображения активного аватара.</small>
+      <button class="secondary-btn" type="submit">Загрузить аватар</button>
     </form>
   `, true);
 }
@@ -29,64 +32,6 @@ function renderToggleSection(title, content, open = false) {
       <div class="avatar-toggle-body">${content}</div>
     </details>
   `;
-}
-
-function renderAvatarCandidate(candidate) {
-  if (!candidate) {
-    return `
-      <div class="avatar-review empty-review">
-        <span>Проверка аватара</span>
-        <strong>Нет аватара на проверке</strong>
-        <small>Создайте аватар по описанию, затем одобрите или отклоните результат.</small>
-      </div>
-    `;
-  }
-
-  return `
-    <article class="avatar-review">
-      ${candidate.imageData ? renderPreviewButton(candidate.imageData, candidate.name) : `<div class="avatar-pending">...</div>`}
-      <div>
-        <span>${escapeHtml(getCandidateStatus(candidate))}</span>
-        <strong>${escapeHtml(candidate.name)}</strong>
-        <small>${escapeHtml(getCandidateNote(candidate))}</small>
-      </div>
-      <div class="avatar-review-actions">
-        ${candidate.status === "review" ? `<button class="secondary-btn" data-approve-avatar="${candidate.id}" type="button">Одобрить</button>` : ""}
-        ${isAvatarLoading(candidate) ? "<div class=\"avatar-loader\" aria-label=\"Ожидание результата\"><span></span><span></span><span></span></div>" : ""}
-        ${canRejectAvatarCandidate(candidate) ? `<button class="ghost-btn" data-reject-avatar="${candidate.id}" type="button">${getRejectLabel(candidate)}</button>` : ""}
-      </div>
-    </article>
-  `;
-}
-
-function getCandidateNote(candidate) {
-  if (candidate.failMsg) return candidate.failMsg;
-  if (candidate.status === "submitting") return "Запускаем создание. Обычно это занимает несколько секунд.";
-  if (candidate.status !== "review" && candidate.status !== "failed") return "Результат появится автоматически, обычно нужно 20-40 секунд.";
-  return "Проверьте результат и одобрите, если образ подходит проекту.";
-}
-
-function isAvatarLoading(candidate) {
-  return ["submitting", "waiting", "generating"].includes(candidate.status);
-}
-
-function canRejectAvatarCandidate(candidate) {
-  return !isAvatarLoading(candidate);
-}
-
-function getRejectLabel(candidate) {
-  return candidate.status === "failed" ? "Убрать ошибку" : "Отклонить";
-}
-
-function getCandidateStatus(candidate) {
-  const labels = {
-    submitting: "Запускаем создание",
-    waiting: "Задача создана",
-    generating: "Создаем аватар",
-    review: "Результат готов",
-    failed: "Ошибка создания"
-  };
-  return labels[candidate.status] || "В работе";
 }
 
 function renderApprovedAvatars(items, selectedId) {
