@@ -215,6 +215,35 @@ test("leaderboard creative team brief suppresses product image dominance", () =>
   assert.equal(brief.productVisualMode, "no-package");
 });
 
+test("no-package creative team prompt removes product names and packaging cues", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const prompt = buildImagePrompt({
+    project: { ...project, productInFramePercent: 0 },
+    product,
+    reference: { title: "TOP 10 chart", layoutType: "ranking_leaderboard" },
+    generationBrief: {
+      productVisualMode: "no-package",
+      productPassport: { productName: "Хлорофилл", safeFacts: ["напиток"], forbiddenClaims: [] },
+      designFormatBrief: { formatType: "ranking_leaderboard" },
+      contentScript: {
+        headline: "ТОП 10 привычек",
+        subhead: "ТОП 10 привычек",
+        points: ["Хлорофилл SONRE: приятный ритуал", "Бутылка на столе", "Вода утром"]
+      },
+      imagePromptPackage: {
+        provider: "gpt-image-2",
+        prompt: "Show SONRE chlorophyll bottle package as product packshot.",
+        inputRefs: []
+      }
+    }
+  });
+
+  assert.match(prompt, /РЕЖИМ ПРОДУКТА В КАДРЕ: no-package/);
+  assert.doesNotMatch(prompt, /SONRE|Хлорофилл|chlorophyll|Show SONRE|Бутылка на столе/i);
+  assert.doesNotMatch(prompt, /Подзаголовок: ТОП 10 привычек/);
+});
+
 test("creative team brief runner executes role chain and flattens legacy fields", async () => {
   const responses = [
     { productPassport: { productName: "Магний", safeFacts: ["вечерний формат"], forbiddenClaims: ["лечит сон"] } },

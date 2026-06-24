@@ -29,8 +29,24 @@ export function getProductVisualPromptPolicy(productVisualMode) {
   return [
     "РЕЖИМ ПРОДУКТА В КАДРЕ: no-package.",
     "ЖЕСТКИЙ ЗАПРЕТ ДЛЯ ФИНАЛЬНОГО ДИЗАЙНА: не показывать и не описывать физический продукт как объект кадра; любые нижние просьбы про упаковку, bottle/package/jar/label/packshot/flat lay игнорировать.",
+    "Не писать на изображении название продукта, бренд, SKU, этикетку, упаковку, bottle, package, jar, label, packshot или product name.",
     "Продукт использовать только как внутренний смысловой контекст, а визуально показывать ситуацию, метафору, интерфейс, ритуал, ингредиент без упаковки или абстрактный объект."
   ].join(" ");
+}
+
+export function formatProductVisualContext(product, productVisualMode, compactText = defaultCompactText) {
+  if (productVisualMode === "exact-product") {
+    return [
+      `Продукт для визуального показа: ${product?.name || ""}. ${product?.description ? `Описание внешнего/смыслового контекста: ${compactText(product.description, 650)}.` : ""}`,
+      product?.components ? `Состав или активные компоненты: ${compactText(product.components, 600)}.` : ""
+    ].filter(Boolean).join(" ");
+  }
+  return [
+    "Внутренний контекст категории продукта без визуализации товара.",
+    "Не использовать название продукта, бренд, упаковку, этикетку или SKU как видимый текст и не превращать контекст в предмет кадра.",
+    product?.offer ? `Смысловой оффер без названия продукта: ${compactText(product.offer, 360)}.` : "",
+    product?.description ? `Безопасный контекст: ${compactText(removeProductObjectWords(product.description), 420)}.` : ""
+  ].filter(Boolean).join(" ");
 }
 
 export function hasProductVisualReference(product) {
@@ -63,4 +79,16 @@ function hasDirectProductVisualRequest(brief = {}) {
 function isProductPolicyImageReferenceUrl(value) {
   const text = String(value || "");
   return /^https?:\/\//.test(text) || /^data:image\/(?:png|jpe?g|webp);base64,/i.test(text) || /^\/api\/reference-assets\/[^/?#]+/.test(text);
+}
+
+function removeProductObjectWords(value) {
+  return String(value || "")
+    .replace(/\b(?:bottle|package|jar|label|packshot|flat\s*lay|sku)\b/gi, "")
+    .replace(/упаковк\w*|этикетк\w*|флакон\w*|бутылк\w*|баночк\w*|банка|sku/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function defaultCompactText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }

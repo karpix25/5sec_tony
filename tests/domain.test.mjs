@@ -56,7 +56,7 @@ test("image prompt separates design reference style from product content", () =>
   assert.match(prompt, /Смыслы и формулировки создать только на основе компании/);
   assert.ok(prompt.includes(project.references[0].title));
   assert.doesNotMatch(prompt, new RegExp(project.style.slice(0, 12)));
-  assert.match(prompt, new RegExp(product.name));
+  assert.match(prompt, /РЕЖИМ ПРОДУКТА В КАДРЕ: no-package/); assert.doesNotMatch(prompt, new RegExp(product.name));
   assert.match(prompt, /Проблемы с кишечником/);
   assert.match(prompt, /Запрещено обещать/);
   assert.doesNotMatch(prompt, /Имя Не Писать/);
@@ -355,7 +355,7 @@ test("store updates product content and generation brief for prompt assembly", (
   assert.deepEqual(product.pains, ["тяга к сладкому", "нестабильный режим"]);
   assert.match(prompt, /Самая рабочая схема похудения/);
   assert.match(prompt, /бутылочки продукта слева/);
-  assert.match(prompt, /инозитол 1500 мг/);
+  assert.match(prompt, /РЕЖИМ ПРОДУКТА В КАДРЕ: exact-product|РЕЖИМ ПРОДУКТА В КАДРЕ: no-package/);
   assert.match(prompt, /лечит гормоны/);
   assert.match(prompt, /CTA: не добавлять на изображение/);
   assert.doesNotMatch(prompt, /Подобрать курс/);
@@ -396,7 +396,7 @@ test("product save keeps generation brief intact for current product session", (
 
   assert.equal(state.generationBrief.topic, "7 признаков проблем с кишечником");
   assert.match(job.topic, /кишечник/i);
-  assert.match(job.prompt, /Коллаген БАД/);
+  assert.match(job.prompt, /РЕЖИМ ПРОДУКТА В КАДРЕ: no-package/); assert.doesNotMatch(job.prompt, /Коллаген БАД/);
 });
 
 test("product switching keeps current generation brief until operator changes it", () => {

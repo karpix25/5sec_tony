@@ -98,7 +98,7 @@ function createFinalContent({ project, product, brief, productFact, curiosityAng
     disclaimer: "",
     layoutType: layoutPlan?.layoutType || "",
     curiosityAngle
-  }, { project, product, productFact, curiosityAngle });
+  }, { project, product, productFact, curiosityAngle, productVisualMode: brief.productVisualMode });
 }
 
 function normalizeAiPlan(plan) {
@@ -211,10 +211,11 @@ function uniquePoints(points) {
 function sanitizeVisibleContent(content, context) {
   const points = (content.points || []).map((point) => sanitizeVisiblePoint(point, context));
   const cleanPoints = ensureMinimumVisiblePoints(uniquePoints(points), context);
+  const headline = sanitizeHeadline(content.headline, context);
   return {
     ...content,
-    headline: sanitizeHeadline(content.headline, context),
-    subhead: sanitizeVisiblePoint(content.subhead, context),
+    headline,
+    subhead: sanitizeSubhead(content.subhead, { ...context, headline, points: cleanPoints }),
     points: cleanPoints
   };
 }
@@ -228,9 +229,42 @@ function sanitizeHeadline(value, context) {
 }
 
 function sanitizeVisiblePoint(value, context) {
-  const clean = removeTechnicalLabel(cleanSentence(value));
+  const clean = sanitizeNoPackageProductText(removeTechnicalLabel(cleanSentence(value)), context);
   if (!hasRestrictedVisibleClaim(clean, context)) return clean;
   return safeVisibleReplacement(context);
+}
+
+function sanitizeSubhead(value, context) {
+  const clean = sanitizeVisiblePoint(value, context);
+  if (isDuplicateVisibleLine(clean, context.headline)) {
+    return context.points.find((point) => !isDuplicateVisibleLine(point, context.headline)) || safeVisibleReplacement(context);
+  }
+  return clean;
+}
+
+function isDuplicateVisibleLine(value, compareTo) {
+  const left = normalizeCuriosityText(value);
+  const right = normalizeCuriosityText(compareTo);
+  if (!left || !right) return false;
+  return left === right || left.includes(right) || right.includes(left);
+}
+
+function sanitizeNoPackageProductText(value, { productVisualMode, project, product, productFact }) {
+  if (productVisualMode !== "no-package") return value;
+  const productTerms = [project?.name, product?.name, product?.components]
+    .flatMap((item) => String(item || "").split(/\s+|\+/))
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 4);
+  const pattern = productTerms.length ? new RegExp(productTerms.map(escapeRegExp).join("|"), "gi") : null;
+  const withoutProduct = pattern ? value.replace(pattern, "").replace(/\s{2,}/g, " ").trim() : value;
+  if (/упаков|этикет|флакон|бутыл|баноч|банка|sku|packshot|bottle|package|label|jar/i.test(withoutProduct)) {
+    return safeVisibleReplacement({ product, productFact });
+  }
+  return withoutProduct || safeVisibleReplacement({ product, productFact });
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function removeTechnicalLabel(value) {
@@ -255,13 +289,14 @@ function safeVisibleReplacement({ product, productFact }) {
   return productFact.action || productFact.fact || "Смотрите на проверяемую деталь, а не на обещание";
 }
 
-function ensureMinimumVisiblePoints(points, { productFact }) {
+function ensureMinimumVisiblePoints(points, context) {
+  const { productFact } = context;
   const extra = [
     productFact.action,
     productFact.fact,
     "Сравните ожидание, состав и сценарий применения",
     "Один спокойный шаг лучше громкого обещания"
-  ];
+  ].map((point) => sanitizeNoPackageProductText(cleanSentence(point), context));
   return uniquePoints([...points, ...extra]).slice(0, Math.max(4, points.length));
 }
 

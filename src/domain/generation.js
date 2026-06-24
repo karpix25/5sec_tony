@@ -22,7 +22,7 @@ import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "
 import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
 import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avatar-overlay-zone.js";
 import { formatCurrentDatePrompt } from "./current-date-context.js";
-import { getProductVisualPromptPolicy, resolveProductVisualMode } from "./product-visual-policy.js";
+import { formatProductVisualContext, getProductVisualPromptPolicy, resolveProductVisualMode } from "./product-visual-policy.js";
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
   "Не использовать английские слова, английские заголовки, латиницу, lorem ipsum, pseudo-English и UI labels вроде Subscribe, Payment, Error, Loading, Failed.",
@@ -104,10 +104,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const forbidden = compactImagePromptSource(product.forbidden.join("; "), 700);
   const shouldShowProduct = brief.productVisualMode === "exact-product";
   const productRefs = shouldShowProduct ? compactImagePromptSource((product.references || []).map((item) => `${item.title}: ${compactImagePromptSource(item.promptComment || item.imageName, 280)}`).join("; "), 1100) : "";
-  const productContext = shouldShowProduct
-    ? `Продукт для визуального показа: ${product.name}. ${product.description ? `Описание внешнего/смыслового контекста: ${compactImagePromptSource(product.description, 650)}.` : ""}`
-    : `Внутренний контекст продукта, не визуализировать как объект кадра: ${product.name}. ${product.description ? compactImagePromptSource(product.description, 650) : ""}`;
-  const productComponents = product.components ? `${shouldShowProduct ? "Состав или активные компоненты" : "Состав как внутренний факт для смысла, не рисовать как упаковку"}: ${compactImagePromptSource(product.components, 600)}.` : "";
+  const productVisualContext = formatProductVisualContext(product, brief.productVisualMode, compactImagePromptSource);
   const remoteProductRefs = (product.references || []).filter((item) => isRemoteImageUrl(item.imageData)).length;
   const localProductRefs = (product.references || []).filter((item) => item.imageData && !isRemoteImageUrl(item.imageData)).length;
   const extra = freePrompt ? `Дополнительная задача: ${compactImagePromptSource(freePrompt, 600)}.` : "";
@@ -143,8 +140,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     ...productVisibilityRules,
     getProductVisualPromptPolicy(brief.productVisualMode),
     getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode: brief.productVisualMode }),
-    productContext,
-    productComponents,
+    productVisualContext,
     productRefs ? `Референсы продукта: ${productRefs}.` : "",
     ...productDataRules,
     ...contentQualityRules,
@@ -345,19 +341,21 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const layoutContentPlan = createLayoutContentPlan(reference, hookIntelligence);
   const format = generationSeed.format || meaning.format || slot.format || pickFormat(project, reference);
   const semanticKey = generationBrief.semanticKey || slot.id;
-  const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap };
-  const editorial = createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs, brief: editorialBrief });
-  const creativeQuality = editorial.creativeQuality;
   const creativeTeamVisualMode = getCreativeTeamProductVisualMode(generationBrief);
   const productVisualMode = generationBrief.productVisualMode
     || creativeTeamVisualMode
-    || resolveProductVisualMode({ project, product, generationBrief, existingJobs });
+    || resolveProductVisualMode({ project, product, generationBrief: { ...generationSeed, topic, hook }, existingJobs });
+  const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap, productVisualMode };
+  const editorial = createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs, brief: editorialBrief });
+  const creativeQuality = editorial.creativeQuality;
   const brief = {
     topic,
     hook,
     format,
     pointCount: resolvePointCountForFormat({ format, hookCount: hookPointCount, requested: generationBrief.pointCount, product }),
-    visualObject: generationBrief.visualObject || profile.primaryVisual || meaning.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name,
+    visualObject: productVisualMode === "no-package"
+      ? generationBrief.visualObject || slot.visualObject || reference?.visualObject || "жизненная ситуация или абстрактная метафора без товара"
+      : generationBrief.visualObject || profile.primaryVisual || meaning.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name,
     cta: generationBrief.cta || "",
     salesLevel: generationBrief.salesLevel || "expert",
     notes: meaning.notes || `Контентный слот: ${slot.angle || slot.id}. Автоматически собрать смыслы из проекта, ЦА, продукта и выбранного референса.`,

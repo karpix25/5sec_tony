@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createGenerationJob } from "../src/domain/generation.js";
+import { createAutoGenerationBrief, createGenerationJob } from "../src/domain/generation.js";
 import { normalizeProductInFramePercent, resolveProductVisualMode } from "../src/domain/product-visual-policy.js";
 
 const project = { id: "project-1", name: "Проект", productInFramePercent: 30, references: [{ id: "ref-1", title: "Design" }] };
@@ -40,6 +40,7 @@ test("no-package jobs do not pass product references and forbid product visuals 
   assert.match(job.prompt, /ЖЕСТКИЙ ЗАПРЕТ ДЛЯ ФИНАЛЬНОГО ДИЗАЙНА/);
   assert.match(job.prompt, /не показывать и не описывать физический продукт/);
   assert.doesNotMatch(job.prompt, /Референсы продукта/);
+  assert.doesNotMatch(job.prompt, /Хлорофилл|Флакон|хлорофилл, мята/);
 });
 
 test("project percentage is clamped and product references are required for exact product mode", () => {
@@ -50,4 +51,22 @@ test("project percentage is clamped and product references are required for exac
     product: { ...product, references: [] },
     existingJobs: []
   }), "no-package");
+});
+
+test("visible subhead does not duplicate headline", () => {
+  const brief = createAutoGenerationBrief({
+    project,
+    product,
+    reference,
+    generationBrief: {
+      aiPlan: {
+        headline: "Почему вода кажется скучной",
+        subhead: "Почему вода кажется скучной",
+        points: ["Сначала проверьте вкус", "Добавьте спокойный ритуал"]
+      }
+    }
+  });
+
+  assert.notEqual(brief.finalContent.subhead, brief.finalContent.headline);
+  assert.match(brief.finalContent.subhead, /вкус|ритуал/i);
 });

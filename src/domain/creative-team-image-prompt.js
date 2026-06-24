@@ -5,7 +5,11 @@ import { getProductVisualPromptPolicy } from "./product-visual-policy.js";
 export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarReservedZonePrompt = "", currentDatePrompt = "" } = {}) {
   const packagePrompt = brief.imagePromptPackage?.prompt || "";
   if (!packagePrompt) return "";
-  const content = brief.contentScript || brief.finalContent || brief.aiPlan || {};
+  const productVisualMode = brief.productVisualMode || getCreativeTeamProductVisualMode(brief);
+  const content = normalizeCreativePromptContent(brief.contentScript || brief.finalContent || brief.aiPlan || {}, {
+    productVisualMode,
+    productPassport: brief.productPassport
+  });
   const visual = brief.visualBrief || {};
   const format = brief.designFormatBrief || {};
   const slots = Array.isArray(format.layoutSlots) ? format.layoutSlots : [];
@@ -13,8 +17,8 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const formatType = getEffectiveFormatType({ brief, format });
   const productDominanceContract = getRankingProductDominanceContract(formatType, brief);
   const safePackagePrompt = productDominanceContract ? sanitizeRankingPackagePrompt(packagePrompt) : packagePrompt;
-  const productVisualContract = getProductVisualPromptPolicy(brief.productVisualMode || getCreativeTeamProductVisualMode(brief));
-  const canDescribeProductVisual = (brief.productVisualMode || getCreativeTeamProductVisualMode(brief)) === "exact-product";
+  const productVisualContract = getProductVisualPromptPolicy(productVisualMode);
+  const canDescribeProductVisual = productVisualMode === "exact-product";
   return limitImagePrompt([
     productDominanceContract,
     productVisualContract,
@@ -115,6 +119,44 @@ function formatContentPoint(point) {
   return [point.rank, point.title, point.label, point.text, point.caption]
     .filter(Boolean)
     .join(": ");
+}
+
+function normalizeCreativePromptContent(content = {}, { productVisualMode, productPassport } = {}) {
+  const headline = cleanCreativeContentLine(content.headline, { productVisualMode, productPassport });
+  const points = Array.isArray(content.points)
+    ? content.points.map((point) => cleanCreativeContentLine(formatContentPoint(point), { productVisualMode, productPassport })).filter(Boolean)
+    : [];
+  const rawSubhead = cleanCreativeContentLine(content.subhead, { productVisualMode, productPassport });
+  const subhead = isDuplicateCreativeLine(rawSubhead, headline)
+    ? points.find((point) => !isDuplicateCreativeLine(point, headline)) || ""
+    : rawSubhead;
+  return { ...content, headline, subhead, points };
+}
+
+function cleanCreativeContentLine(value, { productVisualMode, productPassport } = {}) {
+  const clean = String(value || "").replace(/\s+/g, " ").trim();
+  if (productVisualMode !== "no-package") return clean;
+  const productName = productPassport?.productName || productPassport?.name || "";
+  const terms = String(productName).split(/\s+|\+/).filter((item) => item.length >= 4);
+  const productPattern = terms.length ? new RegExp(terms.map(escapeCreativeRegExp).join("|"), "gi") : null;
+  const withoutProduct = productPattern ? clean.replace(productPattern, "").replace(/\s{2,}/g, " ").trim() : clean;
+  if (/упаков|этикет|флакон|бутыл|баноч|банка|sku|packshot|bottle|package|label|jar/i.test(withoutProduct)) return "";
+  return withoutProduct.replace(/\b[A-Z]{3,}\b/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function isDuplicateCreativeLine(value, other) {
+  const left = normalizeCreativeLine(value);
+  const right = normalizeCreativeLine(other);
+  if (!left || !right) return false;
+  return left === right || left.includes(right) || right.includes(left);
+}
+
+function normalizeCreativeLine(value) {
+  return String(value || "").toLowerCase().replace(/ё/g, "е").replace(/[^а-яa-z0-9]+/g, " ").trim();
+}
+
+function escapeCreativeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function getEffectiveFormatType({ brief = {}, format = {} }) {

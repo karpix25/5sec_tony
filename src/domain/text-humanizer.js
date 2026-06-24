@@ -2,7 +2,7 @@ export function normalizeHumanizedPlan(draft, fallbackPlan, options = {}) {
   const points = normalizePoints(draft?.points, fallbackPlan.points);
   const lockedHeadline = cleanText(options.lockedHeadline);
   const headline = lockedHeadline || normalizeHeadline(draft?.headline, fallbackPlan.headline, points);
-  const subhead = normalizeSubhead(draft?.subhead, fallbackPlan.subhead);
+  const subhead = normalizeSubhead(draft?.subhead, fallbackPlan.subhead, headline, points);
   return {
     headline,
     subhead,
@@ -53,11 +53,14 @@ function normalizeHeadline(value, fallback, points = []) {
   return shortenHeadline(cleaned, points);
 }
 
-function normalizeSubhead(value, fallback) {
+function normalizeSubhead(value, fallback, headline = "", points = []) {
   const source = simplifyLine(stripTechnicalLabels(cleanText(value))) || simplifyLine(stripTechnicalLabels(cleanText(fallback)));
   if (!source) return "";
   if (/популярное объяснение|простая метафора|проблема часто скрывается/i.test(source)) {
     return "Проверьте одну привычку, которую легко не заметить.";
+  }
+  if (isSameMeaning(source, headline)) {
+    return points.find((point) => !isSameMeaning(point, headline)) || "";
   }
   return source;
 }
@@ -179,4 +182,11 @@ function normalizeMeaningKey(value) {
     .filter((word) => word.length > 3)
     .slice(0, 6)
     .join(" ");
+}
+
+function isSameMeaning(value, other) {
+  const left = normalizeMeaningKey(value);
+  const right = normalizeMeaningKey(other);
+  if (!left || !right) return false;
+  return left === right || left.includes(right) || right.includes(left);
 }
