@@ -22,3 +22,23 @@ test("project text fields render object arrays as readable text", () => {
   assert.match(html, /Женщины 25-35 — хотят простую бьюти-рутину/);
   assert.match(html, /Мамы — ищут быстрый уход без сложных схем/);
 });
+
+test("project settings expose product in frame percentage slider", () => {
+  const html = renderProjectManagementSettings({
+    project: {
+      name: "SONRE",
+      yandexDiskFolder: "disk:/ВИДЕО/5сек/SONRE",
+      productInFramePercent: 45,
+      companyAudience: "",
+      toneOfVoice: "",
+      keyScenarios: "",
+      audienceObjections: "",
+      restrictions: ""
+    }
+  });
+
+  assert.match(html, /Продукт в кадре/);
+  assert.match(html, /name="productInFramePercent"/);
+  assert.match(html, /type="range"/);
+  assert.match(html, /value="45"/);
+});

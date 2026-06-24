@@ -21,6 +21,8 @@ import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budge
 import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "./creative-team-image-prompt.js";
 import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
 import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avatar-overlay-zone.js";
+import { formatCurrentDatePrompt } from "./current-date-context.js";
+import { getProductVisualPromptPolicy, resolveProductVisualMode } from "./product-visual-policy.js";
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
   "Не использовать английские слова, английские заголовки, латиницу, lorem ipsum, pseudo-English и UI labels вроде Subscribe, Payment, Error, Loading, Failed.",
@@ -94,12 +96,18 @@ export function buildImagePrompt({ project, product, reference, character, gener
     character,
     ctaOverlay: project?.ctaOverlay
   }));
-  const creativeTeamPrompt = buildCreativeTeamImagePrompt(brief, { freePrompt, avatarReservedZonePrompt });
+  const currentDatePrompt = formatCurrentDatePrompt();
+  const creativeTeamPrompt = buildCreativeTeamImagePrompt(brief, { freePrompt, avatarReservedZonePrompt, currentDatePrompt });
   if (creativeTeamPrompt) return creativeTeamPrompt;
   const pains = compactImagePromptSource(product.pains.join(", "), 700);
   const facts = compactImagePromptSource(product.facts.join("; "), 900);
   const forbidden = compactImagePromptSource(product.forbidden.join("; "), 700);
-  const productRefs = compactImagePromptSource((product.references || []).map((item) => `${item.title}: ${compactImagePromptSource(item.promptComment || item.imageName, 280)}`).join("; "), 1100);
+  const shouldShowProduct = brief.productVisualMode === "exact-product";
+  const productRefs = shouldShowProduct ? compactImagePromptSource((product.references || []).map((item) => `${item.title}: ${compactImagePromptSource(item.promptComment || item.imageName, 280)}`).join("; "), 1100) : "";
+  const productContext = shouldShowProduct
+    ? `Продукт для визуального показа: ${product.name}. ${product.description ? `Описание внешнего/смыслового контекста: ${compactImagePromptSource(product.description, 650)}.` : ""}`
+    : `Внутренний контекст продукта, не визуализировать как объект кадра: ${product.name}. ${product.description ? compactImagePromptSource(product.description, 650) : ""}`;
+  const productComponents = product.components ? `${shouldShowProduct ? "Состав или активные компоненты" : "Состав как внутренний факт для смысла, не рисовать как упаковку"}: ${compactImagePromptSource(product.components, 600)}.` : "";
   const remoteProductRefs = (product.references || []).filter((item) => isRemoteImageUrl(item.imageData)).length;
   const localProductRefs = (product.references || []).filter((item) => item.imageData && !isRemoteImageUrl(item.imageData)).length;
   const extra = freePrompt ? `Дополнительная задача: ${compactImagePromptSource(freePrompt, 600)}.` : "";
@@ -122,6 +130,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     ...designReferenceRules,
     ...buildDesignReferenceConsistencyInstructions(reference),
     ...socialSafeZoneRules,
+    currentDatePrompt,
     avatarReservedZonePrompt,
     "Не добавлять аватара/персонажа в саму картинку. Персонаж будет наложен отдельно на этапе видео.",
     "Смыслы и формулировки создать только на основе компании, ЦА, выбранного продукта и брифа генерации.",
@@ -132,7 +141,11 @@ export function buildImagePrompt({ project, product, reference, character, gener
     finalContentInstruction,
     getContentLayerInstruction(brief.contentLayer),
     ...productVisibilityRules,
+    getProductVisualPromptPolicy(brief.productVisualMode),
     getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode: brief.productVisualMode }),
+    productContext,
+    productComponents,
+    productRefs ? `Референсы продукта: ${productRefs}.` : "",
     ...productDataRules,
     ...contentQualityRules,
     ...russianImageTextRules,
@@ -172,9 +185,6 @@ export function buildImagePrompt({ project, product, reference, character, gener
     reference?.headlineStyle ? `Стиль заголовка: ${compactImagePromptSource(reference.headlineStyle, 350)}.` : "",
     reference?.textDensity ? `Плотность текста: ${compactImagePromptSource(reference.textDensity, 220)}.` : "",
     "Аватар/персонаж: не рисовать и не встраивать в изображение.",
-    `Продукт: ${product.name}. ${product.description ? `Описание: ${compactImagePromptSource(product.description, 650)}.` : ""}`,
-    product.components ? `Состав или активные компоненты: ${compactImagePromptSource(product.components, 600)}.` : "",
-    productRefs ? `Референсы продукта: ${productRefs}.` : "",
     `Боли: ${pains}. Оффер: ${product.offer}.`,
     `Факты, которые можно использовать: ${facts}.`,
     `Запрещено обещать: ${forbidden}.`,
@@ -282,15 +292,6 @@ function getProductReferenceTransferInstruction({ remoteProductRefs, localProduc
   ].join(" ");
 }
 
-function getProductVisualMode({ product, topic, hook, visualObject }) {
-  const hasProductReference = Array.isArray(product?.references) && product.references.some((item) => isImageReferenceUrl(item?.imageData));
-  if (!hasProductReference) return "no-package";
-  const source = `${topic || ""} ${hook || ""} ${visualObject || ""}`.toLowerCase();
-  return /продукт|упаков|состав|этикет|как пить|как приним|прием|принимать|дозиров|курс|банка|флакон|капсул|таблет|выбор|что внутри|обзор/.test(source)
-    ? "exact-product"
-    : "no-package";
-}
-
 function cleanDesignReferenceText(value) {
   return String(value || "")
     .split(/(?<=[.!?])\s+|\n/)
@@ -347,6 +348,10 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap };
   const editorial = createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs, brief: editorialBrief });
   const creativeQuality = editorial.creativeQuality;
+  const creativeTeamVisualMode = getCreativeTeamProductVisualMode(generationBrief);
+  const productVisualMode = generationBrief.productVisualMode
+    || creativeTeamVisualMode
+    || resolveProductVisualMode({ project, product, generationBrief, existingJobs });
   const brief = {
     topic,
     hook,
@@ -382,12 +387,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     }),
     productInsightMap: profile.insightMap,
     aiPlan: editorial.finalContent,
-    productVisualMode: getCreativeTeamProductVisualMode(generationBrief) || generationBrief.productVisualMode || getProductVisualMode({
-      product,
-      topic,
-      hook,
-      visualObject: generationBrief.visualObject || profile.primaryVisual || meaning.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name
-    })
+    productVisualMode
   };
   return brief;
 }

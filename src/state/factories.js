@@ -1,6 +1,7 @@
 import { isDesignReference } from "../domain/references.js";
 import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
+import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
 
 export const defaultGenerationBrief = {
   topic: "",
@@ -114,6 +115,7 @@ export function ensureProjectAssets(project) {
     usedToday: normalizeAssetUsage(project.usedToday),
     projectLimit: normalizeAssetLimit(project.projectLimit, 500),
     usedTotal: normalizeAssetUsage(project.usedTotal),
+    productInFramePercent: normalizeProductInFramePercent(project.productInFramePercent),
     automation: normalizeProjectAutomation(project.automation),
     ctaOverlay: normalizeCtaOverlay(project.ctaOverlay),
     avatarRoundRobinIndex: normalizeFactoryRoundRobinIndex(project.avatarRoundRobinIndex),

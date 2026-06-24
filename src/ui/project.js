@@ -1,6 +1,7 @@
 import { escapeHtml } from "./infographic.js";
 import { projectBriefFields } from "./brief-field-labels.js";
 import { renderProjectAutomationControls } from "./project-automation-controls.js";
+import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
 
 const yandexDiskRoot = "disk:/ВИДЕО";
 
@@ -19,6 +20,7 @@ export function renderProjectManagementSettings({ project, automationState }) {
         <section class="project-core-fields">
           ${projectTextField(projectBriefFields.name.label, "name", projectBriefFields.name.placeholder, project.name)}
           ${projectYandexFolderField(project.yandexDiskFolder || yandexDiskRoot)}
+          ${projectProductInFrameField(project.productInFramePercent)}
           ${projectBriefField("companyAudience", project.companyAudience, false)}
           ${projectBriefField("toneOfVoice", project.toneOfVoice, false)}
           ${projectBriefField("keyScenarios", project.keyScenarios, false)}
@@ -61,6 +63,20 @@ function projectYandexFolderField(value = "") {
         <div class="yandex-folder-levels" data-yandex-folder-levels></div>
       </div>
       <small class="ai-field-status" data-yandex-folder-status>Загружаем папки из ${escapeHtml(yandexDiskRoot)}</small>
+    </label>
+  `;
+}
+
+function projectProductInFrameField(value) {
+  const percent = normalizeProductInFramePercent(value);
+  return `
+    <label class="stacked-field project-range-field">
+      <span>Продукт в кадре</span>
+      <div class="range-field-row">
+        <input name="productInFramePercent" class="range-input" type="range" min="0" max="100" step="5" value="${percent}" />
+        <strong>${percent}%</strong>
+      </div>
+      <small class="ai-field-status">Сколько роликов проекта должны показывать продукт визуально. Остальные используют продукт только как смысловой контекст.</small>
     </label>
   `;
 }

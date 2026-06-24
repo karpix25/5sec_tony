@@ -1,7 +1,8 @@
 import { limitImagePrompt } from "./image-prompt-budget.js";
 import { formatLayoutPlanPrompt } from "./layout-content-planner.js";
+import { getProductVisualPromptPolicy } from "./product-visual-policy.js";
 
-export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarReservedZonePrompt = "" } = {}) {
+export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarReservedZonePrompt = "", currentDatePrompt = "" } = {}) {
   const packagePrompt = brief.imagePromptPackage?.prompt || "";
   if (!packagePrompt) return "";
   const content = brief.contentScript || brief.finalContent || brief.aiPlan || {};
@@ -12,14 +13,18 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const formatType = getEffectiveFormatType({ brief, format });
   const productDominanceContract = getRankingProductDominanceContract(formatType, brief);
   const safePackagePrompt = productDominanceContract ? sanitizeRankingPackagePrompt(packagePrompt) : packagePrompt;
+  const productVisualContract = getProductVisualPromptPolicy(brief.productVisualMode || getCreativeTeamProductVisualMode(brief));
+  const canDescribeProductVisual = (brief.productVisualMode || getCreativeTeamProductVisualMode(brief)) === "exact-product";
   return limitImagePrompt([
     productDominanceContract,
+    productVisualContract,
     getTextContractRule(formatType),
     getFormatLock(formatType),
     getReferenceTraceContract(formatType),
     getRankingAdaptationContract(formatType, content),
     safePackagePrompt,
     formatLayoutPlanPrompt(brief.layoutContentPlan),
+    currentDatePrompt,
     avatarReservedZonePrompt,
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
@@ -33,7 +38,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
     grammar.hierarchy ? `Иерархия референса: ${grammar.hierarchy}.` : "",
     grammar.imageTreatment ? `Обработка изображений референса: ${grammar.imageTreatment}.` : "",
     grammar.framesAndDividers ? `Рамки и разделители: ${grammar.framesAndDividers}.` : "",
-    visual.productUsage ? `Использование продукта: ${visual.productUsage}.` : "",
+    canDescribeProductVisual && visual.productUsage ? `Использование продукта: ${visual.productUsage}.` : "",
     visual.negativeVisuals?.length ? `Не показывать: ${visual.negativeVisuals.join("; ")}.` : "",
     freePrompt ? `Дополнительная задача оператора: ${String(freePrompt).trim().slice(0, 600)}.` : ""
   ].filter(Boolean).join(" "));

@@ -341,7 +341,7 @@ test("image prompt treats local product references as transferable image input",
 });
 
 test("image prompt bans any generic package when topic is not product-centric", () => {
-  const project = projects[0];
+  const project = { ...projects[0], productInFramePercent: 0 };
   const product = {
     ...products.find((item) => item.id === "magnesium"),
     references: [{

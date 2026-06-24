@@ -1,4 +1,5 @@
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
+import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
 import { defaultProjectYandexDiskFolder } from "./factories.js";
 import { normalizeProjectDailyLimit, normalizeProjectTotalLimit } from "./store-normalizers.js";
 
@@ -15,6 +16,7 @@ export function updateProjectEntity(project, payload) {
     yandexDiskFolder,
     dailyLimit: normalizeProjectDailyLimit(value("dailyLimit", project.dailyLimit || 20)),
     projectLimit: normalizeProjectTotalLimit(value("projectLimit", project.projectLimit || 500)),
+    productInFramePercent: normalizeProductInFramePercent(value("productInFramePercent", project.productInFramePercent)),
     projectTheme: textValue("projectTheme"),
     niche: textValue("niche"),
     keyScenarios: textValue("keyScenarios"),

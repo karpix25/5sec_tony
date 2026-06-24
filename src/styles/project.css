@@ -74,6 +74,28 @@
   width: 100%;
 }
 
+.project-range-field {
+  gap: var(--space-2);
+}
+
+.range-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.range-field-row strong {
+  color: var(--color-accent-strong);
+  font-size: 18px;
+  text-align: right;
+}
+
+.range-input {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+
 .ai-field-head {
   display: flex;
   align-items: center;

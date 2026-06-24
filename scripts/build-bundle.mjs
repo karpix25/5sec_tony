@@ -32,6 +32,7 @@ const files = [
   "src/domain/image-prompt-budget.js",
   "src/domain/current-date-context.js",
   "src/domain/design-text-contract.js",
+  "src/domain/product-visual-policy.js",
   "src/domain/visible-points.js",
   "src/domain/creative-team-image-prompt.js",
   "src/domain/creative-team-payload.js",

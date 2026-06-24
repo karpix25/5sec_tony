@@ -128,7 +128,7 @@ test("reference asset logs distinguish product references", () => {
 });
 
 test("generation job skips product image inputs in no-package mode", () => {
-  const project = projects[0];
+  const project = { ...projects[0], productInFramePercent: 0 };
   const product = {
     ...products[0],
     references: [{
