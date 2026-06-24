@@ -19,7 +19,6 @@ export function renderProjectManagementSettings({ project, automationState }) {
         <section class="project-core-fields">
           ${projectTextField(projectBriefFields.name.label, "name", projectBriefFields.name.placeholder, project.name)}
           ${projectYandexFolderField(project.yandexDiskFolder || yandexDiskRoot)}
-          ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
           ${projectBriefField("companyAudience", project.companyAudience, false)}
           ${projectBriefField("toneOfVoice", project.toneOfVoice, false)}
           ${projectBriefField("keyScenarios", project.keyScenarios, false)}

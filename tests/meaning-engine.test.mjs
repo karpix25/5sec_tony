@@ -296,6 +296,7 @@ test("project management UI exposes limits and autorun controls on the right-sid
   assert.match(html, /Возражения клиентов/);
   assert.match(html, /Что нельзя обещать/);
   assert.doesNotMatch(html, /1\. Общая концепция/);
+  assert.doesNotMatch(html, /Подпись экспорта/);
   assert.match(html, /data-yandex-folder-picker/);
   assert.match(html, /name="yandexDiskFolder" type="hidden"/);
   assert.match(html, /disk:\/ВИДЕО/);
