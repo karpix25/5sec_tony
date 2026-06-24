@@ -46,7 +46,7 @@ function projectTextField(label, name, placeholder, value = "") {
   return `
     <label class="stacked-field">
       <span>${escapeHtml(label)}</span>
-      <input name="${escapeHtml(name)}" class="text-input" value="${escapeHtml(value || "")}" placeholder="${escapeHtml(placeholder)}" required />
+      <input name="${escapeHtml(name)}" class="text-input" value="${escapeHtml(projectFieldText(value))}" placeholder="${escapeHtml(placeholder)}" required />
     </label>
   `;
 }
@@ -72,8 +72,16 @@ function projectField(label, name, placeholder, value = "", showAi = true) {
         <label for="project-${escapeHtml(name)}">${escapeHtml(label)}</label>
         ${showAi ? `<button class="ai-field-btn" data-ai-project-field="${escapeHtml(name)}" type="button" title="Сгенерировать черновик с AI">AI</button>` : ""}
       </div>
-      <textarea id="project-${escapeHtml(name)}" name="${name}" class="textarea editor-textarea" placeholder="${escapeHtml(placeholder)}">${escapeHtml(value || "")}</textarea>
+      <textarea id="project-${escapeHtml(name)}" name="${name}" class="textarea editor-textarea" placeholder="${escapeHtml(placeholder)}">${escapeHtml(projectFieldText(value))}</textarea>
       <small class="ai-field-status" data-ai-status-for="${escapeHtml(name)}"></small>
     </div>
   `;
+}
+
+function projectFieldText(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(projectFieldText).filter(Boolean).join("\n");
+  if (typeof value === "object") return Object.values(value).map(projectFieldText).filter(Boolean).join(" — ");
+  return String(value);
 }
