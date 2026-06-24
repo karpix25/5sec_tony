@@ -39,6 +39,8 @@ test("no-package jobs do not pass product references and forbid product visuals 
   assert.equal(job.inputRefs.some((item) => item.role === "product"), false);
   assert.match(job.prompt, /ЖЕСТКИЙ ЗАПРЕТ ДЛЯ ФИНАЛЬНОГО ДИЗАЙНА/);
   assert.match(job.prompt, /не показывать и не описывать физический продукт/);
+  assert.match(job.prompt, /не заменять его аналогами продукта/);
+  assert.match(job.prompt, /нижний правый угол держать как чистое негативное пространство/);
   assert.doesNotMatch(job.prompt, /Референсы продукта/);
   assert.doesNotMatch(job.prompt, /Хлорофилл|Флакон|хлорофилл, мята/);
 });

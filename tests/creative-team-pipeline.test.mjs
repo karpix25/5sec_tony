@@ -240,6 +240,8 @@ test("no-package creative team prompt removes product names and packaging cues",
   });
 
   assert.match(prompt, /РЕЖИМ ПРОДУКТА В КАДРЕ: no-package/);
+  assert.match(prompt, /не заменять его аналогами продукта/);
+  assert.match(prompt, /нижний правый угол держать как чистое негативное пространство/);
   assert.doesNotMatch(prompt, /SONRE|Хлорофилл|chlorophyll|Show SONRE|Бутылка на столе/i);
   assert.doesNotMatch(prompt, /Подзаголовок: ТОП 10 привычек/);
 });

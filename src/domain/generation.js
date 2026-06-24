@@ -22,6 +22,7 @@ import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "
 import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
 import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avatar-overlay-zone.js";
 import { formatCurrentDatePrompt } from "./current-date-context.js";
+import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.js";
 import { formatProductVisualContext, getProductVisualPromptPolicy, resolveProductVisualMode } from "./product-visual-policy.js";
 const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
@@ -107,6 +108,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
   const productVisualContext = formatProductVisualContext(product, brief.productVisualMode, compactImagePromptSource);
   const remoteProductRefs = (product.references || []).filter((item) => isRemoteImageUrl(item.imageData)).length;
   const localProductRefs = (product.references || []).filter((item) => item.imageData && !isRemoteImageUrl(item.imageData)).length;
+  const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({ productVisualMode: brief.productVisualMode, hasProductReference: remoteProductRefs + localProductRefs > 0 });
   const extra = freePrompt ? `Дополнительная задача: ${compactImagePromptSource(freePrompt, 600)}.` : "";
   const plan = createSemanticPlan({ project, product, brief });
   const profile = buildProductProfile({ project, product, insightMap: brief.productInsightMap });
@@ -129,6 +131,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     ...socialSafeZoneRules,
     currentDatePrompt,
     avatarReservedZonePrompt,
+    cornerCompositionPolicy,
     "Не добавлять аватара/персонажа в саму картинку. Персонаж будет наложен отдельно на этапе видео.",
     "Смыслы и формулировки создать только на основе компании, ЦА, выбранного продукта и брифа генерации.",
     compositionInstruction,

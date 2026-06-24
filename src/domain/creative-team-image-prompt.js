@@ -1,4 +1,5 @@
 import { limitImagePrompt } from "./image-prompt-budget.js";
+import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.js";
 import { formatLayoutPlanPrompt } from "./layout-content-planner.js";
 import { getProductVisualPromptPolicy } from "./product-visual-policy.js";
 
@@ -19,6 +20,10 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const safePackagePrompt = productDominanceContract ? sanitizeRankingPackagePrompt(packagePrompt) : packagePrompt;
   const productVisualContract = getProductVisualPromptPolicy(productVisualMode);
   const canDescribeProductVisual = productVisualMode === "exact-product";
+  const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({
+    productVisualMode,
+    hasProductReference: Boolean(brief.productPassport?.productReferences?.length || brief.productReferences?.length)
+  });
   return limitImagePrompt([
     productDominanceContract,
     productVisualContract,
@@ -30,6 +35,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
     formatLayoutPlanPrompt(brief.layoutContentPlan),
     currentDatePrompt,
     avatarReservedZonePrompt,
+    cornerCompositionPolicy,
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
     Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.map(formatContentPoint).join(" | ")}.` : "",
