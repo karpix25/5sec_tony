@@ -73,7 +73,7 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
     const draft = await requestAudienceExpertDraft(store, snapshot);
     const liveForm = getLiveProjectForm(form);
     const liveSnapshot = formSnapshot(liveForm);
-    const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft);
+    const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft, { preserveFilledLiveValues: true });
     applyAudienceExpertDraft(liveForm, mergedDraft);
     store.updateProjectSettings(formSnapshot(liveForm));
     setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
@@ -168,9 +168,10 @@ function getLiveProjectForm(form) {
   return document.querySelector("#project-settings-form") || form;
 }
 
-function mergeAudienceDraft(snapshot, liveSnapshot, draft) {
+function mergeAudienceDraft(snapshot, liveSnapshot, draft, options = {}) {
   return audienceExpertFields.reduce((acc, fieldName) => {
     if (!draft[fieldName]) return acc;
+    if (options.preserveFilledLiveValues && hasMeaningfulProjectValue(liveSnapshot[fieldName])) return acc;
     if (shouldKeepLiveValue(snapshot[fieldName], liveSnapshot[fieldName])) return acc;
     acc[fieldName] = draft[fieldName];
     return acc;
@@ -183,6 +184,11 @@ function shouldKeepLiveValue(initialValue, liveValue) {
 
 function normalizeProjectComparableValue(value) {
   return String(value || "").trim();
+}
+
+function hasMeaningfulProjectValue(value) {
+  const text = normalizeProjectComparableValue(value);
+  return Boolean(text && !/^\[object Object\](,\[object Object\])*$/.test(text));
 }
 
 function setStatus(status, text, tone) {

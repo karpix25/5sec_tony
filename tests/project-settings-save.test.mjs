@@ -48,7 +48,96 @@ test("project save keeps fresh form values after ai memory refresh", async () =>
   assert.equal(updates[0].dailyLimit, "20");
   assert.equal(updates.at(-1).dailyLimit, "33");
   assert.equal(updates.at(-1).yandexDiskFolder, "disk:/ВИДЕО/5сек/Новое");
+  assert.equal(updates.at(-1).companyAudience, "ЦА");
+});
+
+test("project save only applies ai memory to empty fields", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  const form = createProjectSettingsForm({
+    name: "Проект",
+    yandexDiskFolder: "disk:/ВИДЕО/Старое",
+    dailyLimit: "20",
+    projectLimit: "100",
+    projectTheme: "Тема",
+    companyAudience: "",
+    toneOfVoice: "Ручной тон"
+  });
+  const updates = [];
+  const store = {
+    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project", companyInfo: "" }], products: [] }),
+    updateProjectSettings: (payload) => updates.push({ ...payload })
+  };
+
+  globalThis.FormData = class FakeFormData {
+    constructor(target) {
+      this.entriesList = Object.entries(target.values);
+    }
+    entries() {
+      return this.entriesList[Symbol.iterator]();
+    }
+    [Symbol.iterator]() {
+      return this.entriesList[Symbol.iterator]();
+    }
+  };
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({ draft: { companyAudience: "AI ЦА", toneOfVoice: "AI тон" } })
+  });
+
+  try {
+    await saveProjectAndRefreshAiMemory(form, store);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.FormData = originalFormData;
+  }
+
   assert.equal(updates.at(-1).companyAudience, "AI ЦА");
+  assert.equal(updates.at(-1).toneOfVoice, "Ручной тон");
+});
+
+test("project save can repair object-object placeholder values from ai memory", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  const form = createProjectSettingsForm({
+    name: "Проект",
+    yandexDiskFolder: "disk:/ВИДЕО/Старое",
+    dailyLimit: "20",
+    projectLimit: "100",
+    projectTheme: "Тема",
+    companyAudience: "[object Object],[object Object],[object Object]"
+  });
+  const updates = [];
+  const store = {
+    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project", companyInfo: "" }], products: [] }),
+    updateProjectSettings: (payload) => updates.push({ ...payload })
+  };
+
+  globalThis.FormData = class FakeFormData {
+    constructor(target) {
+      this.entriesList = Object.entries(target.values);
+    }
+    entries() {
+      return this.entriesList[Symbol.iterator]();
+    }
+    [Symbol.iterator]() {
+      return this.entriesList[Symbol.iterator]();
+    }
+  };
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({ draft: { companyAudience: "Женщины 25-35\nМамы" } })
+  });
+
+  try {
+    await saveProjectAndRefreshAiMemory(form, store);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.FormData = originalFormData;
+  }
+
+  assert.equal(updates.at(-1).companyAudience, "Женщины 25-35\nМамы");
+  assert.doesNotMatch(updates.at(-1).companyAudience, /\[object Object\]/);
 });
 
 test("project save reads fresh values from live form after rerender", async () => {
