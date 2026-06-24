@@ -290,8 +290,11 @@ test("project management UI exposes limits and autorun controls on the right-sid
     }
   });
 
-  assert.match(html, /Ниша и суть проекта/);
-  assert.match(html, /Кто покупает/);
+  assert.match(html, /1\. Общая концепция/);
+  assert.match(html, /Целевая аудитория/);
+  assert.match(html, /Тон и стиль видео/);
+  assert.match(html, /Что МОЖНО и НУЖНО показывать/);
+  assert.match(html, /Возражения клиентов/);
   assert.match(html, /Что нельзя обещать/);
   assert.match(html, /data-yandex-folder-picker/);
   assert.match(html, /name="yandexDiskFolder" type="hidden"/);
@@ -313,8 +316,9 @@ test("product settings keep the operator questionnaire compact", () => {
 
   assert.match(html, /Что это за продукт/);
   assert.match(html, /Зачем покупают/);
-  assert.match(html, /Роль продукта/);
-  assert.match(html, /Можно говорить/);
+  assert.match(html, /УТП продукта/);
+  assert.match(html, /Что есть в негативных отзывах у ваших конкурентов/);
+  assert.match(html, /Детализация физических свойств продукта/);
   assert.match(html, /Что нельзя обещать/);
   assert.doesNotMatch(html, /Боли аудитории|Желания аудитории|Смежные привычки|Контентная стратегия|Сценарные кластеры/);
 });

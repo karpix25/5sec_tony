@@ -1,7 +1,7 @@
 const modalSelector = "#product-fields-modal";
 const formSelector = "#product-settings-form";
 const modalTitleSelector = ".panel-head h2";
-const syncFieldNames = ["description", "pains", "offer", "facts", "forbidden"];
+const syncFieldNames = ["description", "pains", "offer", "facts", "components", "forbidden"];
 
 export function syncProductDraftToFieldsModal(root) {
   const form = root?.querySelector?.(formSelector);

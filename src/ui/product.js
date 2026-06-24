@@ -1,4 +1,5 @@
 import { escapeHtml } from "./infographic.js";
+import { productBriefFields } from "./brief-field-labels.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 
 export function renderProductSettings({ product }) {
@@ -21,7 +22,7 @@ export function renderProductSettings({ product }) {
               <div><span class="eyebrow">Основа</span><h3>Название продукта</h3></div>
               <span class="product-status ${ready ? "ready" : ""}">${ready ? "готов к генерации" : "нужны фото"}</span>
             </div>
-            ${productField("Название продукта", "name", "Например: Пептидная сыворотка", "input", product.name, true)}
+            ${productBriefField("name", "input", product.name, true)}
           </section>
           ${renderProductSummary(product, ready)}
           <div class="form-actions">
@@ -79,10 +80,11 @@ function renderProductSummary(product, ready) {
       </div>
       ${ready ? `
         <div class="product-summary-grid">
-          ${summaryItem("Что это", product.description || "не заполнено")}
+          ${summaryItem(productBriefFields.description.label, product.description || "не заполнено")}
           ${summaryItem("Зачем покупают", listValue(product.pains) || "не заполнено")}
-          ${summaryItem("Роль продукта", product.offer || "не заполнено")}
-          ${summaryItem("Можно говорить", listValue(product.facts) || "не заполнено")}
+          ${summaryItem(productBriefFields.offer.label, product.offer || "не заполнено")}
+          ${summaryItem(productBriefFields.components.label, product.components || "не заполнено")}
+          ${summaryItem(productBriefFields.facts.label, listValue(product.facts) || "не заполнено")}
         </div>
       ` : `<div class="locked-note">Универсальная анкета появится после загрузки фото и анализа продукта.</div>`}
     </section>
@@ -99,11 +101,12 @@ function renderProductFieldsModal(product, ready) {
           <button class="danger-icon" data-close-product-fields-modal type="button" aria-label="Закрыть">×</button>
         </div>
         ${ready ? `
-          ${productField("Что это за продукт?", "description", "Одно человеческое описание: категория, формат, для чего он в жизни человека.", "textarea", product.description, false, "product-settings-form")}
-          ${productField("Зачем покупают?", "pains", "Боль и желание в одном поле: что человек хочет решить или почувствовать.", "textarea", listValue(product.pains), false, "product-settings-form")}
-          ${productField("Роль продукта", "offer", "Например: часть утренней рутины, понятный сервис оплаты, простой шаг в уходе.", "textarea", product.offer, false, "product-settings-form")}
-          ${productField("Можно говорить", "facts", "Безопасные факты: состав, формат, реальные свойства, видимые детали, сценарий использования.", "textarea", listValue(product.facts), false, "product-settings-form")}
-          ${productField("Что нельзя обещать?", "forbidden", "Самые важные запреты: лечение, гарантии, диагнозы, сроки результата, обход правил.", "textarea", listValue(product.forbidden), false, "product-settings-form")}
+          ${productBriefField("description", "textarea", product.description, false, "product-settings-form")}
+          ${productBriefField("pains", "textarea", listValue(product.pains), false, "product-settings-form")}
+          ${productBriefField("offer", "textarea", product.offer, false, "product-settings-form")}
+          ${productBriefField("facts", "textarea", listValue(product.facts), false, "product-settings-form")}
+          ${productBriefField("components", "textarea", product.components, false, "product-settings-form")}
+          ${productBriefField("forbidden", "textarea", listValue(product.forbidden), false, "product-settings-form")}
           <button class="secondary-btn" form="product-settings-form" type="submit">Сохранить анкету</button>
         ` : `<div class="locked-note">Сначала загрузите фото продукта и запустите анализ.</div>`}
       </section>
@@ -137,7 +140,7 @@ function renderCreateProductModal() {
           <button class="danger-icon" data-close-product-modal type="button" aria-label="Закрыть">×</button>
         </div>
         <form id="product-form" class="ops-form text-editor-form product-create-form">
-          ${productField("Название нового продукта", "name", "Например: Пробиотик Детокс", "input", "", true)}
+          ${productBriefField("name", "input", "", true)}
           <label class="stacked-field">
             <span>Фото упаковки и этикетки</span>
             <input name="photos" class="file-input" type="file" accept="image/*" multiple required />
@@ -198,6 +201,11 @@ function renderProductReferenceModal() {
 
 function summaryItem(label, value) {
   return `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
+function productBriefField(name, type = "input", value = "", required = false, formId = "") {
+  const field = productBriefFields[name];
+  return productField(field.label, name, field.placeholder, type, value, required, formId);
 }
 
 function renderProductReference(reference) {

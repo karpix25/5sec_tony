@@ -1,4 +1,5 @@
 import { escapeHtml } from "./infographic.js";
+import { projectBriefFields } from "./brief-field-labels.js";
 import { renderProjectAutomationControls } from "./project-automation-controls.js";
 
 const yandexDiskRoot = "disk:/ВИДЕО";
@@ -16,12 +17,15 @@ export function renderProjectManagementSettings({ project, automationState }) {
     <form id="project-settings-form" class="ops-form text-editor-form project-settings-form">
       <div class="project-settings-layout">
         <section class="project-core-fields">
-          ${projectTextField("Название проекта", "name", "Например: БАДы / Beauty / Плати по миру", project.name)}
+          ${projectTextField(projectBriefFields.name.label, "name", projectBriefFields.name.placeholder, project.name)}
           ${projectYandexFolderField(project.yandexDiskFolder || yandexDiskRoot)}
           ${projectTextField("Подпись экспорта", "exportFolder", "Как показывать папку в интерфейсе", project.exportFolder)}
-          ${projectField("Ниша и суть проекта", "projectTheme", "Например: БАДы/wellness для простых ежедневных привычек. Что продаем и зачем это людям.", project.projectTheme || project.companyInfo, false)}
-          ${projectField("Кто покупает", "companyAudience", "Одной строкой: кто аудитория и какая у нее главная боль или желание.", project.companyAudience, false)}
-          ${projectField("Что нельзя обещать", "restrictions", "Запреты и рамки: лечение, гарантии, диагнозы, обход правил, финансовые обещания.", project.restrictions, false)}
+          ${projectBriefField("projectTheme", project.projectTheme || project.companyInfo, false)}
+          ${projectBriefField("companyAudience", project.companyAudience, false)}
+          ${projectBriefField("toneOfVoice", project.toneOfVoice, false)}
+          ${projectBriefField("keyScenarios", project.keyScenarios, false)}
+          ${projectBriefField("audienceObjections", project.audienceObjections, false)}
+          ${projectBriefField("restrictions", project.restrictions, false)}
         </section>
         <aside class="project-side-column">
           ${renderProjectAutomationControls(project, safeAutomationState)}
@@ -33,6 +37,11 @@ export function renderProjectManagementSettings({ project, automationState }) {
       </div>
     </form>
   `;
+}
+
+function projectBriefField(name, value = "", showAi = true) {
+  const field = projectBriefFields[name];
+  return projectField(field.label, name, field.placeholder, value, showAi);
 }
 
 function projectTextField(label, name, placeholder, value = "") {
