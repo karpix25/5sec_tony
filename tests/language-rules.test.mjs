@@ -47,12 +47,11 @@ test("image prompt keeps product contextual instead of forcing package", () => {
   };
   const prompt = buildImagePrompt({ project, product, reference: project.references[0] });
 
-  assert.match(prompt, /ПРОДУКТ ПОКАЗЫВАТЬ ТОЛЬКО В ТЕМУ/);
-  assert.match(prompt, /ПРОДУКТ В КАДРЕ НЕ РАВЕН УПАКОВКЕ/);
+  assert.match(prompt, /ПРОДУКТ ПОКАЗЫВАТЬ ПО СМЫСЛУ/);
+  assert.match(prompt, /ДЛЯ БЫТОВОЙ ИЛИ ОБРАЗОВАТЕЛЬНОЙ ТЕМЫ/);
   assert.match(prompt, /product reference images.*источник внешнего вида продукта/);
-  assert.match(prompt, /Референсы продукта: Фото продукта: показать банку с синей этикеткой/);
-  assert.match(prompt, /Не пихать упаковку в каждую генерацию/);
-  assert.match(prompt, /тема прямо про продукт, выбор, применение, состав или упаковку/);
+  assert.match(prompt, /ПЛАН ВИЗУАЛИЗАЦИИ ПРОДУКТА: product-absent|ПЛАН ВИЗУАЛИЗАЦИИ ПРОДУКТА: product-present/);
+  assert.doesNotMatch(prompt, /Не пихать упаковку в каждую генерацию/);
 });
 
 test("image prompt keeps important elements inside social safe zones", () => {

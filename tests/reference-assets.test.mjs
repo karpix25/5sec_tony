@@ -32,7 +32,7 @@ test("generation job keeps local product references for image-to-image handoff",
   assert.deepEqual(job.inputUrls, [tinyPng]);
   assert.deepEqual(job.inputRefs, [{ role: "product", title: "Реальная упаковка", isLocalData: true }]);
   assert.match(job.prompt, /Референсы продукта: Реальная упаковка: белая бутылка с зеленой этикеткой/);
-  assert.match(job.prompt, /РЕЖИМ ПРОДУКТА: exact-product/);
+  assert.match(job.prompt, /PRODUCT REFERENCE PLAN: product-present/);
   assert.doesNotMatch(job.prompt, /он не передан в image-to-image/);
 });
 
@@ -152,7 +152,8 @@ test("generation job skips product image inputs in no-package mode", () => {
   assert.equal(job.productVisualMode, "no-package");
   assert.deepEqual(job.inputRefs, []);
   assert.deepEqual(job.inputUrls, []);
-  assert.match(job.prompt, /Не показывать упаковку продукта вообще/);
+  assert.match(job.prompt, /PRODUCT REFERENCE PLAN: product-absent/);
+  assert.match(job.prompt, /retention visual/);
 });
 
 function createJsonCaptureResponse() {

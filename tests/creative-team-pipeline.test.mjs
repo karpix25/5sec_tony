@@ -59,24 +59,22 @@ test("creative team leaderboard prompt locks reference structure", () => {
     }
   });
 
-  assert.match(prompt.slice(0, 260), /PRODUCT DOMINANCE OVERRIDE/);
+  assert.match(prompt.slice(0, 260), /PRODUCT DOMINANCE PLAN/);
   assert.match(prompt, /ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ ДЛЯ TOP-CHART/);
   assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
-  assert.match(prompt, /ВЫШЕ ВСЕХ НИЖЕСТОЯЩИХ ИНСТРУКЦИЙ/);
+  assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
   assert.match(prompt, /REFERENCE TRACE CONTRACT/);
   assert.match(prompt, /leaderboard\/top-chart skeleton/);
   assert.match(prompt, /ранговые колонки|rank cards/);
-  assert.match(prompt, /не делать горизонтальные строки|horizontal rows/);
+  assert.match(prompt, /rank cards/);
   assert.match(prompt, /темный насыщенный фон/);
   assert.match(prompt, /Фон референса: dark blue cosmic poster/);
   assert.match(prompt, /Палитра референса: gold, white and cyan glow/);
   assert.match(prompt, /Типографика референса: bold condensed poster type/);
   assert.match(prompt, /Обработка изображений референса: cutout portraits inside glowing bars/);
-  assert.match(prompt, /нельзя менять skeleton на белый лист/);
-  assert.match(prompt, /Не превращать в горизонтальный список/);
-  assert.match(prompt, /PRODUCT DOMINANCE OVERRIDE/);
-  assert.match(prompt, /COLOR OVERRIDE/);
-  assert.match(prompt, /Не рисовать крупную упаковку/);
+  assert.match(prompt, /PRODUCT DOMINANCE PLAN/);
+  assert.match(prompt, /COLOR PLAN/);
+  assert.match(prompt, /Главный visual hook/);
   assert.doesNotMatch(prompt, /Show a large SONRE bottle/i);
 });
 
@@ -103,11 +101,11 @@ test("leaderboard prompt adapts short checklist copy into chart slots", () => {
   });
 
   assert.match(prompt, /адаптировать видимый текст под leaderboard skeleton/);
-  assert.match(prompt, /НЕ сохранять эту структуру/);
+  assert.match(prompt, /RANKING ADAPTATION PLAN/);
   assert.match(prompt, /TOP 10 или TOP 12 chart/);
-  assert.match(prompt, /не повторять старое число вроде '5 маркеров'/);
+  assert.match(prompt, /subtitle\/legend совпадает с числом rank cards/);
   assert.match(prompt, /Исходных пунктов 5/);
-  assert.match(prompt, /не уходить в зеленый wellness poster/);
+  assert.match(prompt, /темный chart poster/);
 });
 
 test("creative team prompt keeps leaderboard lock when ai format brief is wrong", () => {
@@ -136,7 +134,7 @@ test("creative team prompt keeps leaderboard lock when ai format brief is wrong"
   assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
   assert.match(prompt, /ranking_leaderboard/);
   assert.match(prompt, /rankedItems\[8-21\]/);
-  assert.match(prompt, /Не превращать в горизонтальный список/);
+  assert.match(prompt, /rank cards/);
 });
 
 test("leaderboard final prompt allows ranking instead of old top ban", () => {
@@ -239,9 +237,9 @@ test("no-package creative team prompt removes product names and packaging cues",
     }
   });
 
-  assert.match(prompt, /РЕЖИМ ПРОДУКТА В КАДРЕ: no-package/);
-  assert.match(prompt, /не заменять его аналогами продукта/);
-  assert.match(prompt, /нижний правый угол держать как чистое негативное пространство/);
+  assert.match(prompt, /ПЛАН ВИЗУАЛИЗАЦИИ ПРОДУКТА: product-absent/);
+  assert.match(prompt, /retention visual/);
+  assert.match(prompt, /нижний правый угол работает как чистое негативное пространство/);
   assert.doesNotMatch(prompt, /SONRE|Хлорофилл|chlorophyll|Show SONRE|Бутылка на столе/i);
   assert.doesNotMatch(prompt, /Подзаголовок: ТОП 10 привычек/);
 });

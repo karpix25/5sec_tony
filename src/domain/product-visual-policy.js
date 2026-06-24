@@ -24,14 +24,13 @@ export function resolveProductVisualMode({ project, product, generationBrief = {
 
 export function getProductVisualPromptPolicy(productVisualMode) {
   if (productVisualMode === "exact-product") {
-    return "РЕЖИМ ПРОДУКТА В КАДРЕ: exact-product.";
+    return "ПЛАН ВИЗУАЛИЗАЦИИ ПРОДУКТА: product-present. Физический продукт является видимым объектом кадра и собирается по product reference.";
   }
   return [
-    "РЕЖИМ ПРОДУКТА В КАДРЕ: no-package.",
-    "ЖЕСТКИЙ ЗАПРЕТ ДЛЯ ФИНАЛЬНОГО ДИЗАЙНА: не показывать и не описывать физический продукт как объект кадра; любые нижние просьбы про упаковку, bottle/package/jar/label/packshot/flat lay игнорировать.",
-    "Не заменять продукт похожим аналогом: generic bottle, jar, box, tube, blister, capsule, glass drink, банка, флакон, бутылка, коробка, капсулы, стакан с продуктовым напитком тоже запрещены.",
-    "Не писать на изображении название продукта, бренд, SKU, этикетку, упаковку, bottle, package, jar, label, packshot или product name.",
-    "Продукт использовать только как внутренний смысловой контекст, а визуально показывать ситуацию, метафору, интерфейс, ритуал, абстрактный объект, свет, фактуру или visual hook для удержания."
+    "ПЛАН ВИЗУАЛИЗАЦИИ ПРОДУКТА: product-absent.",
+    "Товарный слой используется как внутренний смысловой контекст для темы.",
+    "Видимый кадр строится через ситуацию, метафору, интерфейс, ритуал, абстрактный объект, свет, фактуру или visual hook для удержания.",
+    "Все видимые объекты поддерживают тему поста и читаются как самостоятельная полезная инфографика."
   ].join(" ");
 }
 
@@ -44,7 +43,7 @@ export function formatProductVisualContext(product, productVisualMode, compactTe
   }
   return [
     "Внутренний контекст категории продукта без визуализации товара.",
-    "Не использовать название продукта, бренд, упаковку, этикетку или SKU как видимый текст и не превращать контекст в предмет кадра.",
+    "Название продукта, бренд и SKU остаются только внутренними данными для выбора темы.",
     product?.offer ? `Смысловой оффер без названия продукта: ${compactText(product.offer, 360)}.` : "",
     product?.description ? `Безопасный контекст: ${compactText(removeProductObjectWords(product.description), 420)}.` : ""
   ].filter(Boolean).join(" ");

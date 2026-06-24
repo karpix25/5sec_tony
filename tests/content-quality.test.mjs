@@ -236,6 +236,7 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /НЕ ИСПОЛЬЗОВАТЬ ТЕХНИЧЕСКИЕ ЗАГОЛОВКИ/);
   assert.match(job.prompt, /ПОНЯТНЫЙ ЗАГОЛОВОК/);
   assert.match(job.prompt, /СВЯЗЬ ПРОДУКТА С ТЕМОЙ/);
+  assert.match(job.prompt, /ТОЧНОСТЬ ПРОДУКТА: форма, цвет, этикетка/);
   assert.match(job.prompt, /CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН/);
   assert.match(job.prompt, /КОРОТКИЙ ЗАГОЛОВОК/);
   assert.match(job.prompt, /ЛОГИКА ТЕКСТА/);
@@ -255,8 +256,8 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /без футера и без нижней рекламной или защитной плашки/);
   assert.match(job.prompt, /Дисклеймеры не являются контентом/);
   assert.match(job.prompt, /ТОЧНОСТЬ ПРОДУКТА/);
-  assert.match(job.prompt, /не менять форму упаковки, цвет, этикетку/);
-  assert.match(job.prompt, /Не придумывать новые варианты упаковки/);
+  assert.match(job.prompt, /форма, цвет, этикетка, название, формат/);
+  assert.match(job.prompt, /Крупный продуктовый объект появляется только вместе с product reference/);
   assert.match(job.prompt, /Не называть БАД.*лекарством/);
   assert.match(job.prompt, /АНКЕТА ПРОДУКТА — ИСТОЧНИК ИСТИНЫ/);
   assert.match(job.prompt, /Видимые обещания, свойства, состав, формат, объем, бренд, дозировка/);
@@ -330,13 +331,13 @@ test("image prompt treats local product references as transferable image input",
     }
   });
 
-  assert.match(job.prompt, /ПРОДУКТ ПОКАЗЫВАТЬ ТОЛЬКО В ТЕМУ/);
-  assert.match(job.prompt, /ПРОДУКТ В КАДРЕ НЕ РАВЕН УПАКОВКЕ/);
-  assert.match(job.prompt, /Не пихать упаковку в каждую генерацию/);
-  assert.match(job.prompt, /РЕЖИМ ПРОДУКТА: exact-product/);
+  assert.match(job.prompt, /ПРОДУКТ ПОКАЗЫВАТЬ ПО СМЫСЛУ/);
+  assert.match(job.prompt, /ПРОДУКТ В КАДРЕ — ЭТО ТОЧНЫЙ PRODUCT REFERENCE/);
+  assert.match(job.prompt, /ПЛАН ВИЗУАЛИЗАЦИИ ПРОДУКТА: product-present/);
+  assert.match(job.prompt, /PRODUCT REFERENCE PLAN: product-present/);
   assert.match(job.prompt, /Локальные product reference images будут опубликованы как S3\/public URL/);
   assert.match(job.prompt, /Тема требует показать продукт/);
-  assert.match(job.prompt, /generic bottle, generic jar, flask или чужой упаковкой/);
+  assert.doesNotMatch(job.prompt, /generic bottle, generic jar, flask/);
   assert.equal(job.productVisualMode, "exact-product");
 });
 
@@ -362,9 +363,9 @@ test("image prompt bans any generic package when topic is not product-centric", 
     }
   });
 
-  assert.match(job.prompt, /РЕЖИМ ПРОДУКТА: no-package/);
-  assert.match(job.prompt, /Не показывать упаковку продукта вообще/);
-  assert.match(job.prompt, /Не рисовать никакую банку, флакон, коробку, капсулы, бутылку/);
+  assert.match(job.prompt, /PRODUCT REFERENCE PLAN: product-absent/);
+  assert.match(job.prompt, /retention visual/);
+  assert.doesNotMatch(job.prompt, /Не показывать упаковку продукта вообще|Не рисовать никакую банку/);
   assert.equal(job.productVisualMode, "no-package");
 });
 
