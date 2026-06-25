@@ -244,6 +244,30 @@ test("no-package creative team prompt removes product names and packaging cues",
   assert.doesNotMatch(prompt, /Подзаголовок: ТОП 10 привычек/);
 });
 
+test("creative team prompt removes visible medicine disclaimers", () => {
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const prompt = buildImagePrompt({
+    project,
+    product,
+    reference: project.references[0],
+    generationBrief: {
+      productVisualMode: "exact-product",
+      imagePromptPackage: { prompt: "Vertical wellness poster. Add a note: Не является лекарственным средством." },
+      contentScript: {
+        headline: "Почему вода не бодрит",
+        subhead: "Проверьте ритуал утром",
+        points: ["Вода работает как база", "Не является лекарственным средством", "Скучный вкус ломает привычку"]
+      },
+      visualBrief: { productUsage: "exact_product" }
+    }
+  });
+
+  assert.match(prompt, /Почему вода не бодрит/);
+  assert.match(prompt, /Скучный вкус ломает привычку/);
+  assert.doesNotMatch(prompt, /не является лекарственным средством|лекарственным средством/i);
+});
+
 test("creative team brief runner executes role chain and flattens legacy fields", async () => {
   const responses = [
     { productPassport: { productName: "Магний", safeFacts: ["вечерний формат"], forbiddenClaims: ["лечит сон"] } },

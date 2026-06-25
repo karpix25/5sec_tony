@@ -109,12 +109,12 @@ function formatGrammarLine(label, value, formatType = "") {
 }
 
 function sanitizePackagePrompt(prompt = "", { formatType, productVisualMode, productPassport } = {}) {
-  const shouldSanitize = productVisualMode === "no-package" || formatType === "ranking_leaderboard";
-  if (!shouldSanitize) return prompt;
-  return sanitizePackagePromptLines(prompt, productPassport);
+  return sanitizePackagePromptLines(prompt, productPassport, {
+    removeProduct: productVisualMode === "no-package" || formatType === "ranking_leaderboard"
+  });
 }
 
-function sanitizePackagePromptLines(prompt = "", productPassport = {}) {
+function sanitizePackagePromptLines(prompt = "", productPassport = {}, { removeProduct = false } = {}) {
   const productName = productPassport?.productName || productPassport?.name || "";
   const terms = String(productName).split(/\s+|\+/).filter((item) => item.length >= 4);
   const productPattern = terms.length ? new RegExp(terms.map(escapeCreativeRegExp).join("|"), "i") : null;
@@ -122,8 +122,9 @@ function sanitizePackagePromptLines(prompt = "", productPassport = {}) {
     .split(/(?<=[.!?])\s+|\n+/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((line) => !productPattern?.test(line))
-    .filter((line) => !/sonre|chlorophyll|хлорофилл|флакон|бутыл|банка|упаков|packshot|bottle|package|стакан|энерг|бодрост|вынослив|иммун|гидратац|баланс|detox|детокс|поможет|вернет|восстанов/i.test(line));
+    .filter((line) => !isDisclaimerCreativeLine(line))
+    .filter((line) => !removeProduct || !productPattern?.test(line))
+    .filter((line) => !removeProduct || !/sonre|chlorophyll|хлорофилл|флакон|бутыл|банка|упаков|packshot|bottle|package|стакан|энерг|бодрост|вынослив|иммун|гидратац|баланс|detox|детокс|поможет|вернет|восстанов/i.test(line));
   return safeLines.join(" ") || "Vertical 9:16 top-chart infographic adapted from the design reference.";
 }
 
@@ -148,6 +149,7 @@ function normalizeCreativePromptContent(content = {}, { productVisualMode, produ
 
 function cleanCreativeContentLine(value, { productVisualMode, productPassport } = {}) {
   const clean = String(value || "").replace(/\s+/g, " ").trim();
+  if (isDisclaimerCreativeLine(clean)) return "";
   if (productVisualMode !== "no-package") return clean;
   const productName = productPassport?.productName || productPassport?.name || "";
   const terms = String(productName).split(/\s+|\+/).filter((item) => item.length >= 4);
@@ -155,6 +157,10 @@ function cleanCreativeContentLine(value, { productVisualMode, productPassport } 
   const withoutProduct = productPattern ? clean.replace(productPattern, "").replace(/\s{2,}/g, " ").trim() : clean;
   if (/упаков|этикет|флакон|бутыл|баноч|банка|sku|packshot|bottle|package|label|jar/i.test(withoutProduct)) return "";
   return withoutProduct.replace(/\b[A-Z]{3,}\b/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function isDisclaimerCreativeLine(value = "") {
+  return /не является\s+(?:лекар|медицинск)|лекарственным\s+средством|не\s+лечит|бад\.?|биологически\s+активн|есть\s+противопоказан|проконсультируйтесь|консультац[а-я\s]+врач|информация\s+не\s+заменяет|не\s+заменяет\s+консультац/i.test(String(value));
 }
 
 function isDuplicateCreativeLine(value, other) {

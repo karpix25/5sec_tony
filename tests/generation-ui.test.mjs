@@ -158,6 +158,62 @@ test("generation batch prepares a fresh creative brief for each job", async () =
   }
 });
 
+test("generation batch sends previous batch jobs to creative team preflight", async () => {
+  const previousFetch = globalThis.fetch;
+  const root = new FakeElement();
+  const createJobButton = new FakeElement({ id: "create-job" });
+  const countInput = new FakeElement({ id: "generation-count", value: "2" });
+  const status = new FakeElement({ id: "creative-team-status" });
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const requestBodies = [];
+  let requestIndex = 0;
+  globalThis.fetch = async (_url, options) => {
+    requestIndex += 1;
+    requestBodies.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      json: async () => ({ draft: { topic: `Тема ${requestIndex}`, hook: `Хук ${requestIndex}` } })
+    };
+  };
+  const state = {
+    projects: [project],
+    products: [product],
+    selectedProjectId: project.id,
+    selectedProductId: product.id,
+    selectedReferenceId: project.references[0].id,
+    selectedCharacterId: "__no_avatar__",
+    selectedAudioId: "",
+    audioLibrary: [],
+    hookLibrary: {},
+    jobs: []
+  };
+  const createdJobs = [];
+  const store = {
+    getState: () => state,
+    updateGenerationBrief() {},
+    createJob() {
+      const job = { id: `job-${createdJobs.length + 1}`, projectId: project.id, title: `Хук ${createdJobs.length + 1}`, topic: `Тема ${createdJobs.length + 1}` };
+      createdJobs.push(job);
+      return job;
+    },
+    selectProjectTab() {}
+  };
+
+  try {
+    root.append(createJobButton, countInput, status);
+    bindGenerationPanelEvents(root, store);
+    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(requestBodies.length, 2);
+    assert.equal(requestBodies[0].existingJobs.length, 0);
+    assert.equal(requestBodies[1].existingJobs.some((job) => job.title === "Хук 1" || job.topic === "Тема 1"), true);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("generation start switches to queue and creates fallback job when ai brief fails", async () => {
   const previousFetch = globalThis.fetch;
   const root = new FakeElement();

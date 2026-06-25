@@ -73,13 +73,17 @@ async function runCreativeTeamPreflight(root, store, batch = {}) {
   const state = store.getState();
   const context = getContext(state);
   const batchLabel = batch.count > 1 ? ` ${batch.index + 1}/${batch.count}` : "";
+  const existingJobs = [
+    ...(state.jobs?.filter((job) => job.projectId === context.project.id) || []),
+    ...(batch.batchJobs || [])
+  ];
   if (status) status.textContent = `AI-команда собирает паспорт продукта, сценарий и промпт${batchLabel}...`;
   try {
     const brief = await generateAiBrief({
       project: context.project,
       product: context.product,
       reference: context.reference,
-      existingJobs: state.jobs?.filter((job) => job.projectId === context.project.id) || [],
+      existingJobs,
       hookLibrary: context.hookLibrary
     });
     store.updateGenerationBrief(brief);
@@ -92,7 +96,7 @@ async function runCreativeTeamPreflight(root, store, batch = {}) {
 async function createCreativeTeamJobs(root, store, count) {
   const jobs = [];
   for (let index = 0; index < count; index += 1) {
-    await runCreativeTeamPreflight(root, store, { index, count });
+    await runCreativeTeamPreflight(root, store, { index, count, batchJobs: jobs });
     const job = store.createJob();
     if (job) jobs.push(job);
   }
