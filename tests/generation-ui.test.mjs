@@ -25,8 +25,8 @@ test("generation start clamps invalid count and switches to queue tab", () => {
   createJobButton.dispatchEvent({ type: "click", target: createJobButton });
 
   assert.deepEqual(calls, [
-    ["selectProjectTab", "queue"],
-    ["createJobs", 10]
+    ["createJobs", 10],
+    ["selectProjectTab", "queue"]
   ]);
 });
 
@@ -82,9 +82,9 @@ test("generation start prepares creative team brief before creating jobs", async
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.deepEqual(calls, [
-      ["selectProjectTab", "queue"],
       ["updateGenerationBrief", "Почему вечерний ритуал срывается"],
-      ["createJob"]
+      ["createJob"],
+      ["selectProjectTab", "queue"]
     ]);
     assert.equal(status.textContent, "AI-команда подготовила сценарий и промпт.");
   } finally {
@@ -146,11 +146,11 @@ test("generation batch prepares a fresh creative brief for each job", async () =
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.deepEqual(calls, [
-      ["selectProjectTab", "queue"],
       ["updateGenerationBrief", "Хук 1"],
       ["createJob"],
       ["updateGenerationBrief", "Хук 2"],
-      ["createJob"]
+      ["createJob"],
+      ["selectProjectTab", "queue"]
     ]);
     assert.equal(status.textContent, "AI-команда подготовила сценарий и промпт.");
   } finally {
@@ -256,12 +256,12 @@ test("generation start switches to queue and creates fallback job when ai brief 
     root.append(createJobButton, countInput, status);
     bindGenerationPanelEvents(root, store);
     createJobButton.dispatchEvent({ type: "click", target: createJobButton });
-    assert.deepEqual(calls, [["selectProjectTab", "queue"]]);
+    assert.deepEqual(calls, []);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.deepEqual(calls, [
-      ["selectProjectTab", "queue"],
-      ["createJob"]
+      ["createJob"],
+      ["selectProjectTab", "queue"]
     ]);
     assert.equal(status.textContent, "OpenRouter upstream 502");
   } finally {

@@ -37,7 +37,6 @@ export function bindGenerationPanelEvents(root, store) {
     const count = Math.max(1, Math.min(10, Number(root.querySelector("#generation-count")?.value || 1)));
     const status = root.querySelector("#creative-team-status");
     setLaunchBusy(button, status, true);
-    store.selectProjectTab("queue");
     let jobs = [];
     try {
       jobs = canRunCreativeTeamPreflight(store) && typeof store.createJob === "function"
@@ -49,6 +48,7 @@ export function bindGenerationPanelEvents(root, store) {
     } finally {
       setLaunchBusy(button, status, false);
     }
+    store.selectProjectTab("queue");
     jobs.forEach((job) => {
       if (job?.id) runImageJob(store, job.id);
     });
