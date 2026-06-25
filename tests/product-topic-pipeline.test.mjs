@@ -227,9 +227,9 @@ test("ecosystem topics become retention headlines instead of generic benefit the
   const headlines = candidates.slice(0, 6).map((item) => item.headline || item.topic);
   const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs: [] });
 
-  assert.match(headlines.join(" | "), /не бодрит сама|7 минут|вчера вечером|красть энергию|перегружает/i);
+  assert.match(headlines.join(" | "), /после воды хочется кофе|нет сил на спорт|украл вчерашний вечер|просто зажались|после которого тяжело/i);
   assert.doesNotMatch(headlines.join(" | "), /Что еще помогает цели/i);
-  assert.match(brief.finalContent.headline, /не бодрит сама|7 минут|вчера вечером|красть энергию|перегружает/i);
+  assert.match(brief.finalContent.headline, /после воды хочется кофе|нет сил на спорт|украл вчерашний вечер|просто зажались|после которого тяжело/i);
 });
 
 test("existing retention headlines push the next generation to a different angle", () => {
@@ -245,10 +245,10 @@ test("existing retention headlines push the next generation to a different angle
     facts: ["важна регулярность"],
     forbidden: ["лечит"]
   };
-  const existingJobs = [{ title: "Вода утром не бодрит сама", topic: "Вода утром не бодрит сама" }];
+  const existingJobs = [{ title: "Почему после воды хочется кофе", topic: "Почему после воды хочется кофе" }];
 
   const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs });
 
-  assert.notEqual(brief.finalContent.headline, "Вода утром не бодрит сама");
-  assert.match(brief.finalContent.headline, /7 минут|Прогулка|Энергия|Вдох|завтрак/i);
+  assert.notEqual(brief.finalContent.headline, "Почему после воды хочется кофе");
+  assert.match(brief.finalContent.headline, /нет сил|вышла на 10 минут|украл|зажались|завтрак/i);
 });
