@@ -33,7 +33,7 @@ test("meaning engine adapts viral patterns for non-payment projects", () => {
   const plan = createSemanticPlan({ project, product, brief });
 
   assert.ok(brief.meaningPatternId);
-  assert.match(brief.hook, /ошиб|проверь|результат|хаос|не замеч|обсуждают|не покуп|тратить/i);
+  assert.match(brief.hook, /усталость|рутин|норм|тяжело|уснуть/i);
   assert.match(brief.notes, /Creative Strategy Engine/);
   assert.equal(plan.headline, brief.finalContent.headline);
   assert.ok(plan.points.length >= 3);

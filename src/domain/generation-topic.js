@@ -1,7 +1,7 @@
 export function pickGenerationTopic({ suppliedTopic, candidateTopic, lockedTopic, slot, existingJobs }) {
   if (lockedTopic) return lockedTopic;
   if (suppliedTopic && !shouldReplaceSuppliedTopic(suppliedTopic, existingJobs)) return suppliedTopic;
-  return candidateTopic || slot?.topic || suppliedTopic || "";
+  return candidateTopic || slot?.topic || "";
 }
 
 function shouldReplaceSuppliedTopic(topic, existingJobs) {

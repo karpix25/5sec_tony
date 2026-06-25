@@ -1,54 +1,66 @@
-const ecosystems = [
-  {
-    id: "beauty-skin",
-    test: /красот|кожа|космет|крем|сыворот|уход|spf|гиалурон|коллаген|тон|массаж/i,
-    goal: "красота, состояние кожи и регулярный уход",
-    adjacentActions: ["массаж зоны ухода", "мягкое очищение", "SPF", "сон", "вода", "снижение стресса", "привычка не трогать кожу", "регулярность нанесения"],
-    questions: ["Что влияет на кожу кроме косметики?", "Какой простой уходовый ритуал усиливает ту же цель?", "Какая бытовая привычка мешает результату?"]
-  },
-  {
-    id: "health-routine",
-    test: /здоров|wellness|бад|витамин|хлорофилл|магни|сон|энерг|самочув|вода|стресс/i,
-    goal: "здоровье, энергия и устойчивое самочувствие",
-    adjacentActions: ["легкая физкультура", "прогулка", "утренний стакан воды", "сон и режим", "дыхание", "питание без перегруза", "полезная привычка"],
-    questions: ["Что еще помогает той же цели без покупки?", "Какая привычка поддерживает энергию в обычном дне?", "Где продукт может быть только частью рутины?"]
-  }
-];
-
 export function createBenefitEcosystem({ project, product } = {}) {
-  const source = [
+  const goal = firstText([
+    product?.offer,
+    project?.audienceDesires,
+    product?.description,
     project?.projectTheme,
     project?.niche,
-    project?.audiencePains,
-    project?.audienceDesires,
-    product?.name,
-    product?.description,
-    product?.offer,
-    product?.components,
-    ...(product?.pains || []),
-    ...(product?.facts || [])
-  ].filter(Boolean).join(" ");
-  const matched = ecosystems.find((item) => item.test.test(source));
-  if (matched) return matched;
+    product?.name
+  ]) || "полезный результат для аудитории";
   return {
-    id: "general-benefit",
-    goal: product?.offer || project?.audienceDesires || project?.projectTheme || "полезный результат для человека",
-    adjacentActions: ["бытовая привычка", "простая проверка", "регулярность", "контекст применения", "ошибка ожиданий"],
-    questions: ["Какая соседняя привычка ведет к той же цели?", "Что полезно человеку даже без покупки?"]
+    id: "ai-generated-benefit-ecosystem",
+    goal,
+    sourceSignals: uniqueEcosystemSignals([
+      project?.projectTheme,
+      project?.niche,
+      project?.keyScenarios,
+      project?.audiencePains,
+      project?.audienceDesires,
+      product?.name,
+      product?.description,
+      product?.offer,
+      product?.components,
+      product?.pains,
+      product?.facts
+    ])
   };
 }
 
-export function getBenefitEcosystemSubjects(input) {
-  const ecosystem = createBenefitEcosystem(input);
-  return ecosystem.adjacentActions.map((action) => `${action}: ${ecosystem.goal}`);
+export function getBenefitEcosystemSubjects() {
+  return [];
 }
 
 export function formatBenefitEcosystemInstruction(input) {
   const ecosystem = createBenefitEcosystem(input);
   return [
     `Большая цель за продуктом: ${ecosystem.goal}.`,
-    `Соседние действия и привычки: ${ecosystem.adjacentActions.join(", ")}.`,
-    `Вопросы для расширения темы: ${ecosystem.questions.join(" ")}.`,
-    "Контент может идти через соседний полезный шаг; продукт остается мягким мостом, а не рамкой всей темы."
-  ].join(" ");
+    ecosystem.sourceSignals.length ? `Сигналы из брифа: ${ecosystem.sourceSignals.join("; ")}.` : "",
+    "Соседние темы, привычки, проверки, ошибки и жизненные ситуации не заданы в коде.",
+    "AI-команда должна сгенерировать их сама из брифа продукта, ЦА, истории последних роликов и выбранного формата.",
+    "Не используй готовые примеры из системного кода как тему, headline, subhead или пункт."
+  ].filter(Boolean).join(" ");
+}
+
+function uniqueEcosystemSignals(values) {
+  const seen = new Set();
+  return values
+    .flatMap(splitSignalValue)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 12);
+}
+
+function splitSignalValue(value) {
+  if (Array.isArray(value)) return value.flatMap(splitSignalValue);
+  return String(value || "").split(/\n|;/).filter(Boolean);
+}
+
+function firstText(values) {
+  return values.flatMap(splitSignalValue).map((item) => item.trim()).find(Boolean);
 }

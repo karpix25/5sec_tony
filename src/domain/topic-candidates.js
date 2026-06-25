@@ -10,7 +10,6 @@ const hookStrategies = [
     trigger: "усталость от идеальных советов и недоверие к громким обещаниям",
     format: "comparison",
     scoreBonus: 5,
-    topic: ({ subject }) => `Где реальная польза, а где шум: ${subject}`,
     instruction: "Начни с конфликта между обещаниями рынка и тем, что человек реально может проверить в жизни."
   },
   {
@@ -19,7 +18,6 @@ const hookStrategies = [
     trigger: "желание быстро понять, что это даст лично мне",
     format: "checklist",
     scoreBonus: 4,
-    topic: ({ useCase }) => `Что проверить в рутине, если ${useCase}`,
     instruction: "Сформулируй хук через конкретную бытовую ситуацию и простую проверку, а не через покупку продукта."
   },
   {
@@ -28,7 +26,6 @@ const hookStrategies = [
     trigger: "боязнь купить пустышку или ждать от продукта не того эффекта",
     format: "mistake-solution",
     scoreBonus: 5,
-    topic: ({ pain }) => `Какие ожидания стоит проверить, если ${pain}`,
     instruction: "Если используешь страх ошибки, называй саму проверку: ожидания, состав, формат, регулярность или красный флаг. Не пиши абстрактно про одну ошибку."
   },
   {
@@ -37,7 +34,6 @@ const hookStrategies = [
     trigger: "любопытство к причине знакомой ситуации",
     format: "scheme",
     scoreBonus: 4,
-    topic: ({ pain }) => `Что может стоять за ситуацией: ${pain}`,
     instruction: "Оставь открытый вопрос, но внутри хука назови понятную ситуацию, чтобы заголовок был ясен без подписи."
   },
   {
@@ -46,7 +42,6 @@ const hookStrategies = [
     trigger: "страх купить красивую упаковку вместо понятной привычки",
     format: "comparison",
     scoreBonus: 4,
-    topic: ({ proof }) => `Как отличить полезный факт от красивого обещания: ${proof}`,
     instruction: "Собери хук через контраст обещаний и проверяемой пользы, но не делай его рекламным сравнением брендов или покупкой продукта."
   }
 ];
@@ -64,26 +59,26 @@ export function buildTopicCandidates({ project, product, existingJobs = [], insi
 
 function buildEcosystemCandidates({ project, product, profile }) {
   const ecosystem = createBenefitEcosystem({ project, product });
-  return ecosystem.adjacentActions.slice(0, 6).map((action, index) => ({
-    angleId: `ecosystem-${ecosystem.id}-${index}`,
+  return [{
+    angleId: `ecosystem-${ecosystem.id}`,
     strategyId: "benefit-ecosystem",
     strategyLabel: "широкий контекст пользы",
     angleLabel: "ai-generated-adjacent-angle",
     trigger: ecosystem.goal,
-    topic: action,
+    topic: "",
     hook: "",
-    format: index % 2 ? "scheme" : "checklist",
+    format: "checklist",
     scoreBonus: 4,
     pain: profile.primaryPain || ecosystem.goal,
-    habit: action,
+    habit: "",
     proof: ecosystem.goal,
-    useCase: action,
+    useCase: "",
     promptInstruction: [
       formatBenefitEcosystemInstruction({ project, product }),
       "Это только смысловой сигнал для AI-команды, не готовый headline.",
       "Финальную тему, заголовок, подзаголовок и пункты должен сгенерировать creative strategist/scriptwriter."
     ].join(" ")
-  }));
+  }];
 }
 
 export function pickTopicCandidate({ project, product, existingJobs = [], insightMap } = {}) {
@@ -145,7 +140,7 @@ function buildInsightCandidates(profile) {
       strategyLabel: "карта пользы продукта",
       angleLabel: "боль и привычка",
       trigger: zone.pain,
-      topic: `${zone.pain}: какой ритуал помогает рядом с ${profile.productName}`,
+      topic: "",
       hook: "",
       format: "checklist",
       scoreBonus,
@@ -162,7 +157,7 @@ function buildInsightCandidates(profile) {
       strategyLabel: "смежная полезная привычка",
       angleLabel: "лайфхак рядом с продуктом",
       trigger: zone.habit,
-      topic: `Какая привычка усиливает ту же цель: ${zone.habit}`,
+      topic: "",
       hook: "",
       format: "scheme",
       scoreBonus: Math.max(1, scoreBonus - 1),
@@ -190,7 +185,7 @@ function buildStrategyCandidate(strategy, profile, { project, product }) {
     angleLabel: strategy.label,
     strategyLabel: strategy.label,
     trigger: strategy.trigger,
-    topic: strategy.topic(context),
+    topic: "",
     hook: "",
     format: strategy.format,
     scoreBonus: strategy.scoreBonus,

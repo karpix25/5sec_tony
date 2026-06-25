@@ -5,29 +5,53 @@ import { bindProjectAutomationControls } from "../src/ui/project-automation-cont
 import { projects, products } from "../src/domain/entities.js";
 import { FakeElement } from "./helpers/fake-ui-dom.mjs";
 
-test("generation start clamps invalid count and switches to queue tab", () => {
+test("generation start clamps invalid count for ai-created jobs and switches to queue tab", async () => {
+  const previousFetch = globalThis.fetch;
   const root = new FakeElement();
   const createJobButton = new FakeElement({ id: "create-job" });
   const countInput = new FakeElement({ id: "generation-count", value: "99" });
+  const status = new FakeElement({ id: "creative-team-status" });
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
   const calls = [];
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({ draft: { topic: "AI topic", hook: "AI hook" } })
+  });
   const store = {
-    createJobs(count) {
-      calls.push(["createJobs", count]);
-      return [];
+    getState: () => ({
+      projects: [project],
+      products: [product],
+      selectedProjectId: project.id,
+      selectedProductId: product.id,
+      selectedReferenceId: project.references[0].id,
+      selectedCharacterId: "__no_avatar__",
+      selectedAudioId: "",
+      audioLibrary: [],
+      hookLibrary: {},
+      jobs: []
+    }),
+    updateGenerationBrief() {},
+    createJob() {
+      calls.push(["createJob"]);
+      return { id: `job-${calls.length}`, projectId: project.id };
     },
     selectProjectTab(tab) {
       calls.push(["selectProjectTab", tab]);
     }
   };
 
-  root.append(createJobButton, countInput);
-  bindGenerationPanelEvents(root, store);
-  createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+  try {
+    root.append(createJobButton, countInput, status);
+    bindGenerationPanelEvents(root, store);
+    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepEqual(calls, [
-    ["createJobs", 10],
-    ["selectProjectTab", "queue"]
-  ]);
+    assert.equal(calls.filter((item) => item[0] === "createJob").length, 10);
+    assert.deepEqual(calls.at(-1), ["selectProjectTab", "queue"]);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });
 
 test("generation start prepares creative team brief before creating jobs", async () => {
@@ -68,7 +92,7 @@ test("generation start prepares creative team brief before creating jobs", async
     },
     createJob() {
       calls.push(["createJob"]);
-      return null;
+      return { id: "job-1", projectId: project.id };
     },
     selectProjectTab(tab) {
       calls.push(["selectProjectTab", tab]);
@@ -128,7 +152,7 @@ test("generation batch prepares a fresh creative brief for each job", async () =
     },
     createJob() {
       calls.push(["createJob"]);
-      return null;
+      return { id: `job-${calls.filter((item) => item[0] === "createJob").length + 1}`, projectId: project.id };
     },
     createJobs(count) {
       calls.push(["createJobs", count]);
@@ -214,7 +238,7 @@ test("generation batch sends previous batch jobs to creative team preflight", as
   }
 });
 
-test("generation start switches to queue and creates fallback job when ai brief fails", async () => {
+test("generation start does not create local fallback job when ai brief fails", async () => {
   const previousFetch = globalThis.fetch;
   const root = new FakeElement();
   const createJobButton = new FakeElement({ id: "create-job", tagName: "button" });
@@ -259,11 +283,8 @@ test("generation start switches to queue and creates fallback job when ai brief 
     assert.deepEqual(calls, []);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.deepEqual(calls, [
-      ["createJob"],
-      ["selectProjectTab", "queue"]
-    ]);
-    assert.equal(status.textContent, "OpenRouter upstream 502");
+    assert.deepEqual(calls, []);
+    assert.equal(status.textContent, "OpenRouter upstream 502. Генерация не запущена.");
   } finally {
     globalThis.fetch = previousFetch;
   }

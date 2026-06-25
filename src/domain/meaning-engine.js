@@ -197,6 +197,7 @@ function metaphorPlan({ product }) {
 
 function adaptHook(template, { project, product, angle }) {
   const subject = shortSubject(project, product, angle);
+  if (!template) return subject;
   if (!subject) return template;
   if (/норма|красн|флаг|ошиб|проверь|миф|почему|вещ|признак/i.test(template)) {
     return writeHookFromFormula(template, {
@@ -215,11 +216,13 @@ function adaptHook(template, { project, product, angle }) {
 function adaptTopic(template, { project, product, angle }) {
   const focus = getProductContentFocus({ project, product });
   const context = angle || focus.subject || project.projectTheme || product.name;
+  if (!template) return context;
   return `${template}: ${context}`;
 }
 
 function adaptVisualObject(template, { product, project }) {
   const focus = getProductContentFocus({ project, product });
+  if (!template) return focus.subject || product.description || product.name;
   return `${template}; главный объект — ${focus.subject || product.description || product.name}`;
 }
 

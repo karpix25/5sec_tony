@@ -48,8 +48,8 @@ function enrichSlotWithLayer(slot, { project, product, existingJobs }) {
     ...slot,
     contentLayer,
     angle: `${slot.angle}; ${contentLayer.label}`,
-    topic: `${contentLayer.topic}. ${slot.topic}`,
-    hook: contentLayer.hook
+    topic: "",
+    hook: ""
   };
 }
 

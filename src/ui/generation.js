@@ -39,15 +39,16 @@ export function bindGenerationPanelEvents(root, store) {
     setLaunchBusy(button, status, true);
     let jobs = [];
     try {
-      jobs = canRunCreativeTeamPreflight(store) && typeof store.createJob === "function"
-        ? await createCreativeTeamJobs(root, store, count)
-        : store.createJobs(count);
+      if (!canRunCreativeTeamPreflight(store) || typeof store.createJob !== "function") {
+        throw new Error("AI-команда генерации недоступна");
+      }
+      jobs = await createCreativeTeamJobs(root, store, count);
     } catch (error) {
-      if (status) status.textContent = `${error.message || "AI-команда недоступна"}. Создаем задачу локально.`;
-      jobs = createFallbackJobs(store, count);
+      if (status) status.textContent = `${error.message || "AI-команда недоступна"}. Генерация не запущена.`;
     } finally {
       setLaunchBusy(button, status, false);
     }
+    if (!jobs.length) return;
     store.selectProjectTab("queue");
     jobs.forEach((job) => {
       if (job?.id) runImageJob(store, job.id);
@@ -89,7 +90,7 @@ async function runCreativeTeamPreflight(root, store, batch = {}) {
     store.updateGenerationBrief(brief);
     if (status) status.textContent = "AI-команда подготовила сценарий и промпт.";
   } catch (error) {
-    if (status) status.textContent = error.message || "AI-команда недоступна, используем локальный fallback.";
+    throw new Error(error.message || "AI-команда недоступна");
   }
 }
 
@@ -101,12 +102,6 @@ async function createCreativeTeamJobs(root, store, count) {
     if (job) jobs.push(job);
   }
   return jobs;
-}
-
-function createFallbackJobs(store, count) {
-  if (typeof store.createJobs === "function") return store.createJobs(count) || [];
-  if (typeof store.createJob !== "function") return [];
-  return Array.from({ length: count }, () => store.createJob()).filter(Boolean);
 }
 
 function renderReferenceSelect({ project, reference }) {

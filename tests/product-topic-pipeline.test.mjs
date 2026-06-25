@@ -31,8 +31,8 @@ test("wellness generation brief uses product pains and facts for topic seed", ()
     generationBrief: {}
   });
 
-  assert.match(brief.topic, /ритуал|покупк|шум|причин|мелоч|ожидан|вода|бодрит|энерг/i);
-  assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того|ожидан|красный флаг|момент|сигнал|ошиб|провер/i);
+  assert.match(brief.topic, /кофе|утром|сдувается|хаос|wellness/i);
+  assert.match(brief.hook, /кофе|утром|сдувается|хаос|wellness/i);
   assert.ok(brief.topicCandidate);
 });
 
@@ -165,7 +165,7 @@ test("supplement strategy names concrete check instead of vague mistake hook", (
   assert.doesNotMatch(strategyText, /проверили одну ошибку/i);
 });
 
-test("wellness products expand into adjacent health habits", () => {
+test("wellness products ask ai to generate adjacent health angles", () => {
   const project = { ...projects[0], projectTheme: "здоровье, энергия и полезные привычки" };
   const product = {
     id: "chlorophyll-wide",
@@ -181,11 +181,12 @@ test("wellness products expand into adjacent health habits", () => {
   const candidates = buildTopicCandidates({ project, product, existingJobs: [] });
   const text = candidates.map((item) => `${item.topic} ${item.promptInstruction}`).join(" ");
 
-  assert.match(text, /физкультур|прогулк|сон|вода|дыхан|полезная привычка/i);
-  assert.match(text, /Большая цель за продуктом: здоровье, энергия/i);
+  assert.match(text, /AI-команда должна сгенерировать/i);
+  assert.match(text, /Большая цель за продуктом: поддержать привычку пить воду/i);
+  assert.doesNotMatch(text, /физкультур|прогулк|утренний стакан|дыхан|полезная привычка/i);
 });
 
-test("beauty products expand into skin-care ecosystem habits", () => {
+test("beauty products do not receive hardcoded skin-care ecosystem habits", () => {
   const project = { ...projects[1], projectTheme: "красота кожи и регулярный уход" };
   const product = {
     id: "cream-wide",
@@ -201,8 +202,9 @@ test("beauty products expand into skin-care ecosystem habits", () => {
   const candidates = buildTopicCandidates({ project, product, existingJobs: [] });
   const text = candidates.map((item) => `${item.topic} ${item.promptInstruction}`).join(" ");
 
-  assert.match(text, /массаж|SPF|очищение|сон|стресс|регулярность нанесения/i);
-  assert.match(text, /Большая цель за продуктом: красота, состояние кожи/i);
+  assert.match(text, /AI-команда должна сгенерировать/i);
+  assert.match(text, /Большая цель за продуктом: часть регулярной beauty-рутины/i);
+  assert.doesNotMatch(text, /массаж|SPF|очищение|снижение стресса/i);
 });
 
 test("ecosystem topics are ai-generation signals, not final hardcoded headlines", () => {

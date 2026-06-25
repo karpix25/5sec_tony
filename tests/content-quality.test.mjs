@@ -475,7 +475,7 @@ test("fallback semantic plan gives pain, reason and useful action", () => {
   const plan = createSemanticPlan({ project, product, brief });
   const text = `${plan.subhead} ${plan.points.join(" ")}`.toLowerCase();
 
-  assert.match(text, /привычк|каждый день|сегодня|ритуал|ситуац|в рутину/);
+  assert.match(text, /ежедневн|уход|состав|сценар|провер/);
   assert.match(text, /сухост|тонус/);
   assert.doesNotMatch(text, /бренд:|разбор состава|анализ состава/);
 });
