@@ -46,6 +46,36 @@ test("brief service sends hook library and active design reference context", asy
   }
 });
 
+test("brief service retries stale ai topics before accepting a fresh brief", async () => {
+  const previousFetch = globalThis.fetch;
+  const bodies = [];
+  const drafts = [
+    { topic: "Почему утренняя вода не бодрит", hook: "Вода утром не всегда работает" },
+    { topic: "Миф о волшебной таблетке", hook: "БАД не решает рутину сам" },
+    { topic: "Почему вечерняя усталость начинается еще днем", hook: "Силы заканчиваются раньше вечера" }
+  ];
+  globalThis.fetch = async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ draft: drafts[bodies.length - 1] }) };
+  };
+
+  try {
+    const brief = await generateAiBrief({
+      project: {},
+      product: {},
+      reference: {},
+      existingJobs: [{ title: "Почему утренняя вода не бодрит", topic: "утренний ритуал" }]
+    });
+
+    assert.equal(brief.topic, "Почему вечерняя усталость начинается еще днем");
+    assert.equal(bodies.length, 3);
+    assert.match(bodies[1].existingJobs.at(-1).title, /ОТКЛОНЕНО/);
+    assert.match(bodies[2].existingJobs.at(-1).topic, /шаблонная формула/);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("brief service strips base64 images from creative team payload", async () => {
   const previousFetch = globalThis.fetch;
   let requestBody = null;

@@ -113,12 +113,14 @@ function renderQueueAction(job, ready, failed) {
 
 function renderQueuePreview(job, ready, failed, preview) {
   if (job.finalVideoUrl) {
+    const fallbackPreview = preview || job.imageData || job.imageUrl || "";
+    const useImagePreview = isEphemeralGeneratedVideo(job.finalVideoUrl) && fallbackPreview;
     return renderPreviewTrigger({
-      src: job.finalVideoUrl,
+      src: useImagePreview ? fallbackPreview : job.finalVideoUrl,
       title: job.title,
-      type: "video",
+      type: useImagePreview ? "image" : "video",
       className: "queue-preview",
-      label: "Открыть финальное видео крупно"
+      label: useImagePreview ? "Открыть превью картинки крупно" : "Открыть финальное видео крупно"
     });
   }
   if (isFinalVideoJob(job)) {
@@ -187,6 +189,10 @@ function isQueueJobReady(job) {
 
 function isFinalVideoJob(job) {
   return job?.outputType !== "image" && job?.requiresFinalVideo !== false;
+}
+
+function isEphemeralGeneratedVideo(url) {
+  return /^\/generated\//.test(String(url || ""));
 }
 
 function humanizeQueueMessage(message = "") {

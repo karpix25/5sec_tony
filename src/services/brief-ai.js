@@ -3,15 +3,41 @@ import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
 import { buildProductInsightMap } from "../domain/product-insights.js";
 import { normalizeHookLibrary } from "../domain/hook-library.js";
 import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
+import { assessAiBriefFreshness, createRejectedBriefJob } from "../domain/ai-brief-freshness.js";
 import { uploadReferenceAsset } from "./reference-assets.js";
 
 const briefAiDataImagePattern = /^data:image\/(?:png|jpe?g|webp);base64,/i;
+const maxBriefAiAttempts = 3;
 
 export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot, hookLibrary }) {
-  const slot = diversitySlot || createContentSlot({ project, product, existingJobs });
   const hookDigest = createHookLibraryDigest(hookLibrary);
   const preparedReference = await ensureReferenceAssetUrl(reference);
   const activeDesignReference = createDesignReferenceDigest(preparedReference);
+  const rejectedJobs = [];
+
+  for (let attempt = 0; attempt < maxBriefAiAttempts; attempt += 1) {
+    const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
+    const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
+    const brief = await requestAiBrief({
+      project,
+      product,
+      preparedReference,
+      activeDesignReference,
+      hookDigest,
+      existingJobs: attemptExistingJobs,
+      slot
+    });
+    const freshness = diversitySlot?.lockTopic
+      ? { ok: true, reasons: [] }
+      : assessAiBriefFreshness(brief, attemptExistingJobs);
+    if (freshness.ok) return brief;
+    rejectedJobs.push(createRejectedBriefJob(brief, freshness));
+  }
+
+  throw new Error("AI-команда повторила недавнюю или слишком шаблонную тему. Запустите генерацию еще раз.");
+}
+
+async function requestAiBrief({ project, product, preparedReference, activeDesignReference, hookDigest, existingJobs, slot }) {
   const response = await fetch("/api/generation/brief", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

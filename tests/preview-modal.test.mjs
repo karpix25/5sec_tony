@@ -55,6 +55,7 @@ test("queue previews open both generated images and final videos", () => {
       progress: 100,
       outputType: "final-video",
       finalVideoUrl: "/generated/avatar-videos/final.mp4",
+      imageUrl: "https://cdn.example.com/final-frame.png",
       title: "Видео",
       topic: "тема",
       music: "аудио",
@@ -64,9 +65,33 @@ test("queue previews open both generated images and final videos", () => {
 
   assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/image\.png"/);
   assert.match(html, /data-preview-type="image"/);
-  assert.match(html, /data-preview-media="\/generated\/avatar-videos\/final\.mp4"/);
-  assert.match(html, /data-preview-type="video"/);
+  assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/final-frame\.png"/);
   assert.match(html, /Продукт: Магний вечерний/);
+});
+
+test("queue uses final video preview when the video url is persistent", () => {
+  const project = projects[0];
+  const html = renderQueuePanel({
+    products,
+    jobs: [{
+      id: "job-video",
+      projectId: project.id,
+      productId: "magnesium",
+      status: "done",
+      stage: "export",
+      progress: 100,
+      outputType: "final-video",
+      finalVideoUrl: "https://cdn.example.com/final.mp4",
+      imageUrl: "https://cdn.example.com/final-frame.png",
+      title: "Видео",
+      topic: "тема",
+      music: "аудио",
+      inputUrls: []
+    }]
+  }, { project });
+
+  assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/final\.mp4"/);
+  assert.match(html, /data-preview-type="video"/);
 });
 
 test("preview modal survives app rerenders during generation", () => {
