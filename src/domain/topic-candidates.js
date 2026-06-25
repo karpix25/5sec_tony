@@ -2,6 +2,7 @@ import { buildProductProfile } from "./product-profile.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 import { createTravelTopicPlan } from "./travel-content-plan.js";
 import { createBenefitEcosystem, formatBenefitEcosystemInstruction } from "./benefit-ecosystem.js";
+import { createRetentionTopicAngle } from "./retention-topic-angles.js";
 
 const hookStrategies = [
   {
@@ -64,23 +65,28 @@ export function buildTopicCandidates({ project, product, existingJobs = [], insi
 
 function buildEcosystemCandidates({ project, product, profile }) {
   const ecosystem = createBenefitEcosystem({ project, product });
-  return ecosystem.adjacentActions.slice(0, 6).map((action, index) => ({
-    angleId: `ecosystem-${ecosystem.id}-${index}`,
-    strategyId: "benefit-ecosystem",
-    strategyLabel: "широкий контекст пользы",
-    angleLabel: "соседнее действие",
-    trigger: ecosystem.goal,
-    topic: `Что еще помогает цели: ${action}`,
-    hook: "",
-    format: index % 2 ? "scheme" : "checklist",
-    scoreBonus: 6,
-    pain: profile.primaryPain || ecosystem.goal,
-    habit: action,
-    proof: ecosystem.goal,
-    useCase: action,
-    subhead: "Покажите путь к той же цели через привычку, а продукт оставьте мягким мостом.",
-    promptInstruction: formatBenefitEcosystemInstruction({ project, product })
-  }));
+  return ecosystem.adjacentActions.slice(0, 6).map((action, index) => {
+    const retention = createRetentionTopicAngle({ ecosystem, action, index });
+    return {
+      angleId: `ecosystem-${ecosystem.id}-${index}`,
+      strategyId: "benefit-ecosystem",
+      strategyLabel: "широкий контекст пользы",
+      angleLabel: retention.angleType,
+      trigger: ecosystem.goal,
+      topic: retention.headline,
+      headline: retention.headline,
+      hook: "",
+      format: retention.format || (index % 2 ? "scheme" : "checklist"),
+      scoreBonus: 8,
+      pain: profile.primaryPain || ecosystem.goal,
+      habit: action,
+      proof: ecosystem.goal,
+      useCase: action,
+      subhead: retention.subhead,
+      points: retention.points,
+      promptInstruction: `${formatBenefitEcosystemInstruction({ project, product })} ${retention.instruction}`
+    };
+  });
 }
 
 export function pickTopicCandidate({ project, product, existingJobs = [], insightMap } = {}) {
@@ -99,10 +105,13 @@ export function createTopicCandidatePlan({ project, product, candidate }) {
   const pain = candidate.pain || focus.pain || profile.primaryPain;
   const habit = candidate.habit || safeStep;
 
+  const points = candidate.points?.length
+    ? uniqueCandidatePoints([pain || useCase, ...candidate.points, proof ? `Проверяемая деталь: ${proof}` : ""])
+    : buildCandidatePoints({ pain, proof, useCase, habit, safeStep });
   return {
-    headline: "",
-    subhead: buildCandidateSubhead({ pain, proof, useCase }),
-    points: buildCandidatePoints({ pain, proof, useCase, habit, safeStep }),
+    headline: candidate.headline || "",
+    subhead: candidate.subhead || buildCandidateSubhead({ pain, proof, useCase }),
+    points,
     disclaimer: "",
     hookPsychology: getHookStrategyInstruction(candidate)
   };
@@ -232,7 +241,7 @@ function scoreStrategyCandidate(candidate, profile, existingJobs) {
   const hasAudiencePain = audienceMatchCount > 0;
   const hasSafeProof = profile.proofPoints.some((item) => source.includes(normalizeToken(item)));
   const hasForbidden = profile.forbiddenClaims.some((item) => source.includes(normalizeToken(item)));
-  const duplicatePenalty = used.has(normalizeTopicCandidateText(candidate.topic)) ? 5 : 0;
+  const duplicatePenalty = getDuplicatePenalty(candidate, used);
   const safetyPenalty = hasForbidden ? 7 : 0;
   const score = candidate.scoreBonus
     + (hasAudiencePain ? 3 + audienceMatchCount : 1)
@@ -248,6 +257,22 @@ function scoreStrategyCandidate(candidate, profile, existingJobs) {
     safetyPenalty,
     duplicatePenalty
   };
+}
+
+function getDuplicatePenalty(candidate, used) {
+  const topicKey = normalizeTopicCandidateText(candidate.topic);
+  const headlineKey = normalizeTopicCandidateText(candidate.headline);
+  if (used.has(topicKey) || used.has(headlineKey)) return 8;
+  return [...used].some((item) => isSimilarTopicKey(item, topicKey) || isSimilarTopicKey(item, headlineKey)) ? 4 : 0;
+}
+
+function isSimilarTopicKey(left, right) {
+  if (!left || !right) return false;
+  const leftWords = new Set(left.split(" ").filter((word) => word.length > 4));
+  const rightWords = right.split(" ").filter((word) => word.length > 4);
+  if (!leftWords.size || rightWords.length < 2) return false;
+  const matches = rightWords.filter((word) => leftWords.has(word)).length;
+  return matches >= 2;
 }
 
 function normalizeToken(value) {

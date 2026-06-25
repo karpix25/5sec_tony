@@ -31,7 +31,7 @@ test("wellness generation brief uses product pains and facts for topic seed", ()
     generationBrief: {}
   });
 
-  assert.match(brief.topic, /ритуал|покупк|шум|причин|мелоч|ожидан/i);
+  assert.match(brief.topic, /ритуал|покупк|шум|причин|мелоч|ожидан|вода|бодрит|энерг/i);
   assert.match(brief.hook, /не покуп|обсуждают|тратить|не замечать|шум|не того|ожидан|красный флаг|момент|сигнал|ошиб|провер/i);
   assert.ok(brief.topicCandidate);
 });
@@ -203,4 +203,52 @@ test("beauty products expand into skin-care ecosystem habits", () => {
 
   assert.match(text, /массаж|SPF|очищение|сон|стресс|регулярность нанесения/i);
   assert.match(text, /Большая цель за продуктом: красота, состояние кожи/i);
+});
+
+test("ecosystem topics become retention headlines instead of generic benefit themes", () => {
+  const project = {
+    ...projects[0],
+    projectTheme: "здоровье, энергия и полезные привычки",
+    audiencePains: "утром нет энергии\nобычная вода быстро надоедает"
+  };
+  const product = {
+    id: "chlorophyll-retention",
+    projectId: project.id,
+    name: "Хлорофилл",
+    description: "wellness БАД для утренней рутины",
+    offer: "поддержать привычку пить воду",
+    components: "хлорофилл",
+    pains: ["утром нет энергии"],
+    facts: ["важна регулярность"],
+    forbidden: ["лечит"]
+  };
+
+  const candidates = buildTopicCandidates({ project, product, existingJobs: [] });
+  const headlines = candidates.slice(0, 6).map((item) => item.headline || item.topic);
+  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs: [] });
+
+  assert.match(headlines.join(" | "), /не бодрит сама|7 минут|вчера вечером|красть энергию|перегружает/i);
+  assert.doesNotMatch(headlines.join(" | "), /Что еще помогает цели/i);
+  assert.match(brief.finalContent.headline, /не бодрит сама|7 минут|вчера вечером|красть энергию|перегружает/i);
+});
+
+test("existing retention headlines push the next generation to a different angle", () => {
+  const project = { ...projects[0], projectTheme: "здоровье, энергия и полезные привычки" };
+  const product = {
+    id: "chlorophyll-rotation",
+    projectId: project.id,
+    name: "Хлорофилл",
+    description: "wellness БАД для утренней рутины",
+    offer: "поддержать привычку пить воду",
+    components: "хлорофилл",
+    pains: ["утром нет энергии"],
+    facts: ["важна регулярность"],
+    forbidden: ["лечит"]
+  };
+  const existingJobs = [{ title: "Вода утром не бодрит сама", topic: "Вода утром не бодрит сама" }];
+
+  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs });
+
+  assert.notEqual(brief.finalContent.headline, "Вода утром не бодрит сама");
+  assert.match(brief.finalContent.headline, /7 минут|Прогулка|Энергия|Вдох|завтрак/i);
 });
