@@ -48,6 +48,8 @@ const files = [
   "src/domain/meaning-engine.js",
   "src/domain/generation-topic.js",
   "src/domain/payment-plan.js",
+  "src/domain/ai-department-brief.js",
+  "src/domain/image-prompt-rules.js",
   "src/domain/generation.js",
   "src/domain/generation-strategy.js",
   "src/domain/content-card-plan.js",
