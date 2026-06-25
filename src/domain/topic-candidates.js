@@ -1,6 +1,7 @@
 import { buildProductProfile } from "./product-profile.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 import { createTravelTopicPlan } from "./travel-content-plan.js";
+import { createBenefitEcosystem, formatBenefitEcosystemInstruction } from "./benefit-ecosystem.js";
 
 const hookStrategies = [
   {
@@ -54,10 +55,32 @@ export function buildTopicCandidates({ project, product, existingJobs = [], insi
   const profile = buildProductProfile({ project, product, insightMap });
   return [
     ...buildInsightCandidates(profile),
+    ...buildEcosystemCandidates({ project, product, profile }),
     ...hookStrategies.map((strategy) => buildStrategyCandidate(strategy, profile, { project, product }))
   ]
     .map((candidate) => scoreStrategyCandidate(candidate, profile, existingJobs))
     .sort((left, right) => right.score - left.score);
+}
+
+function buildEcosystemCandidates({ project, product, profile }) {
+  const ecosystem = createBenefitEcosystem({ project, product });
+  return ecosystem.adjacentActions.slice(0, 6).map((action, index) => ({
+    angleId: `ecosystem-${ecosystem.id}-${index}`,
+    strategyId: "benefit-ecosystem",
+    strategyLabel: "широкий контекст пользы",
+    angleLabel: "соседнее действие",
+    trigger: ecosystem.goal,
+    topic: `Что еще помогает цели: ${action}`,
+    hook: "",
+    format: index % 2 ? "scheme" : "checklist",
+    scoreBonus: 6,
+    pain: profile.primaryPain || ecosystem.goal,
+    habit: action,
+    proof: ecosystem.goal,
+    useCase: action,
+    subhead: "Покажите путь к той же цели через привычку, а продукт оставьте мягким мостом.",
+    promptInstruction: formatBenefitEcosystemInstruction({ project, product })
+  }));
 }
 
 export function pickTopicCandidate({ project, product, existingJobs = [], insightMap } = {}) {

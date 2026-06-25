@@ -164,3 +164,43 @@ test("supplement strategy names concrete check instead of vague mistake hook", (
   assert.match(strategyText, /ожидан|пустышк|провер|регулярн|маркетинг/i);
   assert.doesNotMatch(strategyText, /проверили одну ошибку/i);
 });
+
+test("wellness products expand into adjacent health habits", () => {
+  const project = { ...projects[0], projectTheme: "здоровье, энергия и полезные привычки" };
+  const product = {
+    id: "chlorophyll-wide",
+    projectId: project.id,
+    name: "Хлорофилл",
+    description: "wellness БАД для утренней рутины",
+    offer: "поддержать привычку пить воду",
+    components: "хлорофилл",
+    pains: ["утром нет энергии"],
+    facts: ["важна регулярность"],
+    forbidden: ["лечит"]
+  };
+  const candidates = buildTopicCandidates({ project, product, existingJobs: [] });
+  const text = candidates.map((item) => `${item.topic} ${item.promptInstruction}`).join(" ");
+
+  assert.match(text, /физкультур|прогулк|сон|вода|дыхан|полезная привычка/i);
+  assert.match(text, /Большая цель за продуктом: здоровье, энергия/i);
+});
+
+test("beauty products expand into skin-care ecosystem habits", () => {
+  const project = { ...projects[1], projectTheme: "красота кожи и регулярный уход" };
+  const product = {
+    id: "cream-wide",
+    projectId: project.id,
+    name: "Крем для шеи",
+    description: "косметика для ухода за кожей шеи",
+    offer: "часть регулярной beauty-рутины",
+    components: "крем, увлажняющие компоненты",
+    pains: ["кожа выглядит уставшей"],
+    facts: ["важна регулярность нанесения"],
+    forbidden: ["минус 10 лет"]
+  };
+  const candidates = buildTopicCandidates({ project, product, existingJobs: [] });
+  const text = candidates.map((item) => `${item.topic} ${item.promptInstruction}`).join(" ");
+
+  assert.match(text, /массаж|SPF|очищение|сон|стресс|регулярность нанесения/i);
+  assert.match(text, /Большая цель за продуктом: красота, состояние кожи/i);
+});

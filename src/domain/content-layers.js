@@ -1,4 +1,5 @@
 import { getProductContentFocus } from "./product-content-focus.js";
+import { formatBenefitEcosystemInstruction, getBenefitEcosystemSubjects } from "./benefit-ecosystem.js";
 
 const contentLayers = [
   {
@@ -58,6 +59,7 @@ export function createContentLayer({ project, product, existingJobs = [] }) {
       `Слой анализа: ${layer.label}.`,
       layer.question,
       "Тема может идти рядом с продуктом: боли, привычки, лайфхаки, советы, ошибки и соседние жизненные ситуации.",
+      formatBenefitEcosystemInstruction({ project, product }),
       "Продукт показывать как возможный следующий шаг, а не как единственную тему."
     ].join(" ")
   };
@@ -69,8 +71,9 @@ export function getContentLayerInstruction(layer) {
     `СЛОЙ АНАЛИЗА: ${layer.label}.`,
     `Вопрос слоя: ${layer.question}.`,
     "Ищи не только прямую рекламу продукта, но и темы вокруг: бытовые боли, лайфхаки, советы, привычки, ошибки, мифы и смежные ситуации.",
+    layer.instruction?.match(/Большая цель за продуктом:[^]+?рамкой всей темы\./)?.[0] || "",
     "Ролик должен быть полезен сам по себе; продукт появляется как мягкое решение или контекст."
-  ].join(" ");
+  ].filter(Boolean).join(" ");
 }
 
 function getLayerSubject(project, product, existingJobs) {
@@ -81,6 +84,7 @@ function getLayerSubject(project, product, existingJobs) {
     ...focus.list,
     ...layerListItems(product.facts),
     ...layerListItems(project.audiencePains),
+    ...getBenefitEcosystemSubjects({ project, product }),
     product.offer,
     project.projectTheme,
     product.name
