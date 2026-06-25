@@ -205,7 +205,7 @@ test("beauty products expand into skin-care ecosystem habits", () => {
   assert.match(text, /Большая цель за продуктом: красота, состояние кожи/i);
 });
 
-test("ecosystem topics become retention headlines instead of generic benefit themes", () => {
+test("ecosystem topics are ai-generation signals, not final hardcoded headlines", () => {
   const project = {
     ...projects[0],
     projectTheme: "здоровье, энергия и полезные привычки",
@@ -224,15 +224,17 @@ test("ecosystem topics become retention headlines instead of generic benefit the
   };
 
   const candidates = buildTopicCandidates({ project, product, existingJobs: [] });
-  const headlines = candidates.slice(0, 6).map((item) => item.headline || item.topic);
-  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs: [] });
+  const ecosystemCandidates = candidates.filter((item) => item.strategyId === "benefit-ecosystem");
+  const candidateText = ecosystemCandidates.map((item) => `${item.topic} ${item.promptInstruction}`).join(" | ");
 
-  assert.match(headlines.join(" | "), /после воды хочется кофе|нет сил на спорт|украл вчерашний вечер|просто зажались|после которого тяжело/i);
-  assert.doesNotMatch(headlines.join(" | "), /Что еще помогает цели/i);
-  assert.match(brief.finalContent.headline, /после воды хочется кофе|нет сил на спорт|украл вчерашний вечер|просто зажались|после которого тяжело/i);
+  assert.ok(ecosystemCandidates.length);
+  assert.equal(ecosystemCandidates.some((item) => item.headline || item.subhead || item.points), false);
+  assert.match(candidateText, /смысловой сигнал для AI-команды/i);
+  assert.match(candidateText, /Финальную тему, заголовок, подзаголовок и пункты должен сгенерировать/i);
+  assert.doesNotMatch(candidateText, /после воды хочется кофе|нет сил на спорт|украл вчерашний вечер|Крем нанесли/i);
 });
 
-test("existing retention headlines push the next generation to a different angle", () => {
+test("ai department brief overrides local topic rotation", () => {
   const project = { ...projects[0], projectTheme: "здоровье, энергия и полезные привычки" };
   const product = {
     id: "chlorophyll-rotation",
@@ -247,8 +249,24 @@ test("existing retention headlines push the next generation to a different angle
   };
   const existingJobs = [{ title: "Почему после воды хочется кофе", topic: "Почему после воды хочется кофе" }];
 
-  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], existingJobs });
+  const brief = createAutoGenerationBrief({
+    project,
+    product,
+    reference: project.references[0],
+    existingJobs,
+    generationBrief: {
+      creativeBrief: { topic: "AI_TOPIC_ROTATION_SENTINEL", formatIntent: "saveable_note" },
+      hook: "AI_HOOK_ROTATION_SENTINEL",
+      contentScript: {
+        headline: "AI_HEADLINE_ROTATION_SENTINEL",
+        subhead: "AI_SUBHEAD_ROTATION_SENTINEL",
+        points: ["AI_POINT_ROTATION_SENTINEL"]
+      }
+    }
+  });
 
-  assert.notEqual(brief.finalContent.headline, "Почему после воды хочется кофе");
-  assert.match(brief.finalContent.headline, /нет сил|вышла на 10 минут|украл|зажались|завтрак/i);
+  assert.equal(brief.topic, "AI_TOPIC_ROTATION_SENTINEL");
+  assert.equal(brief.hook, "AI_HOOK_ROTATION_SENTINEL");
+  assert.equal(brief.finalContent.headline, "AI_HEADLINE_ROTATION_SENTINEL");
+  assert.equal(brief.aiPlan.points[0], "AI_POINT_ROTATION_SENTINEL");
 });

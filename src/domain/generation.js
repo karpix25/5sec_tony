@@ -16,7 +16,6 @@ import { formatCreativeQualityPrompt } from "./creative-quality-validator.js";
 import { createCuriosityContentPlan, formatFinalContentPrompt } from "./curiosity-content.js";
 import { createUniqueJobId } from "./job-identity.js";
 import { getReferenceFormatSignal, resolveGenerationFormat, resolvePointCountForFormat } from "./reference-format.js";
-import { modernImageFormatRule, oldFormatShellBan } from "./generation-format-contract.js";
 import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budget.js";
 import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "./creative-team-image-prompt.js";
 import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
@@ -24,70 +23,23 @@ import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avat
 import { formatCurrentDatePrompt } from "./current-date-context.js";
 import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.js";
 import { formatProductVisualContext, getProductVisualPromptPolicy, resolveProductVisualMode } from "./product-visual-policy.js";
-const russianImageTextRules = [
-  "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
-  "Не использовать английские слова, английские заголовки, латиницу, lorem ipsum, pseudo-English и UI labels вроде Subscribe, Payment, Error, Loading, Failed.",
-  "Если в исходных данных, референсе, продукте или PDF-хуке есть английский текст или латиница, переведи смысл на русский перед размещением на изображении.",
-  "Исключение: официальные названия брендов и сервисов можно оставить латиницей, но не делать из них заголовки, пункты или CTA."
-];
-const socialSafeZoneRules = [
-  "ТЕХНИЧЕСКАЯ SAFE ZONE: это не видимый текст, не рамка и не декоративное поле, а рабочая зона вертикального Reels/TikTok/Shorts, которую не перекрывают элементы соцсетей.",
-  "КРИТИЧНО: слова safe zone, social safe zone, координаты, x=, y=, top UI, bottom caption и right action rail никогда не писать и не рисовать на финальной картинке.",
-  "Координатный контракт для 1024x1792: весь важный контент размещать только внутри прямоугольника x=72..820 и y=190..1360.",
-  "ЗАПРЕЩЕННЫЕ ЗОНЫ: top UI y=0..190, bottom caption/actions y=1360..1792, right action rail x=820..1024. Там не должно быть текста, CTA, продукта, логотипа, цены, важных иконок и смысловых карточек.",
-  "Нижние 24% кадра оставить чистыми или фоновыми: без кнопки, без CTA, без дисклеймера, без продукта, без мелкого текста.",
-  "Правый край оставить фоновым: там обычно стоят лайк, комментарий, репост и меню, поэтому не ставить туда списки, продукт, стрелки, номера и ключевые визуальные объекты.",
-  "Если дизайн-референс ставит важный текст, CTA или продукт у края/внизу, адаптировать композицию под safe zone, сохранив стиль."
-];
-const designReferenceRules = [
-  "ДИЗАЙН-РЕФЕРЕНС — ИСТОЧНИК СТРУКТУРЫ И СТИЛЯ: брать layout skeleton, палитру, типографику, контраст, форму карточек, фактуры, свет, обводки, ритм и декоративные элементы.",
-  "Не копировать чужой текст, смысл, продукт, людей, логотипы и claims; но сохранять узнаваемую сетку, иерархию, плотность, ритм и тип повторяемых блоков.",
-  "Если в задаче задан composition mode, он описывает как адаптировать skeleton референса под новый продукт, а не заменить референс обычным списком.",
-  "Если референс является топ-чартом, рейтингом или leaderboard, не превращать его в белый чеклист с иконками: сохранить ранги, value labels, колонки/карточки и плотную постерную композицию."
-];
-const productVisibilityRules = [
-  "ПРОДУКТ ПОКАЗЫВАТЬ ПО СМЫСЛУ: продукт становится видимым объектом только в темах про выбор, применение, состав, формат или обзор.",
-  "ПРОДУКТ В КАДРЕ — ЭТО ТОЧНЫЙ PRODUCT REFERENCE: когда продукт выбран для кадра, он выглядит как реальный продукт из reference images.",
-  "ДЛЯ БЫТОВОЙ ИЛИ ОБРАЗОВАТЕЛЬНОЙ ТЕМЫ: кадр работает через ситуацию, ритуал, интерфейс, предмет боли, метафору или retention visual.",
-  "Если у продукта есть product reference images, использовать их как источник внешнего вида продукта; дизайн-референс не должен заменять продукт чужим объектом.",
-  "ТОЧНОСТЬ ПРОДУКТА: форма, цвет, этикетка, название, формат, объем, крышка, коробка и SKU повторяют product reference images.",
-  "При отсутствии точного product reference визуальный акцент строится через тему и ситуацию.",
-  "Крупный продуктовый объект появляется только вместе с product reference image-to-image входом.",
-  "Визуальный стиль продукта остается в исходной брендовой логике из reference images.",
-  "Если продукт нематериальный, показать понятную визуализацию услуги: экран сервиса, карту, заявку, чек, подписку, процесс или другой предмет, напрямую связанный с оффером.",
-  "СВЯЗЬ ПРОДУКТА С ТЕМОЙ: рядом с продуктом есть понятный мост: какую боль, привычку или ситуацию он помогает закрыть."
-];
-const contentQualityRules = [
-  "ПОНЯТНЫЙ ЗАГОЛОВОК: хук должен быть самодостаточным и сразу объяснять конфликт. Не писать загадочные заголовки вроде 'одна привычка', 'это', 'главная ошибка', если внутри заголовка не понятно, какая именно ситуация или причина.",
-  "КОРОТКИЙ ЗАГОЛОВОК: максимум 6 слов, одна мысль, без двоеточий и без второй строки-объяснения внутри заголовка.",
-  "Запрещены длинные заголовочные оболочки: 'Этот факт объясняет знакомое ощущение', 'Популярное объяснение часто сбивает с толку', 'Один простой шаг часто меняет больше, чем кажется'.",
-  "ЛОГИКА ТЕКСТА: headline, subhead и пункты должны раскрывать одну и ту же тему. Не смешивать ВПН, рекламный кабинет, заявки, поддержку и нейросети в одном макете.",
-  "Писать заголовки естественным русским порядком слов, без машинной перестановки существительных и глаголов.",
-  "РЕДАКЦИОННЫЙ СТАНДАРТ: текст может быть триггерным, актуальным, спорным и дискуссионным, но не должен порочить репутацию автора. Только правдивая информация, реальные факты, без лжи.",
-  "Спорность строить через честный конфликт: ожидание против ограничений, громкое обещание против проверяемой детали, тренд против здравого смысла.",
-  "Не рисовать обвинения, токсичные формулировки, страшилки, непроверяемые claims, финансовую/медицинскую панику или категоричные обещания.",
-  modernImageFormatRule,
-  oldFormatShellBan,
-  "ПЛОТНОСТЬ БЕЗ КАШИ: обычно 4-6 коротких смысловых блоков; для ranking_leaderboard/top-chart использовать 8-12 очень коротких rank-card пунктов. Номера использовать только если выбранный дизайн-референс явно построен на нумерации.",
-  "Текст должен удерживать взгляд дольше 5 секунд, но оставаться читаемым с телефона: без длинных абзацев, без микрошрифта и без случайной сетки.",
-  "Метафоры использовать только если они мгновенно объясняют проблему. Не уводить тему в случайные объекты вроде кофемашины, телефона или батарейки, если связь с продуктом и болью не очевидна за одну строку.",
-  "НЕ ДУБЛИРОВАТЬ ТЕКСТ: каждый пункт должен давать новый смысл; не повторять одну мысль в заголовке, подписи, пункте и CTA.",
-  "CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН: не рисовать кнопки, стрелки действия, нижние плашки, 'узнайте больше', 'сохраните', 'закажите', 'в описании', 'в профиле' или любые призывы к действию.",
-  "НЕ ПЕРЕГРУЖАТЬ МАКЕТ ХАОСОМ: допускается плотная шпаргалка на 4-6 блоков, но блоки должны быть короткими, крупными и разделенными. Не делать случайные фото, длинные таблицы и нечитаемую мелкую кашу.",
-  "НЕ ИСПОЛЬЗОВАТЬ ТЕХНИЧЕСКИЕ ЗАГОЛОВКИ: не писать на изображении слова 'метафора', 'боль', 'причина', 'действие', 'слой анализа', 'лайфхак', 'инсайт', 'вывод' как названия блоков.",
-  "НИЖНИЕ ЗАЩИТНЫЕ ПОДПИСИ ЗАПРЕЩЕНЫ: не рисовать футер, сноску, дисклеймер, 'проверенный БАД', артикул, сертификацию, предупреждение или строку 'проконсультируйтесь'.",
-  "Дисклеймеры не являются контентом: не превращать 'не является лекарством', 'не является медицинским диагнозом', 'проконсультируйтесь с врачом' в пункты, бейджи, карточки, преимущества, футеры или нижние строки.",
-  "Для БАДов, wellness, витаминов, косметики и похожих продуктов не рисовать дисклеймер вообще; ограничения нужны только как внутреннее правило безопасности.",
-  "Не называть БАД, wellness-продукт, косметику или нутрицевтик лекарством, препаратом, лечением, терапией или медицинским средством.",
-  "Не писать медицинские диагнозы как утверждение о зрителе и не использовать диагнозы ради драматизации."
-];
-const productDataRules = [
-  "АНКЕТА ПРОДУКТА — ИСТОЧНИК ИСТИНЫ: описание, когда нужно, что можно обещать, факты, состав и запреты важнее AI-брифа, темы, хуков и дизайн-референса.",
-  "Видимые обещания, свойства, состав, формат, объем, бренд, дозировка и сценарии продукта можно писать только если они прямо есть в анкете продукта или product reference prompt.",
-  "Не добавлять типовые БАД-обещания и соседние claims вроде иммунитета, акне, кишечника, похудения, детокса, энергии, капсул, 60 капсул или 500 мл, если этого нет в анкете продукта.",
-  "Поля 'Что нельзя обещать', restrictions, forbidden и contentRestrictions — только внутренние стоп-правила. Не рисовать их на изображении, не превращать в нижний дисклеймер и не пересказывать зрителю.",
-  "Если данных продукта мало, лучше сделать полезный бытовой пост вокруг ситуации, чем выдумывать свойства продукта."
-];
+import {
+  getAiDepartmentContent,
+  getAiDepartmentFormat,
+  getAiDepartmentHook,
+  getAiDepartmentPointCount,
+  getAiDepartmentTopic,
+  getAiDepartmentVisualObject,
+  hasAiDepartmentBrief
+} from "./ai-department-brief.js";
+import {
+  contentQualityRules,
+  designReferenceRules,
+  productDataRules,
+  productVisibilityRules,
+  russianImageTextRules,
+  socialSafeZoneRules
+} from "./image-prompt-rules.js";
 export function getProductsForProject(products, projectId) {
   return products.filter((product) => product.projectId === projectId);
 }
@@ -301,11 +253,12 @@ function cleanDesignReferenceText(value) {
 }
 
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
+  const aiDepartmentMode = hasAiDepartmentBrief(generationBrief);
   const slot = generationBrief.diversitySlot
     ? refreshContentSlotLayer(generationBrief.diversitySlot, { project, product, existingJobs })
     : createContentSlot({ project, product, existingJobs });
   const hasHookReference = Boolean(generationBrief.hookReference);
-  const topicCandidate = !hasHookReference && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
+  const topicCandidate = !aiDepartmentMode && !hasHookReference && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
     ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
     : null;
   const topicCandidatePlan = !generationBrief.aiPlan && topicCandidate
@@ -324,53 +277,71 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const generationSeed = {
     ...generationBrief,
     diversitySlot: slot,
-    topic: seedTopic,
-    hook: generationBrief.hook || topicCandidate?.hook || lockedHook,
-    format: resolveGenerationFormat({ reference, requestedFormat: generationBrief.format, candidateFormat: topicCandidate?.format, lockedFormat }),
+    topic: aiDepartmentMode ? getAiDepartmentTopic(generationBrief) : seedTopic,
+    hook: aiDepartmentMode ? getAiDepartmentHook(generationBrief) : generationBrief.hook || topicCandidate?.hook || lockedHook,
+    format: aiDepartmentMode
+      ? getAiDepartmentFormat(generationBrief, lockedFormat)
+      : resolveGenerationFormat({ reference, requestedFormat: generationBrief.format, candidateFormat: topicCandidate?.format, lockedFormat }),
     aiPlan: generationBrief.aiPlan || topicCandidatePlan || undefined
   };
-  const meaning = createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs, hookLibrary });
+  const aiContent = aiDepartmentMode ? getAiDepartmentContent(generationBrief) : null;
+  const meaning = aiDepartmentMode
+    ? null
+    : createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs, hookLibrary });
   const scenario = generationBrief.topic ? "" : pickNextScenario({ project, product, existingJobs });
   const desire = firstLine(project.audienceDesires) || product.offer || product.name;
   const fact = firstListItem(product.facts) || product.description || project.projectTheme;
-  const topic = meaning.hookReference ? meaning.topic : generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
+  const topic = aiDepartmentMode
+    ? generationSeed.topic
+    : meaning.hookReference ? meaning.topic : generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
   const paymentHook = isPaymentProject(project, product) ? buildAutoHook({ project, product, topic, fact, desire, existingJobs }) : "";
-  const referenceHook = meaning.hookReference ? meaning.hook : "";
-  const hook = referenceHook || generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
-  const hookPointCount = getHookPointCount(meaning.hookReference?.text || hook);
+  const referenceHook = meaning?.hookReference ? meaning.hook : "";
+  const hook = aiDepartmentMode
+    ? generationSeed.hook
+    : referenceHook || generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
+  const hookPointCount = getHookPointCount(meaning?.hookReference?.text || hook);
   const profile = buildProductProfile({ project, product, insightMap: generationBrief.productInsightMap });
-  const hookIntelligence = createHookIntelligence(meaning.hookReference?.text || hook);
+  const hookIntelligence = createHookIntelligence(meaning?.hookReference?.text || hook);
   const layoutContentPlan = createLayoutContentPlan(reference, hookIntelligence);
-  const format = generationSeed.format || meaning.format || slot.format || pickFormat(project, reference);
+  const format = generationSeed.format || meaning?.format || slot.format || pickFormat(project, reference);
   const semanticKey = generationBrief.semanticKey || slot.id;
   const creativeTeamVisualMode = getCreativeTeamProductVisualMode(generationBrief);
   const productVisualMode = generationBrief.productVisualMode
     || creativeTeamVisualMode
     || resolveProductVisualMode({ project, product, generationBrief: { ...generationSeed, topic, hook }, existingJobs });
   const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap, productVisualMode };
-  const editorial = createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs, brief: editorialBrief });
+  const editorial = aiDepartmentMode
+    ? {
+        productFact: { fact: generationBrief.productFact || "", situation: generationBrief.scrollStopperAngle || "", action: generationBrief.productPositiveBridge || "" },
+        curiosityAngle: { conflict: generationBrief.scrollStopperAngle || "", fact: generationBrief.productFact || "", situation: "", promise: "", question: "" },
+        finalContent: aiContent,
+        creativeQuality: generationBrief.creativeQuality || generationBrief.qualityChecks || {}
+      }
+    : createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs, brief: editorialBrief });
   const creativeQuality = editorial.creativeQuality;
   const brief = {
     topic,
     hook,
     format,
-    pointCount: resolvePointCountForFormat({ format, hookCount: hookPointCount, requested: generationBrief.pointCount, product }),
+    pointCount: aiDepartmentMode
+      ? getAiDepartmentPointCount(generationBrief, resolvePointCountForFormat({ format, hookCount: hookPointCount, requested: generationBrief.pointCount, product }))
+      : resolvePointCountForFormat({ format, hookCount: hookPointCount, requested: generationBrief.pointCount, product }),
     visualObject: productVisualMode === "no-package"
-      ? generationBrief.visualObject || slot.visualObject || reference?.visualObject || "жизненная ситуация или абстрактная метафора без товара"
-      : generationBrief.visualObject || profile.primaryVisual || meaning.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name,
+      ? getAiDepartmentVisualObject(generationBrief, generationBrief.visualObject || slot.visualObject || reference?.visualObject || "жизненная ситуация или абстрактная метафора без товара")
+      : getAiDepartmentVisualObject(generationBrief, generationBrief.visualObject || profile.primaryVisual || meaning?.visualObject || slot.visualObject || reference?.visualObject || product.components || product.name),
     cta: generationBrief.cta || "",
     salesLevel: generationBrief.salesLevel || "expert",
-    notes: meaning.notes || `Контентный слот: ${slot.angle || slot.id}. Автоматически собрать смыслы из проекта, ЦА, продукта и выбранного референса.`,
+    notes: generationBrief.notes || meaning?.notes || `Контентный слот: ${slot.angle || slot.id}. Автоматически собрать смыслы из проекта, ЦА, продукта и выбранного референса.`,
     semanticKey,
-    meaningPatternId: meaning.pattern.id,
-    hookReference: meaning.hookReference || null,
+    meaningPatternId: meaning?.pattern?.id || "",
+    hookReference: meaning?.hookReference || generationBrief.hookReference || null,
     hookIntelligence,
     layoutContentPlan,
     creativeQuality,
     productFact: editorial.productFact,
     curiosityAngle: editorial.curiosityAngle,
     finalContent: editorial.finalContent,
-    meaningScore: scoreMeaningBrief({ brief: meaning, project }),
+    meaningScore: meaning ? scoreMeaningBrief({ brief: meaning, project }) : 0,
     productPassport: generationBrief.productPassport || null,
     designFormatBrief: generationBrief.designFormatBrief || null,
     creativeBrief: generationBrief.creativeBrief || null,
@@ -382,7 +353,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     contentLayer: slot.contentLayer || generationBrief.contentLayer || null,
     contentLayerId: slot.contentLayer?.id || generationBrief.contentLayerId || "",
     compositionMode: generationBrief.compositionMode || pickCompositionMode({
-      format: format || meaning.format || slot.format || pickFormat(project, reference),
+      format: format || meaning?.format || slot.format || pickFormat(project, reference),
       existingJobs
     }),
     productInsightMap: profile.insightMap,

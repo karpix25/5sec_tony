@@ -1,6 +1,6 @@
 import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldFormatShellBan } from "../src/domain/generation-format-contract.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
-import { getDesignTextContractViolations, normalizeContentScriptForDesignContract } from "../src/domain/design-text-contract.js";
+import { getDesignTextContractViolations } from "../src/domain/design-text-contract.js";
 import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
 
 const commonRoleRules = [
@@ -42,16 +42,12 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
   const formatCompliance = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: formatComplianceInstruction({ commonRules: commonRoleRules, productPassport, creativeBrief, contentScript, designFormatBrief }) });
   const complianceScript = getCompliantContentScript(contentScript, formatCompliance);
   const contractViolations = getDesignTextContractViolations({ contentScript: complianceScript, designFormatBrief: normalizedDesignFormatBrief });
-  const compliantScript = contractViolations.length
-    ? normalizeContentScriptForDesignContract({ contentScript: complianceScript, designFormatBrief: normalizedDesignFormatBrief })
-    : complianceScript;
+  const compliantScript = complianceScript;
   const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(body, productPassport, creativeBrief, compliantScript, designFormatBrief) });
   const safetyReview = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: safetyEditorInstruction(body, productPassport, creativeBrief, compliantScript, visualBrief) });
   const safetyScript = getSafetyFixedContentScript(compliantScript, safetyReview);
   const safetyContractViolations = getDesignTextContractViolations({ contentScript: safetyScript, designFormatBrief: normalizedDesignFormatBrief });
-  const finalScript = safetyContractViolations.length
-    ? normalizeContentScriptForDesignContract({ contentScript: safetyScript, designFormatBrief: normalizedDesignFormatBrief })
-    : safetyScript;
+  const finalScript = safetyScript;
   const finalSafetyReview = withFinalContentScript(safetyReview, finalScript, safetyContractViolations);
   const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, finalScript, visualBrief, finalSafetyReview, designFormatBrief) });
   return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript: finalScript, formatCompliance, textContractViolations: [...new Set([...contractViolations, ...safetyContractViolations])], visualBrief, safetyReview: finalSafetyReview, imagePromptPackage, body });
@@ -287,11 +283,9 @@ function flattenCreativeTeamDraft(parts) {
   const imagePromptPackage = parts.imagePromptPackage.imagePromptPackage || parts.imagePromptPackage;
   const fixedScript = safetyReview?.fixedContentScript?.headline ? safetyReview.fixedContentScript : contentScript;
   const finalViolations = getDesignTextContractViolations({ contentScript: fixedScript, designFormatBrief });
-  const finalScript = finalViolations.length
-    ? normalizeContentScriptForDesignContract({ contentScript: fixedScript, designFormatBrief })
-    : fixedScript;
+  const finalScript = fixedScript;
   const outputSafetyReview = finalViolations.length
-    ? { ...safetyReview, fixedContentScript: { headline: finalScript.headline || "", subhead: finalScript.subhead || "", points: finalScript.points || [] } }
+    ? { ...safetyReview, finalWarnings: [...(safetyReview.finalWarnings || []), `Design text contract still has violations: ${finalViolations.join(", ")}.`] }
     : safetyReview;
   return {
     productPassport: passport,
@@ -353,17 +347,13 @@ function getSafetyFixedContentScript(contentScript, safetyReview) {
 }
 
 function withFinalContentScript(safetyReview, finalScript, safetyContractViolations) {
+  void finalScript;
   if (!safetyContractViolations.length) return safetyReview;
   const review = safetyReview.safetyReview || safetyReview || {};
   return {
     safetyReview: {
       ...review,
-      fixedContentScript: {
-        headline: finalScript.headline || "",
-        subhead: finalScript.subhead || "",
-        points: finalScript.points || []
-      },
-      finalWarnings: [...(review.finalWarnings || []), "Text was normalized again after safety to preserve design reference format."]
+      finalWarnings: [...(review.finalWarnings || []), `Design text contract still has violations: ${safetyContractViolations.join(", ")}.`]
     }
   };
 }

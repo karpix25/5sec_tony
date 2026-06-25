@@ -4,33 +4,48 @@ import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/gener
 import { projects, products } from "../src/domain/entities.js";
 import { runCreativeTeamBrief } from "../scripts/creative-team-prompts.mjs";
 
-test("creative team image prompt package overrides legacy prompt builder", () => {
+test("creative team image prompt package and script are authoritative", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
+  const generationBrief = {
+    topic: "AI_TOPIC_SENTINEL",
+    hook: "AI_HOOK_SENTINEL",
+    imagePromptPackage: { prompt: "AI_FINAL_PROMPT_SENTINEL. Use the provided design reference." },
+    designFormatBrief: {
+      formatType: "ranking_leaderboard",
+      structureName: "Топ признаков",
+      layoutSlots: [{ id: "rank", role: "rank_card", textCapacity: "short" }]
+    },
+    creativeBrief: { topic: "AI_CREATIVE_TOPIC_SENTINEL", formatIntent: "saveable_note" },
+    contentScript: { headline: "AI_HEADLINE_SENTINEL", subhead: "AI_SUBHEAD_SENTINEL", points: ["AI_POINT_ONE", "AI_POINT_TWO"] },
+    visualBrief: { mainVisualObject: "AI_VISUAL_SENTINEL", productUsage: "do_not_show", negativeVisuals: ["упаковка крупно"] }
+  };
+  const brief = createAutoGenerationBrief({
+    project,
+    product,
+    reference: project.references[0],
+    generationBrief
+  });
   const prompt = buildImagePrompt({
     project,
     product,
     reference: project.references[0],
-    generationBrief: {
-      imagePromptPackage: { prompt: "Short GPT Image 2 prompt from creative team." },
-      designFormatBrief: {
-        formatType: "ranking_leaderboard",
-        structureName: "Топ признаков",
-        layoutSlots: [{ id: "rank", role: "rank_card", textCapacity: "short" }]
-      },
-      contentScript: { headline: "Короткий заголовок", subhead: "Одна мысль", points: ["Первый факт", "Второй факт"] },
-      visualBrief: { productUsage: "do_not_show", negativeVisuals: ["упаковка крупно"] }
-    }
+    generationBrief
   });
 
-  assert.match(prompt, /Short GPT Image 2 prompt from creative team/);
-  assert.match(prompt, /Короткий заголовок/);
-  assert.match(prompt, /ranking_leaderboard/);
-  assert.match(prompt, /rank_card\/short/);
+  assert.equal(brief.topic, "AI_TOPIC_SENTINEL");
+  assert.equal(brief.hook, "AI_HOOK_SENTINEL");
+  assert.equal(brief.finalContent.headline, "AI_HEADLINE_SENTINEL");
+  assert.equal(brief.aiPlan.points[1], "AI_POINT_TWO");
+  assert.equal(brief.visualObject, "AI_VISUAL_SENTINEL");
+  assert.match(prompt, /AI_FINAL_PROMPT_SENTINEL/);
+  assert.match(prompt, /AI_HEADLINE_SENTINEL/);
+  assert.match(prompt, /AI_POINT_ONE/);
   assert.doesNotMatch(prompt, /СМЫСЛОВОЙ ПЛАН ДЛЯ ТЕКСТА/);
+  assert.doesNotMatch(prompt, /Почему после воды хочется кофе|Когда нет сил на спорт|Крем нанесли/i);
 });
 
-test("creative team leaderboard prompt locks reference structure", () => {
+test("creative team prompt package is not replaced by local leaderboard prompt", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
   const prompt = buildImagePrompt({
@@ -54,31 +69,21 @@ test("creative team leaderboard prompt locks reference structure", () => {
         }
       },
       contentScript: { headline: "Топ признаков", subhead: "Короткая легенда", points: ["1. Первый сигнал", "2. Второй сигнал"] },
-      imagePromptPackage: { prompt: "Show a large SONRE bottle and write that it helps restore energy." },
+      imagePromptPackage: { prompt: "AI_SAFE_LEADERBOARD_PROMPT: use a dense visual ranking based on the design reference." },
       visualBrief: { productUsage: "small_signal" }
     }
   });
 
-  assert.match(prompt.slice(0, 260), /PRODUCT DOMINANCE PLAN/);
-  assert.match(prompt, /ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ ДЛЯ TOP-CHART/);
-  assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
-  assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
-  assert.match(prompt, /REFERENCE TRACE CONTRACT/);
-  assert.match(prompt, /leaderboard\/top-chart skeleton/);
-  assert.match(prompt, /ранговые колонки|rank cards/);
-  assert.match(prompt, /rank cards/);
-  assert.match(prompt, /темный насыщенный фон/);
-  assert.match(prompt, /Фон референса: dark blue cosmic poster/);
-  assert.match(prompt, /Палитра референса: gold, white and cyan glow/);
-  assert.match(prompt, /Типографика референса: bold condensed poster type/);
-  assert.match(prompt, /Обработка изображений референса: cutout portraits inside glowing bars/);
-  assert.match(prompt, /PRODUCT DOMINANCE PLAN/);
-  assert.match(prompt, /COLOR PLAN/);
-  assert.match(prompt, /Главный visual hook/);
-  assert.doesNotMatch(prompt, /Show a large SONRE bottle/i);
+  assert.match(prompt, /AI_SAFE_LEADERBOARD_PROMPT/);
+  assert.match(prompt, /TECHNICAL RENDERING GUARDRAILS/);
+  assert.match(prompt, /Топ признаков/);
+  assert.doesNotMatch(prompt, /PRODUCT DOMINANCE PLAN/);
+  assert.doesNotMatch(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
+  assert.doesNotMatch(prompt, /REFERENCE TRACE CONTRACT/);
+  assert.doesNotMatch(prompt, /Фон референса: dark blue cosmic poster/);
 });
 
-test("leaderboard prompt adapts short checklist copy into chart slots", () => {
+test("ai prompt package keeps final prompt ownership for leaderboard references", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
   const prompt = buildImagePrompt({
@@ -100,15 +105,14 @@ test("leaderboard prompt adapts short checklist copy into chart slots", () => {
     }
   });
 
-  assert.match(prompt, /адаптировать видимый текст под leaderboard skeleton/);
-  assert.match(prompt, /RANKING ADAPTATION PLAN/);
-  assert.match(prompt, /TOP 10 или TOP 12 chart/);
-  assert.match(prompt, /subtitle\/legend совпадает с числом rank cards/);
-  assert.match(prompt, /Исходных пунктов 5/);
-  assert.match(prompt, /темный chart poster/);
+  assert.match(prompt, /Adapt the wellness checklist into the chart reference/);
+  assert.match(prompt, /Усталость или сигнал организма/);
+  assert.doesNotMatch(prompt, /RANKING ADAPTATION PLAN/);
+  assert.doesNotMatch(prompt, /TOP 10 или TOP 12 chart/);
+  assert.doesNotMatch(prompt, /Исходных пунктов 5/);
 });
 
-test("creative team prompt keeps leaderboard lock when ai format brief is wrong", () => {
+test("creative team prompt does not synthesize local format lock when ai format brief is wrong", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
   const prompt = buildImagePrompt({
@@ -131,10 +135,10 @@ test("creative team prompt keeps leaderboard lock when ai format brief is wrong"
     }
   });
 
-  assert.match(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
-  assert.match(prompt, /ranking_leaderboard/);
-  assert.match(prompt, /rankedItems\[8-21\]/);
-  assert.match(prompt, /rank cards/);
+  assert.match(prompt, /Create a skincare infographic from the reference/);
+  assert.match(prompt, /Что проверить утром/);
+  assert.doesNotMatch(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
+  assert.doesNotMatch(prompt, /rankedItems\[8-21\]/);
 });
 
 test("leaderboard final prompt allows ranking instead of old top ban", () => {
@@ -318,7 +322,7 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.match(calls[9].content, /ТОП вечерних сбоев/);
 });
 
-test("creative team runner enforces leaderboard text contract after weak compliance pass", async () => {
+test("creative team runner records leaderboard text contract issues without writing replacement copy", async () => {
   const responses = [
     { productPassport: { productName: "Хлорофилл", safeFacts: ["напиток"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", textContract: { preferredItems: 10 }, structureName: "Top chart" } },
@@ -343,16 +347,17 @@ test("creative team runner enforces leaderboard text contract after weak complia
     body: { project: projects[0], product: products[0], reference: projects[0].references[0], existingJobs: [] }
   });
 
-  assert.match(draft.contentScript.headline, /^ТОП 10:/);
-  assert.doesNotMatch(draft.contentScript.subhead, /5 маркеров/i);
-  assert.equal(draft.contentScript.points.length, 10);
+  assert.equal(draft.contentScript.headline, "Усталость или сигнал организма?");
+  assert.match(draft.contentScript.subhead, /5 маркеров/i);
+  assert.equal(draft.contentScript.points.length, 5);
   assert.deepEqual(draft.textContractViolations, ["headline_not_top_chart", "subhead_old_count", "not_enough_rank_items"]);
-  assert.match(calls[7].content, /ТОП 10:/);
-  assert.match(calls[9].content, /ТОП 10:/);
-  assert.doesNotMatch(calls[9].content, /5 маркеров/i);
+  assert.match(calls[7].content, /Усталость или сигнал организма/);
+  assert.match(calls[9].content, /Усталость или сигнал организма/);
+  assert.match(calls[9].content, /5 маркеров/i);
+  assert.match(draft.safetyReview.finalWarnings.join(" "), /Design text contract still has violations/);
 });
 
-test("creative team runner re-enforces leaderboard contract after safety edits", async () => {
+test("creative team runner records leaderboard contract issues after safety edits", async () => {
   const responses = [
     { productPassport: { productName: "Хлорофилл", safeFacts: ["напиток"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", textContract: { preferredItems: 12 }, structureName: "Top chart" } },
@@ -377,9 +382,10 @@ test("creative team runner re-enforces leaderboard contract after safety edits",
     body: { project: projects[0], product: products[0], reference: projects[0].references[0], existingJobs: [] }
   });
 
-  assert.match(draft.contentScript.headline, /^ТОП 12/);
+  assert.equal(draft.contentScript.headline, "12 привычек, крадущих энергию");
   assert.equal(draft.contentScript.points.length, 12);
-  assert.equal(draft.safetyReview.fixedContentScript.headline, draft.contentScript.headline);
+  assert.equal(draft.safetyReview.fixedContentScript.headline, "12 привычек, крадущих энергию");
   assert.deepEqual(draft.textContractViolations, ["headline_not_top_chart"]);
-  assert.match(calls[9].content, /ТОП 12/);
+  assert.match(draft.safetyReview.finalWarnings.join(" "), /Design text contract still has violations/);
+  assert.match(calls[9].content, /12 привычек, крадущих энергию/);
 });

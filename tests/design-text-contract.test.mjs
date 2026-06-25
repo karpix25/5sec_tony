@@ -20,39 +20,36 @@ test("ranking leaderboard contract detects old checklist text", () => {
   ]);
 });
 
-test("ranking leaderboard contract normalizes short checklist into top chart text", () => {
+test("ranking leaderboard contract does not synthesize replacement creative text", () => {
   const designFormatBrief = {
     formatType: "ranking_leaderboard",
     textContract: { preferredItems: 10 }
   };
+  const contentScript = {
+    headline: "Усталость или сигнал организма?",
+    subhead: "5 маркеров, что пора пересмотреть привычки",
+    points: ["Кожа стала тусклой", "Энергия падает к 16:00", "Трудности с концентрацией", "Сложно пить воду", "Тяжелый подъем"]
+  };
   const normalized = normalizeContentScriptForDesignContract({
     designFormatBrief,
-    contentScript: {
-      headline: "Усталость или сигнал организма?",
-      subhead: "5 маркеров, что пора пересмотреть привычки",
-      points: ["Кожа стала тусклой", "Энергия падает к 16:00", "Трудности с концентрацией", "Сложно пить воду", "Тяжелый подъем"]
-    }
+    contentScript
   });
 
-  assert.match(normalized.headline, /^ТОП 10:/);
-  assert.doesNotMatch(normalized.subhead, /5 маркеров/i);
-  assert.equal(normalized.points.length, 10);
-  assert.match(normalized.points[0], /^1: Кожа стала тусклой/);
-  assert.match(normalized.points[9], /^10:/);
+  assert.deepEqual(normalized, contentScript);
 });
 
-test("ranking leaderboard contract cleans conflicting top headline counts", () => {
+test("ranking leaderboard contract leaves conflicting headline for ai regeneration", () => {
+  const contentScript = {
+    headline: "ТОП 12: 10 сигналов, что",
+    subhead: "Рейтинг микро-состояний",
+    points: ["Сон", "Вода", "Свет", "Экран", "Завтрак", "Пауза", "Режим", "Фокус"]
+  };
   const normalized = normalizeContentScriptForDesignContract({
     designFormatBrief: { formatType: "ranking_leaderboard", textContract: { preferredItems: 12 } },
-    contentScript: {
-      headline: "ТОП 12: 10 сигналов, что",
-      subhead: "Рейтинг микро-состояний",
-      points: ["Сон", "Вода", "Свет", "Экран", "Завтрак", "Пауза", "Режим", "Фокус"]
-    }
+    contentScript
   });
 
-  assert.equal(normalized.headline, "ТОП 12 сигналов");
-  assert.equal(normalized.points.length, 12);
+  assert.deepEqual(normalized, contentScript);
 });
 
 test("ranking leaderboard contract cleans repeated top headline count", () => {

@@ -11,44 +11,22 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
     productVisualMode,
     productPassport: brief.productPassport
   });
-  const visual = brief.visualBrief || {};
   const format = brief.designFormatBrief || {};
-  const slots = Array.isArray(format.layoutSlots) ? format.layoutSlots : [];
-  const grammar = format.visualGrammar || {};
   const formatType = getEffectiveFormatType({ brief, format });
-  const productDominanceContract = getRankingProductDominanceContract(formatType, brief);
   const safePackagePrompt = sanitizePackagePrompt(packagePrompt, { formatType, productVisualMode, productPassport: brief.productPassport });
   const productVisualContract = getProductVisualPromptPolicy(productVisualMode);
-  const canDescribeProductVisual = productVisualMode === "exact-product";
-  const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({
-    productVisualMode,
-    hasProductReference: Boolean(brief.productPassport?.productReferences?.length || brief.productReferences?.length)
-  });
+  const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({ productVisualMode });
   return limitImagePrompt([
-    productDominanceContract,
-    productVisualContract,
-    getTextContractRule(formatType),
-    getFormatLock(formatType),
-    getReferenceTraceContract(formatType),
-    getRankingAdaptationContract(formatType, content),
     safePackagePrompt,
-    formatLayoutPlanPrompt(brief.layoutContentPlan),
+    "TECHNICAL RENDERING GUARDRAILS:",
     currentDatePrompt,
+    productVisualContract,
     avatarReservedZonePrompt,
     cornerCompositionPolicy,
+    "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ: не менять тему и видимые формулировки, уже сгенерированные AI-командой.",
     content.headline ? `Заголовок: ${content.headline}.` : "",
     content.subhead ? `Подзаголовок: ${content.subhead}.` : "",
     Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.map(formatContentPoint).join(" | ")}.` : "",
-    formatType ? `ФОРМАТ РЕФЕРЕНСА: ${formatType}${format.structureName ? `, ${format.structureName}` : ""}.` : "",
-    slots.length ? `Слоты макета: ${slots.map((slot) => `${slot.id || slot.role}:${slot.role}/${slot.textCapacity}`).join(" | ")}.` : "",
-    grammar.composition ? `Композиция референса: ${grammar.composition}.` : "",
-    formatGrammarLine("Фон референса", grammar.background, formatType),
-    formatGrammarLine("Палитра референса", grammar.palette, formatType),
-    grammar.typography ? `Типографика референса: ${grammar.typography}.` : "",
-    grammar.hierarchy ? `Иерархия референса: ${grammar.hierarchy}.` : "",
-    grammar.imageTreatment ? `Обработка изображений референса: ${grammar.imageTreatment}.` : "",
-    grammar.framesAndDividers ? `Рамки и разделители: ${grammar.framesAndDividers}.` : "",
-    canDescribeProductVisual && visual.productUsage ? `Использование продукта: ${visual.productUsage}.` : "",
     freePrompt ? `Дополнительная задача оператора: ${String(freePrompt).trim().slice(0, 600)}.` : ""
   ].filter(Boolean).join(" "));
 }
@@ -125,7 +103,7 @@ function sanitizePackagePromptLines(prompt = "", productPassport = {}, { removeP
     .filter((line) => !isDisclaimerCreativeLine(line))
     .filter((line) => !removeProduct || !productPattern?.test(line))
     .filter((line) => !removeProduct || !/sonre|chlorophyll|хлорофилл|флакон|бутыл|банка|упаков|packshot|bottle|package|стакан|энерг|бодрост|вынослив|иммун|гидратац|баланс|detox|детокс|поможет|вернет|восстанов/i.test(line));
-  return safeLines.join(" ") || "Vertical 9:16 top-chart infographic adapted from the design reference.";
+  return safeLines.join(" ");
 }
 
 function formatContentPoint(point) {

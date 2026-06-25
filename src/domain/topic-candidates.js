@@ -2,7 +2,6 @@ import { buildProductProfile } from "./product-profile.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 import { createTravelTopicPlan } from "./travel-content-plan.js";
 import { createBenefitEcosystem, formatBenefitEcosystemInstruction } from "./benefit-ecosystem.js";
-import { createRetentionTopicAngle } from "./retention-topic-angles.js";
 
 const hookStrategies = [
   {
@@ -65,28 +64,26 @@ export function buildTopicCandidates({ project, product, existingJobs = [], insi
 
 function buildEcosystemCandidates({ project, product, profile }) {
   const ecosystem = createBenefitEcosystem({ project, product });
-  return ecosystem.adjacentActions.slice(0, 6).map((action, index) => {
-    const retention = createRetentionTopicAngle({ ecosystem, action, index });
-    return {
-      angleId: `ecosystem-${ecosystem.id}-${index}`,
-      strategyId: "benefit-ecosystem",
-      strategyLabel: "широкий контекст пользы",
-      angleLabel: retention.angleType,
-      trigger: ecosystem.goal,
-      topic: retention.headline,
-      headline: retention.headline,
-      hook: "",
-      format: retention.format || (index % 2 ? "scheme" : "checklist"),
-      scoreBonus: 8,
-      pain: profile.primaryPain || ecosystem.goal,
-      habit: action,
-      proof: ecosystem.goal,
-      useCase: action,
-      subhead: retention.subhead,
-      points: retention.points,
-      promptInstruction: `${formatBenefitEcosystemInstruction({ project, product })} ${retention.instruction}`
-    };
-  });
+  return ecosystem.adjacentActions.slice(0, 6).map((action, index) => ({
+    angleId: `ecosystem-${ecosystem.id}-${index}`,
+    strategyId: "benefit-ecosystem",
+    strategyLabel: "широкий контекст пользы",
+    angleLabel: "ai-generated-adjacent-angle",
+    trigger: ecosystem.goal,
+    topic: action,
+    hook: "",
+    format: index % 2 ? "scheme" : "checklist",
+    scoreBonus: 4,
+    pain: profile.primaryPain || ecosystem.goal,
+    habit: action,
+    proof: ecosystem.goal,
+    useCase: action,
+    promptInstruction: [
+      formatBenefitEcosystemInstruction({ project, product }),
+      "Это только смысловой сигнал для AI-команды, не готовый headline.",
+      "Финальную тему, заголовок, подзаголовок и пункты должен сгенерировать creative strategist/scriptwriter."
+    ].join(" ")
+  }));
 }
 
 export function pickTopicCandidate({ project, product, existingJobs = [], insightMap } = {}) {
