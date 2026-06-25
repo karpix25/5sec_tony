@@ -46,7 +46,14 @@ async function startServerJob(request, response, deps) {
     if (!deps.jobs.has(job.id)) {
       const origin = getInternalServerOrigin();
       const record = {
-        job: { ...job, status: "running", stage: "image", progress: 18, failMsg: "Сервер запустил генерацию..." },
+        job: {
+          ...job,
+          status: "running",
+          stage: "image",
+          progress: 18,
+          serverJobAcceptedAt: new Date().toISOString(),
+          failMsg: "Сервер запустил генерацию..."
+        },
         context: body.context || {},
         origin,
         avatarUsage: null,

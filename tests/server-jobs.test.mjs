@@ -77,6 +77,7 @@ test("server job runs image generation, final assembly, avatar usage and disk up
     });
     assert.equal(started.status, 200);
     assert.equal(started.payload.job.status, "running");
+    assert.match(started.payload.job.serverJobAcceptedAt, /^\d{4}-\d{2}-\d{2}T/);
 
     const finalPayload = await waitForServerJob("server-job-full", (payload) =>
       payload.job.status === "done" && payload.job.diskStatus === "done"
@@ -143,6 +144,7 @@ test("server job persists image task id without waiting for browser polling", as
     }, handle);
 
     assert.equal(started.status, 200);
+    assert.match(started.payload.job.serverJobAcceptedAt, /^\d{4}-\d{2}-\d{2}T/);
     await waitFor(() => persisted.some((job) => job.imageTaskId === "image-task-persisted"));
     await waitFor(() => persisted.some((job) => job.status === "done"));
     assert.equal(persisted.some((job) => job.status === "done" && job.finalVideoUrl === "/generated/no-browser.mp4"), true);

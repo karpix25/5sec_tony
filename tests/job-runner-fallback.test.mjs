@@ -9,6 +9,7 @@ test("resume waits for store hydration before reconnecting server jobs", async (
     status: "running",
     stage: "image",
     progress: 44,
+    serverJobAcceptedAt: "2026-06-25T20:00:00.000Z",
     outputType: "image",
     failMsg: ""
   };

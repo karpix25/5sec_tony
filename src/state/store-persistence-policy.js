@@ -18,6 +18,7 @@ function hasPersistedJobDelta(previous, next) {
   const fields = [
     "status",
     "stage",
+    "serverJobAcceptedAt",
     "imageTaskId",
     "imageProvider",
     "imageUrl",

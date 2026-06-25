@@ -12,6 +12,7 @@ test("running job reconnects to server status after page reload", async () => {
     status: "running",
     stage: "prompt",
     progress: 12,
+    serverJobAcceptedAt: "2026-06-25T20:00:00.000Z",
     outputType: "image",
     failMsg: ""
   };
@@ -121,6 +122,7 @@ test("running job shows a retryable failure when server memory no longer has it"
     status: "running",
     stage: "image",
     progress: 44,
+    serverJobAcceptedAt: "2026-06-25T20:00:00.000Z",
     failMsg: ""
   };
   const store = createTestStore({ jobs: [job] });
@@ -136,6 +138,34 @@ test("running job shows a retryable failure when server memory no longer has it"
   } finally {
     globalThis.fetch = originalFetch;
     restore();
+  }
+});
+
+test("running local job without server acceptance is not resumed after reload", async () => {
+  const originalFetch = globalThis.fetch;
+  const job = {
+    id: "job-local-only",
+    status: "running",
+    stage: "image",
+    progress: 44,
+    failMsg: "Передали генерацию серверу..."
+  };
+  const store = createTestStore({ jobs: [job] });
+  let fetchCalled = false;
+
+  globalThis.fetch = async () => {
+    fetchCalled = true;
+    return jsonResponse({ error: "server job not found" }, false);
+  };
+
+  try {
+    await resumeRunningImageJobs(store);
+
+    assert.equal(fetchCalled, false);
+    assert.equal(job.status, "running");
+    assert.equal(job.failMsg, "Передали генерацию серверу...");
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 

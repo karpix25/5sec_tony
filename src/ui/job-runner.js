@@ -32,7 +32,7 @@ export async function runImageJob(store, jobId) {
 
 export function resumeRunningImageJobs(store) {
   const resume = () => {
-    const jobs = store.getState().jobs.filter((job) => job.status === "running");
+    const jobs = store.getState().jobs.filter((job) => job.status === "running" && hasServerJobHandshake(job));
     return Promise.all(jobs.map((job) => pollServerImageJob(store, job.id, { immediate: true })));
   };
   return typeof store.whenHydrated === "function"
@@ -103,6 +103,10 @@ function isTerminalJob(job) {
 
 function isServerJobMissing(error) {
   return /server job not found|Серверная задача не найдена/i.test(error?.message || "");
+}
+
+function hasServerJobHandshake(job) {
+  return Boolean(job?.serverJobAcceptedAt || job?.imageTaskId || job?.imageProvider || job?.finalVideoUrl || job?.imageUrl);
 }
 
 function failServerJob(store, jobId, message) {
