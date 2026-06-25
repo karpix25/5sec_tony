@@ -6,6 +6,7 @@ import {
   adaptHookFromReference,
   applyHookDraft,
   createHookDraft,
+  selectHookReference,
   setHookVersionStatus,
   toggleHookEnabled
 } from "../src/domain/hook-library.js";
@@ -100,6 +101,30 @@ test("hook references adapt to project subject instead of being copied raw", () 
 
   assert.match(adapted, /подписка не проходит/);
   assert.doesNotMatch(adapted, /\[темы\]/);
+});
+
+test("hook references are selected randomly from eligible formulas", () => {
+  const hookLibrary = applyHookDraft({ versions: [] }, createHookDraft({ text: "Оказалось, это работает иначе\nПочему это кажется нормой\nЧто меняет результат утром" }));
+  const project = { ...projects[0], allowedTriggers: "" };
+  const first = selectHookReference({ hookLibrary, project, product: products[0], random: () => 0 });
+  const last = selectHookReference({ hookLibrary, project, product: products[0], random: () => 0.99 });
+
+  assert.notEqual(first.text, last.text);
+});
+
+test("hook adaptation writes about benefit context instead of product brand", () => {
+  const project = { ...projects[0], projectTheme: "утренняя wellness-рутина" };
+  const product = {
+    ...products[0],
+    name: "SONRE Хлорофилл",
+    offer: "поддержать привычку пить воду утром",
+    pains: ["скучный вкус воды"],
+    facts: ["ритуал проще соблюдать, когда вкус приятный"]
+  };
+  const adapted = adaptHookFromReference({ text: "7 красных флагов [темы]" }, { project, product, angle: "" });
+
+  assert.match(adapted, /вода|утр|привыч|ритуал|вкус/i);
+  assert.doesNotMatch(adapted, /SONRE|Хлорофилл/i);
 });
 
 test("pdf hook placeholders adapt to project context", () => {

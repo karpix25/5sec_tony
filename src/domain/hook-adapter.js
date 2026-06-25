@@ -37,8 +37,7 @@ function createHookAdaptationContext({ project, product, angle, profile, templat
     angle,
     profile.primaryPain,
     profile.primaryUseCase,
-    project?.projectTheme,
-    product?.name
+    project?.projectTheme
   ]);
   const subject = hookAdapterFirstAvailable([
     angle,
@@ -46,7 +45,8 @@ function createHookAdaptationContext({ project, product, angle, profile, templat
     profile.primaryPain,
     project?.projectTheme,
     project?.niche,
-    product?.name
+    product?.offer,
+    product?.components
   ]);
   const scenario = hookAdapterFirstAvailable([
     angle,
@@ -58,13 +58,13 @@ function createHookAdaptationContext({ project, product, angle, profile, templat
     profile.primaryPain,
     angle,
     project?.audiencePains,
-    product?.name
+    product?.pains?.[0]
   ]);
   const result = hookAdapterFirstAvailable([
     product?.offer,
     profile.primaryProof,
     project?.audienceDesires,
-    product?.name
+    product?.facts?.[0]
   ]);
   const count = getReferenceCount(template) || "5";
 
@@ -76,8 +76,9 @@ function createHookAdaptationContext({ project, product, angle, profile, templat
     scenario: hookAdapterShortPhrase(scenario, 64),
     problem: hookAdapterShortPhrase(problem, 64),
     result: hookAdapterShortPhrase(result, 64),
-    object: hookAdapterShortPhrase(profile.primaryUseCase || profile.primaryProof || subject || product?.name, 64),
-    action: hookAdapterShortPhrase(project?.keyScenarios || profile.primaryUseCase || "это", 64)
+    object: hookAdapterShortPhrase(profile.primaryUseCase || profile.primaryProof || product?.components || subject, 64),
+    action: hookAdapterShortPhrase(project?.keyScenarios || profile.primaryUseCase || product?.offer || "это", 64),
+    productName: product?.name || ""
   };
 }
 
@@ -109,7 +110,7 @@ function applyPlaceholderReplacements(text, context) {
   Object.entries(replacements).forEach(([pattern, value]) => {
     next = next.replace(new RegExp(pattern, "gi"), value);
   });
-  return next;
+  return removeProductName(next, context.productName);
 }
 
 function shouldRewriteHook(template, text) {
@@ -175,4 +176,22 @@ function hookAdapterLowercaseFirst(value) {
 
 function hookAdapterFirstAvailable(items) {
   return items.map((item) => String(item || "").trim()).find(Boolean) || "";
+}
+
+function removeProductName(value, productName = "") {
+  const terms = String(productName || "")
+    .split(/\s+|\+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 4);
+  if (!terms.length) return value;
+  const pattern = new RegExp(terms.map(escapeHookAdapterRegExp).join("|"), "gi");
+  return String(value || "")
+    .replace(pattern, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.:!?])/g, "$1")
+    .trim();
+}
+
+function escapeHookAdapterRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

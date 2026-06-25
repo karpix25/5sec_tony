@@ -54,7 +54,7 @@ export function toggleHookEnabled(library, hookId) {
   });
 }
 
-export function selectHookReference({ hookLibrary, project, product, pattern, slot, existingJobs = [] }) {
+export function selectHookReference({ hookLibrary, project, product, pattern, slot, existingJobs = [], random = Math.random }) {
   const library = normalizeHookLibrary(hookLibrary);
   const active = library.versions.filter((version) => version.status === "active");
   const eligibleHooks = active.flatMap((version) => version.hooks)
@@ -68,16 +68,7 @@ export function selectHookReference({ hookLibrary, project, product, pattern, sl
     .sort((left, right) => right.score - left.score);
   const bestScore = scoredHooks[0]?.score ?? 0;
   const pool = scoredHooks.filter((item) => item.score >= bestScore - 1).map((item) => item.hook);
-  const source = [
-    project?.projectTheme || "",
-    product?.name || "",
-    pattern?.id || "",
-    slot?.id || "",
-    slot?.topic || "",
-    slot?.angle || "",
-    existingJobs.length
-  ].join(" ");
-  const index = Math.abs(hashHookSource(source)) % pool.length;
+  const index = Math.max(0, Math.min(pool.length - 1, Math.floor(random() * pool.length)));
   return pool[index];
 }
 
@@ -157,10 +148,6 @@ function hookMatchesContext(hook, { project, product, pattern }) {
 
 function hookFirstLine(value) {
   return String(Array.isArray(value) ? value.find(Boolean) || "" : value || "").split(/\n|;|,/)[0].trim();
-}
-
-function hashHookSource(value) {
-  return String(value || "").split("").reduce((sum, char) => ((sum << 5) - sum) + char.charCodeAt(0), 0);
 }
 
 function hookCreateId(prefix) {
