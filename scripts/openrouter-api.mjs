@@ -4,6 +4,7 @@ import { resolveImageInputUrls } from "./reference-assets.mjs";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
+const designReferenceModel = writingModel;
 const defaultOpenRouterTimeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 120000);
 const productVisionTimeoutMs = Number(process.env.PRODUCT_VISION_TIMEOUT_MS || 180000);
 
@@ -73,7 +74,7 @@ async function generateBrief(request, response) {
     const body = await readJson(request);
     logGenerationPayload("brief", body);
     const bodyWithReferenceImages = await attachDesignReferenceImageUrls(body, request);
-    const draft = await runCreativeTeamBrief({ token, body: bodyWithReferenceImages, model: writingModel, referenceModel: visionModel, callOpenRouter, parseJsonDraft });
+    const draft = await runCreativeTeamBrief({ token, body: bodyWithReferenceImages, model: writingModel, referenceModel: designReferenceModel, callOpenRouter, parseJsonDraft });
     return sendJson(response, 200, { model: writingModel, draft });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "OpenRouter request failed" });
