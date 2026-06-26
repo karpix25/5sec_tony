@@ -1,28 +1,17 @@
-export class PartialGenerationBatchError extends Error {
-  constructor(message, jobs) {
-    super(message);
-    this.name = "PartialGenerationBatchError";
-    this.jobs = Array.isArray(jobs) ? jobs : [];
-  }
-}
-
-export async function createGenerationBatch({ count, preflight, createJob }) {
-  const jobs = [];
+export async function runQueuedGenerationBatch({ pendingJobs, prepare, completePendingJob, failPendingJob, runJob }) {
+  const completedJobs = [];
+  const count = pendingJobs.length;
   for (let index = 0; index < count; index += 1) {
+    const pendingJob = pendingJobs[index];
     try {
-      await preflight({ index, count, batchJobs: jobs });
-      const job = createJob();
-      if (job) jobs.push(job);
+      await prepare({ index, count, batchJobs: completedJobs });
+      const job = completePendingJob(pendingJob.id);
+      if (!job) continue;
+      completedJobs.push(job);
+      runJob(job);
     } catch (error) {
-      if (jobs.length) {
-        throw new PartialGenerationBatchError(error.message || "AI-команда недоступна", jobs);
-      }
-      throw error;
+      failPendingJob(pendingJob.id, error);
     }
   }
-  return jobs;
-}
-
-export function getPartialBatchJobs(error) {
-  return error instanceof PartialGenerationBatchError ? error.jobs : [];
+  return completedJobs;
 }

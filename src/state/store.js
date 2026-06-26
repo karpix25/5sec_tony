@@ -1,4 +1,4 @@
-import { advanceJob, getProductsForProject } from "../domain/generation.js";
+import { getProductsForProject } from "../domain/generation.js";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { globalAudioLibrary } from "../domain/entities.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
@@ -14,16 +14,14 @@ import {
   getSelectedGlobalAudioId
 } from "./global-assets.js";
 import { createStoreCache } from "./store-cache.js";
-import { patchJobWithQuotaAccounting } from "../domain/job-quota.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
-import { updateProjectEntity, withCreatedJobs } from "./store-projects.js";
+import { updateProjectEntity } from "./store-projects.js";
 import { mergeHydratedReferenceState, normalizePersistedReferenceState } from "./reference-libraries.js";
 import { createStatePersistence } from "./state-persistence.js";
 import {
-  createSelectionJobBatch,
-  getProjectSelectionContext,
   getSelectionContext
 } from "./store-context.js";
+import { createJobActions } from "./job-actions.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
   createAudioEntity,
@@ -86,6 +84,11 @@ export function createStore() {
     getState: () => state,
     getProject,
     setState
+  });
+  const jobActions = createJobActions({
+    getState: () => state,
+    setState,
+    getProject
   });
   statePersistence = createStatePersistence({
     getState: () => state,
@@ -405,38 +408,7 @@ export function createStore() {
     createAvatarVideoCtaCandidate: avatarWorkflow.createAvatarVideoCtaCandidate,
     approveAvatarVideoCtaCandidate: avatarWorkflow.approveAvatarVideoCtaCandidate,
     resetAvatarVideoCtaOverlay: avatarWorkflow.resetAvatarVideoCtaOverlay,
-    createJob() {
-      const context = getSelectionContext(state, getProject);
-      const jobs = createSelectionJobBatch(state, context, 1);
-      setState(withCreatedJobs(state, jobs, context.project.id));
-      return jobs[0] || null;
-    },
-    createJobs(count) {
-      const context = getSelectionContext(state, getProject);
-      const jobs = createSelectionJobBatch(state, context, count, { distributeProducts: true });
-      setState(withCreatedJobs(state, jobs, context.project.id));
-      return jobs;
-    },
-    createProjectJobs(projectId, count) {
-      const context = getProjectSelectionContext(state, projectId, getProject);
-      const jobs = createSelectionJobBatch(state, context, count, { distributeProducts: true });
-      setState(withCreatedJobs(state, jobs, context.project.id));
-      return jobs;
-    },
-    patchJob(jobId, payload) {
-      setState(patchJobWithQuotaAccounting(state, jobId, payload));
-    },
-    replaceJob(jobId, jobNext) {
-      setState({ jobs: state.jobs.map((job) => (job.id === jobId ? jobNext : job)) });
-    },
-    advanceJob(jobId) {
-      setState({
-        jobs: state.jobs.map((job) => (job.id === jobId ? advanceJob(job) : job))
-      });
-    },
-    deleteJob(jobId) {
-      setState({ jobs: state.jobs.filter((job) => job.id !== jobId) });
-    }
+    ...jobActions
   };
 }
 
