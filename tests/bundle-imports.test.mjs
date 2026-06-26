@@ -15,3 +15,11 @@ test("flat bundled source files do not use import aliases", () => {
 
   assert.deepEqual(offenders, []);
 });
+
+test("flat bundle includes job actions before store", () => {
+  const buildSource = readFileSync(new URL("../scripts/build-bundle.mjs", import.meta.url), "utf8");
+  const files = [...buildSource.matchAll(/"([^"]+\.js)"/g)].map((match) => match[1]);
+
+  assert.ok(files.includes("src/state/job-actions.js"));
+  assert.ok(files.indexOf("src/state/job-actions.js") < files.indexOf("src/state/store.js"));
+});
