@@ -45,6 +45,24 @@ export function createRejectedBriefJob(brief, freshness) {
   };
 }
 
+export function createFreshnessFallbackBrief(brief, rejectedJobs = []) {
+  return {
+    ...brief,
+    qualityWarnings: [
+      ...(brief.qualityWarnings || []),
+      "AI-бриф принят после freshness retry, чтобы не блокировать генерацию."
+    ],
+    freshnessOverride: {
+      acceptedAfterRetries: true,
+      rejectedAttempts: rejectedJobs.length,
+      reasons: rejectedJobs
+        .map((job) => String(job.topic || ""))
+        .filter(Boolean)
+        .slice(-3)
+    }
+  };
+}
+
 function findOverusedFormula(text) {
   return overusedFormulaPatterns.find((pattern) => pattern.test(text))?.source || "";
 }

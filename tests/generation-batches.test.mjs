@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createGenerationBatch } from "../scripts/generation-batch-runner.mjs";
+import { generateServerAiBrief } from "../scripts/generation-brief-service.mjs";
 import { projects, products } from "../src/domain/entities.js";
 
 function createState() {
@@ -100,6 +101,42 @@ test("backend generation worker prepares brief and hands job to server pipeline"
     ["brief", deps.getState().selectedProductId, 0],
     ["serverJob", job.id, "Серверный хук", "queued", "brief", deps.getState().selectedProjectId]
   ]);
+});
+
+test("server brief generation accepts fallback after stale retry budget", async () => {
+  const previousFetch = globalThis.fetch;
+  const bodies = [];
+  globalThis.fetch = async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      json: async () => ({
+        draft: {
+          topic: "Миф о волшебной таблетке",
+          hook: "Волшебная таблетка не решает рутину сама"
+        }
+      })
+    };
+  };
+
+  try {
+    const state = createState();
+    const brief = await generateServerAiBrief({
+      origin: "http://127.0.0.1:4173",
+      project: state.projects[0],
+      product: state.products[0],
+      reference: state.projects[0].references[0],
+      existingJobs: [{ title: "Миф о волшебной таблетке", topic: "старый шаблон" }],
+      hookLibrary: state.hookLibrary
+    });
+
+    assert.equal(brief.topic, "Миф о волшебной таблетке");
+    assert.equal(brief.freshnessOverride.acceptedAfterRetries, true);
+    assert.equal(brief.freshnessOverride.rejectedAttempts, 3);
+    assert.equal(bodies.length, 3);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });
 
 async function waitFor(predicate) {

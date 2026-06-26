@@ -93,6 +93,39 @@ test("brief service retries stale ai topics before accepting a fresh brief", asy
   }
 });
 
+test("brief service accepts last stale topic after retry budget", async () => {
+  const previousFetch = globalThis.fetch;
+  const bodies = [];
+  globalThis.fetch = async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      json: async () => ({
+        draft: {
+          topic: "Миф о волшебной таблетке",
+          hook: "Волшебная таблетка не решает рутину сама"
+        }
+      })
+    };
+  };
+
+  try {
+    const brief = await generateAiBrief({
+      project: {},
+      product: {},
+      reference: {},
+      existingJobs: [{ title: "Миф о волшебной таблетке", topic: "старый шаблон" }]
+    });
+
+    assert.equal(brief.topic, "Миф о волшебной таблетке");
+    assert.equal(brief.freshnessOverride.acceptedAfterRetries, true);
+    assert.equal(brief.freshnessOverride.rejectedAttempts, 3);
+    assert.equal(bodies.length, 3);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("brief service strips base64 images from creative team payload", async () => {
   const previousFetch = globalThis.fetch;
   let requestBody = null;

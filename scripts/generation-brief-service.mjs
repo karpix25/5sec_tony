@@ -2,7 +2,11 @@ import { createContentSlot, createRecentJobDigest } from "../src/domain/content-
 import { createLayoutContentPlan } from "../src/domain/layout-content-planner.js";
 import { normalizeHookLibrary } from "../src/domain/hook-library.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
-import { assessAiBriefFreshness, createRejectedBriefJob } from "../src/domain/ai-brief-freshness.js";
+import {
+  assessAiBriefFreshness,
+  createFreshnessFallbackBrief,
+  createRejectedBriefJob
+} from "../src/domain/ai-brief-freshness.js";
 import { normalizeAiBrief } from "../src/domain/ai-brief-normalizer.js";
 
 const maxBriefAttempts = 3;
@@ -10,6 +14,7 @@ const maxBriefAttempts = 3;
 export async function generateServerAiBrief({ origin, project, product, reference, existingJobs, diversitySlot, hookLibrary }) {
   const hookDigest = createHookLibraryDigest(hookLibrary);
   const rejectedJobs = [];
+  let fallbackBrief = null;
   for (let attempt = 0; attempt < maxBriefAttempts; attempt += 1) {
     const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
@@ -23,9 +28,11 @@ export async function generateServerAiBrief({ origin, project, product, referenc
     });
     const freshness = slot.lockTopic ? { ok: true, reasons: [] } : assessAiBriefFreshness(brief, attemptExistingJobs);
     if (freshness.ok) return brief;
+    fallbackBrief = brief;
     rejectedJobs.push(createRejectedBriefJob(brief, freshness));
   }
-  throw new Error("AI-команда повторила недавнюю или слишком шаблонную тему. Запустите генерацию еще раз.");
+  if (fallbackBrief) return createFreshnessFallbackBrief(fallbackBrief, rejectedJobs);
+  throw new Error("AI-бриф не подготовился");
 }
 
 async function requestServerAiBrief(origin, { project, product, reference, hookDigest, existingJobs, slot }) {

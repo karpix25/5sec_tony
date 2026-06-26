@@ -2,7 +2,11 @@ import { createContentSlot, createRecentJobDigest } from "../domain/content-rota
 import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
 import { normalizeHookLibrary } from "../domain/hook-library.js";
 import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
-import { assessAiBriefFreshness, createRejectedBriefJob } from "../domain/ai-brief-freshness.js";
+import {
+  assessAiBriefFreshness,
+  createFreshnessFallbackBrief,
+  createRejectedBriefJob
+} from "../domain/ai-brief-freshness.js";
 import { normalizeAiBrief } from "../domain/ai-brief-normalizer.js";
 import { uploadReferenceAsset } from "./reference-assets.js";
 
@@ -14,6 +18,7 @@ export async function generateAiBrief({ project, product, reference, existingJob
   const preparedReference = await ensureReferenceAssetUrl(reference);
   const activeDesignReference = createDesignReferenceDigest(preparedReference);
   const rejectedJobs = [];
+  let fallbackBrief = null;
 
   for (let attempt = 0; attempt < maxBriefAiAttempts; attempt += 1) {
     const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
@@ -31,10 +36,12 @@ export async function generateAiBrief({ project, product, reference, existingJob
       ? { ok: true, reasons: [] }
       : assessAiBriefFreshness(brief, attemptExistingJobs);
     if (freshness.ok) return brief;
+    fallbackBrief = brief;
     rejectedJobs.push(createRejectedBriefJob(brief, freshness));
   }
 
-  throw new Error("AI-команда повторила недавнюю или слишком шаблонную тему. Запустите генерацию еще раз.");
+  if (fallbackBrief) return createFreshnessFallbackBrief(fallbackBrief, rejectedJobs);
+  throw new Error("AI-бриф не подготовился");
 }
 
 async function requestAiBrief({ project, product, preparedReference, activeDesignReference, hookDigest, existingJobs, slot }) {
