@@ -4,6 +4,7 @@ import { runImageJob } from "./job-runner.js";
 import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { generateAiBrief } from "../services/brief-ai.js";
 import { getContext } from "../state/store.js";
+import { createGenerationBatch, getPartialBatchJobs } from "./generation-batch.js";
 
 export function renderStudioPanel(state, context) {
   return `
@@ -44,7 +45,13 @@ export function bindGenerationPanelEvents(root, store) {
       }
       jobs = await createCreativeTeamJobs(root, store, count);
     } catch (error) {
-      if (status) status.textContent = `${error.message || "AI-команда недоступна"}. Генерация не запущена.`;
+      jobs = getPartialBatchJobs(error);
+      if (status) {
+        const message = error.message || "AI-команда недоступна";
+        status.textContent = jobs.length
+          ? `Запущено ${jobs.length} из ${count}. Следующий AI-бриф не подготовился: ${message}.`
+          : `${message}. Генерация не запущена.`;
+      }
     } finally {
       setLaunchBusy(button, status, false);
     }
@@ -95,13 +102,11 @@ async function runCreativeTeamPreflight(root, store, batch = {}) {
 }
 
 async function createCreativeTeamJobs(root, store, count) {
-  const jobs = [];
-  for (let index = 0; index < count; index += 1) {
-    await runCreativeTeamPreflight(root, store, { index, count, batchJobs: jobs });
-    const job = store.createJob();
-    if (job) jobs.push(job);
-  }
-  return jobs;
+  return createGenerationBatch({
+    count,
+    preflight: (batch) => runCreativeTeamPreflight(root, store, batch),
+    createJob: () => store.createJob()
+  });
 }
 
 function renderReferenceSelect({ project, reference }) {
