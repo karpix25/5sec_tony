@@ -2,12 +2,11 @@ import {
   getCurrentAuthUser,
   getTelegramLoginConfig,
   listAdminAuthUsers,
-  loginWithTelegramIdToken,
   loginWithTelegramWidgetUser,
   logoutAuthUser,
-  openTelegramLogin,
   openTelegramWidgetLogin,
   runAdminAuthUserAction,
+  startTelegramBrowserLogin,
 } from "../services/auth-client.js";
 import { escapeHtml } from "./infographic.js";
 import { renderAdminAuthPanel } from "./auth-admin.js";
@@ -58,9 +57,7 @@ export function createAuthController(options = {}) {
         const session = await loginWithTelegramWidgetUser(user);
         await acceptAuthPayload(session);
       } else {
-        const result = await openTelegramLogin(config.clientId, { scope: config.scope });
-        const session = await loginWithTelegramIdToken(result.id_token);
-        await acceptAuthPayload(session);
+        startTelegramBrowserLogin();
       }
     } catch (error) {
       updateState({ status: "error", error: error.message || "Ошибка входа" });
