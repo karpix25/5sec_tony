@@ -19,13 +19,13 @@ let pendingState = null;
 let firstRenderReady = false;
 
 const auth = createAuthController({
-  root,
+  root: null,
   renderApprovedState: false,
   onStateChange: (authState) => {
     if (authState.status === "approved" && store && firstRenderReady) renderAppSafely();
-  },
-  onAuthorized: () => startStudio()
+  }
 });
+startStudio();
 auth.start();
 
 function startStudio() {
