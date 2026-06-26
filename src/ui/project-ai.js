@@ -59,17 +59,19 @@ export async function runAudienceExpertAi(button, store) {
 export async function saveProjectAndRefreshAiMemory(form, store) {
   const button = form?.querySelector("#save-project-settings");
   const status = form?.querySelector("#audience-expert-status");
-  const snapshot = formSnapshot(form);
   const previous = button?.textContent || "";
+  let projectSaved = false;
   if (button) {
     button.textContent = "Сохраняем...";
     button.disabled = true;
   }
   setStatus(status, "Сохраняем проект...", "loading");
-  store.updateProjectSettings(snapshot);
-  if (button) button.textContent = "Обновляем AI...";
-  setStatus(status, "Обновляем AI-память для будущих генераций...", "loading");
   try {
+    const snapshot = formSnapshot(form);
+    store.updateProjectSettings(snapshot);
+    projectSaved = true;
+    if (button) button.textContent = "Обновляем AI...";
+    setStatus(status, "Обновляем AI-память для будущих генераций...", "loading");
     const draft = await requestAudienceExpertDraft(store, snapshot);
     const liveForm = getLiveProjectForm(form);
     const liveSnapshot = formSnapshot(liveForm);
@@ -78,7 +80,7 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
     store.updateProjectSettings(formSnapshot(liveForm));
     setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
   } catch (error) {
-    setStatus(status, `Проект сохранен. ${humanizeMemoryError(error)}`, "error");
+    setStatus(status, humanizeProjectSaveError(error, { projectSaved }), "error");
   } finally {
     if (button) {
       button.textContent = previous || "Сохранить проект";
@@ -207,4 +209,12 @@ function humanizeMemoryError(error) {
   const message = humanizeError(error);
   if (message.includes("OPENROUTER_API_KEY")) return message;
   return "AI-память обновим позже.";
+}
+
+function humanizeProjectSaveError(error, options = {}) {
+  const message = humanizeError(error);
+  if (options.projectSaved) {
+    return `Проект сохранен. ${humanizeMemoryError(error)}`;
+  }
+  return `Не удалось сохранить проект: ${message}`;
 }

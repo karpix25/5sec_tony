@@ -261,6 +261,65 @@ test("project save keeps manual ai-field edits made while request is running", a
   assert.equal(updates.at(-1).companyAudience, "Ручная новая ЦА");
 });
 
+test("project save recovers UI when state save throws", async () => {
+  const originalFormData = globalThis.FormData;
+  const form = createProjectSettingsForm({ name: "Проект", companyAudience: "ЦА" });
+  const store = {
+    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project" }], products: [] }),
+    updateProjectSettings: () => { throw new Error("storage quota"); }
+  };
+  globalThis.FormData = class FakeFormData {
+    constructor(target) {
+      this.entriesList = Object.entries(target.values);
+    }
+    entries() {
+      return this.entriesList[Symbol.iterator]();
+    }
+  };
+
+  try {
+    await saveProjectAndRefreshAiMemory(form, store);
+  } finally {
+    globalThis.FormData = originalFormData;
+  }
+
+  assert.equal(form.button.disabled, false);
+  assert.equal(form.button.textContent, "Сохранить проект");
+  assert.match(form.status.textContent, /Не удалось сохранить проект: storage quota/);
+  assert.equal(form.status.dataset.tone, "error");
+});
+
+test("project save keeps saved status when only ai memory fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  const form = createProjectSettingsForm({ name: "Проект", companyAudience: "ЦА" });
+  const updates = [];
+  const store = {
+    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project" }], products: [] }),
+    updateProjectSettings: (payload) => updates.push({ ...payload })
+  };
+  globalThis.FormData = class FakeFormData {
+    constructor(target) {
+      this.entriesList = Object.entries(target.values);
+    }
+    entries() {
+      return this.entriesList[Symbol.iterator]();
+    }
+  };
+  globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: "AI timeout" }) });
+
+  try {
+    await saveProjectAndRefreshAiMemory(form, store);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.FormData = originalFormData;
+  }
+
+  assert.equal(updates.length, 1);
+  assert.match(form.status.textContent, /Проект сохранен\. AI-память обновим позже\./);
+  assert.equal(form.button.disabled, false);
+});
+
 function createProjectSettingsForm(values) {
   const button = { textContent: "Сохранить проект", disabled: false };
   const status = { textContent: "", dataset: {} };
@@ -268,8 +327,8 @@ function createProjectSettingsForm(values) {
   return {
     values: state,
     querySelector(selector) {
-      if (selector === "#save-project-settings") return button;
-      if (selector === "#audience-expert-status") return status;
+      if (selector === "#save-project-settings") return this.button;
+      if (selector === "#audience-expert-status") return this.status;
       const match = selector.match(/^\[name="(.+)"\]$/);
       if (!match) return null;
       const name = match[1];
@@ -281,6 +340,8 @@ function createProjectSettingsForm(values) {
           state[name] = nextValue;
         }
       };
-    }
+    },
+    button,
+    status
   };
 }
