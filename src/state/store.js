@@ -22,6 +22,7 @@ import {
   getSelectionContext
 } from "./store-context.js";
 import { createJobActions } from "./job-actions.js";
+import { rescueStaleBriefJobs } from "./brief-job-rescue.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
   createAudioEntity,
@@ -60,8 +61,12 @@ export function createStore() {
 
   function replaceState(nextState) {
     const hydratedState = mergeHydratedStateWithUiState(mergeHydratedReferenceState(nextState, state), state);
-    state = normalize(hydrationSettled ? hydratedState : preservePreHydrationKeys(hydratedState, state, preHydrationLocalKeys));
+    const normalizedState = normalize(hydrationSettled ? hydratedState : preservePreHydrationKeys(hydratedState, state, preHydrationLocalKeys));
+    const rescuedJobs = rescueStaleBriefJobs(normalizedState.jobs || []);
+    const rescued = rescuedJobs !== normalizedState.jobs;
+    state = rescued ? { ...normalizedState, jobs: rescuedJobs } : normalizedState;
     storeCache.persist(state);
+    if (rescued) statePersistence?.scheduleSave();
     subscribers.forEach((subscriber) => subscriber(state, null));
   }
 

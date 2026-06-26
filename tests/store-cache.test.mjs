@@ -98,6 +98,58 @@ test("remote hydrate treats postgres working fields as truth over ui cache draft
   }
 });
 
+test("remote hydrate rescues stale brief placeholders and schedules db save", async () => {
+  const storage = createMemoryStorage();
+  const restoreWindow = installStorage(storage);
+  const saveBodies = [];
+  const remoteState = {
+    ...createRemoteState("Описание из БД"),
+    jobs: [{
+      id: "job-stale-brief",
+      projectId: "supplements",
+      productId: "magnesium",
+      status: "running",
+      stage: "brief",
+      isBriefPlaceholder: true,
+      progress: 3,
+      title: "Готовим AI-бриф",
+      failMsg: "AI-команда собирает паспорт продукта, сценарий и промпт..."
+    }]
+  };
+  const restoreFetch = installFetch((url, options = {}) => {
+    if (String(url).includes("/api/state") && (!options.method || options.method === "GET")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          state: remoteState,
+          updatedAt: "2026-06-17T11:00:00.000Z"
+        })
+      });
+    }
+    saveBodies.push(JSON.parse(options.body));
+    return Promise.resolve({
+      ok: true,
+      json: async () => ({ saved: true, updatedAt: "2026-06-17T11:00:02.000Z" })
+    });
+  });
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    await new Promise((resolve) => setTimeout(resolve, 750));
+
+    const job = store.getState().jobs.find((item) => item.id === "job-stale-brief");
+    assert.equal(job.status, "failed");
+    assert.equal(job.progress, 100);
+    assert.equal(saveBodies.length, 1);
+    assert.equal(saveBodies[0].baseUpdatedAt, "2026-06-17T11:00:00.000Z");
+    assert.equal(saveBodies[0].state.jobs[0].status, "failed");
+  } finally {
+    restoreFetch();
+    restoreWindow();
+  }
+});
+
 test("late remote hydrate does not overwrite product edits made right after boot", async () => {
   const storage = createMemoryStorage();
   const restoreWindow = installStorage(storage);

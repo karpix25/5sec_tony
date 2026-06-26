@@ -1,6 +1,7 @@
 import { advanceJob, createGenerationJob, getProductsForProject } from "../domain/generation.js";
 import { createUniqueJobId } from "../domain/job-identity.js";
 import { patchJobWithQuotaAccounting } from "../domain/job-quota.js";
+import { createBriefJobStartedAt } from "./brief-job-rescue.js";
 import { withCreatedJobs } from "./store-projects.js";
 import {
   createSelectionJobBatch,
@@ -82,6 +83,7 @@ function createPendingGenerationJob(job, index, count) {
     status: "running",
     stage: "brief",
     isBriefPlaceholder: true,
+    briefStartedAt: createBriefJobStartedAt(),
     progress: 3,
     title: `Готовим AI-бриф${label}`,
     prompt: "",
