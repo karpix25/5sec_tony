@@ -6,6 +6,7 @@ const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
 const designReferenceModel = writingModel;
 const defaultOpenRouterTimeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 120000);
+const briefOpenRouterTimeoutMs = Number(process.env.OPENROUTER_BRIEF_TIMEOUT_MS || 45000);
 const productVisionTimeoutMs = Number(process.env.PRODUCT_VISION_TIMEOUT_MS || 180000);
 
 export async function handleOpenRouterApi(request, response, url) {
@@ -74,9 +75,20 @@ async function generateBrief(request, response) {
     const body = await readJson(request);
     logGenerationPayload("brief", body);
     const bodyWithReferenceImages = await attachDesignReferenceImageUrls(body, request);
-    const draft = await runCreativeTeamBrief({ token, body: bodyWithReferenceImages, model: writingModel, referenceModel: designReferenceModel, callOpenRouter, parseJsonDraft });
+    const draft = await runCreativeTeamBrief({
+      token,
+      body: bodyWithReferenceImages,
+      model: writingModel,
+      referenceModel: designReferenceModel,
+      callOpenRouter: callBriefOpenRouter,
+      parseJsonDraft
+    });
     return sendJson(response, 200, { model: writingModel, draft });
   } catch (error) {
+    console.error("[openrouter:brief:error]", JSON.stringify({
+      message: error.message || "OpenRouter request failed",
+      name: error.name || ""
+    }));
     return sendJson(response, 502, { error: error.message || "OpenRouter request failed" });
   }
 }
@@ -273,9 +285,12 @@ function hookExtractInstruction(body) {
 
 async function callOpenRouter(token, model, messages, options = {}) {
   const timeoutMs = options.timeoutMs || defaultOpenRouterTimeoutMs;
+  const task = describeOpenRouterTask(messages);
+  const startedAt = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    console.log("[openrouter:call:start]", JSON.stringify({ model, task, timeoutMs }));
     const result = await fetch(openRouterUrl, {
       method: "POST",
       headers: {
@@ -289,8 +304,15 @@ async function callOpenRouter(token, model, messages, options = {}) {
     });
     const payload = await readOpenRouterPayload(result);
     if (!result.ok) throw new Error(getOpenRouterErrorMessage(payload, "OpenRouter request failed"));
+    console.log("[openrouter:call:done]", JSON.stringify({ model, task, durationMs: Date.now() - startedAt }));
     return payload.choices?.[0]?.message?.content || "";
   } catch (error) {
+    console.error("[openrouter:call:error]", JSON.stringify({
+      model,
+      task,
+      durationMs: Date.now() - startedAt,
+      message: error.name === "AbortError" ? `timeout after ${timeoutMs}ms` : error.message
+    }));
     if (error.name === "AbortError") {
       throw new Error(`OpenRouter не ответил за ${Math.round(timeoutMs / 1000)} сек. Попробуйте меньше фото или повторите позже.`);
     }
@@ -299,6 +321,25 @@ async function callOpenRouter(token, model, messages, options = {}) {
     clearTimeout(timer);
   }
 }
+
+function callBriefOpenRouter(token, model, messages, options = {}) {
+  return callOpenRouter(token, model, messages, { ...options, timeoutMs: options.timeoutMs || briefOpenRouterTimeoutMs });
+}
+
+function describeOpenRouterTask(messages = []) {
+  const user = messages.find((message) => message.role === "user") || {};
+  const content = Array.isArray(user.content)
+    ? user.content.find((item) => item?.type === "text")?.text
+    : user.content;
+  if (!content) return "unknown";
+  try {
+    const parsed = JSON.parse(content);
+    return String(parsed.task || parsed.role || "json-task").slice(0, 120);
+  } catch {
+    return String(content).slice(0, 120);
+  }
+}
+
 function readJson(request) {
   return new Promise((resolve, reject) => {
     let data = "";

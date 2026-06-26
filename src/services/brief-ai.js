@@ -140,10 +140,10 @@ function createDesignReferenceDigest(reference) {
 }
 
 async function readServicePayload(response) {
-  if (typeof response.json === "function") {
+  const raw = typeof response.text === "function" ? await response.text().catch(() => "") : "";
+  if (!raw && typeof response.json === "function") {
     try { return await response.json(); } catch {}
   }
-  const raw = typeof response.text === "function" ? await response.text().catch(() => "") : "";
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return { error: raw.trim() || "API вернул некорректный JSON." }; }
 }

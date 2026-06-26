@@ -17,6 +17,23 @@ test("brief service surfaces plain-text API errors", async () => {
   }
 });
 
+test("brief service surfaces non-json response text when browser json parsing fails", async () => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: false,
+    json: async () => { throw new Error("invalid json"); },
+    text: async () => "upstream gateway timeout"
+  });
+  try {
+    await assert.rejects(
+      generateAiBrief({ project: {}, product: {}, reference: {}, existingJobs: [] }),
+      /upstream gateway timeout/
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("brief service sends hook library and active design reference context", async () => {
   const previousFetch = globalThis.fetch;
   let requestBody = null;
