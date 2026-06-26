@@ -1,6 +1,9 @@
+import { formatCurrentDatePrompt } from "./current-date-context.js";
+
 export function buildImageRenderPrompt({ strategy, card, reference }) {
   return [
     "Create a vertical 9:16 Russian fintech infographic for a social video cover.",
+    formatCurrentDatePrompt(),
     "",
     "Visible text:",
     `Top hook: ${card.headline}`,

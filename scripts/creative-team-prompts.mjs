@@ -1,10 +1,12 @@
 import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldFormatShellBan } from "../src/domain/generation-format-contract.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { getDesignTextContractViolations } from "../src/domain/design-text-contract.js";
+import { formatCurrentDatePrompt } from "../src/domain/current-date-context.js";
 import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
 
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
+  formatCurrentDatePrompt(),
   "Пиши по-русски. Возвращай только валидный JSON без markdown.",
   "Не выдумывай факты, цифры, состав, гарантии, юридические или медицинские обещания.",
   "Если данных мало, помечай гипотезы как гипотезы.",
@@ -60,6 +62,7 @@ export function humanizeTextInstruction(body) {
     output: { headline: "короткий сильный заголовок, 4-9 слов, широкая боль или полезный факт", subhead: "одна простая строка, почему это знакомо в жизни", points: ["4-6 смысловых блоков, каждый 6-14 слов: мини-заголовок + короткое объяснение"], cta: "всегда пустая строка", disclaimer: "всегда пустая строка; нижние защитные подписи, футеры и сноски запрещены" },
     rules: [
       "Сохрани исходный смысл, сценарий и hook reference; не меняй тему на другую.",
+      formatCurrentDatePrompt(),
       "Все поля headline, subhead, points, cta и disclaimer пиши только на русском; английские слова и латиницу переводи на русский, кроме официальных названий брендов и сервисов.",
       "CTA не нужен: верни cta пустой строкой и убери любые 'узнайте', 'сохраните', 'закажите', 'в описании', 'в профиле' из текста.",
       "Оставь 4-6 самых сильных смысловых фраз: достаточно плотных, чтобы читать дольше 5 секунд, но без длинной таблицы или рекламного каталога.",
@@ -260,7 +263,7 @@ function imagePromptEngineerInstruction(body, productPassport, creativeBrief, co
     "Ты prompt engineer для GPT Image 2.",
     { imagePromptPackage: { provider: "gpt-image-2", prompt: "", inputRefs: [{ role: "design|product", title: "", required: true }], promptBudgetNotes: { mustKeep: [], canDropIfTooLong: [] } } },
     {
-      rules: ["Включи vertical 9:16 infographic.", "Весь видимый текст строго на русском.", "Headline, subhead и points — финальный текстовый контракт.", "Стиль и layout grammar из designFormatBrief/designReference.", "Если formatType=ranking_leaderboard, финальный prompt обязан описывать leaderboard/top-chart skeleton: крупный верхний title, легенда/source bar, повторяемые ранговые колонки или rank cards, номера мест и короткие value labels; запрети превращение в белый checklist с иконками.", "Правила использования продукта.", "Safe zone.", "Запрет CTA, футера, дисклеймера, логотипов и неуказанных claims.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
+      rules: ["Включи vertical 9:16 infographic.", formatCurrentDatePrompt(), "Весь видимый текст строго на русском.", "Headline, subhead и points — финальный текстовый контракт.", "Стиль и layout grammar из designFormatBrief/designReference.", "Если formatType=ranking_leaderboard, финальный prompt обязан описывать leaderboard/top-chart skeleton: крупный верхний title, легенда/source bar, повторяемые ранговые колонки или rank cards, номера мест и короткие value labels; запрети превращение в белый checklist с иконками.", "Правила использования продукта.", "Safe zone.", "Запрет CTA, футера, дисклеймера, логотипов и неуказанных claims.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
       productPassport,
       creativeBrief,
       contentScript: safetyReview?.safetyReview?.fixedContentScript?.headline ? safetyReview.safetyReview.fixedContentScript : contentScript,
