@@ -73,12 +73,15 @@ export async function ensureStateSchema(query) {
       pains jsonb not null default '[]'::jsonb,
       facts jsonb not null default '[]'::jsonb,
       forbidden jsonb not null default '[]'::jsonb,
+      ai_passport jsonb not null default '{}'::jsonb,
       "references" jsonb not null default '[]'::jsonb,
       extra jsonb not null default '{}'::jsonb,
       updated_at timestamptz not null default now(),
       primary key (app_state_key, id),
       foreign key (app_state_key, project_id) references studio_projects(app_state_key, id) on delete cascade
     );
+
+    alter table studio_products add column if not exists ai_passport jsonb not null default '{}'::jsonb;
 
     create table if not exists studio_jobs (
       app_state_key text not null,

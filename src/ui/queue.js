@@ -3,6 +3,7 @@ import { isNoAvatarCharacterId } from "../domain/avatar-selection.js";
 import { humanizeProviderErrorMessage } from "../domain/provider-error-message.js";
 import { escapeHtml } from "./infographic.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
+import { renderJobAiTrace } from "./job-ai-trace.js";
 
 const queueStageLabels = {
   brief: "Готовим идею",
@@ -72,6 +73,7 @@ function renderQueueJob(job, productName = "") {
           <span>${Number(job.inputUrls?.length || 0)} реф.</span>
         </div>
         ${renderQueueSteps(job.stage)}
+        ${renderJobAiTrace(job)}
         <div class="queue-actions">
           ${renderQueueAction(job, ready, failed)}
           ${renderDiskStatus(job)}

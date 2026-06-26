@@ -2,10 +2,13 @@ const creativeTeamPayloadDataImagePattern = /^data:image\/(?:png|jpe?g|webp);bas
 
 export function createCreativeTeamPayload(body = {}) {
   const reference = compactReference(body.reference);
+  const includeProductReferences = body.productVisibilityDecision
+    ? body.productVisibilityDecision.shouldPassProductRefs === true
+    : true;
   return {
     ...body,
     project: compactProject(body.project),
-    product: compactProduct(body.product),
+    product: compactProduct(body.product, { includeReferences: includeProductReferences }),
     reference,
     activeDesignReference: compactActiveDesignReference(body.activeDesignReference || reference),
     layoutContentPlan: body.layoutContentPlan || null,
@@ -40,7 +43,7 @@ function compactProject(project = {}) {
   });
 }
 
-function compactProduct(product = {}) {
+function compactProduct(product = {}, { includeReferences = true } = {}) {
   return pickPlain(product, [
     "id",
     "projectId",
@@ -50,9 +53,10 @@ function compactProduct(product = {}) {
     "components",
     "pains",
     "facts",
-    "forbidden"
+    "forbidden",
+    "aiPassport"
   ], {
-    references: (product.references || []).map(compactReference)
+    references: includeReferences ? (product.references || []).map(compactReference) : []
   });
 }
 
@@ -73,7 +77,8 @@ function compactReference(reference = {}) {
     "fontStyle",
     "imageName",
     "status",
-    "createdAt"
+    "createdAt",
+    "designAnalysis"
   ], {
     imageUrl,
     hasImage: Boolean(reference.imageData || reference.imageUrl || imageUrl)
@@ -93,7 +98,8 @@ function compactActiveDesignReference(reference = {}) {
     "headlineStyle",
     "fontStyle",
     "imageName",
-    "palette"
+    "palette",
+    "designAnalysis"
   ], {
     imageUrl: getReferenceImageUrl(reference),
     hasImage: Boolean(reference.imageData || reference.imageUrl)

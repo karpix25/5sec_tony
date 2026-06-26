@@ -3,14 +3,17 @@ import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.
 import { formatLayoutPlanPrompt } from "./layout-content-planner.js";
 import { getProductVisualPromptPolicy } from "./product-visual-policy.js";
 
-export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarReservedZonePrompt = "", currentDatePrompt = "" } = {}) {
+import { stringifyPromptContract } from "./prompt-contract.js";
+
+export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarReservedZonePrompt = "", currentDatePrompt = "", promptContract = null } = {}) {
   const packagePrompt = brief.imagePromptPackage?.prompt || "";
   if (!packagePrompt) return "";
-  const productVisualMode = brief.productVisualMode || getCreativeTeamProductVisualMode(brief);
+  const productVisualMode = brief.productVisibilityDecision?.productVisualMode || brief.productVisualMode || getCreativeTeamProductVisualMode(brief);
   const content = normalizeCreativePromptContent(brief.contentScript || brief.finalContent || brief.aiPlan || {}, {
     productVisualMode,
     productPassport: brief.productPassport
   });
+  const safePromptContract = promptContract ? sanitizePromptContract(promptContract, content) : null;
   const format = brief.designFormatBrief || {};
   const formatType = getEffectiveFormatType({ brief, format });
   const safePackagePrompt = sanitizePackagePrompt(packagePrompt, { formatType, productVisualMode, productPassport: brief.productPassport });
@@ -18,6 +21,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({ productVisualMode });
   return limitImagePrompt([
     safePackagePrompt,
+    safePromptContract ? `JSON PROMPT CONTRACT:\n${stringifyPromptContract(safePromptContract)}` : "",
     "TECHNICAL RENDERING GUARDRAILS:",
     currentDatePrompt,
     productVisualContract,
@@ -29,6 +33,20 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
     Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.map(formatContentPoint).join(" | ")}.` : "",
     freePrompt ? `Дополнительная задача оператора: ${String(freePrompt).trim().slice(0, 600)}.` : ""
   ].filter(Boolean).join(" "));
+}
+
+function sanitizePromptContract(contract, content) {
+  return {
+    ...contract,
+    textContract: {
+      ...(contract.textContract || {}),
+      headline: content.headline || "",
+      subhead: content.subhead || "",
+      points: Array.isArray(content.points) ? content.points : [],
+      cta: "",
+      disclaimer: ""
+    }
+  };
 }
 
 function getFormatLock(formatType = "") {

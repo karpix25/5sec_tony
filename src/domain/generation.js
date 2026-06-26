@@ -23,6 +23,9 @@ import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avat
 import { formatCurrentDatePrompt } from "./current-date-context.js";
 import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.js";
 import { formatProductVisualContext, getProductVisualPromptPolicy, resolveProductVisualMode } from "./product-visual-policy.js";
+import { createProductVisibilityDecision } from "./product-visibility-decision.js";
+import { createPromptContract } from "./prompt-contract.js";
+import { createGenerationAiTrace } from "./generation-ai-trace.js";
 import {
   getAiDepartmentContent,
   getAiDepartmentFormat,
@@ -45,12 +48,15 @@ export function getProductsForProject(products, projectId) {
 }
 export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [], hookLibrary }) {
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
+  const inputReferences = getGenerationInputReferences({ reference, product, productVisibilityDecision: brief.productVisibilityDecision });
+  const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
+  const promptContract = generationBrief.promptContract || createPromptContract({ brief, reference, inputReferences, avatarSafeZone });
   const avatarReservedZonePrompt = formatAvatarReservedZonePrompt(createAvatarReservedZone({
     character,
     ctaOverlay: project?.ctaOverlay
   }));
   const currentDatePrompt = formatCurrentDatePrompt();
-  const creativeTeamPrompt = buildCreativeTeamImagePrompt(brief, { freePrompt, avatarReservedZonePrompt, currentDatePrompt });
+  const creativeTeamPrompt = buildCreativeTeamImagePrompt(brief, { freePrompt, avatarReservedZonePrompt, currentDatePrompt, promptContract });
   if (creativeTeamPrompt) return creativeTeamPrompt;
   const pains = compactImagePromptSource(product.pains.join(", "), 700);
   const facts = compactImagePromptSource(product.facts.join("; "), 900);
@@ -164,7 +170,10 @@ function formatProductInsightPrompt(profile) {
 
 export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [], hookLibrary }) {
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
-  const inputReferences = getGenerationInputReferences({ reference, product, productVisualMode: brief.productVisualMode });
+  const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
+  const inputReferences = getGenerationInputReferences({ reference, product, productVisibilityDecision: brief.productVisibilityDecision });
+  const promptContract = generationBrief?.promptContract || createPromptContract({ brief, reference, inputReferences, avatarSafeZone });
+  const prompt = buildImagePrompt({ project, product, reference, character, generationBrief: { ...brief, promptContract }, freePrompt, existingJobs, hookLibrary });
   return {
     id: createUniqueJobId(existingJobs),
     projectId: project.id,
@@ -175,7 +184,10 @@ export function createGenerationJob({ project, product, reference, character, au
     progress: 6,
     title: brief.finalContent?.headline || brief.hook,
     music: audio?.title || pickAudio(project),
-    prompt: buildImagePrompt({ project, product, reference, character, generationBrief: brief, freePrompt, existingJobs, hookLibrary }),
+    prompt,
+    promptContract,
+    imagePromptContract: promptContract,
+    aiTrace: createGenerationAiTrace({ brief, promptContract, inputReferences }),
     referenceTitle: reference?.title || "",
     inputUrls: inputReferences.map((item) => item.url),
     inputRefs: inputReferences.map(({ role, title, isLocalData }) => ({ role, title, isLocalData })),
@@ -190,6 +202,15 @@ export function createGenerationJob({ project, product, reference, character, au
     creativeQuality: brief.creativeQuality,
     aiPlan: brief.aiPlan, productFact: brief.productFact, curiosityAngle: brief.curiosityAngle, finalContent: brief.finalContent,
     productVisualMode: brief.productVisualMode,
+    productVisibilityDecision: brief.productVisibilityDecision,
+    avatarSafeZone,
+    hookSeed: brief.hookSeed || brief.sourceHook || "",
+    attentionMap: brief.attentionMap || null,
+    creativeBrief: brief.creativeBrief || null,
+    contentScript: brief.contentScript || null,
+    visualBrief: brief.visualBrief || null,
+    imagePromptPackage: brief.imagePromptPackage || null,
+    qaReview: brief.qaReview || brief.safetyReview || brief.qualityChecks || null,
     compositionMode: brief.compositionMode?.id || "",
     diversitySlot: brief.diversitySlot,
     contentLayerId: brief.contentLayerId,
@@ -201,9 +222,12 @@ export function getGenerationInputUrls({ reference, character, product }) {
   return getGenerationInputReferences({ reference, character, product }).map((item) => item.url);
 }
 
-export function getGenerationInputReferences({ reference, product, productVisualMode = "exact-product" }) {
+export function getGenerationInputReferences({ reference, product, productVisualMode = "exact-product", productVisibilityDecision = null }) {
+  const shouldPassProductRefs = productVisibilityDecision
+    ? productVisibilityDecision.shouldPassProductRefs === true
+    : productVisualMode === "exact-product";
   return [
-    ...(productVisualMode === "exact-product" ? (product.references || []).map((item) => ({
+    ...(shouldPassProductRefs ? (product.references || []).map((item) => ({
       role: "product",
       title: item.title || item.imageName || "Product reference",
       url: item.imageData
@@ -306,9 +330,13 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const format = generationSeed.format || meaning?.format || slot.format || pickFormat(project, reference);
   const semanticKey = generationBrief.semanticKey || slot.id;
   const creativeTeamVisualMode = getCreativeTeamProductVisualMode(generationBrief);
-  const productVisualMode = generationBrief.productVisualMode
+  const productVisualMode = generationBrief.productVisibilityDecision?.productVisualMode
+    || generationBrief.productVisibilityDecision?.mode
+    || generationBrief.productVisualMode
     || creativeTeamVisualMode
     || resolveProductVisualMode({ project, product, generationBrief: { ...generationSeed, topic, hook }, existingJobs });
+  const productVisibilityDecision = generationBrief.productVisibilityDecision
+    || createProductVisibilityDecision({ project, product, generationBrief: { ...generationSeed, topic, hook, productVisualMode }, existingJobs });
   const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap, productVisualMode };
   const editorial = aiDepartmentMode
     ? {
@@ -358,7 +386,13 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     }),
     productInsightMap: profile.insightMap,
     aiPlan: editorial.finalContent,
-    productVisualMode
+    productVisualMode,
+    productVisibilityDecision,
+    promptContract: generationBrief.promptContract || null,
+    imagePromptContract: generationBrief.imagePromptContract || null,
+    hookSeed: generationBrief.hookSeed || generationBrief.sourceHook || "",
+    attentionMap: generationBrief.attentionMap || null,
+    qaReview: generationBrief.qaReview || null
   };
   return brief;
 }

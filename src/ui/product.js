@@ -1,6 +1,7 @@
 import { escapeHtml } from "./infographic.js";
 import { productBriefFields } from "./brief-field-labels.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
+import { renderProductAiPassport } from "./product-ai-passport.js";
 
 export function renderProductSettings({ product }) {
   const productCount = Number(product?.projectProductCount || 1);
@@ -29,6 +30,7 @@ export function renderProductSettings({ product }) {
           ${canDeleteProduct ? "" : `<small class="locked-note">В проекте должен оставаться минимум один продукт.</small>`}
         </form>
         <aside class="product-side">
+          ${renderProductAiPassport(product)}
           ${renderPhotoAnalysis()}
         </aside>
       </div>

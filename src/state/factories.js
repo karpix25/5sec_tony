@@ -2,6 +2,7 @@ import { isDesignReference } from "../domain/references.js";
 import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
+import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../domain/ai-artifacts.js";
 
 export const defaultGenerationBrief = {
   topic: "",
@@ -52,6 +53,7 @@ export function createReferenceEntity(payload = {}) {
     avatarPlacement: "",
     textDensity: payload.textDensity || "medium",
     visualObject: payload.visualObject || "",
+    designAnalysis: normalizeDesignAnalysis(payload.designAnalysis),
     imageName: payload.imageName || "",
     imageData: payload.imageData || "",
     createdAt: payload.createdAt || new Date().toISOString()
@@ -83,6 +85,7 @@ export function createProductEntity(projectId, name, payload = {}) {
     pains: asList(payload.pains || ""),
     facts: asList(payload.facts || ""),
     forbidden: asList(payload.forbidden || "нельзя обещать недоказанный результат"),
+    aiPassport: normalizeProductAiPassport(payload.aiPassport),
     references: payload.references || []
   };
 }
@@ -225,6 +228,7 @@ export function ensureProductAssets(product) {
     pains: asList(product.pains || product.audience || ""),
     facts: asList(product.facts || ""),
     forbidden: asList(product.forbidden || "нельзя обещать недоказанный результат"),
+    aiPassport: normalizeProductAiPassport(product.aiPassport),
     references: product.references || []
   };
 }

@@ -4,6 +4,7 @@ import { getAudioPayloads, renderAudioSettings } from "./audio.js";
 import { bindAvatarOverlayComposerEvents } from "./avatar-overlay-composer.js";
 import { renderAvatarSettings } from "./avatar.js";
 import { bindDesignReferenceFormEvents } from "./design-form.js";
+import { bindAiMemoryControls } from "./ai-memory-controls.js";
 import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
 import { bindProjectAutomationControls } from "./project-automation-controls.js";
@@ -268,6 +269,7 @@ function bindEvents(root, store, options = {}) {
     });
   });
   bindDesignReferenceFormEvents(root, store);
+  bindAiMemoryControls(root, store);
   root.querySelector("#avatar-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     getAvatarUploadPayload(event.currentTarget).then((payload) => store.uploadCharacter(payload));

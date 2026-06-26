@@ -27,7 +27,7 @@ const projectKeys = [
 ];
 
 const productKeys = [
-  "id", "projectId", "name", "description", "offer", "components", "pains", "facts", "forbidden", "references"
+  "id", "projectId", "name", "description", "offer", "components", "pains", "facts", "forbidden", "aiPassport", "references"
 ];
 
 const jobKeys = [
@@ -179,6 +179,7 @@ async function loadProducts(query, appStateKey) {
     pains: asArray(row.pains),
     facts: asArray(row.facts),
     forbidden: asArray(row.forbidden),
+    aiPassport: asObject(row.ai_passport),
     references: asArray(row.references)
   }));
 }
@@ -313,9 +314,9 @@ async function saveProducts(query, appStateKey, products) {
   for (const [index, product] of products.entries()) {
     await query(
       `insert into studio_products
-        (app_state_key, id, project_id, sort_order, name, description, offer, components, pains, facts, forbidden, "references", extra, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, now())`,
-      [appStateKey, product.id, product.projectId, index, product.name || "", product.description || "", product.offer || "", product.components || "", toJson(asArray(product.pains)), toJson(asArray(product.facts)), toJson(asArray(product.forbidden)), toJson(asArray(product.references)), toJson(pickExtraFields(product, productKeys))]
+        (app_state_key, id, project_id, sort_order, name, description, offer, components, pains, facts, forbidden, ai_passport, "references", extra, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, now())`,
+      [appStateKey, product.id, product.projectId, index, product.name || "", product.description || "", product.offer || "", product.components || "", toJson(asArray(product.pains)), toJson(asArray(product.facts)), toJson(asArray(product.forbidden)), toJson(asObject(product.aiPassport)), toJson(asArray(product.references)), toJson(pickExtraFields(product, productKeys))]
     );
   }
 }

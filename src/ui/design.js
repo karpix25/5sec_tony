@@ -1,6 +1,7 @@
 import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
+import { renderDesignReferenceAnalysis } from "./design-reference-analysis.js";
 
 export function renderDesignSettings({ project, reference }) {
   const references = getDesignReferences(project);
@@ -16,9 +17,25 @@ export function renderDesignSettings({ project, reference }) {
         </div>
       </section>
       <div class="reference-editor">
+        ${renderSelectedReferenceAnalysis(reference)}
         ${renderReferenceForm(reference)}
       </div>
     </div>
+  `;
+}
+
+function renderSelectedReferenceAnalysis(reference) {
+  if (!reference) return "";
+  const hasAnalysis = Boolean(reference.designAnalysis && Object.keys(reference.designAnalysis).length);
+  return `
+    <section class="panel reference-analysis-panel">
+      <div class="panel-head compact">
+        <div><span class="eyebrow">AI-анализ</span><h2>Память дизайн-референса</h2></div>
+        <button class="secondary-btn" data-refresh-design-analysis type="button">Обновить анализ</button>
+      </div>
+      ${renderDesignReferenceAnalysis(reference)}
+      <small id="design-analysis-status">${hasAnalysis ? "Анализ сохранен и будет использован в генерациях." : "Анализ появится здесь после обновления."}</small>
+    </section>
   `;
 }
 
@@ -87,6 +104,7 @@ function renderReferenceCard(reference, selectedId) {
         <span>
           <strong>${escapeHtml(reference.title)}</strong>
           <small>${escapeHtml(reference.fontStyle || reference.takeaways || "референс дизайна")}</small>
+          <small>${escapeHtml(reference.designAnalysis ? "AI-анализ сохранен" : "AI-анализ не рассчитан")}</small>
           <small>${formatDesignReferenceDate(reference.createdAt)}</small>
         </span>
       </button>

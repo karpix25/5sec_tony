@@ -22,6 +22,7 @@ import {
   getSelectionContext
 } from "./store-context.js";
 import { createJobActions } from "./job-actions.js";
+import { createAiMemoryActions } from "./ai-memory-actions.js";
 import { rescueStaleBriefJobs } from "./brief-job-rescue.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
@@ -94,6 +95,10 @@ export function createStore() {
     getState: () => state,
     setState,
     getProject
+  });
+  const aiMemoryActions = createAiMemoryActions({
+    getState: () => state,
+    setState
   });
   statePersistence = createStatePersistence({
     getState: () => state,
@@ -413,6 +418,7 @@ export function createStore() {
     createAvatarVideoCtaCandidate: avatarWorkflow.createAvatarVideoCtaCandidate,
     approveAvatarVideoCtaCandidate: avatarWorkflow.approveAvatarVideoCtaCandidate,
     resetAvatarVideoCtaOverlay: avatarWorkflow.resetAvatarVideoCtaOverlay,
+    ...aiMemoryActions,
     ...jobActions
   };
 }

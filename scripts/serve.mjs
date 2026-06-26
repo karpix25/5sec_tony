@@ -14,6 +14,7 @@ import { handleStateApi } from "./state-api.mjs";
 import { handleYandexDiskApi } from "./yandex-disk-api.mjs";
 import { handleAuthApi, requireApprovedUser } from "./auth/auth-api.mjs";
 import { handleHealthApi } from "./health-api.mjs";
+import { handleAiMemoryApi } from "./ai-memory-api.mjs";
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
@@ -40,6 +41,7 @@ const server = createServer(async (request, response) => {
   if (await handleCompositeVideoApi(request, response, url)) return;
   if (await handleKieApi(request, response, url)) return;
   if (await handleOpenRouterApi(request, response, url)) return;
+  if (await handleAiMemoryApi(request, response, url)) return;
   if (await handleGenerationBatchesApi(request, response, url)) return;
   if (await handleReelsResearchApi(request, response, url)) return;
   if (await handleServerJobsApi(request, response, url)) return;

@@ -1,7 +1,9 @@
 import { createContentSlot, createRecentJobDigest } from "../src/domain/content-rotation.js";
 import { createLayoutContentPlan } from "../src/domain/layout-content-planner.js";
-import { normalizeHookLibrary } from "../src/domain/hook-library.js";
+import { normalizeHookLibrary, selectHookReference } from "../src/domain/hook-library.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
+import { createAvatarReservedZone } from "../src/domain/avatar-overlay-zone.js";
+import { createProductVisibilityDecision } from "../src/domain/product-visibility-decision.js";
 import {
   assessAiBriefFreshness,
   createFreshnessFallbackBrief,
@@ -11,18 +13,24 @@ import { normalizeAiBrief } from "../src/domain/ai-brief-normalizer.js";
 
 const maxBriefAttempts = 3;
 
-export async function generateServerAiBrief({ origin, project, product, reference, existingJobs, diversitySlot, hookLibrary }) {
-  const hookDigest = createHookLibraryDigest(hookLibrary);
+export async function generateServerAiBrief({ origin, project, product, reference, character, existingJobs, diversitySlot, hookLibrary }) {
+  const hookSeed = selectHookReference({ hookLibrary, project, product, existingJobs });
+  const hookDigest = createHookLibraryDigest(hookLibrary, hookSeed);
+  const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
   const rejectedJobs = [];
   let fallbackBrief = null;
   for (let attempt = 0; attempt < maxBriefAttempts; attempt += 1) {
     const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
+    const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs });
     const brief = await requestServerAiBrief(origin, {
       project,
       product,
       reference,
       hookDigest,
+      hookSeed,
+      productVisibilityDecision,
+      avatarSafeZone,
       existingJobs: attemptExistingJobs,
       slot
     });
@@ -35,7 +43,7 @@ export async function generateServerAiBrief({ origin, project, product, referenc
   throw new Error("AI-бриф не подготовился");
 }
 
-async function requestServerAiBrief(origin, { project, product, reference, hookDigest, existingJobs, slot }) {
+async function requestServerAiBrief(origin, { project, product, reference, hookDigest, hookSeed, productVisibilityDecision, avatarSafeZone, existingJobs, slot }) {
   const payload = await postJson(origin, "/api/generation/brief", createCreativeTeamPayload({
     project,
     product,
@@ -43,13 +51,18 @@ async function requestServerAiBrief(origin, { project, product, reference, hookD
     activeDesignReference: createDesignReferenceDigest(reference),
     layoutContentPlan: createLayoutContentPlan(reference),
     hookLibrary: hookDigest,
+    hookSeed,
+    productPassport: product?.aiPassport || null,
+    designAnalysis: reference?.designAnalysis || null,
+    productVisibilityDecision,
+    avatarSafeZone,
     existingJobs: createRecentJobDigest(existingJobs),
     diversitySlot: slot
   }));
   return normalizeAiBrief(payload.draft || {}, slot);
 }
 
-function createHookLibraryDigest(hookLibrary) {
+function createHookLibraryDigest(hookLibrary, hookSeed = null) {
   const library = normalizeHookLibrary(hookLibrary);
   const active = library.versions.find((version) => version.id === library.activeVersionId)
     || library.versions.find((version) => version.status === "active")
@@ -57,6 +70,7 @@ function createHookLibraryDigest(hookLibrary) {
   return {
     activeVersionId: active?.id || "",
     title: active?.title || "",
+    seedHook: hookSeed || null,
     hooks: (active?.hooks || [])
       .filter((hook) => hook.enabled !== false && hook.text)
       .slice(0, 80)
@@ -81,6 +95,7 @@ function createDesignReferenceDigest(reference = {}) {
     textDensity: reference.textDensity || "",
     headlineStyle: reference.headlineStyle || "",
     fontStyle: reference.fontStyle || "",
+    designAnalysis: reference.designAnalysis || null,
     imageName: reference.imageName || "",
     palette: reference.palette || "",
     imageUrl: reference.imageUrl || reference.imageData || "",

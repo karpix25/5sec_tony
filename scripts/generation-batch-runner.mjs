@@ -100,8 +100,21 @@ async function prepareServerJob(jobId, origin, deps) {
     }
   };
   await updateState(deps, (current) => {
+    const products = brief.productPassport
+      ? current.products.map((item) => item.id === context.product.id ? { ...item, aiPassport: brief.productPassport } : item)
+      : current.products;
+    const projects = brief.designFormatBrief
+      ? current.projects.map((project) => project.id === context.project.id ? {
+          ...project,
+          references: (project.references || []).map((item) =>
+            item.id === context.reference.id ? { ...item, designAnalysis: brief.designFormatBrief } : item
+          )
+        } : project)
+      : current.projects;
     return {
       ...current,
+      products,
+      projects,
       generationBrief: brief,
       jobs: current.jobs.map((item) => (item.id === jobId ? job : item))
     };

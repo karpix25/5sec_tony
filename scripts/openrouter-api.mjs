@@ -283,7 +283,7 @@ function hookExtractInstruction(body) {
   });
 }
 
-async function callOpenRouter(token, model, messages, options = {}) {
+export async function callOpenRouter(token, model, messages, options = {}) {
   const timeoutMs = options.timeoutMs || defaultOpenRouterTimeoutMs;
   const task = describeOpenRouterTask(messages);
   const startedAt = Date.now();
