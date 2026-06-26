@@ -114,6 +114,7 @@ const files = [
   "src/ui/persistence-status.js",
   "src/ui/design.js",
   "src/ui/hooks.js",
+  "src/ui/generation-batch.js",
   "src/ui/generation.js",
   "src/ui/job-runner.js",
   "src/ui/product-ai.js",
