@@ -17,7 +17,8 @@ test("design reference candidate prompt creates a safe reusable template", () =>
   assert.match(candidate.finalPrompt, /vertical 9:16 design reference template/);
   assert.match(candidate.finalPrompt, /Visible text may only be short neutral Russian placeholders/);
   assert.match(candidate.finalPrompt, /Do not show product packaging, avatar/);
-  assert.match(candidate.finalPrompt, /x=72\.\.820 and y=190\.\.1360/);
+  assert.match(candidate.finalPrompt, /center-aligned vertical composition/);
+  assert.match(candidate.finalPrompt, /top and bottom margins completely clean/);
   assert.equal(candidate.isActive, undefined);
 });
 

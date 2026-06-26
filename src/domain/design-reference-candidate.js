@@ -116,7 +116,6 @@ export function buildDesignReferenceCandidatePrompt(project = {}, payload = {}) 
     "GPT Image 2: create a vertical 9:16 design reference template for future short-video infographic images.",
     "This is a style template only, not a finished ad and not final content.",
     "Use a center-aligned vertical composition. Maintain generous clear padding (negative space) on all edges.",
-    "Keep important template elements inside the social safe zone: x=72..820 and y=190..1360; leave top UI, right action rail and bottom caption areas clean.",
     "Leave the top and bottom margins completely clean and spacious (no text or crucial elements) to accommodate social media UI overlays later.",
     "Use short Russian placeholder text only; do not use finished ad copy.",
     "Do not show product packaging, avatar, person, face, hands, brand logo, product label, watermark, QR code, CTA button or social media UI.",

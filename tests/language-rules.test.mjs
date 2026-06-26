@@ -20,9 +20,8 @@ test("image prompt requires Russian visible text", () => {
   });
 
   assert.match(prompt, /весь видимый текст строго на русском языке/);
-  assert.match(prompt, /английские слова.*латиницу.*переведи смысл на русский/);
   assert.match(prompt, /английский UI\/text запрещен/);
-  assert.match(prompt, /официальные названия брендов и сервисов/);
+  assert.match(prompt, /Официальные названия брендов и сервисов/);
 });
 
 test("design reference font is fixed for image generations", () => {
@@ -59,17 +58,14 @@ test("image prompt keeps important elements inside social safe zones", () => {
   const product = products[0];
   const prompt = buildImagePrompt({ project, product, reference: project.references[0] });
 
-  assert.match(prompt, /ТЕХНИЧЕСКАЯ SAFE ZONE/);
-  assert.match(prompt, /не видимый текст/);
-  assert.match(prompt, /никогда не писать и не рисовать на финальной картинке/);
+  assert.match(prompt, /КОМПОЗИЦИЯ И ОТСТУПЫ/);
   assert.match(prompt, /Reels\/TikTok\/Shorts/);
-  assert.match(prompt, /x=72\.\.820 и y=190\.\.1360/);
-  assert.match(prompt, /top UI y=0\.\.190/);
-  assert.match(prompt, /right action rail x=820\.\.1024/);
-  assert.match(prompt, /Нижние 24% кадра оставить чистыми/);
-  assert.match(prompt, /без кнопки, без CTA, без дисклеймера, без продукта/);
-  assert.match(prompt, /адаптировать композицию под safe zone/);
-  assert.match(prompt, /координаты, x=, y=, top UI, bottom caption/);
+  assert.match(prompt, /широкие пустые поля/);
+  assert.match(prompt, /щедрый отступ.*правого края/);
+  assert.match(prompt, /ближе к центру/);
+  assert.match(prompt, /Нижняя четверть кадра.*чистой/);
+  assert.match(prompt, /смести их в центральную зону кадра/);
+  assert.doesNotMatch(prompt, /x=72\.\.820|top UI y=0|right action rail x=820|bottom caption/);
 });
 
 test("design reference form asks only for title, prompt and optional file", () => {

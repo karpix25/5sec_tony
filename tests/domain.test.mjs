@@ -49,7 +49,7 @@ test("image prompt separates design reference style from product content", () =>
 
   assert.match(prompt, /GPT Image 2/);
   assert.match(prompt, /ДИЗАЙН-РЕФЕРЕНС — ИСТОЧНИК СТРУКТУРЫ И СТИЛЯ/);
-  assert.match(prompt, /ТЕХНИЧЕСКАЯ SAFE ZONE/);
+  assert.match(prompt, /КОМПОЗИЦИЯ И ОТСТУПЫ/);
   assert.match(prompt, /Не добавлять аватара/);
   assert.match(prompt, /не копировать его текст, смысл/);
   assert.match(prompt, /Дополнительная визуальная инструкция к копированию дизайна/);
