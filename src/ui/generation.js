@@ -1,10 +1,8 @@
 import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
-import { runImageJob } from "./job-runner.js";
 import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
-import { generateAiBrief } from "../services/brief-ai.js";
 import { getContext } from "../state/store.js";
-import { runQueuedGenerationBatch } from "./generation-batch.js";
+import { createServerGenerationBatch } from "../services/generation-batches.js";
 
 export function renderStudioPanel(state, context) {
   return `
@@ -41,17 +39,20 @@ export function bindGenerationPanelEvents(root, store) {
     let jobs = [];
     try {
       if (!canRunCreativeTeamPreflight(store)) {
-        throw new Error("AI-команда генерации недоступна");
+        throw new Error("Серверная очередь генерации недоступна");
       }
-      jobs = createPendingJobs(store, count);
-      if (!jobs.length) throw new Error("Не удалось создать задачи. Проверьте лимиты проекта");
+      const payload = await createServerGenerationBatch({
+        count,
+        selection: createGenerationSelection(store)
+      });
+      jobs = store.mergeServerJobs(payload.jobs || []);
+      if (!jobs.length) throw new Error("Сервер не вернул созданные задачи");
       store.selectProjectTab("queue");
-      jobs = await createCreativeTeamJobs(root, store, jobs);
       if (status) status.textContent = jobs.length
-        ? `Запущено ${jobs.length} из ${count}.`
-        : "AI-брифы не подготовились. Проверьте очередь.";
+        ? `Серверная очередь приняла ${jobs.length} из ${count}.`
+        : "Очередь не создала задачи. Проверьте лимиты проекта.";
     } catch (error) {
-      if (status) status.textContent = `${error.message || "AI-команда недоступна"}. Генерация не запущена.`;
+      if (status) status.textContent = `${error.message || "Серверная очередь недоступна"}. Генерация не запущена.`;
     } finally {
       setLaunchBusy(button, status, false);
     }
@@ -64,66 +65,25 @@ function setLaunchBusy(button, status, busy) {
     if (busy) button.setAttribute("disabled", "");
     else button.removeAttribute("disabled");
   }
-  if (busy && status) status.textContent = "Запуск принят. Открываем очередь и готовим AI-бриф...";
+  if (busy && status) status.textContent = "Передаем запуск серверной очереди...";
 }
 
 function canRunCreativeTeamPreflight(store) {
   return typeof store.getState === "function"
-    && typeof store.updateGenerationBrief === "function"
-    && typeof store.createPendingGenerationJobs === "function"
-    && typeof store.replacePendingGenerationJob === "function"
-    && typeof store.patchJob === "function";
+    && typeof store.mergeServerJobs === "function"
+    && typeof store.selectProjectTab === "function";
 }
 
-async function runCreativeTeamPreflight(root, store, batch = {}) {
-  const status = root.querySelector("#creative-team-status");
+function createGenerationSelection(store) {
   const state = store.getState();
-  const context = getContext(state);
-  const batchLabel = batch.count > 1 ? ` ${batch.index + 1}/${batch.count}` : "";
-  const existingJobs = [
-    ...(state.jobs?.filter((job) => job.projectId === context.project.id && !job.isBriefPlaceholder) || []),
-    ...(batch.batchJobs || [])
-  ];
-  if (status) status.textContent = `AI-команда собирает паспорт продукта, сценарий и промпт${batchLabel}...`;
-  try {
-    const brief = await generateAiBrief({
-      project: context.project,
-      product: context.product,
-      reference: context.reference,
-      existingJobs,
-      hookLibrary: context.hookLibrary
-    });
-    store.updateGenerationBrief(brief);
-    if (status) status.textContent = "AI-команда подготовила сценарий и промпт.";
-  } catch (error) {
-    throw new Error(error.message || "AI-команда недоступна");
-  }
-}
-
-function createPendingJobs(store, count) {
-  const jobs = store.createPendingGenerationJobs(count);
-  return Array.isArray(jobs) ? jobs : [];
-}
-
-async function createCreativeTeamJobs(root, store, pendingJobs) {
-  return runQueuedGenerationBatch({
-    pendingJobs,
-    prepare: (batch) => runCreativeTeamPreflight(root, store, batch),
-    completePendingJob: (jobId) => store.replacePendingGenerationJob(jobId),
-    failPendingJob: (jobId, error) => failPendingGenerationJob(store, jobId, error),
-    runJob: (job) => {
-      if (job?.id) runImageJob(store, job.id);
-    }
-  });
-}
-
-function failPendingGenerationJob(store, jobId, error) {
-  store.patchJob(jobId, {
-    status: "failed",
-    stage: "brief",
-    progress: 100,
-    failMsg: error.message || "AI-бриф не подготовился"
-  });
+  return {
+    projectId: state.selectedProjectId || "",
+    productId: state.selectedProductId || "",
+    referenceId: state.selectedReferenceId || "",
+    characterId: state.selectedCharacterId || noAvatarCharacterId,
+    audioId: state.selectedAudioId || "",
+    freePrompt: state.freePrompt || ""
+  };
 }
 
 function renderReferenceSelect({ project, reference }) {

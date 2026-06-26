@@ -4,6 +4,7 @@ import { extname, join, normalize } from "node:path";
 import { handleHookPdfApi } from "./hook-pdf-api.mjs";
 import { handleKieApi, loadEnvFile } from "./kie-api.mjs";
 import { handleOpenRouterApi } from "./openrouter-api.mjs";
+import { handleGenerationBatchesApi } from "./generation-batches-api.mjs";
 import { handleCompositeVideoApi } from "./composite-video.mjs";
 import { handleAvatarAlphaVideoApi } from "./avatar-alpha-video.mjs";
 import { handleReferenceAssetsApi } from "./reference-assets.mjs";
@@ -39,6 +40,7 @@ const server = createServer(async (request, response) => {
   if (await handleCompositeVideoApi(request, response, url)) return;
   if (await handleKieApi(request, response, url)) return;
   if (await handleOpenRouterApi(request, response, url)) return;
+  if (await handleGenerationBatchesApi(request, response, url)) return;
   if (await handleReelsResearchApi(request, response, url)) return;
   if (await handleServerJobsApi(request, response, url)) return;
   if (await handleStateApi(request, response, url)) return;

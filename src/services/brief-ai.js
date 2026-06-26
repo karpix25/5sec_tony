@@ -1,9 +1,9 @@
 import { createContentSlot, createRecentJobDigest } from "../domain/content-rotation.js";
 import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
-import { buildProductInsightMap } from "../domain/product-insights.js";
 import { normalizeHookLibrary } from "../domain/hook-library.js";
 import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
 import { assessAiBriefFreshness, createRejectedBriefJob } from "../domain/ai-brief-freshness.js";
+import { normalizeAiBrief } from "../domain/ai-brief-normalizer.js";
 import { uploadReferenceAsset } from "./reference-assets.js";
 
 const briefAiDataImagePattern = /^data:image\/(?:png|jpe?g|webp);base64,/i;
@@ -61,43 +61,6 @@ async function ensureReferenceAssetUrl(reference = {}) {
   if (!briefAiDataImagePattern.test(String(reference.imageData || ""))) return reference;
   const uploaded = await uploadReferenceAsset({ imageData: reference.imageData, imageName: reference.imageName || reference.title || "design-reference" });
   return { ...reference, imageData: uploaded.url, imageUrl: uploaded.url };
-}
-
-function normalizeAiBrief(draft, diversitySlot) {
-  const creativeBrief = draft.creativeBrief || {};
-  const contentScript = draft.contentScript || draft.plan || {};
-  const topic = diversitySlot.lockTopic
-    ? diversitySlot.topic
-    : draft.topic || creativeBrief.topic || diversitySlot.topic || "";
-  const hook = draft.hook || draft.recommendedHook || diversitySlot.hook || "";
-  const plan = draft.plan || {
-    headline: contentScript.headline || hook,
-    subhead: contentScript.subhead || "",
-    points: Array.isArray(contentScript.points) ? contentScript.points : []
-  };
-  return {
-    ...draft,
-    topic,
-    hook,
-    format: draft.format || creativeBrief.formatIntent || diversitySlot.format || "",
-    pointCount: draft.pointCount || String(plan.points?.length || ""),
-    visualObject: draft.visualObject || draft.visualBrief?.mainVisualObject || diversitySlot.visualObject || "",
-    cta: draft.cta || "",
-    notes: "AI-сгенерированный бриф на основе проекта, продукта и истории тем.",
-    aiPlan: plan,
-    productInsightMap: buildProductInsightMap({ insightMap: draft.productInsightMap }),
-    sourceHook: draft.sourceHook || draft.hookReference?.text || "",
-    hookIntelligence: draft.hookIntelligence || {},
-    layoutContentPlan: draft.layoutContentPlan || diversitySlot.layoutContentPlan || {},
-    creativeQuality: draft.qualityChecks || draft.creativeQuality || {},
-    scrollStopperAngle: draft.scrollStopperAngle || "",
-    productFact: draft.productFact || "",
-    productPositiveBridge: draft.productPositiveBridge || "",
-    semanticKey: diversitySlot.id || draft.semanticKey,
-    contentLayer: diversitySlot.contentLayer || null,
-    contentLayerId: diversitySlot.contentLayer?.id || "",
-    diversitySlot
-  };
 }
 
 function createHookLibraryDigest(hookLibrary) {

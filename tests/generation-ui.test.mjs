@@ -31,43 +31,10 @@ function createGenerationStoreDouble({ project, product, calls = [] }) {
     state,
     store: {
       getState: () => state,
-      updateGenerationBrief(brief) {
-        state.generationBrief = brief;
-        calls.push(["updateGenerationBrief", brief.hook]);
-      },
-      createPendingGenerationJobs(count) {
-        calls.push(["createPendingGenerationJobs", count]);
-        const jobs = Array.from({ length: count }, (_, index) => ({
-          id: `job-${index + 1}`,
-          projectId: project.id,
-          productId: product.id,
-          status: "running",
-          stage: "brief",
-          isBriefPlaceholder: true,
-          title: `Готовим AI-бриф ${index + 1}/${count}`,
-          topic: "AI-команда собирает сценарий и промпт"
-        }));
-        state.jobs.unshift(...jobs);
+      mergeServerJobs(jobs = []) {
+        calls.push(["mergeServerJobs", jobs.map((job) => job.id)]);
+        state.jobs = [...jobs, ...state.jobs.filter((job) => !jobs.some((item) => item.id === job.id))];
         return jobs;
-      },
-      replacePendingGenerationJob(jobId) {
-        const job = {
-          id: jobId,
-          projectId: project.id,
-          productId: product.id,
-          status: "queued",
-          stage: "brief",
-          progress: 6,
-          title: state.generationBrief?.hook || jobId,
-          topic: state.generationBrief?.topic || ""
-        };
-        calls.push(["replacePendingGenerationJob", jobId, job.title]);
-        state.jobs = state.jobs.map((item) => (item.id === jobId ? job : item));
-        return job;
-      },
-      patchJob(jobId, patch) {
-        calls.push(["patchJob", jobId, patch.status, patch.stage]);
-        state.jobs = state.jobs.map((job) => (job.id === jobId ? { ...job, ...patch } : job));
       },
       selectProjectTab(tab) {
         calls.push(["selectProjectTab", tab]);
@@ -82,50 +49,26 @@ async function waitForGenerationTicks(count = 3) {
   }
 }
 
-test("generation start clamps invalid count for ai-created jobs and switches to queue tab", async () => {
+test("generation start sends a clamped backend batch request and switches to queue tab", async () => {
   const previousFetch = globalThis.fetch;
-  const { root, createJobButton } = createGenerationDom("99");
+  const { root, createJobButton, status } = createGenerationDom("99");
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
   const calls = [];
-  globalThis.fetch = async (url, options = {}) => url === "/api/jobs/run"
-    ? { ok: true, json: async () => ({ job: { id: JSON.parse(options.body).job.id, status: "done", progress: 100 } }) }
-    : { ok: true, json: async () => ({ draft: { topic: "AI topic", hook: "AI hook" } }) };
-  const { store } = createGenerationStoreDouble({ project, product, calls });
-
-  try {
-    bindGenerationPanelEvents(root, store);
-    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
-
-    assert.deepEqual(calls.slice(0, 2), [
-      ["createPendingGenerationJobs", 10],
-      ["selectProjectTab", "queue"]
-    ]);
-    await waitForGenerationTicks(12);
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-});
-
-test("generation start prepares creative team brief before completing queued job", async () => {
-  const previousFetch = globalThis.fetch;
-  const { root, createJobButton, status } = createGenerationDom("1");
-  const project = projects[0];
-  const product = products.find((item) => item.projectId === project.id);
-  const calls = [];
-  globalThis.fetch = async (url, options = {}) => url === "/api/jobs/run"
-    ? { ok: true, json: async () => ({ job: { id: JSON.parse(options.body).job.id, status: "done", progress: 100 } }) }
-    : {
-        ok: true,
-        json: async () => ({
-          draft: {
-            creativeBrief: { topic: "Вечерний ритуал без срыва", formatIntent: "saveable_note" },
-            recommendedHook: "Почему вечерний ритуал срывается",
-            contentScript: { headline: "Ритуал срывается вечером", subhead: "Причина часто в ожиданиях", points: ["Сначала уберите шум", "Проверьте привычку"] },
-            imagePromptPackage: { provider: "gpt-image-2", prompt: "Short creative team prompt" }
-          }
-        })
-      };
+  const requests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push([url, JSON.parse(options.body || "{}")]);
+    return {
+      ok: true,
+      json: async () => ({
+        batchId: "batch-1",
+        jobs: [
+          { id: "job-1", projectId: project.id, productId: product.id, status: "running", stage: "brief" },
+          { id: "job-2", projectId: project.id, productId: product.id, status: "running", stage: "brief" }
+        ]
+      })
+    };
+  };
   const { store } = createGenerationStoreDouble({ project, product, calls });
 
   try {
@@ -133,34 +76,41 @@ test("generation start prepares creative team brief before completing queued job
     createJobButton.dispatchEvent({ type: "click", target: createJobButton });
     await waitForGenerationTicks();
 
-    assert.deepEqual(calls.slice(0, 5), [
-      ["createPendingGenerationJobs", 1],
-      ["selectProjectTab", "queue"],
-      ["updateGenerationBrief", "Почему вечерний ритуал срывается"],
-      ["replacePendingGenerationJob", "job-1", "Почему вечерний ритуал срывается"],
-      ["patchJob", "job-1", "running", "image"]
+    assert.equal(requests[0][0], "/api/generation/batches");
+    assert.equal(requests[0][1].count, 10);
+    assert.deepEqual(requests[0][1].selection, {
+      projectId: project.id,
+      productId: product.id,
+      referenceId: project.references[0].id,
+      characterId: "__no_avatar__",
+      audioId: "",
+      freePrompt: ""
+    });
+    assert.deepEqual(calls, [
+      ["mergeServerJobs", ["job-1", "job-2"]],
+      ["selectProjectTab", "queue"]
     ]);
-    assert.equal(status.textContent, "Запущено 1 из 1.");
+    assert.equal(status.textContent, "Серверная очередь приняла 2 из 10.");
   } finally {
     globalThis.fetch = previousFetch;
   }
 });
 
-test("generation batch prepares a fresh creative brief for each job", async () => {
+test("generation start does not create browser placeholders or call legacy job endpoints", async () => {
   const previousFetch = globalThis.fetch;
-  const { root, createJobButton, status } = createGenerationDom("2");
+  const { root, createJobButton, status } = createGenerationDom("1");
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
   const calls = [];
-  let requestIndex = 0;
-  globalThis.fetch = async (url, options = {}) => {
-    if (url === "/api/jobs/run") {
-      return { ok: true, json: async () => ({ job: { id: JSON.parse(options.body).job.id, status: "done", progress: 100 } }) };
-    }
-    requestIndex += 1;
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
     return {
       ok: true,
-      json: async () => ({ draft: { topic: `Тема ${requestIndex}`, hook: `Хук ${requestIndex}` } })
+      json: async () => ({
+        batchId: "batch-1",
+        jobs: [{ id: "job-1", projectId: project.id, productId: product.id, status: "running", stage: "brief" }]
+      })
     };
   };
   const { store } = createGenerationStoreDouble({ project, product, calls });
@@ -168,101 +118,20 @@ test("generation batch prepares a fresh creative brief for each job", async () =
   try {
     bindGenerationPanelEvents(root, store);
     createJobButton.dispatchEvent({ type: "click", target: createJobButton });
-    await waitForGenerationTicks(4);
+    await waitForGenerationTicks();
 
-    assert.deepEqual(calls.filter((item) => ["updateGenerationBrief", "replacePendingGenerationJob"].includes(item[0])), [
-      ["updateGenerationBrief", "Хук 1"],
-      ["replacePendingGenerationJob", "job-1", "Хук 1"],
-      ["updateGenerationBrief", "Хук 2"],
-      ["replacePendingGenerationJob", "job-2", "Хук 2"]
+    assert.deepEqual(urls, ["/api/generation/batches"]);
+    assert.deepEqual(calls, [
+      ["mergeServerJobs", ["job-1"]],
+      ["selectProjectTab", "queue"]
     ]);
-    assert.equal(status.textContent, "Запущено 2 из 2.");
+    assert.equal(status.textContent, "Серверная очередь приняла 1 из 1.");
   } finally {
     globalThis.fetch = previousFetch;
   }
 });
 
-test("generation batch sends previous batch jobs to creative team preflight", async () => {
-  const previousFetch = globalThis.fetch;
-  const { root, createJobButton } = createGenerationDom("2");
-  const project = projects[0];
-  const product = products.find((item) => item.projectId === project.id);
-  const requestBodies = [];
-  let requestIndex = 0;
-  globalThis.fetch = async (url, options = {}) => {
-    if (url === "/api/jobs/run") {
-      return { ok: true, json: async () => ({ job: { id: JSON.parse(options.body).job.id, status: "done", progress: 100 } }) };
-    }
-    requestIndex += 1;
-    requestBodies.push(JSON.parse(options.body));
-    return {
-      ok: true,
-      json: async () => ({ draft: { topic: `Тема ${requestIndex}`, hook: `Хук ${requestIndex}` } })
-    };
-  };
-  const { store } = createGenerationStoreDouble({ project, product });
-
-  try {
-    bindGenerationPanelEvents(root, store);
-    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
-    await waitForGenerationTicks(4);
-
-    assert.equal(requestBodies.length, 2);
-    assert.equal(requestBodies[0].existingJobs.length, 0);
-    assert.equal(requestBodies[1].existingJobs.some((job) => job.title === "Хук 1" || job.topic === "Тема 1"), true);
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-});
-
-test("generation batch starts prepared jobs when a later ai brief fails", async () => {
-  const previousFetch = globalThis.fetch;
-  const { root, createJobButton, status } = createGenerationDom("3");
-  const project = projects[0];
-  const product = products.find((item) => item.projectId === project.id);
-  const calls = [];
-  let briefRequestIndex = 0;
-  globalThis.fetch = async (url, options = {}) => {
-    if (url === "/api/jobs/run") {
-      const payload = JSON.parse(options.body || "{}");
-      const jobId = payload.job?.id;
-      calls.push(["runServerJob", jobId]);
-      return {
-        ok: true,
-        json: async () => ({ job: { id: jobId, status: "done", progress: 100 } })
-      };
-    }
-    briefRequestIndex += 1;
-    if (briefRequestIndex === 3) {
-      return {
-        ok: false,
-        json: async () => ({ error: "OpenRouter не вернул JSON-черновик" })
-      };
-    }
-    return {
-      ok: true,
-      json: async () => ({ draft: { topic: `Тема ${briefRequestIndex}`, hook: `Хук ${briefRequestIndex}` } })
-    };
-  };
-  const { state, store } = createGenerationStoreDouble({ project, product, calls });
-
-  try {
-    bindGenerationPanelEvents(root, store);
-    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
-    await waitForGenerationTicks(5);
-
-    assert.equal(state.jobs.length, 3);
-    assert.deepEqual(calls.filter((item) => item[0] === "replacePendingGenerationJob"), [["replacePendingGenerationJob", "job-1", "Хук 1"], ["replacePendingGenerationJob", "job-2", "Хук 2"]]);
-    assert.deepEqual(calls.find((item) => item[0] === "selectProjectTab"), ["selectProjectTab", "queue"]);
-    assert.deepEqual(calls.filter((item) => item[0] === "runServerJob"), [["runServerJob", "job-1"], ["runServerJob", "job-2"]]);
-    assert.equal(state.jobs.find((job) => job.id === "job-3").status, "failed");
-    assert.equal(status.textContent, "Запущено 2 из 3.");
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-});
-
-test("generation start marks queued placeholder failed when ai brief fails", async () => {
+test("generation start shows backend enqueue errors without local placeholder jobs", async () => {
   const previousFetch = globalThis.fetch;
   const { root, createJobButton, status } = createGenerationDom("1");
   const project = projects[0];
@@ -277,12 +146,11 @@ test("generation start marks queued placeholder failed when ai brief fails", asy
   try {
     bindGenerationPanelEvents(root, store);
     createJobButton.dispatchEvent({ type: "click", target: createJobButton });
-    assert.deepEqual(calls.slice(0, 2), [["createPendingGenerationJobs", 1], ["selectProjectTab", "queue"]]);
     await waitForGenerationTicks();
 
-    assert.equal(state.jobs[0].status, "failed");
-    assert.equal(state.jobs[0].failMsg, "OpenRouter upstream 502");
-    assert.equal(status.textContent, "AI-брифы не подготовились. Проверьте очередь.");
+    assert.equal(state.jobs.length, 0);
+    assert.deepEqual(calls, []);
+    assert.equal(status.textContent, "OpenRouter upstream 502. Генерация не запущена.");
   } finally {
     globalThis.fetch = previousFetch;
   }

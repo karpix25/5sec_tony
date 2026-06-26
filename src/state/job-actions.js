@@ -1,5 +1,5 @@
 import { advanceJob, createGenerationJob, getProductsForProject } from "../domain/generation.js";
-import { createUniqueJobId } from "../domain/job-identity.js";
+import { createPendingGenerationJob } from "../domain/generation-placeholder.js";
 import { patchJobWithQuotaAccounting } from "../domain/job-quota.js";
 import { createBriefJobStartedAt } from "./brief-job-rescue.js";
 import { withCreatedJobs } from "./store-projects.js";
@@ -36,9 +36,17 @@ export function createJobActions({ getState, setState, getProject }) {
       const state = getState();
       const context = getSelectionContext(state, getProject);
       const reservedJobs = createSelectionJobBatch(state, context, count, { distributeProducts: true })
-        .map((job, index) => createPendingGenerationJob(job, index, count));
+        .map((job, index) => createPendingGenerationJobWithStartedAt(job, index, count));
       setState(withCreatedJobs(state, reservedJobs, context.project.id));
       return reservedJobs;
+    },
+    mergeServerJobs(jobs = []) {
+      const state = getState();
+      const incoming = Array.isArray(jobs) ? jobs.filter((job) => job?.id) : [];
+      if (!incoming.length) return [];
+      const ids = new Set(incoming.map((job) => job.id));
+      setState({ jobs: [...incoming, ...state.jobs.filter((job) => !ids.has(job.id))] });
+      return incoming;
     },
     replacePendingGenerationJob(jobId) {
       const state = getState();
@@ -75,24 +83,6 @@ export function createJobActions({ getState, setState, getProject }) {
   };
 }
 
-function createPendingGenerationJob(job, index, count) {
-  const label = count > 1 ? ` ${index + 1}/${count}` : "";
-  return {
-    ...job,
-    id: job.id || createUniqueJobId([]),
-    status: "running",
-    stage: "brief",
-    isBriefPlaceholder: true,
-    briefStartedAt: createBriefJobStartedAt(),
-    progress: 3,
-    title: `Готовим AI-бриф${label}`,
-    prompt: "",
-    topic: "AI-команда собирает сценарий и промпт",
-    inputUrls: [],
-    inputRefs: [],
-    imageUrl: "",
-    imageData: "",
-    finalVideoUrl: "",
-    failMsg: "AI-команда собирает паспорт продукта, сценарий и промпт..."
-  };
+function createPendingGenerationJobWithStartedAt(job, index, count) {
+  return createPendingGenerationJob(job, index, count, { briefStartedAt: createBriefJobStartedAt() });
 }

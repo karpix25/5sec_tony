@@ -1,0 +1,38 @@
+import { buildProductInsightMap } from "./product-insights.js";
+
+export function normalizeAiBrief(draft = {}, diversitySlot = {}) {
+  const creativeBrief = draft.creativeBrief || {};
+  const contentScript = draft.contentScript || draft.plan || {};
+  const topic = diversitySlot.lockTopic
+    ? diversitySlot.topic
+    : draft.topic || creativeBrief.topic || diversitySlot.topic || "";
+  const hook = draft.hook || draft.recommendedHook || diversitySlot.hook || "";
+  const plan = draft.plan || {
+    headline: contentScript.headline || hook,
+    subhead: contentScript.subhead || "",
+    points: Array.isArray(contentScript.points) ? contentScript.points : []
+  };
+  return {
+    ...draft,
+    topic,
+    hook,
+    format: draft.format || creativeBrief.formatIntent || diversitySlot.format || "",
+    pointCount: draft.pointCount || String(plan.points?.length || ""),
+    visualObject: draft.visualObject || draft.visualBrief?.mainVisualObject || diversitySlot.visualObject || "",
+    cta: draft.cta || "",
+    notes: "AI-сгенерированный бриф на основе проекта, продукта и истории тем.",
+    aiPlan: plan,
+    productInsightMap: buildProductInsightMap({ insightMap: draft.productInsightMap }),
+    sourceHook: draft.sourceHook || draft.hookReference?.text || "",
+    hookIntelligence: draft.hookIntelligence || {},
+    layoutContentPlan: draft.layoutContentPlan || diversitySlot.layoutContentPlan || {},
+    creativeQuality: draft.qualityChecks || draft.creativeQuality || {},
+    scrollStopperAngle: draft.scrollStopperAngle || "",
+    productFact: draft.productFact || "",
+    productPositiveBridge: draft.productPositiveBridge || "",
+    semanticKey: diversitySlot.id || draft.semanticKey,
+    contentLayer: diversitySlot.contentLayer || null,
+    contentLayerId: diversitySlot.contentLayer?.id || "",
+    diversitySlot
+  };
+}
