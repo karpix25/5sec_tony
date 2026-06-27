@@ -1,15 +1,17 @@
-import { createGenerationJob, getProductsForProject } from "../src/domain/generation.js";
+import { createGenerationJob } from "../src/domain/generation.js";
 import { createPendingGenerationJob } from "../src/domain/generation-placeholder.js";
-import { getActiveDesignReferences } from "../src/domain/references.js";
-import { isNoAvatarCharacterId, noAvatarCharacterId } from "../src/domain/avatar-selection.js";
+import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { createSelectionJobBatch } from "../src/state/store-context.js";
 import { generateServerAiBrief } from "./generation-brief-service.mjs";
 import { loadGenerationState, updateGenerationState } from "./generation-state.mjs";
+import { ensureGenerationPreflight } from "./generation-preflight.mjs";
+import { createServerSelectionContext } from "./generation-selection-context.mjs";
 
 const runningBatches = new Map();
 
 export async function createGenerationBatch({ count, selection = {}, origin, deps = {} }) {
   const batchId = `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  await ensureGenerationPreflight({ selection, origin, deps });
   const result = await updateState(deps, (state) => {
     const context = createServerSelectionContext(state, selection);
     const safeCount = Math.max(1, Math.min(10, Number(count || 1)));
@@ -138,26 +140,6 @@ async function failBriefJob(jobId, error, deps) {
   }), deps);
 }
 
-function createServerSelectionContext(state, selection = {}, productId = "") {
-  const project = findById(state.projects, selection.projectId || state.selectedProjectId) || state.projects?.[0];
-  const products = getProductsForProject(state.products || [], project.id);
-  const product = findById(products, productId || selection.productId || state.selectedProductId) || products[0];
-  const references = getActiveDesignReferences(project);
-  const characterId = selection.characterId || state.selectedCharacterId;
-  const audioId = selection.audioId || state.selectedAudioId;
-  return {
-    project,
-    product,
-    reference: findById(references, selection.referenceId || state.selectedReferenceId) || references[0],
-    character: isNoAvatarCharacterId(characterId) ? null : findById(project.characters, characterId),
-    audio: findById(state.audioLibrary, audioId),
-    audioLibrary: state.audioLibrary || [],
-    hookLibrary: state.hookLibrary,
-    generationBrief: state.generationBrief || {},
-    freePrompt: selection.freePrompt ?? state.freePrompt ?? ""
-  };
-}
-
 function normalizeSelection(selection = {}) {
   return {
     projectId: selection.projectId || "",
@@ -167,10 +149,6 @@ function normalizeSelection(selection = {}) {
     audioId: selection.audioId || "",
     freePrompt: selection.freePrompt || ""
   };
-}
-
-function findById(items = [], id = "") {
-  return items.find((item) => item.id === id);
 }
 
 async function postJson(origin, path, body) {

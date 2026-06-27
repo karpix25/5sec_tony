@@ -5,8 +5,18 @@ import { generateServerAiBrief } from "../scripts/generation-brief-service.mjs";
 import { projects, products } from "../src/domain/entities.js";
 
 function createState() {
-  const project = projects[0];
-  const product = products.find((item) => item.projectId === project.id);
+  const projectSource = projects[0];
+  const project = {
+    ...projectSource,
+    references: projectSource.references.map((reference) => ({
+      ...reference,
+      designAnalysis: { formatType: "checklist_cards", layoutSlots: ["headline", "points"] }
+    }))
+  };
+  const product = {
+    ...products.find((item) => item.projectId === project.id),
+    aiPassport: { productName: "Тестовый продукт", safeFacts: ["Можно описывать как продукт для теста"] }
+  };
   return {
     projects: [project],
     products: [product],
@@ -26,14 +36,17 @@ function createState() {
 
 function createStateDeps(initialState, extra = {}) {
   let state = initialState;
+  const snapshots = [];
   return {
     ...extra,
     loadGenerationState: async () => state,
     updateGenerationState: async (updater) => {
       state = await updater(state);
+      snapshots.push(structuredClone(state));
       return { state, updatedAt: "test-updated-at" };
     },
-    getState: () => state
+    getState: () => state,
+    getSnapshots: () => snapshots
   };
 }
 
@@ -60,6 +73,84 @@ test("backend generation batch creates server-owned brief jobs in state", async 
     ["running", "brief", true],
     ["running", "brief", true]
   ]);
+});
+
+test("backend generation preflight saves product cards and design analysis before queue jobs", async () => {
+  const state = createState();
+  const secondProduct = {
+    ...products.find((item) => item.projectId === state.selectedProjectId && item.id !== state.selectedProductId),
+    aiPassport: null
+  };
+  state.products = [{ ...state.products[0], aiPassport: null }, secondProduct];
+  state.projects = [{
+    ...state.projects[0],
+    references: state.projects[0].references.map((reference) => ({ ...reference, designAnalysis: null }))
+  }];
+  const calls = [];
+  const deps = createStateDeps(state, {
+    autoStart: false,
+    refreshProductPassport: async ({ product }) => {
+      calls.push(["passport", product.id]);
+      return { productName: product.name, safeFacts: [`Факт ${product.id}`] };
+    },
+    refreshDesignAnalysis: async ({ reference }) => {
+      calls.push(["design", reference.id]);
+      return { formatType: "symptom_poster", layoutSlots: ["headline", "cards"] };
+    }
+  });
+
+  const result = await createGenerationBatch({
+    count: 1,
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: state.selectedProductId,
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  });
+  const snapshots = deps.getSnapshots();
+  const preflightSnapshot = snapshots[0];
+  const queueSnapshot = snapshots[1];
+
+  assert.deepEqual(calls, [
+    ["passport", state.products[0].id],
+    ["passport", secondProduct.id],
+    ["design", state.selectedReferenceId]
+  ]);
+  assert.equal(result.jobs.length, 1);
+  assert.equal(preflightSnapshot.jobs.length, 0);
+  assert.equal(preflightSnapshot.products.every((product) => product.aiPassport?.productName), true);
+  assert.equal(preflightSnapshot.projects[0].references[0].designAnalysis.formatType, "symptom_poster");
+  assert.equal(queueSnapshot.jobs.length, 1);
+});
+
+test("backend generation preflight failure prevents queue jobs", async () => {
+  const state = createState();
+  state.products = state.products.map((product) => ({ ...product, aiPassport: null }));
+  const deps = createStateDeps(state, {
+    autoStart: false,
+    refreshProductPassport: async () => {
+      throw new Error("passport provider failed");
+    }
+  });
+
+  await assert.rejects(() => createGenerationBatch({
+    count: 1,
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: state.selectedProductId,
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  }), /passport provider failed/);
+  assert.equal(deps.getState().jobs.length, 0);
+  assert.equal(deps.getSnapshots().length, 0);
 });
 
 test("backend generation worker prepares brief and hands job to server pipeline", async () => {
@@ -108,8 +199,8 @@ test("backend generation worker keeps rotated placeholder design reference", asy
   state.projects = [{
     ...state.projects[0],
     references: [
-      { id: "ref-a", type: "design", title: "A" },
-      { id: "ref-b", type: "design", title: "B" }
+      { id: "ref-a", type: "design", title: "A", designAnalysis: { formatType: "checklist_cards" } },
+      { id: "ref-b", type: "design", title: "B", designAnalysis: { formatType: "checklist_cards" } }
     ]
   }];
   state.selectedReferenceId = "ref-a";
