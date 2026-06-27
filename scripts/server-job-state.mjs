@@ -47,6 +47,17 @@ export async function loadPersistedServerJob(jobId, deps = {}) {
   return withTransaction((tx) => loadPersistedJob(tx.query, jobId));
 }
 
+export async function loadPersistedServerJobContext(job, deps = {}) {
+  if (!job?.projectId || !(deps.isPostgresConfigured || isPostgresConfigured)()) return {};
+  const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
+  return withTransaction(async (tx) => ({
+    project: await loadServerJobProject(tx.query, job.projectId),
+    audioLibrary: await loadServerJobAudioLibrary(tx.query),
+    selectedCharacterId: job.characterId || "",
+    selectedAudioId: ""
+  }));
+}
+
 async function loadPersistedJob(query, jobId) {
   return await loadRelationalJobRow(query, jobId) || await loadLegacyJob(query, jobId);
 }
@@ -83,6 +94,31 @@ async function loadRelationalJobRow(query, jobId) {
     inputRefs: asArray(row.input_refs),
     diversitySlot: row.diversity_slot ?? null
   };
+}
+
+async function loadServerJobProject(query, projectId) {
+  const result = await query("select * from studio_projects where app_state_key = $1 and id = $2 limit 1", [appStateKey, projectId]);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    ...asObject(row.extra),
+    id: row.id,
+    name: row.name,
+    yandexDiskFolder: row.yandex_disk_folder,
+    avatarRoundRobinIndex: row.avatar_round_robin_index,
+    ctaOverlay: asObject(row.cta_overlay),
+    characters: asArray(row.characters)
+  };
+}
+
+async function loadServerJobAudioLibrary(query) {
+  const result = await query("select * from studio_global_audio_assets where app_state_key = $1 order by sort_order asc", [appStateKey]);
+  return result.rows.map((row) => ({
+    ...asObject(row.extra),
+    id: row.id,
+    title: row.title,
+    fileData: row.file_data
+  }));
 }
 
 async function loadLegacyJob(query, jobId) {

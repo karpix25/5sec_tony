@@ -340,6 +340,75 @@ test("missing in-memory server job resumes persisted image task after restart", 
   }
 });
 
+test("resumed final-video job restores project context for avatar and cta overlay", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const compositeBodies = [];
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : {};
+    if (String(url).includes("/api/avatar-videos/composite")) {
+      compositeBodies.push(body);
+      return jsonResponse({ videoUrl: "/generated/avatar-videos/resumed-final.mp4", hasAudio: false });
+    }
+    if (String(url).includes("/api/yandex-disk/upload")) {
+      return jsonResponse({ diskPath: "disk:/out/resumed-final.mp4" });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const handle = createServerJobsApiHandler({
+    serverJobs: new Map(),
+    loadPersistedServerJob: async () => ({
+      id: "job-resume-final-video",
+      projectId: "project-resume",
+      characterId: "char-selected",
+      status: "running",
+      stage: "assembly",
+      progress: 76,
+      outputType: "final-video",
+      imageUrl: "https://cdn.example.com/resumed-bg.png",
+      failMsg: "Картинка готова, сервер собирает видео..."
+    }),
+    loadPersistedServerJobContext: async () => ({
+      project: {
+        id: "project-resume",
+        name: "Resume Project",
+        yandexDiskFolder: "disk:/out",
+        ctaOverlay: { enabled: true, mode: "text", text: "ПОДПИШИСЬ", x: 50, y: 80, scale: 100, opacity: 100 },
+        characters: [{
+          id: "char-selected",
+          name: "Selected Avatar",
+          isActive: true,
+          avatarVideos: [{
+            id: "video-selected",
+            status: "ready",
+            isActive: true,
+            alphaVideoUrl: "https://cdn.example.com/selected-alpha.webm",
+            overlay: { x: 70, y: 100, scale: 40, opacity: 100 },
+            ctaOverlay: { enabled: true, mode: "text", text: "ЖМИ", x: 50, y: 80, scale: 80, opacity: 100 }
+          }]
+        }]
+      },
+      selectedCharacterId: "char-selected",
+      audioLibrary: []
+    }),
+    persistServerJobSnapshot: async () => true
+  });
+
+  try {
+    await callServerJobsApi("GET", "/api/jobs/status?jobId=job-resume-final-video", null, handle);
+    const final = await waitForServerJob("job-resume-final-video", (item) => item.job.status === "done", handle);
+
+    assert.equal(final.job.renderedWithoutAvatar, false);
+    assert.equal(final.job.finalVideoUrl, "/generated/avatar-videos/resumed-final.mp4");
+    assert.equal(compositeBodies[0].avatarVideoUrl, "https://cdn.example.com/selected-alpha.webm");
+    assert.equal(compositeBodies[0].ctaOverlay.text, "ЖМИ");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
 async function waitForServerJob(jobId, predicate, handle = handleServerJobsApi) {
   for (let index = 0; index < 30; index += 1) {
     const { payload } = await callServerJobsApi("GET", `/api/jobs/status?jobId=${jobId}`, null, handle);

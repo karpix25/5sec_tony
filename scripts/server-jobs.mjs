@@ -5,7 +5,7 @@ import { limitImagePrompt } from "../src/domain/image-prompt-budget.js";
 import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
 import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
 import { createOperationLogger, summarizeJobForLog, summarizeServerJobContext } from "./operation-logger.mjs";
-import { loadPersistedServerJob, persistServerJobSnapshot } from "./server-job-state.mjs";
+import { loadPersistedServerJob, loadPersistedServerJobContext, persistServerJobSnapshot } from "./server-job-state.mjs";
 
 const serverJobs = new Map();
 const successStates = ["success", "succeeded", "completed", "complete"];
@@ -22,12 +22,13 @@ export function createServerJobsApiHandler(deps = {}) {
   const jobs = deps.serverJobs || serverJobs;
   const persistJob = deps.persistServerJobSnapshot || persistServerJobSnapshot;
   const loadJob = deps.loadPersistedServerJob || loadPersistedServerJob;
+  const loadJobContext = deps.loadPersistedServerJobContext || loadPersistedServerJobContext;
   return async function handleServerJobsApiWithDeps(request, response, url) {
     if (request.method === "POST" && url.pathname === "/api/jobs/run") {
       return startServerJob(request, response, { jobs, persistJob });
     }
     if (request.method === "GET" && url.pathname === "/api/jobs/status") {
-      return getServerJobStatus(response, url.searchParams.get("jobId"), { jobs, persistJob, loadJob });
+      return getServerJobStatus(response, url.searchParams.get("jobId"), { jobs, persistJob, loadJob, loadJobContext });
     }
     return false;
   };
@@ -325,7 +326,7 @@ async function sendPersistedServerJobStatus(response, jobId, deps) {
   }
   logger.log("status:persisted-hit", { job: summarizeJobForLog(job) });
   if (isTerminalServerJob(job)) return sendJson(response, 200, { job: toPublicServerJob(job), avatarUsage: null });
-  const record = createResumedServerJobRecord(job, deps.persistJob);
+  const record = createResumedServerJobRecord(job, deps.persistJob, await deps.loadJobContext(job));
   deps.jobs.set(job.id, record);
   await patchServerJob(record, {
     status: "running",
@@ -346,10 +347,10 @@ function isTerminalServerJob(job) {
   return ["done", "review", "failed"].includes(job?.status);
 }
 
-function createResumedServerJobRecord(job, persistJob) {
+function createResumedServerJobRecord(job, persistJob, recoveredContext = {}) {
   return {
     job,
-    context: job.serverJobContext || {},
+    context: job.serverJobContext || recoveredContext || {},
     origin: getInternalServerOrigin(),
     avatarUsage: null,
     persistJob

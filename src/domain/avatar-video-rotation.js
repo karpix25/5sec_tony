@@ -1,4 +1,11 @@
 export function pickAvatarVideoRoundRobin(project, characterId) {
+  const selected = characterId ? pickCharacterAvatarVideo(getActiveCharacters(project).find((character) => character.id === characterId)) : null;
+  if (selected) {
+    return {
+      ...selected,
+      nextCharacterIndex: normalizeAvatarVideoRotationIndex(project?.avatarRoundRobinIndex, getActiveCharacters(project).length)
+    };
+  }
   const picks = getActiveCharacters(project)
     .map(pickCharacterAvatarVideo)
     .filter(Boolean);
