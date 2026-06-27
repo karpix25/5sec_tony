@@ -18,6 +18,7 @@ import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft,
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
 import { renderProjectManagementSettings } from "./project.js";
+import { bindProjectRangeControls } from "./project-range-controls.js";
 import { getProjectAutomationState } from "../domain/project-automation.js";
 import { bindQueuePanelEvents, renderQueuePanel } from "./queue.js";
 import { bindYandexFolderPickers } from "./yandex-folder-picker.js";
@@ -270,6 +271,7 @@ function bindEvents(root, store, options = {}) {
   });
   bindDesignReferenceFormEvents(root, store);
   bindAiMemoryControls(root, store);
+  bindProjectRangeControls(root);
   root.querySelector("#avatar-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     getAvatarUploadPayload(event.currentTarget).then((payload) => store.uploadCharacter(payload));

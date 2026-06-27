@@ -131,6 +131,7 @@ const files = [
   "src/ui/project-ai.js",
   "src/ui/job-ai-trace.js",
   "src/ui/ai-memory-controls.js",
+  "src/ui/project-range-controls.js",
   "src/ui/product.js",
   "src/ui/project.js",
   "src/ui/project-automation-controls.js",

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderProjectManagementSettings } from "../src/ui/project.js";
+import { updateProductInFrameValue } from "../src/ui/project-range-controls.js";
+import { FakeElement } from "./helpers/fake-ui-dom.mjs";
 
 test("project text fields render object arrays as readable text", () => {
   const html = renderProjectManagementSettings({
@@ -41,4 +43,17 @@ test("project settings expose product in frame percentage slider", () => {
   assert.match(html, /name="productInFramePercent"/);
   assert.match(html, /type="range"/);
   assert.match(html, /value="45"/);
+  assert.match(html, /data-product-in-frame-input/);
+  assert.match(html, /data-product-in-frame-value/);
+});
+
+test("product in frame percentage label updates while range changes", () => {
+  const field = new FakeElement({ dataset: { productInFrameField: "" } });
+  const input = new FakeElement({ value: "65", dataset: { productInFrameInput: "" } });
+  const value = new FakeElement({ textContent: "30%", dataset: { productInFrameValue: "" } });
+  field.append(input, value);
+
+  updateProductInFrameValue(input);
+
+  assert.equal(value.textContent, "65%");
 });

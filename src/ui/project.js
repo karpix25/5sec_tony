@@ -70,11 +70,11 @@ function projectYandexFolderField(value = "") {
 function projectProductInFrameField(value) {
   const percent = normalizeProductInFramePercent(value);
   return `
-    <label class="stacked-field project-range-field">
+    <label class="stacked-field project-range-field" data-product-in-frame-field>
       <span>Продукт в кадре</span>
       <div class="range-field-row">
-        <input name="productInFramePercent" class="range-input" type="range" min="0" max="100" step="5" value="${percent}" />
-        <strong>${percent}%</strong>
+        <input name="productInFramePercent" class="range-input" type="range" min="0" max="100" step="5" value="${percent}" data-product-in-frame-input />
+        <strong data-product-in-frame-value>${percent}%</strong>
       </div>
       <small class="ai-field-status">Сколько роликов проекта должны показывать продукт визуально. Остальные используют продукт только как смысловой контекст.</small>
     </label>
