@@ -65,11 +65,12 @@ test("queue previews open both generated images and final videos", () => {
 
   assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/image\.png"/);
   assert.match(html, /data-preview-type="image"/);
-  assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/final-frame\.png"/);
+  assert.match(html, /data-preview-media="\/generated\/avatar-videos\/final\.mp4"/);
+  assert.match(html, /data-preview-type="video"/);
   assert.match(html, /Продукт: Магний вечерний/);
 });
 
-test("queue uses final video preview when the video url is persistent", () => {
+test("queue uses final video preview when the video url is local generated media", () => {
   const project = projects[0];
   const html = renderQueuePanel({
     products,
@@ -81,7 +82,7 @@ test("queue uses final video preview when the video url is persistent", () => {
       stage: "export",
       progress: 100,
       outputType: "final-video",
-      finalVideoUrl: "https://cdn.example.com/final.mp4",
+      finalVideoUrl: "/generated/avatar-videos/final.mp4",
       imageUrl: "https://cdn.example.com/final-frame.png",
       title: "Видео",
       topic: "тема",
@@ -90,7 +91,7 @@ test("queue uses final video preview when the video url is persistent", () => {
     }]
   }, { project });
 
-  assert.match(html, /data-preview-media="https:\/\/cdn\.example\.com\/final\.mp4"/);
+  assert.match(html, /data-preview-media="\/generated\/avatar-videos\/final\.mp4"/);
   assert.match(html, /data-preview-type="video"/);
 });
 
