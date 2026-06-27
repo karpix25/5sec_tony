@@ -81,6 +81,16 @@ async function handleSaveState(request, response, deps) {
           state: await loadCurrentState(tx.query, deps, appStateKey)
         };
       }
+      const currentState = await loadCurrentState(tx.query, deps, appStateKey);
+      const productDeletionConflict = getUnexpectedProductDeletionConflict(currentState, nextState);
+      if (productDeletionConflict) {
+        return {
+          conflict: true,
+          updatedAt: currentUpdatedAt,
+          state: currentState,
+          error: productDeletionConflict
+        };
+      }
       await deps.saveNormalized(tx.query, appStateKey, nextState);
       const legacyResult = await deps.saveLegacy(tx.query, appStateKey, nextState);
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
@@ -96,7 +106,7 @@ async function handleSaveState(request, response, deps) {
       return sendJson(response, 409, {
         saved: false,
         conflict: true,
-        error: "State was changed in Postgres by another operator",
+        error: result.error || "State was changed in Postgres by another operator",
         key: appStateKey,
         updatedAt: result.updatedAt,
         state: result.state || null
@@ -159,6 +169,17 @@ function hasWriteConflict(currentUpdatedAt, baseUpdatedAt) {
   if (!current) return false;
   if (!base) return true;
   return current !== base;
+}
+
+function getUnexpectedProductDeletionConflict(currentState, nextState) {
+  const currentProducts = Array.isArray(currentState?.products) ? currentState.products : [];
+  if (!currentProducts.length) return "";
+  const nextProductIds = new Set((Array.isArray(nextState?.products) ? nextState.products : []).map((product) => product.id));
+  const deletedProductIds = new Set(Array.isArray(nextState?.deletedProductIds) ? nextState.deletedProductIds : []);
+  const missing = currentProducts.filter((product) => product?.id && !nextProductIds.has(product.id) && !deletedProductIds.has(product.id));
+  return missing.length
+    ? `Product deletion requires explicit delete action: ${missing.map((product) => product.name || product.id).join(", ")}`
+    : "";
 }
 
 function formatUpdatedAt(value) {

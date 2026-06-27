@@ -252,6 +252,108 @@ test("state api rejects stale saves without overwriting current db state", async
   assert.deepEqual(calls, []);
 });
 
+test("state api rejects product loss without explicit delete action", async () => {
+  const calls = [];
+  const dbState = {
+    projects: [{ id: "project-1" }],
+    products: [
+      { id: "product-1", projectId: "project-1", name: "Первый" },
+      { id: "product-2", projectId: "project-1", name: "Второй" },
+      { id: "product-3", projectId: "project-1", name: "Третий" }
+    ],
+    jobs: []
+  };
+  const nextState = {
+    ...dbState,
+    products: dbState.products.slice(0, 2)
+  };
+  const response = createJsonResponse();
+  const handleStateApi = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    saveNormalizedState: async (_query, _key, state) => calls.push(["normalized", state]),
+    saveLegacyState: async (_query, _key, state) => {
+      calls.push(["legacy", state]);
+      return { rows: [{ updated_at: "2026-06-16T10:06:00.000Z" }] };
+    },
+    loadNormalizedState: async () => dbState,
+    loadLegacyState: async () => null,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/select updated_at from app_state/i.test(text)) {
+          return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
+        }
+        return { rows: [] };
+      }
+    })
+  });
+
+  await handleStateApi(
+    createJsonRequest("POST", {
+      state: nextState,
+      baseUpdatedAt: "2026-06-16T10:05:00.000Z"
+    }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal(response.payload.conflict, true);
+  assert.match(response.payload.error, /Product deletion requires explicit delete action/);
+  assert.deepEqual(response.payload.state, dbState);
+  assert.deepEqual(calls, []);
+});
+
+test("state api allows product loss with explicit delete action", async () => {
+  const calls = [];
+  const dbState = {
+    projects: [{ id: "project-1" }],
+    products: [
+      { id: "product-1", projectId: "project-1", name: "Первый" },
+      { id: "product-2", projectId: "project-1", name: "Второй" }
+    ],
+    jobs: []
+  };
+  const nextState = {
+    ...dbState,
+    products: [dbState.products[0]],
+    deletedProductIds: ["product-2"]
+  };
+  const response = createJsonResponse();
+  const handleStateApi = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    saveNormalizedState: async (_query, _key, state) => calls.push(["normalized", state.products.map((product) => product.id)]),
+    saveLegacyState: async (_query, _key, state) => {
+      calls.push(["legacy", state.products.map((product) => product.id)]);
+      return { rows: [{ updated_at: "2026-06-16T10:06:00.000Z" }] };
+    },
+    loadNormalizedState: async () => nextState,
+    loadLegacyState: async () => null,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/select updated_at from app_state/i.test(text)) {
+          return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
+        }
+        return { rows: [] };
+      }
+    })
+  });
+
+  await handleStateApi(
+    createJsonRequest("POST", {
+      state: nextState,
+      baseUpdatedAt: "2026-06-16T10:05:00.000Z"
+    }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, [
+    ["normalized", ["product-1"]],
+    ["legacy", ["product-1"]]
+  ]);
+});
+
 test("state api treats missing baseUpdatedAt as conflict when db already exists", async () => {
   const calls = [];
   const dbState = { projects: [{ id: "db-current" }], products: [], jobs: [] };

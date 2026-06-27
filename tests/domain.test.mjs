@@ -425,6 +425,7 @@ test("store creates and deletes product inside selected project", () => {
 
   assert.equal(created.projectId, projectId);
   assert.equal(state.products.some((item) => item.id === created.id), false);
+  assert.equal(state.deletedProductIds.includes(created.id), true);
 });
 
 test("store does not delete the last product in project and explains why", () => {

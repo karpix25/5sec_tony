@@ -291,10 +291,14 @@ export function createStore() {
       if (state.projects.length <= 1) return;
       const projectsNext = state.projects.filter((project) => project.id !== projectId);
       const selectedProject = projectsNext[0];
+      const deletedProductIds = state.products
+        .filter((product) => product.projectId === projectId)
+        .map((product) => product.id);
       setState({
         projects: projectsNext,
         products: state.products.filter((product) => product.projectId !== projectId),
         jobs: state.jobs.filter((job) => job.projectId !== projectId),
+        deletedProductIds: appendUniqueIds(state.deletedProductIds, deletedProductIds),
         selectedProjectId: selectedProject.id,
         selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
         generationBrief: ensureGenerationBrief({})
@@ -356,6 +360,7 @@ export function createStore() {
       setState({
         products: productsNext,
         jobs: state.jobs.filter((job) => job.productId !== productId),
+        deletedProductIds: appendUniqueIds(state.deletedProductIds, [productId]),
         selectedProductId: getProductsForProject(productsNext, state.selectedProjectId)[0]?.id,
         generationBrief: ensureGenerationBrief({})
       });
@@ -426,6 +431,10 @@ export function createStore() {
 export function getContext(state) { return getSelectionContext(state, getProject); }
 
 function getProject(state, projectId) { return state.projects.find((project) => project.id === projectId) || state.projects[0]; }
+
+function appendUniqueIds(current = [], next = []) {
+  return [...new Set([...(Array.isArray(current) ? current : []), ...next.filter(Boolean)])];
+}
 
 function normalize(nextState) {
   const hydratedProjects = nextState.projects.map(ensureProjectAssets);
