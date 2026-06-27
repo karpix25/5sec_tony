@@ -11,7 +11,7 @@ test("design reference payload uploads image and keeps a durable preview url", a
 
     assert.deepEqual(payload, {
       title: "Столбы",
-      prompt: "Формат и структура точь в точь взять",
+      layoutType: "auto",
       imageName: "style.png",
       imageData: "/api/reference-assets/ref-preview"
     });
@@ -21,13 +21,13 @@ test("design reference payload uploads image and keeps a durable preview url", a
   }
 });
 
-test("design reference submit keeps prompt-only flow for generated templates", async () => {
+test("design reference submit keeps title-only flow for generated templates", async () => {
   const restore = installFormAndFileFakes();
   const calls = [];
   const form = createDesignForm({ fileName: "" });
   const store = {
     createDesignReferenceTemplate(payload) {
-      calls.push(["template", payload.title, payload.prompt]);
+      calls.push(["template", payload.title, payload.layoutType]);
     },
     createReference() {
       calls.push(["reference"]);
@@ -36,7 +36,7 @@ test("design reference submit keeps prompt-only flow for generated templates", a
 
   try {
     await submitDesignReferenceForm(form, store);
-    assert.deepEqual(calls, [["template", "Столбы", "Формат и структура точь в точь взять"]]);
+    assert.deepEqual(calls, [["template", "Столбы", "auto"]]);
   } finally {
     restore();
   }
@@ -67,7 +67,7 @@ function installFormAndFileFakes({ uploadUrl = "" } = {}) {
   globalThis.FormData = class FakeFormData {
     constructor() {}
     entries() {
-      return [["title", "Столбы"], ["prompt", "Формат и структура точь в точь взять"]][Symbol.iterator]();
+      return [["title", "Столбы"], ["layoutType", "auto"]][Symbol.iterator]();
     }
   };
   globalThis.FileReader = class FakeFileReader {

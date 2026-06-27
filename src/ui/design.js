@@ -72,7 +72,6 @@ function renderReferenceForm(reference) {
       ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
       ${designLayoutField()}
       ${designFileField("Файл референса", "imageFile")}
-      ${designField("Промт", "prompt", "Опишите стиль с нуля или добавьте комментарии к загруженному файлу: фон, сетка, типографика, плашки, плотность, что важно повторять.", "textarea", "", true)}
       <div class="form-actions">
         <button class="secondary-btn" type="submit">Сохранить стиль</button>
         <button class="ghost-btn" data-delete-reference="${reference?.id || ""}" type="button">Удалить выбранный</button>

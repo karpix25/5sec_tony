@@ -364,8 +364,7 @@ test("design references ask only for design extraction inputs", () => {
 
   assert.match(formHtml, /Название/);
   assert.match(formHtml, /Файл референса/);
-  assert.match(formHtml, /Промт/);
-  assert.doesNotMatch(formHtml, /name="fontStyle"|Доп\. промт|Safe zone|safe zone|Позиция аватара|Тип композиции|Палитра|Стиль заголовка|Главный визуальный объект|не копировать текст|смысл референса/);
+  assert.doesNotMatch(formHtml, /Промт|name="prompt"|Опишите стиль с нуля|name="fontStyle"|Доп\. промт|Safe zone|safe zone|Позиция аватара|Тип композиции|Палитра|Стиль заголовка|Главный визуальный объект|не копировать текст|смысл референса/);
 });
 
 test("generation style selector hides CTA references", () => {

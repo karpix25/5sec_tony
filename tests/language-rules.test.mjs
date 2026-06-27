@@ -68,7 +68,7 @@ test("image prompt keeps important elements inside social safe zones", () => {
   assert.doesNotMatch(prompt, /x=72\.\.820|top UI y=0|right action rail x=820|bottom caption/);
 });
 
-test("design reference form asks only for title, prompt and optional file", () => {
+test("design reference form asks only for automatic analysis inputs", () => {
   const project = projects[0];
   const html = renderDesignSettings({
     project,
@@ -76,7 +76,7 @@ test("design reference form asks only for title, prompt and optional file", () =
   });
 
   assert.match(html, /name="title"/);
-  assert.match(html, /name="prompt"/);
+  assert.match(html, /name="layoutType"/);
   assert.match(html, /name="imageFile"/);
-  assert.doesNotMatch(html, /name="fontStyle"|Шрифт \/ типографика стиля|bold sans/);
+  assert.doesNotMatch(html, /name="prompt"|Промт|Опишите стиль с нуля|name="fontStyle"|Шрифт \/ типографика стиля|bold sans/);
 });

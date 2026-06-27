@@ -1,3 +1,5 @@
+import { getContext } from "../state/store.js";
+import { refreshDesignAnalysis } from "../services/ai-memory.js";
 import { uploadReferenceAsset } from "../services/reference-assets.js";
 
 export function bindDesignReferenceFormEvents(root, store) {
@@ -14,10 +16,22 @@ export async function submitDesignReferenceForm(form, store) {
       store.createDesignReferenceTemplate(payload);
       return;
     }
-    store.createReference({ ...payload, promptComment: payload.prompt, takeaways: payload.prompt });
+    store.createReference({ ...payload, promptComment: "", takeaways: "" });
+    await refreshSavedDesignAnalysis(store);
   } catch (error) {
     console.warn("[design-reference:save:error]", error.message || error);
   }
+}
+
+async function refreshSavedDesignAnalysis(store) {
+  if (!store.getState || !store.updateSelectedDesignReference) return;
+  const context = getContext(store.getState());
+  if (!context.reference?.imageData) return;
+  const designAnalysis = await refreshDesignAnalysis({
+    project: context.project,
+    reference: context.reference
+  });
+  store.updateSelectedDesignReference({ designAnalysis: { ...designAnalysis, analyzedAt: new Date().toISOString() } });
 }
 
 export async function getDesignReferencePayload(form) {
