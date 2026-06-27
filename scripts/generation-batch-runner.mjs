@@ -1,6 +1,6 @@
 import { createGenerationJob, getProductsForProject } from "../src/domain/generation.js";
 import { createPendingGenerationJob } from "../src/domain/generation-placeholder.js";
-import { getDesignReferences } from "../src/domain/references.js";
+import { getActiveDesignReferences } from "../src/domain/references.js";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { createSelectionJobBatch } from "../src/state/store-context.js";
 import { generateServerAiBrief } from "./generation-brief-service.mjs";
@@ -74,7 +74,10 @@ async function prepareServerJob(jobId, origin, deps) {
   const state = await loadState(deps);
   const placeholder = (state.jobs || []).find((job) => job.id === jobId);
   if (!placeholder) throw new Error("Задача не найдена");
-  const selection = placeholder.selectionSnapshot || {};
+  const selection = {
+    ...(placeholder.selectionSnapshot || {}),
+    referenceId: placeholder.referenceId || placeholder.selectionSnapshot?.referenceId || ""
+  };
   const context = createServerSelectionContext(state, selection, placeholder.productId);
   const existingJobs = (state.jobs || []).filter((job) => job.id !== jobId && job.projectId === context.project.id);
   const generateBrief = deps.generateServerAiBrief || generateServerAiBrief;
@@ -139,7 +142,7 @@ function createServerSelectionContext(state, selection = {}, productId = "") {
   const project = findById(state.projects, selection.projectId || state.selectedProjectId) || state.projects?.[0];
   const products = getProductsForProject(state.products || [], project.id);
   const product = findById(products, productId || selection.productId || state.selectedProductId) || products[0];
-  const references = getDesignReferences(project);
+  const references = getActiveDesignReferences(project);
   const characterId = selection.characterId || state.selectedCharacterId;
   const audioId = selection.audioId || state.selectedAudioId;
   return {

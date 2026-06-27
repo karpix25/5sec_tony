@@ -188,6 +188,7 @@ export function createGenerationJob({ project, product, reference, character, au
     promptContract,
     imagePromptContract: promptContract,
     aiTrace: createGenerationAiTrace({ brief, promptContract, inputReferences }),
+    referenceId: reference?.id || "",
     referenceTitle: reference?.title || "",
     inputUrls: inputReferences.map((item) => item.url),
     inputRefs: inputReferences.map(({ role, title, isLocalData }) => ({ role, title, isLocalData })),

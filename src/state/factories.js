@@ -42,6 +42,7 @@ export function createReferenceEntity(payload = {}) {
   return {
     id: payload.id || createId("ref"),
     type: payload.type || "design",
+    isActive: payload.isActive !== false,
     title: payload.title || "Новый дизайн-референс",
     promptComment: payload.promptComment || "",
     takeaways: payload.takeaways || "",

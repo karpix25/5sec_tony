@@ -103,6 +103,43 @@ test("backend generation worker prepares brief and hands job to server pipeline"
   ]);
 });
 
+test("backend generation worker keeps rotated placeholder design reference", async () => {
+  const state = createState();
+  state.projects = [{
+    ...state.projects[0],
+    references: [
+      { id: "ref-a", type: "design", title: "A" },
+      { id: "ref-b", type: "design", title: "B" }
+    ]
+  }];
+  state.selectedReferenceId = "ref-a";
+  const referencesSeen = [];
+  const deps = createStateDeps(state, {
+    generateServerAiBrief: async ({ reference }) => {
+      referencesSeen.push(reference.id);
+      return { topic: "Тема", hook: "Хук", aiPlan: { headline: "Хук", subhead: "", points: ["Пункт"] } };
+    },
+    postServerJob: async ({ job }) => ({ job })
+  });
+
+  const result = await createGenerationBatch({
+    count: 2,
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: state.selectedProductId,
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  });
+  await waitFor(() => referencesSeen.length === result.jobs.length);
+
+  assert.deepEqual(result.jobs.map((job) => job.referenceId), ["ref-a", "ref-b"]);
+  assert.deepEqual(referencesSeen, ["ref-a", "ref-b"]);
+});
+
 test("server brief generation accepts fallback after stale retry budget", async () => {
   const previousFetch = globalThis.fetch;
   const bodies = [];

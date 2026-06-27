@@ -7,6 +7,7 @@ const jobPersistenceDefaults = {
   topic: "",
   music: "",
   prompt: "",
+  referenceId: "",
   referenceTitle: "",
   outputType: "",
   finalVideoUrl: "",
