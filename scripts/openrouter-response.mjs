@@ -1,14 +1,16 @@
+import { extractJsonCandidate, parsePossiblyRepairedJson } from "./json-draft-repair.mjs";
+
 export function parseJsonDraft(text, options = {}) {
-  const json = String(text).match(/\{[\s\S]*\}/)?.[0] || "";
+  const json = extractJsonCandidate(text);
   if (!json) {
     if (options.strict === false) return {};
     throw new Error("OpenRouter не вернул JSON-черновик.");
   }
   try {
-    return JSON.parse(json);
+    return parsePossiblyRepairedJson(json);
   } catch (error) {
     if (options.strict === false) return {};
-    throw new Error(`OpenRouter вернул невалидный JSON: ${error.message}`);
+    throw new Error("AI-команда вернула черновик в неправильном формате. Запустите генерацию еще раз.");
   }
 }
 
