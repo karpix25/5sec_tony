@@ -348,6 +348,14 @@ export function createStore() {
     },
     deleteProduct(productId) {
       const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
+      if (!projectProducts.some((product) => product.id === productId)) {
+        console.warn("[store:delete-product]", {
+          reason: "wrong-project",
+          productId,
+          selectedProjectId: state.selectedProjectId
+        });
+        return { ok: false, reason: "wrong-project" };
+      }
       if (projectProducts.length <= 1) {
         console.warn("[store:delete-product]", {
           reason: "last-product",
