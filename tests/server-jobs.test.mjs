@@ -259,7 +259,9 @@ test("server job limits old overlong prompts before image generation request", a
 });
 
 test("missing in-memory server job is recovered from persisted state as retryable failure", async () => {
+  const originalSetTimeout = globalThis.setTimeout;
   const persisted = [];
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
   const handle = createServerJobsApiHandler({
     serverJobs: new Map(),
     loadPersistedServerJob: async () => ({
@@ -275,12 +277,67 @@ test("missing in-memory server job is recovered from persisted state as retryabl
     }
   });
 
-  const { status, payload } = await callServerJobsApi("GET", "/api/jobs/status?jobId=job-orphaned", null, handle);
+  try {
+    const { status, payload } = await callServerJobsApi("GET", "/api/jobs/status?jobId=job-orphaned", null, handle);
 
-  assert.equal(status, 200);
-  assert.equal(payload.job.status, "failed");
-  assert.match(payload.job.failMsg, /перезапуском/);
-  assert.equal(persisted[0].status, "failed");
+    assert.equal(status, 200);
+    assert.equal(payload.job.status, "running");
+    assert.match(payload.job.failMsg, /восстановил/);
+    const failed = await waitForServerJob("job-orphaned", (item) => item.job.status === "failed", handle);
+    assert.match(failed.job.failMsg, /до создания задачи картинки/);
+    assert.equal(persisted.at(-1).status, "failed");
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("missing in-memory server job resumes persisted image task after restart", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const persisted = [];
+  const fetchCalls = [];
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url) => {
+    fetchCalls.push(String(url));
+    if (String(url).includes("/api/images/status")) {
+      return jsonResponse({ state: "success", imageUrl: "https://cdn.example.com/resumed.png" });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const handle = createServerJobsApiHandler({
+    serverJobs: new Map(),
+    loadPersistedServerJob: async () => ({
+      id: "job-resume-image-task",
+      status: "running",
+      stage: "image",
+      progress: 48,
+      outputType: "image",
+      imageProvider: "gpt-image-2",
+      imageTaskId: "image-task-resume",
+      failMsg: "Сервер ожидает картинку...",
+      serverJobContext: { project: { id: "project-1" } }
+    }),
+    persistServerJobSnapshot: async (job) => {
+      persisted.push({ ...job });
+      return true;
+    }
+  });
+
+  try {
+    const { status, payload } = await callServerJobsApi("GET", "/api/jobs/status?jobId=job-resume-image-task", null, handle);
+
+    assert.equal(status, 200);
+    assert.equal(payload.job.status, "running");
+    assert.equal(payload.job.serverJobContext, undefined);
+    const resumed = await waitForServerJob("job-resume-image-task", (item) => item.job.status === "review", handle);
+    assert.equal(resumed.job.imageUrl, "https://cdn.example.com/resumed.png");
+    assert.equal(resumed.job.serverJobContext, undefined);
+    assert.ok(fetchCalls.some((url) => url.includes("taskId=image-task-resume")));
+    assert.equal(persisted.at(-1).status, "review");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
 });
 
 async function waitForServerJob(jobId, predicate, handle = handleServerJobsApi) {

@@ -45,6 +45,7 @@ async function startServerJob(request, response, deps) {
     });
     if (!deps.jobs.has(job.id)) {
       const origin = getInternalServerOrigin();
+      const context = body.context || {};
       const record = {
         job: {
           ...job,
@@ -52,9 +53,10 @@ async function startServerJob(request, response, deps) {
           stage: "image",
           progress: 18,
           serverJobAcceptedAt: new Date().toISOString(),
+          serverJobContext: context,
           failMsg: "Сервер запустил генерацию..."
         },
-        context: body.context || {},
+        context,
         origin,
         avatarUsage: null,
         persistJob: deps.persistJob
@@ -129,15 +131,19 @@ async function runServerImageGeneration(record, provider) {
   });
   logger.log("image:task-created", { job: summarizeJobForLog(record.job), provider, taskId: task.taskId || "" });
   await patchServerJob(record, { imageTaskId: task.taskId, imageProvider: provider });
+  return pollServerImageTask(record, provider, task.taskId, 0);
+}
 
+async function pollServerImageTask(record, provider, taskId, startAttempt = 0) {
   for (let attempt = 0; attempt < 75; attempt += 1) {
-    await delayServerJobPoll(attempt === 0 ? 6000 : 4000);
-    const status = await getServerJson(record.origin, `/api/images/status?taskId=${encodeURIComponent(task.taskId)}`);
+    const totalAttempt = startAttempt + attempt;
+    await delayServerJobPoll(totalAttempt === 0 ? 6000 : 4000);
+    const status = await getServerJson(record.origin, `/api/images/status?taskId=${encodeURIComponent(taskId)}`);
     logger.log("image:poll", {
       job: summarizeJobForLog(record.job),
       provider,
-      taskId: task.taskId || "",
-      attempt: attempt + 1,
+      taskId: taskId || "",
+      attempt: totalAttempt + 1,
       state: status.state || "",
       progress: status.progress || 0,
       hasImageUrl: Boolean(status.imageUrl),
@@ -152,14 +158,14 @@ async function runServerImageGeneration(record, provider) {
         imageData: status.imageUrl,
         failMsg: "Картинка готова, сервер собирает видео..."
       });
-      logger.log("image:ready", { job: summarizeJobForLog(record.job), provider, taskId: task.taskId || "" });
+      logger.log("image:ready", { job: summarizeJobForLog(record.job), provider, taskId: taskId || "" });
       return status;
     }
     if (failStates.includes(status.state)) {
       logger.log("image:provider-failed", {
         job: summarizeJobForLog(record.job),
         provider,
-        taskId: task.taskId || "",
+        taskId: taskId || "",
         failMsg: status.failMsg || ""
       });
       if (provider === primaryProvider) return runServerImageGeneration(record, fallbackProvider);
@@ -172,7 +178,7 @@ async function runServerImageGeneration(record, provider) {
     });
   }
 
-  logger.log("image:timeout", { job: summarizeJobForLog(record.job), provider, taskId: task.taskId || "" });
+  logger.log("image:timeout", { job: summarizeJobForLog(record.job), provider, taskId: taskId || "" });
   if (provider === primaryProvider) return runServerImageGeneration(record, fallbackProvider);
   throw new Error("Не удалось получить картинку за 5 минут. Попробуйте запустить еще раз.");
 }
@@ -286,7 +292,12 @@ function getInternalServerOrigin() {
 }
 
 function getServerJobPayload(record) {
-  return { job: record.job, avatarUsage: record.avatarUsage };
+  return { job: toPublicServerJob(record.job), avatarUsage: record.avatarUsage };
+}
+
+function toPublicServerJob(job) {
+  const { serverJobContext, ...publicJob } = job || {};
+  return publicJob;
 }
 
 async function patchServerJob(record, payload) {
@@ -313,20 +324,50 @@ async function sendPersistedServerJobStatus(response, jobId, deps) {
     return sendJson(response, 404, { error: "server job not found" });
   }
   logger.log("status:persisted-hit", { job: summarizeJobForLog(job) });
-  if (isTerminalServerJob(job)) return sendJson(response, 200, { job, avatarUsage: null });
-  const failedJob = {
-    ...job,
-    status: "failed",
-    progress: 100,
-    failMsg: "Серверная задача была прервана перезапуском. Запустите генерацию заново."
-  };
-  await deps.persistJob(failedJob);
-  logger.log("status:persisted-interrupted", { job: summarizeJobForLog(failedJob) });
-  return sendJson(response, 200, { job: failedJob, avatarUsage: null });
+  if (isTerminalServerJob(job)) return sendJson(response, 200, { job: toPublicServerJob(job), avatarUsage: null });
+  const record = createResumedServerJobRecord(job, deps.persistJob);
+  deps.jobs.set(job.id, record);
+  await patchServerJob(record, {
+    status: "running",
+    failMsg: "Сервер восстановил задачу после перезапуска..."
+  });
+  resumeServerJob(record).catch(async (error) => {
+    logger.log("resume:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
+    await patchServerJob(record, {
+      status: "failed",
+      progress: 100,
+      failMsg: error.message || "Не удалось восстановить серверную задачу после перезапуска."
+    });
+  });
+  return sendJson(response, 200, getServerJobPayload(record));
 }
 
 function isTerminalServerJob(job) {
   return ["done", "review", "failed"].includes(job?.status);
+}
+
+function createResumedServerJobRecord(job, persistJob) {
+  return {
+    job,
+    context: job.serverJobContext || {},
+    origin: getInternalServerOrigin(),
+    avatarUsage: null,
+    persistJob
+  };
+}
+
+async function resumeServerJob(record) {
+  logger.log("resume:start", { job: summarizeJobForLog(record.job) });
+  if (record.job.imageUrl) {
+    await runServerFinalAssembly(record, record.job.imageUrl);
+    return;
+  }
+  if (record.job.imageTaskId) {
+    const image = await pollServerImageTask(record, record.job.imageProvider || primaryProvider, record.job.imageTaskId, 1);
+    await runServerFinalAssembly(record, image.imageUrl);
+    return;
+  }
+  throw new Error("Серверная задача была прервана до создания задачи картинки. Запустите генерацию заново.");
 }
 
 function getServerJobAudio(record) {
