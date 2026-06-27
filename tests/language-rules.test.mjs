@@ -76,7 +76,6 @@ test("design reference form asks only for automatic analysis inputs", () => {
   });
 
   assert.match(html, /name="title"/);
-  assert.match(html, /name="layoutType"/);
   assert.match(html, /name="imageFile"/);
-  assert.doesNotMatch(html, /name="prompt"|Промт|Опишите стиль с нуля|name="fontStyle"|Шрифт \/ типографика стиля|bold sans/);
+  assert.doesNotMatch(html, /name="layoutType"|Структура|name="prompt"|Промт|Опишите стиль с нуля|name="fontStyle"|Шрифт \/ типографика стиля|bold sans/);
 });

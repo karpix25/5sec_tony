@@ -11,7 +11,6 @@ test("design reference payload uploads image and keeps a durable preview url", a
 
     assert.deepEqual(payload, {
       title: "Столбы",
-      layoutType: "auto",
       imageName: "style.png",
       imageData: "/api/reference-assets/ref-preview"
     });
@@ -27,7 +26,7 @@ test("design reference submit keeps title-only flow for generated templates", as
   const form = createDesignForm({ fileName: "" });
   const store = {
     createDesignReferenceTemplate(payload) {
-      calls.push(["template", payload.title, payload.layoutType]);
+      calls.push(["template", payload.title, payload.layoutType || ""]);
     },
     createReference() {
       calls.push(["reference"]);
@@ -36,7 +35,7 @@ test("design reference submit keeps title-only flow for generated templates", as
 
   try {
     await submitDesignReferenceForm(form, store);
-    assert.deepEqual(calls, [["template", "Столбы", "auto"]]);
+    assert.deepEqual(calls, [["template", "Столбы", ""]]);
   } finally {
     restore();
   }
@@ -67,7 +66,7 @@ function installFormAndFileFakes({ uploadUrl = "" } = {}) {
   globalThis.FormData = class FakeFormData {
     constructor() {}
     entries() {
-      return [["title", "Столбы"], ["layoutType", "auto"]][Symbol.iterator]();
+      return [["title", "Столбы"]][Symbol.iterator]();
     }
   };
   globalThis.FileReader = class FakeFileReader {
