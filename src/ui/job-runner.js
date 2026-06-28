@@ -32,12 +32,16 @@ export async function runImageJob(store, jobId) {
 
 export function resumeRunningImageJobs(store) {
   const resume = () => {
-    const jobs = store.getState().jobs.filter((job) => job.status === "running" && hasServerJobHandshake(job));
-    return Promise.all(jobs.map((job) => pollServerImageJob(store, job.id, { immediate: true })));
+    return syncRunningImageJobs(store);
   };
   return typeof store.whenHydrated === "function"
     ? Promise.resolve(store.whenHydrated()).then(resume)
     : resume();
+}
+
+export function syncRunningImageJobs(store) {
+  const jobs = store.getState().jobs.filter(shouldPollServerJob);
+  return Promise.all(jobs.map((job) => pollServerImageJob(store, job.id, { immediate: true })));
 }
 
 async function pollServerImageJob(store, jobId, options = {}) {
@@ -107,6 +111,10 @@ function isServerJobMissing(error) {
 
 function hasServerJobHandshake(job) {
   return Boolean(job?.serverJobAcceptedAt || job?.imageTaskId || job?.imageProvider || job?.finalVideoUrl || job?.imageUrl);
+}
+
+function shouldPollServerJob(job) {
+  return job?.status === "running" && hasServerJobHandshake(job);
 }
 
 function failServerJob(store, jobId, message) {

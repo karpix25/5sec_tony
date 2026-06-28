@@ -2,6 +2,7 @@ import { createStore } from "./state/store.js";
 import { renderApp, updatePersistenceStatus } from "./ui/render.js";
 import { startAutomationRunner } from "./ui/automation-runner.js";
 import { resumeRunningImageJobs } from "./ui/job-runner.js";
+import { startQueueStatusSync } from "./ui/queue-sync.js";
 import { getContext } from "./state/store.js";
 import { getOpenMediaPreviewState, restoreMediaPreviewState } from "./ui/preview-modal.js";
 import { updateGenerationAutomationStats } from "./ui/generation-live.js";
@@ -45,6 +46,7 @@ function startStudio() {
       firstRenderReady = true;
       renderAppSafely();
       resumeRunningImageJobs(store);
+      startQueueStatusSync(store);
       startAutomationRunner(store);
     });
 }
