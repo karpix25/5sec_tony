@@ -169,9 +169,11 @@ function attentionMapInstruction(body, productPassport, designFormatBrief) {
     "Ты audience strategist для коротких соцсетей.",
     { attentionMap: { primaryAudienceTensions: [], hookSeedUsed: "", scrollStopperAngles: [{ angle: "", whyItHooks: "", viewerEmotion: "", safeProductBridge: "", riskLevel: "low|medium|high" }], contentQuestions: [], anglesToAvoid: [] } },
     {
-      rules: ["Думай моментами узнавания: боль, ошибка, риск, желание, сомнение, бытовая ситуация, проверка перед покупкой.", "Используй hookSeed как формулу внимания, но не копируй текст дословно.", "Каждый angle пригоден для одного короткого ролика или инфографики.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии; выводи углы из паспорта продукта."],
+      rules: ["Думай моментами узнавания: боль, ошибка, риск, желание, сомнение, бытовая ситуация, проверка перед покупкой.", "Используй hookSeed как формулу внимания, но не копируй текст дословно.", "Каждый angle пригоден для одного короткого ролика или инфографики.", "Работай внутри selectedTopicCluster: это главный тематический коридор текущей генерации.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии; выводи углы из паспорта продукта."],
       productPassport,
       designFormatBrief,
+      selectedTopicCluster: body.topicCluster || null,
+      topicClusterPlan: body.topicClusterPlan || null,
       hookSeed: body.hookSeed || body.hookLibrary?.seedHook || null,
       recentJobs: (body.existingJobs || []).slice(0, 30)
     }
@@ -184,8 +186,10 @@ function creativeBriefInstruction(body, productPassport, attentionMap, designFor
     "Ты creative director.",
     { creativeBrief: { topic: "", coreIdea: "", hookPromise: "", viewerTakeaway: "", productBridge: "", whyNow: "", avoidRepeating: [], formatIntent: "checklist|comparison|myth_vs_reality|mistake_check|mini_diagnostic|saveable_note" } },
     {
-      rules: ["Идея понятна за 1 секунду.", "Выбери один angle и один hook seed/formula, затем адаптируй пост сразу под дизайн-референс.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", "Если productVisibilityDecision активен, учитывай product reference как реальный объект в кадре; если нет — не строь идею вокруг упаковки.", "Если avatarSafeZone активен, оставь место под будущий видео-аватар.", "Если designFormatBrief задает сильную структуру, выбирай идею, которая естественно ложится в эту структуру.", `Допустимые форматы: ${modernFormatOptions}.`],
+      rules: ["Идея понятна за 1 секунду.", "Выбери один angle и один hook seed/formula, затем адаптируй пост сразу под дизайн-референс.", "Тема обязана раскрывать selectedTopicCluster, а не самый драматичный старый угол из истории.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", "Если productVisibilityDecision активен, учитывай product reference как реальный объект в кадре; если нет — не строь идею вокруг упаковки.", "Если avatarSafeZone активен, оставь место под будущий видео-аватар.", "Если designFormatBrief задает сильную структуру, выбирай идею, которая естественно ложится в эту структуру.", `Допустимые форматы: ${modernFormatOptions}.`],
       mandatorySlot: body.diversitySlot,
+      selectedTopicCluster: body.topicCluster || null,
+      topicClusterPlan: body.topicClusterPlan || null,
       productPassport,
       attentionMap,
       designFormatBrief,
@@ -213,6 +217,7 @@ function hookProducerInstruction(body, productPassport, creativeBrief) {
       ],
       productPassport,
       creativeBrief,
+      selectedTopicCluster: body.topicCluster || null,
       hookLibrary: body.hookLibrary
     }
   ));
@@ -228,7 +233,8 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, 
       productPassport,
       creativeBrief,
       hookSet,
-      designFormatBrief
+      designFormatBrief,
+      selectedTopicCluster: body.topicCluster || null
     }
   ));
 }
@@ -244,6 +250,7 @@ function artDirectorInstruction(body, productPassport, creativeBrief, contentScr
       creativeBrief,
       contentScript,
       designFormatBrief,
+      selectedTopicCluster: body.topicCluster || null,
       designReference: body.activeDesignReference || body.reference,
       layoutContentPlan: body.layoutContentPlan
     }
@@ -278,6 +285,7 @@ function imagePromptEngineerInstruction(body, productPassport, creativeBrief, co
       contentScript: safetyReview?.safetyReview?.fixedContentScript?.headline ? safetyReview.safetyReview.fixedContentScript : contentScript,
       visualBrief: Object.keys(safetyReview?.safetyReview?.fixedVisualBrief || {}).length ? safetyReview.safetyReview.fixedVisualBrief : visualBrief,
       designFormatBrief,
+      selectedTopicCluster: body.topicCluster || null,
       designReference: body.activeDesignReference || body.reference,
       productVisibilityDecision: body.productVisibilityDecision,
       avatarSafeZone: body.avatarSafeZone
@@ -315,6 +323,8 @@ function flattenCreativeTeamDraft(parts) {
     safetyReview: outputSafetyReview,
     imagePromptPackage,
     productVisibilityDecision: parts.body.productVisibilityDecision || null,
+    topicCluster: parts.body.topicCluster || null,
+    topicClusterPlan: parts.body.topicClusterPlan || null,
     hookSeed: parts.body.hookSeed || parts.body.hookLibrary?.seedHook?.text || hookPayload.recommendedHook,
     qaReview: outputSafetyReview,
     imagePromptContract: imagePromptPackage.promptContract || imagePromptPackage.contract || null,

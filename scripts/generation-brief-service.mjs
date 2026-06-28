@@ -4,6 +4,7 @@ import { normalizeHookLibrary, selectHookReference } from "../src/domain/hook-li
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { createAvatarReservedZone } from "../src/domain/avatar-overlay-zone.js";
 import { createProductVisibilityDecision } from "../src/domain/product-visibility-decision.js";
+import { createTopicClusterPlan } from "../src/domain/topic-clusters.js";
 import {
   assessAiBriefFreshness,
   createFreshnessFallbackBrief,
@@ -23,6 +24,7 @@ export async function generateServerAiBrief({ origin, project, product, referenc
     const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
     const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs });
+    const topicClusterPlan = createTopicClusterPlan({ product, existingJobs: attemptExistingJobs });
     const brief = await requestServerAiBrief(origin, {
       project,
       product,
@@ -30,6 +32,7 @@ export async function generateServerAiBrief({ origin, project, product, referenc
       hookDigest,
       hookSeed,
       productVisibilityDecision,
+      topicClusterPlan,
       avatarSafeZone,
       existingJobs: attemptExistingJobs,
       slot
@@ -43,7 +46,7 @@ export async function generateServerAiBrief({ origin, project, product, referenc
   throw new Error("AI-бриф не подготовился");
 }
 
-async function requestServerAiBrief(origin, { project, product, reference, hookDigest, hookSeed, productVisibilityDecision, avatarSafeZone, existingJobs, slot }) {
+async function requestServerAiBrief(origin, { project, product, reference, hookDigest, hookSeed, productVisibilityDecision, topicClusterPlan, avatarSafeZone, existingJobs, slot }) {
   const payload = await postJson(origin, "/api/generation/brief", createCreativeTeamPayload({
     project,
     product,
@@ -55,6 +58,8 @@ async function requestServerAiBrief(origin, { project, product, reference, hookD
     productPassport: product?.aiPassport || null,
     designAnalysis: reference?.designAnalysis || null,
     productVisibilityDecision,
+    topicClusterPlan,
+    topicCluster: topicClusterPlan.selected,
     avatarSafeZone,
     existingJobs: createRecentJobDigest(existingJobs),
     diversitySlot: slot

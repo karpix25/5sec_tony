@@ -389,6 +389,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     aiPlan: editorial.finalContent,
     productVisualMode,
     productVisibilityDecision,
+    topicCluster: generationBrief.topicCluster || null,
     promptContract: generationBrief.promptContract || null,
     imagePromptContract: generationBrief.imagePromptContract || null,
     hookSeed: generationBrief.hookSeed || generationBrief.sourceHook || "",

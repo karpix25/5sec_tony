@@ -14,7 +14,9 @@ export function createCreativeTeamPayload(body = {}) {
     layoutContentPlan: body.layoutContentPlan || null,
     hookLibrary: body.hookLibrary || null,
     existingJobs: Array.isArray(body.existingJobs) ? body.existingJobs : [],
-    diversitySlot: body.diversitySlot || null
+    diversitySlot: body.diversitySlot || null,
+    topicCluster: sanitizeValue(body.topicCluster || null),
+    topicClusterPlan: sanitizeValue(body.topicClusterPlan || null)
   };
 }
 

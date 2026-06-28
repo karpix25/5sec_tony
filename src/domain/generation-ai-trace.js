@@ -3,6 +3,8 @@ export function createGenerationAiTrace({ brief = {}, promptContract = {}, input
     version: "ai-trace-v1",
     productPassport: brief.productPassport || null,
     designAnalysis: brief.designFormatBrief || null,
+    topicCluster: brief.topicCluster || null,
+    topicClusterPlan: brief.topicClusterPlan || null,
     hookSeed: brief.hookSeed || brief.sourceHook || "",
     attentionMap: brief.attentionMap || null,
     selectedAngle: brief.creativeBrief?.selectedAngle || brief.creativeBrief?.topic || brief.scrollStopperAngle || "",

@@ -36,6 +36,8 @@ export function normalizeAiBrief(draft = {}, diversitySlot = {}) {
     imagePromptPackage: draft.imagePromptPackage || null,
     imagePromptContract: draft.imagePromptContract || null,
     productVisibilityDecision: draft.productVisibilityDecision || null,
+    topicCluster: draft.topicCluster || diversitySlot.topicCluster || null,
+    topicClusterPlan: draft.topicClusterPlan || null,
     hookSeed: draft.hookSeed || draft.sourceHook || "",
     qaReview: draft.qaReview || draft.safetyReview || draft.qualityChecks || null,
     scrollStopperAngle: draft.scrollStopperAngle || "",
