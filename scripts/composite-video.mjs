@@ -5,6 +5,7 @@ import { extname, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
+import { isS3AssetStorageConfigured, uploadFileToS3 } from "./s3-assets.mjs";
 
 const execFileAsync = promisify(execFile);
 const outputDir = "generated/avatar-videos";
@@ -48,8 +49,11 @@ export async function createCompositeVideo({ avatarVideoUrl, backgroundImageUrl,
     if (ctaBadgePath) await writeFile(ctaBadgePath, await readSourceBytes(ctaImageUrl));
     if (audioPath) await writeFile(audioPath, await readSourceBytes(audioUrl));
     await composeWithFfmpeg({ backgroundPath, avatarPath, ctaBadgePath, audioPath, outputPath, overlay, ctaOverlay });
-    const videoUrl = `/${outputPath}`;
-    return { videoUrl, duration: "5", placement: normalizeAvatarOverlay(overlay), ctaOverlay: normalizeCtaOverlay(ctaOverlay), hasAudio: Boolean(audioPath) };
+    const localVideoUrl = `/${outputPath}`;
+    const videoUrl = isS3AssetStorageConfigured()
+      ? await uploadFileToS3(outputPath, { prefix: "avatar-videos/final", contentType: "video/mp4" })
+      : localVideoUrl;
+    return { videoUrl, localVideoUrl, duration: "5", placement: normalizeAvatarOverlay(overlay), ctaOverlay: normalizeCtaOverlay(ctaOverlay), hasAudio: Boolean(audioPath) };
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
