@@ -97,6 +97,34 @@ test("queue uses final video preview when the video url is local generated media
   assert.match(html, /src="https:\/\/cdn\.example\.com\/final-frame\.png"/);
 });
 
+test("queue shows saved yandex disk path under final video preview", () => {
+  const project = projects[0];
+  const html = renderQueuePanel({
+    products,
+    jobs: [{
+      id: "job-video",
+      projectId: project.id,
+      productId: "magnesium",
+      status: "done",
+      stage: "export",
+      progress: 100,
+      outputType: "final-video",
+      finalVideoUrl: "https://cdn.example.com/final.mp4",
+      diskStatus: "done",
+      diskPath: "disk:/ВИДЕО/5сек/Маша/final.mp4",
+      imageUrl: "https://cdn.example.com/final-frame.png",
+      title: "Видео",
+      topic: "тема",
+      music: "аудио",
+      inputUrls: []
+    }]
+  }, { project });
+
+  assert.match(html, /Ссылка на ролик на Яндекс\.Диске/);
+  assert.match(html, /disk:\/ВИДЕО\/5сек\/Маша\/final\.mp4/);
+  assert.match(html, /class="queue-disk-link"/);
+});
+
 test("preview modal survives app rerenders during generation", () => {
   const previewSource = readFileSync(new URL("../src/ui/preview-modal.js", import.meta.url), "utf8");
   const mainSource = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");

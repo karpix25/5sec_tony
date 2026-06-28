@@ -79,7 +79,7 @@ function renderQueueJob(job, productName = "") {
           ${renderDiskStatus(job)}
         </div>
       </div>
-      ${renderQueuePreview(job, ready, failed, preview)}
+      ${renderQueuePreviewColumn(job, ready, failed, preview)}
     </article>
   `;
 }
@@ -113,6 +113,15 @@ function renderQueueAction(job, ready, failed) {
   return `<span>Результат появится автоматически</span>`;
 }
 
+function renderQueuePreviewColumn(job, ready, failed, preview) {
+  return `
+    <div class="queue-preview-column">
+      ${renderQueuePreview(job, ready, failed, preview)}
+      ${renderYandexDiskVideoLink(job)}
+    </div>
+  `;
+}
+
 function renderQueuePreview(job, ready, failed, preview) {
   if (job.finalVideoUrl) {
     return renderPreviewTrigger({
@@ -135,6 +144,26 @@ function renderQueuePreview(job, ready, failed, preview) {
     <button class="queue-preview" data-preview-media="${escapeHtml(preview)}" data-preview-type="image" data-preview-title="${escapeHtml(job.title)}" type="button" ${ready ? "" : "disabled"}>
       ${ready ? `<img src="${escapeHtml(preview)}" alt="">` : renderQueueLoader(failed, job.failMsg, "image")}
     </button>
+  `;
+}
+
+function renderYandexDiskVideoLink(job) {
+  if (!job.diskPath || job.diskStatus !== "done") return "";
+  const isWebUrl = /^https?:\/\//i.test(job.diskPath);
+  const label = "Ссылка на ролик на Яндекс.Диске";
+  if (isWebUrl) {
+    return `
+      <a class="queue-disk-link" href="${escapeHtml(job.diskPath)}" target="_blank" rel="noreferrer">
+        <span>${label}</span>
+        <strong>${escapeHtml(job.diskPath)}</strong>
+      </a>
+    `;
+  }
+  return `
+    <div class="queue-disk-link">
+      <span>${label}</span>
+      <strong>${escapeHtml(job.diskPath)}</strong>
+    </div>
   `;
 }
 
