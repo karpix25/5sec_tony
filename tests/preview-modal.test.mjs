@@ -93,6 +93,8 @@ test("queue uses final video preview when the video url is local generated media
 
   assert.match(html, /data-preview-media="\/generated\/avatar-videos\/final\.mp4"/);
   assert.match(html, /data-preview-type="video"/);
+  assert.match(html, /class="queue-video-poster"/);
+  assert.match(html, /src="https:\/\/cdn\.example\.com\/final-frame\.png"/);
 });
 
 test("preview modal survives app rerenders during generation", () => {

@@ -120,7 +120,8 @@ function renderQueuePreview(job, ready, failed, preview) {
       title: job.title,
       type: "video",
       className: "queue-preview",
-      label: "Открыть финальное видео крупно"
+      label: "Открыть финальное видео крупно",
+      content: renderFinalVideoPoster(job)
     });
   }
   if (isFinalVideoJob(job)) {
@@ -134,6 +135,17 @@ function renderQueuePreview(job, ready, failed, preview) {
     <button class="queue-preview" data-preview-media="${escapeHtml(preview)}" data-preview-type="image" data-preview-title="${escapeHtml(job.title)}" type="button" ${ready ? "" : "disabled"}>
       ${ready ? `<img src="${escapeHtml(preview)}" alt="">` : renderQueueLoader(failed, job.failMsg, "image")}
     </button>
+  `;
+}
+
+function renderFinalVideoPoster(job) {
+  const poster = job.imageData || job.imageUrl || "";
+  if (!poster) return "";
+  return `
+    <span class="queue-video-poster">
+      <img src="${escapeHtml(poster)}" alt="">
+      <i aria-hidden="true"></i>
+    </span>
   `;
 }
 
