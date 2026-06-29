@@ -1,6 +1,8 @@
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
-import { defaultAppStateKey, lockAppState, withAppStateRetry } from "./app-state-lock.mjs";
+import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
+import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.mjs";
 import { ProductPersistenceError, saveProductForState } from "./product-state-store.mjs";
+import { loadLegacyState, loadNormalizedState } from "./state-relational-store.mjs";
 
 const appStateKey = defaultAppStateKey;
 
@@ -10,14 +12,16 @@ export function createProductsApiHandler(deps = {}) {
   const isConfigured = deps.isPostgresConfigured || isPostgresConfigured;
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   const saveProduct = deps.saveProductForState || saveProductForState;
+  const loadNormalized = deps.loadNormalizedState || loadNormalizedState;
+  const loadLegacy = deps.loadLegacyState || loadLegacyState;
 
   return async function handleProductsApi(request, response, url) {
     if (request.method === "POST" && url.pathname === "/api/products") {
-      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, mode: "create" });
+      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "create" });
     }
     const productId = getProductId(url.pathname);
     if (request.method === "PATCH" && productId) {
-      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, mode: "update", productId });
+      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "update", productId });
     }
     return false;
   };
@@ -35,12 +39,29 @@ async function handleSaveProduct(request, response, deps) {
       return sendJson(response, 400, { error: "product id does not match request path" });
     }
     const result = await withAppStateRetry(() => deps.withTransaction(async (tx) => {
-      await lockAppState(tx.query, appStateKey);
+      const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
+      if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
+        return {
+          conflict: true,
+          updatedAt: currentUpdatedAt,
+          state: await loadCurrentState(tx.query, deps, appStateKey)
+        };
+      }
       return deps.saveProduct(tx.query, appStateKey, { ...product, id: deps.productId || product.id }, {
         mode: deps.mode,
         selectProduct: deps.mode === "create"
       });
     }));
+    if (result.conflict) {
+      return sendJson(response, 409, {
+        saved: false,
+        conflict: true,
+        error: "БД обновлена другим оператором. Данные обновлены, повторите сохранение продукта.",
+        key: appStateKey,
+        updatedAt: result.updatedAt,
+        state: result.state || null
+      });
+    }
     return sendJson(response, 200, {
       saved: true,
       key: appStateKey,
@@ -62,6 +83,11 @@ function getProductPayload(body) {
   if (isPlainObject(body?.product)) return body.product;
   if (isPlainObject(body?.payload)) return body.payload;
   return body;
+}
+
+async function loadCurrentState(query, deps, key) {
+  const normalizedState = await deps.loadNormalized(query, key);
+  return normalizedState || await deps.loadLegacy(query, key);
 }
 
 function readJsonBody(request) {

@@ -2,7 +2,8 @@ import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./
 import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
 import { getStateDifference, statesEqual } from "./state-compare.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
-import { defaultAppStateKey, lockAppState, withAppStateRetry } from "./app-state-lock.mjs";
+import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
+import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.mjs";
 
 const appStateKey = defaultAppStateKey;
 
@@ -168,23 +169,9 @@ function formatParityError(message, rebuiltState, nextState) {
   return `${message}: ${diff.path}`;
 }
 
-async function lockCurrentUpdatedAt(query, key) {
-  await lockAppState(query, key);
-  const result = await query("select updated_at from app_state where id = $1 limit 1 for update", [key]);
-  return formatUpdatedAt(result.rows[0]?.updated_at || "");
-}
-
 async function loadCurrentState(query, deps, key) {
   const normalizedState = await deps.loadNormalized(query, key);
   return normalizedState || await deps.loadLegacy(query, key);
-}
-
-function hasWriteConflict(currentUpdatedAt, baseUpdatedAt) {
-  const current = formatUpdatedAt(currentUpdatedAt);
-  const base = formatUpdatedAt(baseUpdatedAt);
-  if (!current) return false;
-  if (!base) return true;
-  return current !== base;
 }
 
 function getUnexpectedProductDeletionConflict(currentState, nextState) {
@@ -207,10 +194,4 @@ function getUnexpectedProjectDeletionConflict(currentState, nextState) {
   return missing.length
     ? `Project deletion requires explicit delete action: ${missing.map((project) => project.name || project.id).join(", ")}`
     : "";
-}
-
-function formatUpdatedAt(value) {
-  if (!value) return "";
-  if (value instanceof Date) return value.toISOString();
-  return String(value);
 }

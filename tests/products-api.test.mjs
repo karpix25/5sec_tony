@@ -30,7 +30,7 @@ test("products api creates a product inside app-state transaction", async () => 
   assert.equal(response.payload.saved, true);
   assert.equal(response.payload.product.name, "Saved");
   assert.match(calls[0][1], /pg_advisory_xact_lock/);
-  assert.deepEqual(calls[1], [
+  assert.deepEqual(calls.find((call) => call[0] === "save"), [
     "save",
     "default",
     { id: "product-1", projectId: "project-1", name: "Draft" },
@@ -61,6 +61,67 @@ test("products api patches the product from path without selecting it globally",
     product: { name: "Updated", id: "product-1" },
     options: { mode: "update", selectProduct: false }
   });
+});
+
+test("products api rejects stale product writes before saving", async () => {
+  let saveCalled = false;
+  const response = createJsonResponse();
+  const currentState = { projects: [{ id: "project-1" }], products: [{ id: "product-1", name: "Fresh" }] };
+  const handle = createProductsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/updated_at/.test(text)) return { rows: [{ updated_at: "db-v2" }] };
+        return { rows: [] };
+      }
+    }),
+    loadNormalizedState: async () => currentState,
+    loadLegacyState: async () => null,
+    saveProductForState: async () => {
+      saveCalled = true;
+      return {};
+    }
+  });
+
+  await handle(
+    createJsonRequest("PATCH", { product: { name: "Stale" }, baseUpdatedAt: "db-v1" }),
+    response,
+    new URL("http://localhost/api/products/product-1")
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal(response.payload.conflict, true);
+  assert.equal(response.payload.updatedAt, "db-v2");
+  assert.deepEqual(response.payload.state, currentState);
+  assert.equal(saveCalled, false);
+});
+
+test("products api accepts product writes on the current base version", async () => {
+  const calls = [];
+  const response = createJsonResponse();
+  const handle = createProductsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/updated_at/.test(text)) return { rows: [{ updated_at: "db-v1" }] };
+        return { rows: [] };
+      }
+    }),
+    saveProductForState: async (_query, _key, product) => {
+      calls.push(product);
+      return { product, updatedAt: "db-v2" };
+    }
+  });
+
+  await handle(
+    createJsonRequest("PATCH", { product: { name: "Fresh save" }, baseUpdatedAt: "db-v1" }),
+    response,
+    new URL("http://localhost/api/products/product-1")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.saved, true);
+  assert.deepEqual(calls[0], { name: "Fresh save", id: "product-1" });
 });
 
 test("products api rejects product id mismatches", async () => {

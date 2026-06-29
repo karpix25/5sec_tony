@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { StateSyncConflictError } from "../src/services/state-sync.js";
 import { createRemoteProduct, updateRemoteProduct } from "../src/services/products-sync.js";
 
 test("createRemoteProduct sends a small product payload to product endpoint", async () => {
@@ -11,12 +12,12 @@ test("createRemoteProduct sends a small product payload to product endpoint", as
   };
 
   try {
-    const result = await createRemoteProduct({ id: "product-1", name: "Продукт" });
+    const result = await createRemoteProduct({ id: "product-1", name: "Продукт" }, "db-v1");
 
     assert.equal(calls[0].url, "/api/products");
     assert.equal(calls[0].options.method, "POST");
     assert.equal(calls[0].options.keepalive, true);
-    assert.deepEqual(JSON.parse(calls[0].options.body), { product: { id: "product-1", name: "Продукт" } });
+    assert.deepEqual(JSON.parse(calls[0].options.body), { product: { id: "product-1", name: "Продукт" }, baseUpdatedAt: "db-v1" });
     assert.equal(result.saved, true);
     assert.equal(result.updatedAt, "2026-06-29T10:00:00.000Z");
   } finally {
@@ -33,11 +34,36 @@ test("updateRemoteProduct addresses a single product", async () => {
   };
 
   try {
-    const result = await updateRemoteProduct("product 1", { id: "product 1", name: "Обновлен" });
+    const result = await updateRemoteProduct("product 1", { id: "product 1", name: "Обновлен" }, "db-v1");
 
     assert.equal(calls[0].url, "/api/products/product%201");
     assert.equal(calls[0].options.method, "PATCH");
+    assert.equal(JSON.parse(calls[0].options.body).baseUpdatedAt, "db-v1");
     assert.equal(result.product.name, "Обновлен");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("product sync raises a state conflict for stale product writes", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => jsonResponse({
+    conflict: true,
+    error: "БД обновлена другим оператором",
+    updatedAt: "db-v2",
+    state: { products: [] }
+  }, 409);
+
+  try {
+    await assert.rejects(
+      () => updateRemoteProduct("product-1", { id: "product-1" }, "db-v1"),
+      (error) => {
+        assert.equal(error instanceof StateSyncConflictError, true);
+        assert.equal(error.updatedAt, "db-v2");
+        assert.deepEqual(error.state, { products: [] });
+        return true;
+      }
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

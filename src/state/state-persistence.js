@@ -74,6 +74,8 @@ export function createStatePersistence({
   async function flushSave() {
     if (saveInFlight) return;
     pendingSave = false;
+    clearTimeout(timer);
+    timer = null;
     saveInFlight = true;
     const stateToSave = getState();
     const baseUpdatedAt = remoteUpdatedAt;
@@ -104,15 +106,36 @@ export function createStatePersistence({
   }
 
   function recordRemoteSave(nextState = getState(), updatedAt = "") {
+    const hadPendingSave = pendingSave || Boolean(timer) || saveInFlight;
     if (updatedAt) remoteUpdatedAt = updatedAt;
     remoteStateSnapshot = nextState || getState();
+    if (hadPendingSave) {
+      pendingSave = true;
+      savePendingRemoteSave?.(getState(), remoteUpdatedAt);
+      if (!saveInFlight && !timer) timer = setTimeout(flushSave, saveDelayMs);
+      notifyStatus({
+        status: "saving",
+        message: "Сохраняем остальные изменения в БД",
+        updatedAt: remoteUpdatedAt
+      });
+      return;
+    }
     pendingSave = false;
     clearTimeout(timer);
+    timer = null;
     clearPendingRemoteSave?.();
     notifyStatus({ status: "saved", message: "Сохранено в БД", updatedAt: remoteUpdatedAt });
   }
 
-  return { hydrate, scheduleSave, recordRemoteSave, whenHydrated: () => hydratePromise || Promise.resolve() };
+  return {
+    hydrate,
+    scheduleSave,
+    recordRemoteSave,
+    handleRemoteConflict: acceptRemoteConflict,
+    getRemoteUpdatedAt: () => remoteUpdatedAt,
+    hasPendingSave: () => pendingSave || Boolean(timer) || saveInFlight,
+    whenHydrated: () => hydratePromise || Promise.resolve()
+  };
 
   async function restoreLocalFallbackState() {
     const fallbackState = getLocalFallbackState?.();

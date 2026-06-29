@@ -2,7 +2,7 @@ import { getProductsForProject } from "../domain/generation.js";
 import { createRemoteProduct, updateRemoteProduct } from "../services/products-sync.js";
 import { createId, createProductEntity, ensureGenerationBrief } from "./factories.js";
 
-export function createProductActions({ getState, setState, recordRemoteSave }) {
+export function createProductActions({ getState, setState, recordRemoteSave, getRemoteUpdatedAt, handleRemoteConflict, hasPendingRemoteSave }) {
   function createProduct(payload) {
     const product = buildCreatedProduct(payload);
     applyCreatedProduct(product);
@@ -11,7 +11,11 @@ export function createProductActions({ getState, setState, recordRemoteSave }) {
 
   async function createProductRemote(payload) {
     const product = buildCreatedProduct(payload);
-    const result = await createRemoteProduct(product);
+    if (hasPendingRemoteSave?.()) {
+      applyCreatedProduct(product);
+      return product;
+    }
+    const result = await runRemoteProductSave(() => createRemoteProduct(product, getRemoteUpdatedAt?.() || ""));
     if (result.disabled) return createProduct(payload);
     applyCreatedProduct(result.product || product, { skipRemoteSave: true });
     recordSaved(result);
@@ -28,7 +32,11 @@ export function createProductActions({ getState, setState, recordRemoteSave }) {
   async function updateProductRemote(payload) {
     const product = buildUpdatedProduct(payload);
     if (!product) return null;
-    const result = await updateRemoteProduct(product.id, product);
+    if (hasPendingRemoteSave?.()) {
+      applyUpdatedProduct(product);
+      return product;
+    }
+    const result = await runRemoteProductSave(() => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""));
     if (result.disabled) return updateProduct(payload);
     applyUpdatedProduct(result.product || product, { skipRemoteSave: true });
     recordSaved(result);
@@ -45,7 +53,11 @@ export function createProductActions({ getState, setState, recordRemoteSave }) {
   async function createProductReferenceRemote(payload) {
     const product = buildProductWithReference(payload);
     if (!product) return null;
-    const result = await updateRemoteProduct(product.id, product);
+    if (hasPendingRemoteSave?.()) {
+      applyUpdatedProduct(product);
+      return product;
+    }
+    const result = await runRemoteProductSave(() => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""));
     if (result.disabled) return createProductReference(payload);
     applyUpdatedProduct(result.product || product, { skipRemoteSave: true });
     recordSaved(result);
@@ -62,7 +74,11 @@ export function createProductActions({ getState, setState, recordRemoteSave }) {
   async function deleteProductReferenceRemote(referenceId) {
     const product = buildProductWithoutReference(referenceId);
     if (!product) return null;
-    const result = await updateRemoteProduct(product.id, product);
+    if (hasPendingRemoteSave?.()) {
+      applyUpdatedProduct(product);
+      return product;
+    }
+    const result = await runRemoteProductSave(() => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""));
     if (result.disabled) return deleteProductReference(referenceId);
     applyUpdatedProduct(result.product || product, { skipRemoteSave: true });
     recordSaved(result);
@@ -127,6 +143,15 @@ export function createProductActions({ getState, setState, recordRemoteSave }) {
 
   function recordSaved(result) {
     recordRemoteSave?.(getState(), result.updatedAt);
+  }
+
+  async function runRemoteProductSave(request) {
+    try {
+      return await request();
+    } catch (error) {
+      if (error?.conflict) await handleRemoteConflict?.(error);
+      throw error;
+    }
   }
 
   return {

@@ -44,6 +44,89 @@ test("remote product update skips full state save and refreshes next baseUpdated
   }
 });
 
+test("remote product update joins an already pending full-state save", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (String(url).startsWith("/api/products/")) return jsonResponse({ error: "product endpoint should not be used while state save is pending" }, 500);
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ saved: true, updatedAt: "t2" });
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    store.updateProjectSettings({ name: "Несохраненный проект" });
+    await store.updateProductRemote({ name: "Быстрый продукт" });
+    await wait(360);
+
+    const productCalls = calls.filter((call) => String(call.url).startsWith("/api/products/"));
+    const stateSaves = calls.filter((call) => call.url === "/api/state" && call.options.method === "POST");
+    assert.equal(productCalls.length, 0);
+    assert.equal(stateSaves.length, 1);
+    const savedBody = JSON.parse(stateSaves[0].options.body);
+    assert.equal(savedBody.baseUpdatedAt, "t0");
+    assert.equal(savedBody.state.projects.find((project) => project.id === remoteState.selectedProjectId).name, "Несохраненный проект");
+    assert.equal(savedBody.state.products.find((product) => product.id === remoteState.selectedProductId).name, "Быстрый продукт");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("stale remote product update refreshes state instead of overwriting", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  const freshState = {
+    ...remoteState,
+    products: remoteState.products.map((product) =>
+      product.id === remoteState.selectedProductId ? { ...product, name: "Свежий продукт из БД" } : product
+    )
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (String(url).startsWith("/api/products/")) {
+      return jsonResponse({
+        conflict: true,
+        error: "БД обновлена другим оператором",
+        updatedAt: "t1",
+        state: freshState
+      }, 409);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await assert.rejects(
+      () => store.updateProductRemote({ name: "Устаревшая правка" }),
+      /БД обновлена другим оператором/
+    );
+    await wait(20);
+
+    const product = store.getState().products.find((item) => item.id === remoteState.selectedProductId);
+    assert.equal(product.name, "Свежий продукт из БД");
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function jsonResponse(payload, status = 200) {
   return {
     ok: status >= 200 && status < 300,
