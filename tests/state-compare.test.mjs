@@ -67,3 +67,20 @@ test("state comparison still detects product loss", () => {
     right: 1
   });
 });
+
+test("state comparison accepts postgres dates for queue timestamps", () => {
+  const queueScheduledAt = "2026-06-29T20:20:00.000Z";
+  const attemptedState = {
+    projects: [{ id: "project-1" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: [{ id: "job-1", projectId: "project-1", productId: "product-1", queueScheduledAt }]
+  };
+  const rebuiltState = {
+    projects: [{ id: "project-1" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: [{ id: "job-1", projectId: "project-1", productId: "product-1", queueScheduledAt: new Date(queueScheduledAt) }]
+  };
+
+  assert.equal(statesEqual(rebuiltState, attemptedState), true);
+  assert.equal(getStateDifference(rebuiltState, attemptedState), null);
+});

@@ -86,7 +86,7 @@ function canonicalProduct(product) {
 }
 
 function canonicalJob(job) {
-  return withDefaults(job, {
+  const result = withDefaults(job, {
     id: "",
     projectId: "",
     productId: "",
@@ -124,6 +124,11 @@ function canonicalJob(job) {
     queueProviderTaskId: "",
     queueMetadata: {}
   });
+  return {
+    ...result,
+    queueScheduledAt: normalizeNullableTimestamp(result.queueScheduledAt),
+    queueLockedAt: normalizeNullableTimestamp(result.queueLockedAt)
+  };
 }
 
 function canonicalAudio(audio) {
@@ -186,6 +191,15 @@ function withDefaults(value, defaults) {
     }
   }
   return result;
+}
+
+function normalizeNullableTimestamp(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? value.toISOString() : null;
+  }
+  return String(value);
 }
 
 function findDifference(left, right, path = "$") {
