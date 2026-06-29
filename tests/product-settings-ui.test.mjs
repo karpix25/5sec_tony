@@ -74,4 +74,5 @@ test("product screen has a single save changes action", () => {
 
   assert.equal(matches.length, 1);
   assert.doesNotMatch(html, /Сохранить анкету/);
+  assert.doesNotMatch(html, /id="open-product-modal"/);
 });

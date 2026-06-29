@@ -12,7 +12,6 @@ export function renderProductSettings({ product }) {
       <div class="product-action-bar">
         <div><span class="eyebrow">Текущий продукт</span><h2>${escapeHtml(product.name)}</h2></div>
         <div class="form-actions">
-          <button id="open-product-modal" class="ghost-btn" type="button">+ Новый продукт</button>
           <button class="secondary-btn" form="product-settings-form" type="submit">Сохранить изменения</button>
         </div>
       </div>
