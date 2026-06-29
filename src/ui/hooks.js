@@ -131,12 +131,13 @@ function renderDraft(draft) {
 function renderActiveSummary(library) {
   const active = library.versions.find((version) => version.status === "active");
   if (!active) return `<div class="hooks-empty">Загрузите список или скрин, чтобы генератор начал использовать ваши референсы хуков.</div>`;
+  const enabledHooks = active.hooks.filter((hook) => hook.enabled !== false);
   return `
     <div class="hooks-draft">
       <span class="eyebrow">Используются сейчас</span>
-      <h3>${active.hooks.filter((hook) => hook.enabled !== false).length} хуков</h3>
+      <h3>${enabledHooks.length} хуков</h3>
       <small>Обновлено: ${formatHookDate(active.createdAt)}</small>
-      <div class="hook-chip-list">${active.hooks.slice(0, 8).map(renderHookChip).join("")}</div>
+      <div class="hook-chip-list">${enabledHooks.map(renderHookChip).join("")}</div>
     </div>
   `;
 }

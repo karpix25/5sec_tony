@@ -9,6 +9,31 @@ test("hooks panel shows empty helper when no active hooks or draft", () => {
   assert.match(html, /генератор начал использовать ваши референсы хуков/i);
 });
 
+test("hooks panel renders every enabled active hook", () => {
+  const hooks = Array.from({ length: 12 }, (_item, index) => ({
+    id: `hook-${index + 1}`,
+    text: `Хук ${index + 1}`,
+    enabled: index !== 10
+  }));
+  const html = renderHooksPanel({
+    activeVersionId: "active-hooks",
+    versions: [
+      {
+        id: "active-hooks",
+        status: "active",
+        createdAt: "2026-06-22T00:00:00.000Z",
+        hooks
+      }
+    ]
+  });
+
+  assert.match(html, /11 хуков/);
+  assert.match(html, /Хук 1/);
+  assert.match(html, /Хук 10/);
+  assert.match(html, /Хук 12/);
+  assert.doesNotMatch(html, /Хук 11/);
+});
+
 test("parse hook text event builds a draft and enables apply action after refresh", () => {
   let parseClick = null;
   let applyClick = null;
