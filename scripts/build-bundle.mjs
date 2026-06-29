@@ -27,6 +27,7 @@ const files = [
   "src/domain/hook-adapter.js",
   "src/domain/hook-product-bridge.js",
   "src/domain/hook-intelligence.js",
+  "src/domain/headline-style-contract.js",
   "src/domain/layout-content-planner.js",
   "src/domain/creative-quality-validator.js",
   "src/domain/ai-brief-freshness.js",

@@ -1,6 +1,7 @@
 import { validateCreativeBrief } from "./creative-quality-validator.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 import { buildProductProfile } from "./product-profile.js";
+import { formatHeadlineStyleInstruction } from "./headline-style-contract.js";
 
 export function createCuriosityContentPlan({ project, product, brief, layoutPlan, hookIntelligence, existingJobs = [] }) {
   const productFact = createProductFact({ project, product, brief });
@@ -27,6 +28,7 @@ export function formatFinalContentPrompt(content) {
   if (!content?.headline) return "";
   return [
     "ФИНАЛЬНЫЙ ТЕКСТ ДЛЯ КАРТИНКИ: используй этот текст как контракт, не придумывай новые темы и пункты.",
+    formatHeadlineStyleInstruction(),
     `Заголовок: ${content.headline}.`,
     `Подзаголовок: ${content.subhead}.`,
     `Блоки: ${(content.points || []).join(" | ")}.`,

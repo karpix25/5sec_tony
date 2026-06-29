@@ -2,6 +2,7 @@ import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldForm
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { getDesignTextContractViolations } from "../src/domain/design-text-contract.js";
 import { formatCurrentDatePrompt } from "../src/domain/current-date-context.js";
+import { clickbaitHeadlineRules, simpleAudienceLanguageRules } from "../src/domain/headline-style-contract.js";
 import { hasUsefulDesignAnalysis, hasUsefulProductPassport, normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
 
@@ -23,6 +24,8 @@ const commonRoleRules = [
   "Анкета product — источник истины. Поля forbidden, restrictions и contentRestrictions — внутренние стоп-правила.",
   "Не выбирай упаковку как visualObject по умолчанию. Продукт не должен быть в каждом посте.",
   "Хук должен быть понятным без расшифровки ниже.",
+  ...clickbaitHeadlineRules,
+  ...simpleAudienceLanguageRules,
   "CTA не нужен на изображении.",
   "Делай shareable value: мини-диагностика, ошибка ожиданий, сравнение подходов, простая привычка или проверяемая деталь.",
   "Финальная самопроверка маркетолога: короткий конкретный заголовок, связанные блоки, полезный смысл без покупки, нет запрещенных обещаний.",
@@ -73,6 +76,8 @@ export function humanizeTextInstruction(body) {
       "Оставь 4-6 самых сильных смысловых фраз: достаточно плотных, чтобы читать дольше 5 секунд, но без длинной таблицы или рекламного каталога.",
       humanizedPointRule,
       "Headline максимум 6 слов, без двоеточия и второй мысли.",
+      ...clickbaitHeadlineRules,
+      ...simpleAudienceLanguageRules,
       "Headline, subhead и points должны отвечать на одну тему.",
       "Анкета product — источник истины. Не добавляй свойства, обещания, формат, состав, объем, дозировку, бренд или упаковку, которых нет в product.",
       "Поля forbidden, restrictions и contentRestrictions — внутренние стоп-правила. Не превращай их в visible copy, points, CTA, disclaimer, футер, сноску или нижнюю строку.",
@@ -213,6 +218,8 @@ function hookProducerInstruction(body, productPassport, creativeBrief) {
         "Адаптируй формулу под пользу продукта, бытовую ситуацию, проверку, ошибку, ритуал или косвенный совет вокруг продукта.",
         "Не делай хук и headline про бренд, название продукта, SKU или упаковку; бренд может остаться только внутренним контекстом.",
         "Хук короткий, конкретный и понятный без расшифровки.",
+        ...clickbaitHeadlineRules,
+        ...simpleAudienceLanguageRules,
         "Не используй мутные формулы вроде 'главная ошибка' или 'одна привычка', если не называешь конкретику.",
         "Хук может быть острым, но не должен лгать, пугать без причины или обещать гарантированный результат."
       ],
@@ -230,7 +237,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, 
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], invisibleNotes: { productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: ["Headline максимум 6 слов.", "Subhead одна короткая строка.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: ["Headline максимум 6 слов.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, "Subhead одна короткая строка.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       creativeBrief,
       hookSet,
