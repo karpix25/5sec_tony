@@ -7,6 +7,7 @@ import { handleOpenRouterApi } from "./openrouter-api.mjs";
 import { handleGenerationBatchesApi } from "./generation-batches-api.mjs";
 import { handleCompositeVideoApi } from "./composite-video.mjs";
 import { handleAvatarAlphaVideoApi } from "./avatar-alpha-video.mjs";
+import { handleAudioAssetsApi } from "./audio-assets.mjs";
 import { handleReferenceAssetsApi } from "./reference-assets.mjs";
 import { handleReelsResearchApi } from "./reels-research-api.mjs";
 import { handleServerJobsApi } from "./server-jobs.mjs";
@@ -36,6 +37,7 @@ const server = createServer(async (request, response) => {
   if (await handleAuthApi(request, response, url)) return;
   if (url.pathname.startsWith("/api/") && !await requireApprovedUser(request, response)) return;
   if (await handleHookPdfApi(request, response, url)) return;
+  if (await handleAudioAssetsApi(request, response, url)) return;
   if (await handleReferenceAssetsApi(request, response, url)) return;
   if (await handleAvatarAlphaVideoApi(request, response, url)) return;
   if (await handleCompositeVideoApi(request, response, url)) return;

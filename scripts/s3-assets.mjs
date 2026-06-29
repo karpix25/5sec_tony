@@ -39,6 +39,15 @@ export async function uploadFileToS3(path, { prefix = "files", contentType = "" 
   });
 }
 
+export async function deleteS3AssetByUrl(url) {
+  const config = getS3Config();
+  if (!config) throw new Error("S3 storage is not configured");
+  const encodedKey = getEncodedKeyFromS3Url(config, url);
+  if (!encodedKey) return false;
+  await deleteS3Object(config, encodedKey);
+  return true;
+}
+
 async function uploadBufferToS3({ buffer, key, contentType }) {
   const config = getS3Config();
   if (!config) throw new Error("S3 storage is not configured");
@@ -69,17 +78,56 @@ async function uploadBufferToS3({ buffer, key, contentType }) {
   return getS3PublicUrl(config, encodedKey);
 }
 
+async function deleteS3Object(config, encodedKey) {
+  const emptyHash = sha256Hex("");
+  const amzDate = toAmzDate(new Date());
+  const dateStamp = amzDate.slice(0, 8);
+  const target = getS3Target(config, encodedKey);
+  const headers = {
+    host: target.host,
+    "x-amz-content-sha256": emptyHash,
+    "x-amz-date": amzDate
+  };
+  const authorization = signS3Request({
+    config,
+    method: "DELETE",
+    headers,
+    canonicalPath: target.canonicalPath,
+    bodyHash: emptyHash,
+    dateStamp,
+    amzDate
+  });
+  const result = await fetch(target.url, {
+    method: "DELETE",
+    headers: { ...headers, authorization }
+  });
+  if (!result.ok && result.status !== 404) {
+    const text = await result.text().catch(() => "");
+    throw new Error(`S3 delete failed: ${result.status} ${text.slice(0, 160)}`);
+  }
+}
+
 function signS3Put({ config, headers, canonicalPath, bodyHash, dateStamp, amzDate }) {
+  return signS3Request({
+    config,
+    method: "PUT",
+    headers,
+    canonicalPath,
+    bodyHash,
+    dateStamp,
+    amzDate
+  });
+}
+
+function signS3Request({ config, method, headers, canonicalPath, bodyHash, dateStamp, amzDate }) {
   const credentialScope = `${dateStamp}/${config.region}/s3/aws4_request`;
-  const signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date";
-  const canonicalHeaders = [
-    `content-type:${headers["content-type"]}`,
-    `host:${headers.host}`,
-    `x-amz-content-sha256:${bodyHash}`,
-    `x-amz-date:${amzDate}`
-  ].join("\n") + "\n";
+  const signedHeaders = Object.keys(headers).sort().join(";");
+  const canonicalHeaders = Object.keys(headers)
+    .sort()
+    .map((name) => `${name}:${headers[name]}`)
+    .join("\n") + "\n";
   const canonicalRequest = [
-    "PUT",
+    method,
     canonicalPath,
     "",
     canonicalHeaders,
@@ -139,6 +187,39 @@ function getS3Target(config, encodedKey) {
   };
 }
 
+function getEncodedKeyFromS3Url(config, value) {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  const publicBase = config.publicBaseUrl.replace(/\/$/, "");
+  if (publicBase && url.startsWith(`${publicBase}/`)) {
+    return encodeKeyPath(url.slice(publicBase.length + 1));
+  }
+  if (config.endpoint) {
+    const endpoint = new URL(config.endpoint);
+    const parsed = safeUrl(url);
+    if (!parsed || parsed.host !== endpoint.host) return "";
+    const prefix = `/${config.bucket}/`;
+    if (!parsed.pathname.startsWith(prefix)) return "";
+    return encodeKeyPath(parsed.pathname.slice(prefix.length));
+  }
+  const parsed = safeUrl(url);
+  const host = `${config.bucket}.s3.${config.region}.amazonaws.com`;
+  if (parsed?.host !== host) return "";
+  return encodeKeyPath(parsed.pathname.replace(/^\//, ""));
+}
+
+function safeUrl(value) {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+function encodeKeyPath(value) {
+  return String(value || "").split("/").map((part) => encodeURIComponent(decodeURIComponent(part))).join("/");
+}
+
 function normalizeS3Endpoint(value) {
   const endpoint = String(value || "").trim().replace(/\/$/, "");
   if (!endpoint) return "";
@@ -172,6 +253,9 @@ function getExtFromContent(source, contentType, fallback) {
   if (contentType.includes("webp")) return ".webp";
   if (contentType.includes("webm")) return ".webm";
   if (contentType.includes("mp4")) return ".mp4";
+  if (contentType.includes("mpeg")) return ".mp3";
+  if (contentType.includes("wav")) return ".wav";
+  if (contentType.includes("ogg")) return ".ogg";
   return fallback;
 }
 
@@ -182,6 +266,10 @@ function getContentTypeFromExt(source, fallback) {
   if (ext === ".webp") return "image/webp";
   if (ext === ".webm") return "video/webm";
   if (ext === ".mp4") return "video/mp4";
+  if (ext === ".mp3") return "audio/mpeg";
+  if (ext === ".wav") return "audio/wav";
+  if (ext === ".m4a") return "audio/mp4";
+  if (ext === ".ogg") return "audio/ogg";
   return fallback;
 }
 

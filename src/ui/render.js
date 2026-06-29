@@ -17,6 +17,7 @@ import { getLiveProductDraft, mergeAnalyzedProductDraft } from "./product-analys
 import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft, productReferencesFromImages } from "./product-ai.js";
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
+import { deleteAudioAsset } from "../services/audio-assets.js";
 import { renderProjectManagementSettings } from "./project.js";
 import { bindProjectRangeControls } from "./project-range-controls.js";
 import { getProjectAutomationState } from "../domain/project-automation.js";
@@ -298,7 +299,9 @@ function bindEvents(root, store, options = {}) {
   });
   root.querySelector("#audio-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    getAudioPayloads(event.currentTarget).then((payloads) => store.createAudioFiles(payloads));
+    getAudioPayloads(event.currentTarget)
+      .then((payloads) => store.createAudioFiles(payloads))
+      .catch((error) => window.alert?.(error.message || "Не удалось загрузить аудио"));
   });
   root.querySelectorAll("[data-advance]").forEach((button) => {
     button.addEventListener("click", () => store.advanceJob(button.dataset.advance));
@@ -355,7 +358,12 @@ function bindEvents(root, store, options = {}) {
   });
   bindPreviewModalEvents(root);
   root.querySelectorAll("[data-delete-audio]").forEach((button) => {
-    button.addEventListener("click", () => store.deleteAudio(button.dataset.deleteAudio));
+    button.addEventListener("click", () => {
+      const audio = store.getState().audioLibrary.find((item) => item.id === button.dataset.deleteAudio);
+      deleteAudioAsset(audio)
+        .then(() => store.deleteAudio(button.dataset.deleteAudio))
+        .catch((error) => window.alert?.(error.message || "Не удалось удалить аудио"));
+    });
   });
   bindAvatarOverlayComposerEvents(root, store);
   bindHooksEvents(root, { getLibrary: () => store.getState().hookLibrary, saveLibrary: (hookLibrary) => store.updateHookLibrary(hookLibrary), refresh: options.rerender || (() => renderApp(root, store, options)) });

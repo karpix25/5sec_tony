@@ -1,4 +1,5 @@
 import { escapeHtml } from "./infographic.js";
+import { uploadAudioAsset } from "../services/audio-assets.js";
 
 export function renderAudioSettings({ audioLibrary }) {
   return `
@@ -15,9 +16,13 @@ export function renderAudioSettings({ audioLibrary }) {
 
 export async function getAudioPayloads(form) {
   const files = [...(form.querySelector("input[type='file']")?.files || [])];
-  const payloads = await Promise.all(files.map(readAudioFile));
+  const payloads = await Promise.all(files.map(readAudioFileAndUpload));
   form.reset();
   return payloads;
+}
+
+async function readAudioFileAndUpload(file) {
+  return uploadAudioAsset(await readAudioFile(file));
 }
 
 function renderAudioList(items) {
