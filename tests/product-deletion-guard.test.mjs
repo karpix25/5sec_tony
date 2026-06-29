@@ -70,7 +70,7 @@ test("product deletion guard allows explicit product delete tombstone", async ()
   assert.deepEqual(saved[0].products.map((product) => product.id), ["product-1", "product-3"]);
 });
 
-test("product deletion guard rejects project loss with products and no tombstones", async () => {
+test("project deletion guard rejects project loss without tombstone", async () => {
   const currentState = {
     projects: [{ id: "project-1" }, { id: "project-2" }],
     products: [
@@ -93,11 +93,11 @@ test("product deletion guard rejects project loss with products and no tombstone
   });
 
   assert.equal(response.status, 409);
-  assert.match(response.payload.error, /Product deletion requires explicit delete action/);
+  assert.match(response.payload.error, /Project deletion requires explicit delete action/);
   assert.deepEqual(saved, []);
 });
 
-test("product deletion guard allows project loss when all project products have tombstones", async () => {
+test("project deletion guard allows project loss with project and product tombstones", async () => {
   const currentState = {
     projects: [{ id: "project-1" }, { id: "project-2" }],
     products: [
@@ -111,6 +111,7 @@ test("product deletion guard allows project loss when all project products have 
     projects: [{ id: "project-1" }],
     products: [{ id: "product-1", projectId: "project-1", name: "Первый" }],
     jobs: [],
+    deletedProjectIds: ["project-2"],
     deletedProductIds: ["product-2", "product-3"]
   };
   const saved = [];
@@ -169,6 +170,7 @@ test("store project deletion marks every removed project product explicitly", ()
   const state = store.getState();
 
   assert.equal(state.products.some((product) => product.projectId === projectId), false);
+  assert.deepEqual(state.deletedProjectIds, [projectId]);
   assert.deepEqual(new Set(state.deletedProductIds), new Set(removedIds));
 });
 

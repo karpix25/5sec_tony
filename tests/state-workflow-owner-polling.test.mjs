@@ -110,15 +110,122 @@ test("avatar video polling resumes against character owner project instead of se
 
   globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
   globalThis.fetch = async (url) => {
-    assert.match(String(url), /task-video/);
+    assert.match(String(url), /task-video|avatar-videos\/alpha/);
+    if (String(url).includes("/api/avatar-videos/alpha")) {
+      return { ok: true, json: async () => ({ alphaVideoUrl: "/generated/avatar-videos/owner-alpha.webm" }) };
+    }
     return { ok: true, json: async () => ({ state: "success", videoUrl: "https://cdn.example.com/avatar-video.mp4" }) };
   };
 
   try {
     workflow.resumeAvatarVideoPolling();
-    await waitFor(() => state.projects[0].characters[0].avatarVideos[0].status === "ready");
+    await waitFor(() => state.projects[0].characters[0].avatarVideos[0].alphaStatus === "ready");
 
     assert.equal(state.projects[0].characters[0].avatarVideos[0].videoUrl, "https://cdn.example.com/avatar-video.mp4");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("avatar video polling keeps task alive after a temporary connection outage", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const state = {
+    selectedProjectId: "project-a",
+    projects: [{
+      id: "project-a",
+      characters: [{
+        id: "char-a",
+        avatarVideos: [{ id: "video-a", taskId: "task-video", status: "generating", videoUrl: "", failMsg: "", alphaStatus: "idle" }]
+      }]
+    }]
+  };
+  const workflow = createAvatarVideoWorkflow({
+    getState: () => state,
+    getProject: (source, projectId) => source.projects.find((item) => item.id === projectId),
+    patchCharacter: (characterId, updater) => {
+      state.projects = state.projects.map((project) => ({
+        ...project,
+        characters: project.characters.map((character) => character.id === characterId ? updater(character) : character)
+      }));
+    },
+    addProjectAvatarVideo: () => {}
+  });
+  let requests = 0;
+
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url) => {
+    requests += 1;
+    assert.match(String(url), /task-video|avatar-videos\/alpha/);
+    if (requests <= 4) throw new TypeError("Failed to fetch");
+    if (String(url).includes("/api/avatar-videos/alpha")) {
+      return { ok: true, json: async () => ({ alphaVideoUrl: "/generated/avatar-videos/recovered.webm" }) };
+    }
+    return { ok: true, json: async () => ({ state: "success", videoUrl: "https://cdn.example.com/recovered.mp4" }) };
+  };
+
+  try {
+    workflow.resumeAvatarVideoPolling();
+    await waitFor(() => state.projects[0].characters[0].avatarVideos[0].alphaStatus === "ready");
+
+    const video = state.projects[0].characters[0].avatarVideos[0];
+    assert.equal(video.videoUrl, "https://cdn.example.com/recovered.mp4");
+    assert.notEqual(video.status, "failed");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("avatar alpha conversion retries after a temporary connection outage", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const state = {
+    selectedProjectId: "project-a",
+    projects: [{
+      id: "project-a",
+      characters: [{
+        id: "char-a",
+        avatarVideos: [{
+          id: "video-a",
+          taskId: "task-video",
+          status: "ready",
+          videoUrl: "https://cdn.example.com/source.mp4",
+          failMsg: "",
+          alphaStatus: "converting"
+        }]
+      }]
+    }]
+  };
+  const workflow = createAvatarVideoWorkflow({
+    getState: () => state,
+    getProject: (source, projectId) => source.projects.find((item) => item.id === projectId),
+    patchCharacter: (characterId, updater) => {
+      state.projects = state.projects.map((project) => ({
+        ...project,
+        characters: project.characters.map((character) => character.id === characterId ? updater(character) : character)
+      }));
+    },
+    addProjectAvatarVideo: () => {}
+  });
+  let requests = 0;
+
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url) => {
+    requests += 1;
+    assert.match(String(url), /avatar-videos\/alpha/);
+    if (requests <= 4) throw new TypeError("Failed to fetch");
+    return { ok: true, json: async () => ({ alphaVideoUrl: "/generated/avatar-videos/recovered-alpha.webm" }) };
+  };
+
+  try {
+    workflow.resumeAvatarVideoPolling();
+    await waitFor(() => state.projects[0].characters[0].avatarVideos[0].alphaStatus === "ready");
+
+    const video = state.projects[0].characters[0].avatarVideos[0];
+    assert.equal(video.alphaVideoUrl, "/generated/avatar-videos/recovered-alpha.webm");
+    assert.equal(video.alphaFailMsg, "");
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

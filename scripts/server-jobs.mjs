@@ -1,34 +1,42 @@
-import { isNoAvatarCharacterId, noAvatarCharacterId } from "../src/domain/avatar-selection.js";
-import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../src/domain/avatar-video-rotation.js";
-import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
-import { limitImagePrompt } from "../src/domain/image-prompt-budget.js";
-import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
-import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
-import { createOperationLogger, summarizeJobForLog, summarizeServerJobContext } from "./operation-logger.mjs";
+import { dispatchJobToQueue, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
+import { enqueueJobLedgerRecord, patchJobLedgerRecord } from "./job-ledger-store.mjs";
 import { loadPersistedServerJob, loadPersistedServerJobContext, persistServerJobSnapshot } from "./server-job-state.mjs";
+import {
+  createResumedServerJobRecord,
+  getInternalServerOrigin,
+  getServerJobPayload,
+  isTerminalServerJob,
+  runServerJob,
+  resumeServerJob,
+  serverJobLogger as logger,
+  toPublicServerJob
+} from "./server-job-runner.mjs";
+import { summarizeJobForLog, summarizeServerJobContext } from "./operation-logger.mjs";
 
 const serverJobs = new Map();
-const successStates = ["success", "succeeded", "completed", "complete"];
-const failStates = ["fail", "failed", "error"];
-const primaryProvider = "gpt-image-2";
-const fallbackProvider = "nano-banana-2";
-const logger = createOperationLogger("server-job");
 
 export async function handleServerJobsApi(request, response, url) {
   return createServerJobsApiHandler()(request, response, url);
 }
 
 export function createServerJobsApiHandler(deps = {}) {
-  const jobs = deps.serverJobs || serverJobs;
-  const persistJob = deps.persistServerJobSnapshot || persistServerJobSnapshot;
-  const loadJob = deps.loadPersistedServerJob || loadPersistedServerJob;
-  const loadJobContext = deps.loadPersistedServerJobContext || loadPersistedServerJobContext;
+  const apiDeps = {
+    jobs: deps.serverJobs || serverJobs,
+    persistJob: deps.persistServerJobSnapshot || persistServerJobSnapshot,
+    loadJob: deps.loadPersistedServerJob || loadPersistedServerJob,
+    loadJobContext: deps.loadPersistedServerJobContext || loadPersistedServerJobContext,
+    enqueueLedger: deps.enqueueJobLedgerRecord || enqueueJobLedgerRecord,
+    patchLedger: deps.patchJobLedgerRecord || patchJobLedgerRecord,
+    dispatchJob: deps.dispatchJobToQueue || createLegacyBullMqDispatch(deps) || dispatchJobToQueue,
+    shouldUseQueueWorker: deps.shouldUseQueueWorker || deps.isBullMqServerJobsEnabled || shouldUseBullMq,
+    isQueueStrict: deps.isQueueStrict || (() => process.env.JOB_QUEUE_STRICT === "true")
+  };
   return async function handleServerJobsApiWithDeps(request, response, url) {
     if (request.method === "POST" && url.pathname === "/api/jobs/run") {
-      return startServerJob(request, response, { jobs, persistJob });
+      return startServerJob(request, response, apiDeps);
     }
     if (request.method === "GET" && url.pathname === "/api/jobs/status") {
-      return getServerJobStatus(response, url.searchParams.get("jobId"), { jobs, persistJob, loadJob, loadJobContext });
+      return getServerJobStatus(response, url.searchParams.get("jobId"), apiDeps);
     }
     return false;
   };
@@ -45,44 +53,29 @@ async function startServerJob(request, response, deps) {
       alreadyRunning: deps.jobs.has(job.id)
     });
     if (!deps.jobs.has(job.id)) {
-      const origin = getInternalServerOrigin();
-      const context = body.context || {};
-      const record = {
-        job: {
-          ...job,
-          status: "running",
-          stage: "image",
-          progress: 18,
-          serverJobAcceptedAt: new Date().toISOString(),
-          serverJobContext: context,
-          failMsg: "Сервер запустил генерацию..."
-        },
-        context,
-        origin,
-        avatarUsage: null,
-        persistJob: deps.persistJob
-      };
+      const record = createInitialServerJobRecord(job, body.context || {}, deps);
       deps.jobs.set(job.id, record);
-      await persistServerJob(record);
+      await enqueueServerJobLedger(record);
+      await persistServerJobRecord(record);
+      record.patchLedger = deps.patchLedger;
+      const dispatch = await dispatchServerJob(record, deps);
+      const payload = getServerJobPayload(record);
       logger.log("run:accepted", {
         job: summarizeJobForLog(record.job),
-        origin,
-        context: summarizeServerJobContext(record.context)
+        origin: record.origin,
+        context: summarizeServerJobContext(record.context),
+        dispatchMode: dispatch.mode || "inline"
       });
-      runServerJob(record).catch(async (error) => {
-        logger.log("run:unhandled-error", { job: summarizeJobForLog(record.job), error: error.message || error });
-        await patchServerJob(record, {
-          status: "failed",
-          stage: "image",
-          progress: 100,
-          failMsg: error.message || "Серверная генерация завершилась ошибкой"
-        });
-      });
+      if (dispatch.mode === "bullmq") {
+        deps.jobs.delete(job.id);
+        return sendJson(response, 200, payload);
+      }
+      runServerJobInline(record);
     }
     return sendJson(response, 200, getServerJobPayload(deps.jobs.get(job.id)));
   } catch (error) {
     logger.log("run:request-error", { error: error.message || error });
-    return sendJson(response, 502, { error: error.message || "Не удалось запустить серверную задачу" });
+    return sendJson(response, error.statusCode || 502, { error: error.message || "Не удалось запустить серверную задачу" });
   }
 }
 
@@ -96,229 +89,92 @@ async function getServerJobStatus(response, jobId, deps) {
   return sendJson(response, 200, getServerJobPayload(record));
 }
 
-async function runServerJob(record) {
-  logger.log("pipeline:start", { job: summarizeJobForLog(record.job) });
-  const image = await runServerImageGeneration(record, primaryProvider);
-  await runServerFinalAssembly(record, image.imageUrl);
-  logger.log("pipeline:done", { job: summarizeJobForLog(record.job) });
-}
-
-async function runServerImageGeneration(record, provider) {
-  logger.log("image:start", {
-    job: summarizeJobForLog(record.job),
-    provider,
-    promptChars: String(record.job.prompt || "").length,
-    inputUrls: Array.isArray(record.job.inputUrls) ? record.job.inputUrls.length : 0,
-    inputRefs: Array.isArray(record.job.inputRefs) ? record.job.inputRefs.length : 0
-  });
-  await patchServerJob(record, {
-    status: "running",
-    stage: "image",
-    progress: provider === fallbackProvider ? 26 : 24,
-    imageProvider: provider,
-    failMsg: provider === fallbackProvider ? "Основной способ не ответил, пробуем резервный..." : "Сервер ожидает картинку..."
-  });
-  const task = await postServerJson(record.origin, "/api/images/generate", {
-    prompt: limitImagePrompt(record.job.prompt),
-    inputUrls: record.job.inputUrls || [],
-    inputRefs: record.job.inputRefs || [],
-    promptContract: record.job.promptContract || record.job.imagePromptContract || null,
-    productVisibilityDecision: record.job.productVisibilityDecision || null,
-    avatarSafeZone: record.job.avatarSafeZone || null,
-    provider,
-    aspectRatio: "9:16",
-    resolution: "1K",
-    outputFormat: "png"
-  });
-  logger.log("image:task-created", { job: summarizeJobForLog(record.job), provider, taskId: task.taskId || "" });
-  await patchServerJob(record, { imageTaskId: task.taskId, imageProvider: provider });
-  return pollServerImageTask(record, provider, task.taskId, 0);
-}
-
-async function pollServerImageTask(record, provider, taskId, startAttempt = 0) {
-  for (let attempt = 0; attempt < 75; attempt += 1) {
-    const totalAttempt = startAttempt + attempt;
-    await delayServerJobPoll(totalAttempt === 0 ? 6000 : 4000);
-    const status = await getServerJson(record.origin, `/api/images/status?taskId=${encodeURIComponent(taskId)}`);
-    logger.log("image:poll", {
-      job: summarizeJobForLog(record.job),
-      provider,
-      taskId: taskId || "",
-      attempt: totalAttempt + 1,
-      state: status.state || "",
-      progress: status.progress || 0,
-      hasImageUrl: Boolean(status.imageUrl),
-      failMsg: status.failMsg || ""
-    });
-    if (successStates.includes(status.state) && status.imageUrl) {
-      await patchServerJob(record, {
-        status: "running",
-        stage: "assembly",
-        progress: 76,
-        imageUrl: status.imageUrl,
-        imageData: status.imageUrl,
-        failMsg: "Картинка готова, сервер собирает видео..."
-      });
-      logger.log("image:ready", { job: summarizeJobForLog(record.job), provider, taskId: taskId || "" });
-      return status;
-    }
-    if (failStates.includes(status.state)) {
-      logger.log("image:provider-failed", {
-        job: summarizeJobForLog(record.job),
-        provider,
-        taskId: taskId || "",
-        failMsg: status.failMsg || ""
-      });
-      if (provider === primaryProvider) return runServerImageGeneration(record, fallbackProvider);
-      throw new Error(status.failMsg || "Генерация картинки завершилась ошибкой");
-    }
-    await patchServerJob(record, {
+function createInitialServerJobRecord(job, context, deps) {
+  return {
+    job: {
+      ...job,
       status: "running",
       stage: "image",
-      progress: Math.min(72, 24 + attempt * 4)
-    });
-  }
-
-  logger.log("image:timeout", { job: summarizeJobForLog(record.job), provider, taskId: taskId || "" });
-  if (provider === primaryProvider) return runServerImageGeneration(record, fallbackProvider);
-  throw new Error("Не удалось получить картинку за 5 минут. Попробуйте запустить еще раз.");
+      progress: 18,
+      queueName: job.queueName || "generation",
+      queueStatus: "queued",
+      queuePriority: Number(job.queuePriority || 0),
+      queueAttempts: Number(job.queueAttempts || 0),
+      queueMaxAttempts: Number(job.queueMaxAttempts || 3),
+      queueScheduledAt: new Date().toISOString(),
+      queueLockOwner: "",
+      queueLastError: "",
+      queueIdempotencyKey: job.queueIdempotencyKey || `generation:${job.id}`,
+      queueMetadata: job.queueMetadata || {},
+      serverJobAcceptedAt: new Date().toISOString(),
+      serverJobContext: context,
+      failMsg: "Сервер запустил генерацию..."
+    },
+    context,
+    origin: getInternalServerOrigin(),
+    avatarUsage: null,
+    persistJob: deps.persistJob,
+    patchLedger: null,
+    enqueueLedger: deps.enqueueLedger
+  };
 }
 
-async function runServerFinalAssembly(record, backgroundImageUrl) {
-  if (!requiresFinalVideo(record.job)) {
-    logger.log("assembly:skip-final-video", { job: summarizeJobForLog(record.job) });
-    await patchServerJob(record, { status: "review", stage: "approval", progress: 76, failMsg: "" });
-    return;
-  }
-
-  const project = record.context.project || {};
-  const selectedCharacterId = record.job.characterId || record.context.selectedCharacterId || noAvatarCharacterId;
-  const allowNoAvatar = isNoAvatarCharacterId(selectedCharacterId);
-  const avatarVideoPick = allowNoAvatar ? null : pickAvatarVideoRoundRobin(project, selectedCharacterId, {
-    videoId: record.job.avatarVideoId,
-    emotionName: record.job.avatarEmotionName || record.job.desiredAvatarEmotion
+function runServerJobInline(record) {
+  runServerJob(record).catch(async (error) => {
+    logger.log("run:unhandled-error", { job: summarizeJobForLog(record.job), error: error.message || error });
+    await patchFailedInlineJob(record, error.message || "Серверная генерация завершилась ошибкой");
   });
-  const avatarVideo = avatarVideoPick?.video;
-  const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
-  const renderWithoutAvatar = allowNoAvatar || !avatarVideoUrl;
-  const audio = getServerJobAudio(record);
-  logger.log("assembly:start", {
-    job: summarizeJobForLog(record.job),
-    renderWithoutAvatar,
-    allowNoAvatar,
-    hasAvatarVideoUrl: Boolean(avatarVideoUrl),
-    avatarVideoId: avatarVideo?.id || "",
-    avatarEmotionName: avatarVideo?.name || record.job.avatarEmotionName || "",
-    hasAudio: Boolean(audio?.fileData)
-  });
-
-  await patchServerJob(record, {
-    status: "running",
-    stage: "assembly",
-    progress: 88,
-    renderedWithoutAvatar: renderWithoutAvatar,
-    failMsg: renderWithoutAvatar
-      ? "Сервер собирает финальное видео из картинки и аудио..."
-      : "Сервер собирает финальное видео с аватаром и аудио..."
-  });
-
-  const result = await postServerJson(record.origin, "/api/avatar-videos/composite", {
-    avatarVideoUrl: renderWithoutAvatar ? "" : avatarVideoUrl,
-    backgroundImageUrl,
-    audioData: audio?.fileData || "",
-    overlay: renderWithoutAvatar ? {} : avatarVideo?.overlay || {},
-    ctaOverlay: renderWithoutAvatar
-      ? resolveServerNoAvatarCtaOverlay(project)
-      : avatarVideo?.ctaOverlay || { enabled: false }
-  });
-  logger.log("assembly:composite-created", {
-    job: summarizeJobForLog(record.job),
-    videoUrl: result.videoUrl || "",
-    hasAudio: Boolean(result.hasAudio)
-  });
-
-  if (!renderWithoutAvatar && avatarVideoPick && avatarVideo?.id) {
-    record.avatarUsage = {
-      characterId: avatarVideoPick.characterId,
-      videoId: avatarVideo.id,
-      nextIndex: avatarVideoPick.nextIndex,
-      nextCharacterIndex: avatarVideoPick.nextCharacterIndex
-    };
-    logger.log("avatar-usage:reserved", { job: summarizeJobForLog(record.job), avatarUsage: record.avatarUsage });
-  }
-
-  await patchServerJob(record, {
-    status: "done",
-    stage: "export",
-    progress: 100,
-    finalVideoUrl: result.videoUrl,
-    finalVideoHasAudio: Boolean(result.hasAudio),
-    failMsg: ""
-  });
-  await uploadServerJobToYandexDisk(record, result.videoUrl);
 }
 
-async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
-  const project = record.context.project || {};
-  if (!project.yandexDiskFolder) {
-    logger.log("disk:skip", { job: summarizeJobForLog(record.job), reason: "project has no yandexDiskFolder" });
-    return;
-  }
-  const avatarName = resolveServerJobAvatarName(project, record.job, record.context.selectedCharacterId);
+async function patchFailedInlineJob(record, failMsg) {
+  record.job = { ...record.job, status: "failed", stage: "image", progress: 100, queueStatus: "failed", failMsg };
+  await persistServerJobRecord(record);
+}
+
+async function dispatchServerJob(record, deps) {
   try {
-    logger.log("disk:start", {
-      job: summarizeJobForLog(record.job),
-      targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
-      fileName: buildServerExportFileName(project, record.job)
-    });
-    await patchServerJob(record, { diskStatus: "uploading", diskMessage: "Сервер сохраняет в Яндекс.Диск..." });
-    const result = await postServerJson(record.origin, "/api/yandex-disk/upload", {
-      fileUrl: finalVideoUrl,
-      targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
-      fileName: buildServerExportFileName(project, record.job)
-    });
-    await patchServerJob(record, {
-      diskStatus: "done",
-      diskPath: result.diskPath,
-      diskMessage: "Сохранено в Яндекс.Диск"
-    });
-    logger.log("disk:done", { job: summarizeJobForLog(record.job), diskPath: result.diskPath || "" });
+    const dispatch = await deps.dispatchJob(record.job);
+    if (dispatch.mode === "bullmq") {
+      record.job = { ...record.job, failMsg: "Сервер поставил задачу в очередь воркеров..." };
+      await patchServerJobLedger(record);
+    }
+    return dispatch;
   } catch (error) {
-    await patchServerJob(record, {
-      diskStatus: "failed",
-      diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск"
-    });
-    logger.log("disk:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
+    logger.log("dispatch:error", { job: summarizeJobForLog(record.job), error: error.message || error });
+    if (deps.isQueueStrict()) {
+      const strictError = new Error("Очередь воркеров недоступна. Задача не запущена, чтобы не перегружать web-сервер.");
+      strictError.statusCode = 503;
+      record.job = { ...record.job, status: "failed", progress: 100, queueStatus: "failed", failMsg: strictError.message };
+      await persistServerJobRecord(record);
+      deps.jobs?.delete(record.job.id);
+      throw strictError;
+    }
+    record.job = {
+      ...record.job,
+      queueStatus: "running",
+      failMsg: "Очередь воркеров недоступна, запускаем задачу на текущем сервере..."
+    };
+    await persistServerJobRecord(record);
+    return { mode: "inline", enqueued: false, error: error.message || String(error) };
   }
 }
 
-function getInternalServerOrigin() {
-  return `http://127.0.0.1:${process.env.PORT || 4173}`;
-}
-
-function getServerJobPayload(record) {
-  return { job: toPublicServerJob(record.job), avatarUsage: record.avatarUsage };
-}
-
-function toPublicServerJob(job) {
-  const { serverJobContext, ...publicJob } = job || {};
-  return publicJob;
-}
-
-async function patchServerJob(record, payload) {
-  const previous = summarizeJobForLog(record.job);
-  record.job = { ...record.job, ...payload };
-  logger.log("patch", { before: previous, patch: payload, after: summarizeJobForLog(record.job) });
-  await persistServerJob(record);
-}
-
-async function persistServerJob(record) {
+async function persistServerJobRecord(record) {
   try {
     await record.persistJob?.(record.job);
+    await record.patchLedger?.(record.job);
     logger.log("persist:done", { job: summarizeJobForLog(record.job) });
   } catch (error) {
     logger.log("persist:error", { job: summarizeJobForLog(record.job), error: error.message || error });
     console.warn(`[server-job:persist:error] ${error.message || error}`);
+  }
+}
+
+async function patchServerJobLedger(record) {
+  try {
+    await record.patchLedger?.(record.job);
+  } catch (error) {
+    logger.log("ledger:patch-error", { job: summarizeJobForLog(record.job), error: error.message || error });
   }
 }
 
@@ -329,121 +185,45 @@ async function sendPersistedServerJobStatus(response, jobId, deps) {
     return sendJson(response, 404, { error: "server job not found" });
   }
   logger.log("status:persisted-hit", { job: summarizeJobForLog(job) });
-  if (isTerminalServerJob(job)) return sendJson(response, 200, { job: toPublicServerJob(job), avatarUsage: null });
-  const record = createResumedServerJobRecord(job, deps.persistJob, await deps.loadJobContext(job));
+  if (isTerminalServerJob(job) || (deps.shouldUseQueueWorker() && isActiveQueuedServerJob(job))) {
+    return sendJson(response, 200, { job: toPublicServerJob(job), avatarUsage: null });
+  }
+  const record = createResumedServerJobRecord(job, deps.persistJob, await deps.loadJobContext(job), deps.patchLedger);
   deps.jobs.set(job.id, record);
-  await patchServerJob(record, {
-    status: "running",
-    failMsg: "Сервер восстановил задачу после перезапуска..."
-  });
+  record.job = { ...record.job, status: "running", failMsg: "Сервер восстановил задачу после перезапуска..." };
+  await persistServerJobRecord(record);
   resumeServerJob(record).catch(async (error) => {
     logger.log("resume:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
-    await patchServerJob(record, {
+    record.job = {
+      ...record.job,
       status: "failed",
       progress: 100,
       failMsg: error.message || "Не удалось восстановить серверную задачу после перезапуска."
-    });
+    };
+    persistServerJobRecord(record);
   });
   return sendJson(response, 200, getServerJobPayload(record));
 }
 
-function isTerminalServerJob(job) {
-  return ["done", "review", "failed"].includes(job?.status);
-}
-
-function createResumedServerJobRecord(job, persistJob, recoveredContext = {}) {
-  return {
-    job,
-    context: job.serverJobContext || recoveredContext || {},
-    origin: getInternalServerOrigin(),
-    avatarUsage: null,
-    persistJob
+function createLegacyBullMqDispatch(deps) {
+  if (!deps.enqueueBullMqServerJob) return null;
+  return async (job) => {
+    if (deps.isBullMqServerJobsEnabled && !deps.isBullMqServerJobsEnabled()) return { mode: "inline", enqueued: false };
+    await deps.enqueueBullMqServerJob(job.id);
+    return { mode: "bullmq", enqueued: true };
   };
 }
 
-async function resumeServerJob(record) {
-  logger.log("resume:start", { job: summarizeJobForLog(record.job) });
-  if (record.job.imageUrl) {
-    await runServerFinalAssembly(record, record.job.imageUrl);
-    return;
-  }
-  if (record.job.imageTaskId) {
-    const image = await pollServerImageTask(record, record.job.imageProvider || primaryProvider, record.job.imageTaskId, 1);
-    await runServerFinalAssembly(record, image.imageUrl);
-    return;
-  }
-  throw new Error("Серверная задача была прервана до создания задачи картинки. Запустите генерацию заново.");
+function isActiveQueuedServerJob(job) {
+  return ["queued", "running", "retrying"].includes(job?.queueStatus);
 }
 
-function getServerJobAudio(record) {
-  return (record.context.audioLibrary || []).find((item) => item.title === record.job.music)
-    || (record.context.audioLibrary || []).find((item) => item.id === record.context.selectedAudioId);
-}
-
-function resolveServerNoAvatarCtaOverlay(project) {
-  const savedOverlay = project?.ctaOverlay || (project?.characters || [])
-    .flatMap((character) => character.avatarVideos || [])
-    .find((video) => video.ctaOverlay)?.ctaOverlay;
-  return normalizeCtaOverlay(savedOverlay);
-}
-
-function resolveServerJobAvatarName(project, job, fallbackCharacterId = "") {
-  if (job.renderedWithoutAvatar) return "Без аватара";
-  if (isNoAvatarCharacterId(job.characterId || fallbackCharacterId)) return "Без аватара";
-  return project.characters?.find((item) => item.id === (job.characterId || fallbackCharacterId))?.name || "Без аватара";
-}
-
-function buildServerExportFileName(project, job) {
-  const title = `${project.name || "project"}-${job.title || job.id}`
-    .toLowerCase()
-    .replace(/[^a-zа-я0-9ё]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-  return `${title || job.id}.mp4`;
-}
-
-function requiresFinalVideo(job) {
-  return job?.outputType !== "image" && job?.requiresFinalVideo !== false;
-}
-
-async function postServerJson(origin, path, body) {
-  const timer = logger.time("http:post", { path, body });
-  const response = await fetch(`${origin}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+async function enqueueServerJobLedger(record) {
   try {
-    const payload = await readServerJson(response);
-    timer.done({ status: response.status, payload });
-    return payload;
+    await record.enqueueLedger?.(record.job, record.context);
   } catch (error) {
-    timer.fail(error, { status: response.status });
-    throw error;
+    logger.log("ledger:enqueue-error", { job: summarizeJobForLog(record.job), error: error.message || error });
   }
-}
-
-async function getServerJson(origin, path) {
-  const timer = logger.time("http:get", { path });
-  const response = await fetch(`${origin}${path}`);
-  try {
-    const payload = await readServerJson(response);
-    timer.done({ status: response.status, payload });
-    return payload;
-  } catch (error) {
-    timer.fail(error, { status: response.status });
-    throw error;
-  }
-}
-
-async function readServerJson(response) {
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(humanizeProviderErrorMessage(payload.error || `Server job API failed: ${response.status}`));
-  return payload;
-}
-
-function delayServerJobPoll(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function readJson(request) {

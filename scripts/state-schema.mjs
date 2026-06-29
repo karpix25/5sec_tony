@@ -1,3 +1,5 @@
+import { ensureJobQueueSchema } from "./job-queue-schema.mjs";
+
 export async function ensureStateSchema(query) {
   await query(`
     create table if not exists app_state (
@@ -207,4 +209,5 @@ export async function ensureStateSchema(query) {
       on studio_hook_versions(app_state_key)
       where status = 'active';
   `);
+  await ensureJobQueueSchema(query);
 }

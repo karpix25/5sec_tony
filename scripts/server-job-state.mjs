@@ -24,10 +24,22 @@ const jobColumns = {
   format: "format",
   inputUrls: "input_urls",
   inputRefs: "input_refs",
-  diversitySlot: "diversity_slot"
+  diversitySlot: "diversity_slot",
+  queueName: "queue_name",
+  queueStatus: "queue_status",
+  queuePriority: "queue_priority",
+  queueAttempts: "queue_attempts",
+  queueMaxAttempts: "queue_max_attempts",
+  queueScheduledAt: "queue_scheduled_at",
+  queueLockedAt: "queue_locked_at",
+  queueLockOwner: "queue_lock_owner",
+  queueLastError: "queue_last_error",
+  queueIdempotencyKey: "queue_idempotency_key",
+  queueProviderTaskId: "queue_provider_task_id",
+  queueMetadata: "queue_metadata"
 };
 
-const jsonKeys = new Set(["inputUrls", "inputRefs", "diversitySlot"]);
+const jsonKeys = new Set(["inputUrls", "inputRefs", "diversitySlot", "queueMetadata"]);
 
 export async function persistServerJobSnapshot(job, deps = {}) {
   if (!job?.id || !(deps.isPostgresConfigured || isPostgresConfigured)()) return false;
@@ -92,7 +104,19 @@ async function loadRelationalJobRow(query, jobId) {
     format: row.format,
     inputUrls: asArray(row.input_urls),
     inputRefs: asArray(row.input_refs),
-    diversitySlot: row.diversity_slot ?? null
+    diversitySlot: row.diversity_slot ?? null,
+    queueName: row.queue_name || "",
+    queueStatus: row.queue_status || "",
+    queuePriority: row.queue_priority || 0,
+    queueAttempts: row.queue_attempts || 0,
+    queueMaxAttempts: row.queue_max_attempts || 1,
+    queueScheduledAt: row.queue_scheduled_at || null,
+    queueLockedAt: row.queue_locked_at || null,
+    queueLockOwner: row.queue_lock_owner || "",
+    queueLastError: row.queue_last_error || "",
+    queueIdempotencyKey: row.queue_idempotency_key || "",
+    queueProviderTaskId: row.queue_provider_task_id || "",
+    queueMetadata: asObject(row.queue_metadata)
   };
 }
 

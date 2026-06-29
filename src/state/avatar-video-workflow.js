@@ -1,8 +1,11 @@
 import {
   attachAvatarChromaImage,
   attachAvatarChromaImageTask,
+  attachAvatarAlphaVideo,
   attachAvatarVideoTask,
   createAvatarVideoRecord,
+  markAvatarAlphaConnectionRecovering,
+  markAvatarVideoConnectionRecovering,
   updateAvatarVideoName,
   updateAvatarVideoRecord
 } from "../domain/avatar-video.js";
@@ -20,10 +23,19 @@ import {
   createAvatarVideoTask,
   createImageTask,
   getAvatarVideoTaskStatus,
-  getImageTaskStatus
+  getImageTaskStatus,
+  isKieConnectionError
 } from "../services/kie-client.js";
 
+const RECOVERABLE_POLL_MESSAGE = "Связь со студией прервалась, но задача сохранена. Продолжаем проверять статус автоматически...";
+const RECOVERABLE_ALPHA_MESSAGE = "Видео готово. Связь с обработчиком прозрачности прервалась, пробуем продолжить автоматически...";
+const MAX_RECOVERABLE_POLLS = 180;
+const MAX_ALPHA_RECOVERIES = 20;
+
 export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter, addProjectAvatarVideo }) {
+  const activePolls = new Set();
+  const activeAlphaConversions = new Set();
+
   return {
     async createAvatarVideo(payload) {
       const state = getState();
@@ -49,7 +61,7 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
           isLocalData: /^data:image\//i.test(String(character.imageData || ""))
         }]);
         patchAvatarVideo(character.id, video.id, (item) => attachAvatarChromaImageTask(item, imageResult.taskId));
-        pollAvatarChromaImage(character.id, video.id, imageResult.taskId);
+        scheduleAvatarChromaImagePoll(character.id, video.id, imageResult.taskId);
       } catch (error) {
         patchAvatarVideo(character.id, video.id, (item) => failAvatarVideoItem(item, error, "Kie.ai chroma image request failed"));
       }
@@ -139,7 +151,7 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       projects.forEach((item) => item.characters.forEach((character) => {
         (character.avatarVideos || [])
           .filter((video) => video.imageTaskId && ["preparing-image", "generating-image"].includes(video.status))
-          .forEach((video) => pollAvatarChromaImage(character.id, video.id, video.imageTaskId));
+          .forEach((video) => scheduleAvatarChromaImagePoll(character.id, video.id, video.imageTaskId));
         (character.avatarVideos || [])
           .filter((video) => video.chromaImageUrl && video.status === "submitting-video" && !video.taskId)
           .forEach((video) => startAvatarVideoFromChromaImage(character.id, video.id, video.chromaImageUrl));
@@ -152,10 +164,10 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
           })));
         (character.avatarVideos || [])
           .filter((video) => video.taskId && ["waiting", "generating"].includes(video.status))
-          .forEach((video) => pollAvatarVideo(character.id, video.id, video.taskId));
+          .forEach((video) => scheduleAvatarVideoPoll(character.id, video.id, video.taskId));
         (character.avatarVideos || [])
           .filter((video) => video.videoUrl && video.alphaStatus === "converting")
-          .forEach((video) => convertAvatarAlphaVideo(character.id, video.id, video.videoUrl));
+          .forEach((video) => scheduleAvatarAlphaConversion(character.id, video.id, video.videoUrl, video.alphaRecoveryCount || 0));
         (character.avatarVideos || [])
           .filter((video) => video.ctaOverlay?.candidate?.taskId && video.ctaOverlay.candidate.status === "generating")
           .forEach((video) => pollCtaBadgeImage(character.id, video.id, video.ctaOverlay.candidate.id, video.ctaOverlay.candidate.taskId));
@@ -179,8 +191,19 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
   }
 
   async function pollAvatarChromaImage(characterId, videoId, taskId, attempt = 0) {
-    if (attempt >= 75) {
-      patchAvatarVideo(characterId, videoId, (item) => ({ ...item, status: "failed", failMsg: "Kie.ai не вернул хромакей-кадр за 5 минут. Попробуйте еще раз." }));
+    const pollKey = `image:${videoId}:${taskId}`;
+    if (activePolls.has(pollKey)) return;
+    activePolls.add(pollKey);
+    try {
+      await runAvatarChromaImagePoll(characterId, videoId, taskId, attempt);
+    } finally {
+      activePolls.delete(pollKey);
+    }
+  }
+
+  async function runAvatarChromaImagePoll(characterId, videoId, taskId, attempt = 0) {
+    if (attempt >= MAX_RECOVERABLE_POLLS) {
+      patchAvatarVideo(characterId, videoId, (item) => ({ ...item, status: "failed", failMsg: "Kie.ai не вернул хромакей-кадр за 12 минут. Попробуйте еще раз." }));
       return;
     }
 
@@ -201,8 +224,13 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
         return;
       }
       patchAvatarVideo(characterId, videoId, (item) => ({ ...item, status: "generating-image" }));
-      pollAvatarChromaImage(characterId, videoId, taskId, attempt + 1);
+      scheduleAvatarChromaImagePoll(characterId, videoId, taskId, attempt + 1);
     } catch (error) {
+      if (isRecoverablePollingError(error, attempt)) {
+        patchAvatarVideo(characterId, videoId, (item) => markAvatarVideoConnectionRecovering(item, RECOVERABLE_POLL_MESSAGE));
+        scheduleAvatarChromaImagePoll(characterId, videoId, taskId, attempt + 1);
+        return;
+      }
       patchAvatarVideo(characterId, videoId, (item) => failAvatarVideoItem(item, error, "Kie.ai chroma image status request failed"));
     }
   }
@@ -213,7 +241,7 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
     try {
       const result = await createAvatarVideoTask({ imageUrl, prompt: video.finalPrompt });
       patchAvatarVideo(characterId, videoId, (item) => attachAvatarVideoTask(item, result.taskId));
-      pollAvatarVideo(characterId, videoId, result.taskId);
+      scheduleAvatarVideoPoll(characterId, videoId, result.taskId);
     } catch (error) {
       patchAvatarVideo(characterId, videoId, (item) => failAvatarVideoItem(item, error, "Kie.ai video request failed"));
     }
@@ -247,8 +275,19 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
   }
 
   async function pollAvatarVideo(characterId, videoId, taskId, attempt = 0) {
-    if (attempt >= 75) {
-      patchAvatarVideo(characterId, videoId, (item) => ({ ...item, status: "failed", failMsg: "Kie.ai не вернул видео за 5 минут. Попробуйте еще раз." }));
+    const pollKey = `video:${videoId}:${taskId}`;
+    if (activePolls.has(pollKey)) return;
+    activePolls.add(pollKey);
+    try {
+      await runAvatarVideoPoll(characterId, videoId, taskId, attempt);
+    } finally {
+      activePolls.delete(pollKey);
+    }
+  }
+
+  async function runAvatarVideoPoll(characterId, videoId, taskId, attempt = 0) {
+    if (attempt >= MAX_RECOVERABLE_POLLS) {
+      patchAvatarVideo(characterId, videoId, (item) => ({ ...item, status: "failed", failMsg: "Kie.ai не вернул видео за 12 минут. Попробуйте еще раз." }));
       return;
     }
 
@@ -266,9 +305,14 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
         return;
       }
       if (status.state !== "fail" && status.state !== "failed") {
-        pollAvatarVideo(characterId, videoId, taskId, attempt + 1);
+        scheduleAvatarVideoPoll(characterId, videoId, taskId, attempt + 1);
       }
     } catch (error) {
+      if (isRecoverablePollingError(error, attempt)) {
+        patchAvatarVideo(characterId, videoId, (item) => markAvatarVideoConnectionRecovering(item, RECOVERABLE_POLL_MESSAGE));
+        scheduleAvatarVideoPoll(characterId, videoId, taskId, attempt + 1);
+        return;
+      }
       patchAvatarVideo(characterId, videoId, (item) => failAvatarVideoItem(item, error, "Kie.ai video status request failed"));
     }
   }
@@ -283,20 +327,32 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
     return null;
   }
 
-  async function convertAvatarAlphaVideo(characterId, videoId, videoUrl) {
+  async function convertAvatarAlphaVideo(characterId, videoId, videoUrl, attempt = 0) {
+    const conversionKey = `alpha:${videoId}:${videoUrl}`;
+    if (activeAlphaConversions.has(conversionKey)) return;
+    activeAlphaConversions.add(conversionKey);
+    try {
+      await runAvatarAlphaVideoConversion(characterId, videoId, videoUrl, attempt);
+    } finally {
+      activeAlphaConversions.delete(conversionKey);
+    }
+  }
+
+  async function runAvatarAlphaVideoConversion(characterId, videoId, videoUrl, attempt = 0) {
     const video = getCharacterVideo(characterId, videoId);
     if (!video || video.alphaVideoUrl || video.alphaStatus === "ready") return;
     patchAvatarVideo(characterId, videoId, (item) => ({ ...item, alphaStatus: "converting", alphaFailMsg: "" }));
 
     try {
       const result = await createAvatarAlphaVideo(videoUrl);
-      patchAvatarVideo(characterId, videoId, (item) => ({
-        ...item,
-        alphaStatus: "ready",
-        alphaVideoUrl: result.alphaVideoUrl,
-        alphaFailMsg: ""
-      }));
+      patchAvatarVideo(characterId, videoId, (item) => attachAvatarAlphaVideo(item, result.alphaVideoUrl));
     } catch (error) {
+      if (isKieConnectionError(error) && attempt < MAX_ALPHA_RECOVERIES) {
+        patchAvatarVideo(characterId, videoId, (item) => markAvatarAlphaConnectionRecovering(item, RECOVERABLE_ALPHA_MESSAGE));
+        await delayAvatarVideoPoll(getRecoverableDelay(attempt));
+        scheduleAvatarAlphaConversion(characterId, videoId, videoUrl, attempt + 1);
+        return;
+      }
       patchAvatarVideo(characterId, videoId, (item) => ({
         ...item,
         alphaStatus: "failed",
@@ -305,6 +361,26 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
     }
   }
 
+  function scheduleAvatarChromaImagePoll(characterId, videoId, taskId, attempt = 0) {
+    setTimeout(() => pollAvatarChromaImage(characterId, videoId, taskId, attempt), 0);
+  }
+
+  function scheduleAvatarVideoPoll(characterId, videoId, taskId, attempt = 0) {
+    setTimeout(() => pollAvatarVideo(characterId, videoId, taskId, attempt), 0);
+  }
+
+  function scheduleAvatarAlphaConversion(characterId, videoId, videoUrl, attempt = 0) {
+    setTimeout(() => convertAvatarAlphaVideo(characterId, videoId, videoUrl, attempt), 0);
+  }
+
+}
+
+function isRecoverablePollingError(error, attempt) {
+  return isKieConnectionError(error) && attempt < MAX_RECOVERABLE_POLLS;
+}
+
+function getRecoverableDelay(attempt) {
+  return Math.min(30000, 2000 + (Math.max(0, attempt) * 2000));
 }
 
 function failAvatarVideoItem(item, error, fallback) {

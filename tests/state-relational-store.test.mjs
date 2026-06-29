@@ -63,6 +63,7 @@ test("save normalized state writes separate project product job and hook tables"
 test("load normalized state rebuilds snapshot from separate tables", async () => {
   const state = await loadNormalizedState(async (text) => {
     if (/create table if not exists app_state/i.test(text)) return { rows: [] };
+    if (/alter table studio_jobs add column if not exists queue_name/i.test(text)) return { rows: [] };
     if (/exists\(select 1 from studio_app_ui_state/i.test(text)) return { rows: [{ present: true }] };
     if (/select \* from studio_app_ui_state/i.test(text)) {
       return { rows: [{ selected_project_id: "project-1", selected_product_id: "product-1", selected_reference_id: "ref-1", selected_character_id: "char-1", selected_audio_id: "audio-1", selected_project_tab: "hooks", generation_brief: { topic: "Тест" }, free_prompt: "prompt", extra: {} }] };

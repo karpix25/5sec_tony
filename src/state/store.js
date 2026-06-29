@@ -298,6 +298,7 @@ export function createStore() {
         projects: projectsNext,
         products: state.products.filter((product) => product.projectId !== projectId),
         jobs: state.jobs.filter((job) => job.projectId !== projectId),
+        deletedProjectIds: appendUniqueIds(state.deletedProjectIds, [projectId]),
         deletedProductIds: appendUniqueIds(state.deletedProductIds, deletedProductIds),
         selectedProjectId: selectedProject.id,
         selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
@@ -440,7 +441,6 @@ export function createStore() {
 export function getContext(state) { return getSelectionContext(state, getProject); }
 
 function getProject(state, projectId) { return state.projects.find((project) => project.id === projectId) || state.projects[0]; }
-
 function appendUniqueIds(current = [], next = []) {
   return [...new Set([...(Array.isArray(current) ? current : []), ...next.filter(Boolean)])];
 }

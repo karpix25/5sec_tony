@@ -1,3 +1,5 @@
+const FETCH_RETRY_DELAYS = [500, 1500, 3000];
+
 export async function createAvatarTask(prompt) {
   return createKieTask("/api/avatars/generate", { prompt, aspectRatio: "9:16", resolution: "1K" });
 }
@@ -59,14 +61,21 @@ async function getKieStatus(path, taskId) {
 }
 
 async function fetchKie(path, options) {
-  try {
-    return await fetch(path, options);
-  } catch (error) {
-    const connectionError = new Error(`${getApiConnectionMessage()} (${error.message || "network error"})`);
-    connectionError.name = "KieConnectionError";
-    connectionError.cause = error;
-    throw connectionError;
+  let lastError = null;
+  for (let attempt = 0; attempt <= FETCH_RETRY_DELAYS.length; attempt += 1) {
+    try {
+      return await fetch(path, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= FETCH_RETRY_DELAYS.length) break;
+      await delayKieRetry(FETCH_RETRY_DELAYS[attempt]);
+    }
   }
+
+  const connectionError = new Error(`${getApiConnectionMessage()} (${lastError?.message || "network error"})`);
+  connectionError.name = "KieConnectionError";
+  connectionError.cause = lastError;
+  throw connectionError;
 }
 
 export function isKieConnectionError(error) {
@@ -87,4 +96,8 @@ function getApiConnectionMessage() {
     return `Нет соединения с API студии на текущем домене. Проверьте, что контейнер не перезапускается. Текущий адрес: ${origin}`;
   }
   return `Нет соединения с локальным API. Откройте студию через http://127.0.0.1:4173 или запустите npm run start. Текущий адрес: ${origin || "unknown"}`;
+}
+
+function delayKieRetry(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

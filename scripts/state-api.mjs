@@ -82,6 +82,15 @@ async function handleSaveState(request, response, deps) {
         };
       }
       const currentState = await loadCurrentState(tx.query, deps, appStateKey);
+      const projectDeletionConflict = getUnexpectedProjectDeletionConflict(currentState, nextState);
+      if (projectDeletionConflict) {
+        return {
+          conflict: true,
+          updatedAt: currentUpdatedAt,
+          state: currentState,
+          error: projectDeletionConflict
+        };
+      }
       const productDeletionConflict = getUnexpectedProductDeletionConflict(currentState, nextState);
       if (productDeletionConflict) {
         return {
@@ -179,6 +188,17 @@ function getUnexpectedProductDeletionConflict(currentState, nextState) {
   const missing = currentProducts.filter((product) => product?.id && !nextProductIds.has(product.id) && !deletedProductIds.has(product.id));
   return missing.length
     ? `Product deletion requires explicit delete action: ${missing.map((product) => product.name || product.id).join(", ")}`
+    : "";
+}
+
+function getUnexpectedProjectDeletionConflict(currentState, nextState) {
+  const currentProjects = Array.isArray(currentState?.projects) ? currentState.projects : [];
+  if (!currentProjects.length) return "";
+  const nextProjectIds = new Set((Array.isArray(nextState?.projects) ? nextState.projects : []).map((project) => project.id));
+  const deletedProjectIds = new Set(Array.isArray(nextState?.deletedProjectIds) ? nextState.deletedProjectIds : []);
+  const missing = currentProjects.filter((project) => project?.id && !nextProjectIds.has(project.id) && !deletedProjectIds.has(project.id));
+  return missing.length
+    ? `Project deletion requires explicit delete action: ${missing.map((project) => project.name || project.id).join(", ")}`
     : "";
 }
 
