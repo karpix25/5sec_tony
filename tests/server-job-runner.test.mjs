@@ -1,0 +1,19 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { getInternalServerOrigin } from "../scripts/server-job-runner.mjs";
+
+test("server job runner can target the internal web service from worker containers", () => {
+  const originalOrigin = process.env.INTERNAL_SERVER_ORIGIN;
+  const originalPort = process.env.PORT;
+  process.env.INTERNAL_SERVER_ORIGIN = "http://n8n-5sec:4173";
+  process.env.PORT = "9999";
+
+  try {
+    assert.equal(getInternalServerOrigin(), "http://n8n-5sec:4173");
+  } finally {
+    if (originalOrigin === undefined) delete process.env.INTERNAL_SERVER_ORIGIN;
+    else process.env.INTERNAL_SERVER_ORIGIN = originalOrigin;
+    if (originalPort === undefined) delete process.env.PORT;
+    else process.env.PORT = originalPort;
+  }
+});

@@ -67,6 +67,7 @@ export function createResumedServerJobRecord(job, persistJob, recoveredContext =
 }
 
 export function getInternalServerOrigin() {
+  if (process.env.INTERNAL_SERVER_ORIGIN) return process.env.INTERNAL_SERVER_ORIGIN;
   return `http://127.0.0.1:${process.env.PORT || 4173}`;
 }
 
