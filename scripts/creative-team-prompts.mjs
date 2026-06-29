@@ -2,7 +2,7 @@ import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldForm
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { getDesignTextContractViolations } from "../src/domain/design-text-contract.js";
 import { formatCurrentDatePrompt } from "../src/domain/current-date-context.js";
-import { clickbaitHeadlineRules, simpleAudienceLanguageRules } from "../src/domain/headline-style-contract.js";
+import { clickbaitHeadlineRules, hookPayoffRules, simpleAudienceLanguageRules, viralReelsHookRules } from "../src/domain/headline-style-contract.js";
 import { hasUsefulDesignAnalysis, hasUsefulProductPassport, normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
 
@@ -26,6 +26,8 @@ const commonRoleRules = [
   "Хук должен быть понятным без расшифровки ниже.",
   ...clickbaitHeadlineRules,
   ...simpleAudienceLanguageRules,
+  ...viralReelsHookRules,
+  ...hookPayoffRules,
   "CTA не нужен на изображении.",
   "Делай shareable value: мини-диагностика, ошибка ожиданий, сравнение подходов, простая привычка или проверяемая деталь.",
   "Финальная самопроверка маркетолога: короткий конкретный заголовок, связанные блоки, полезный смысл без покупки, нет запрещенных обещаний.",
@@ -78,6 +80,8 @@ export function humanizeTextInstruction(body) {
       "Headline максимум 6 слов, без двоеточия и второй мысли.",
       ...clickbaitHeadlineRules,
       ...simpleAudienceLanguageRules,
+      ...viralReelsHookRules,
+      ...hookPayoffRules,
       "Headline, subhead и points должны отвечать на одну тему.",
       "Анкета product — источник истины. Не добавляй свойства, обещания, формат, состав, объем, дозировку, бренд или упаковку, которых нет в product.",
       "Поля forbidden, restrictions и contentRestrictions — внутренние стоп-правила. Не превращай их в visible copy, points, CTA, disclaimer, футер, сноску или нижнюю строку.",
@@ -211,16 +215,21 @@ function hookProducerInstruction(body, productPassport, creativeBrief) {
   return JSON.stringify(basePayload(
     "Создай 5 вариантов хука для creativeBrief и выбери лучший.",
     "Ты hook producer для Reels/TikTok/Shorts.",
-    { hookSet: [{ hook: "", mechanism: "curiosity|fear_of_mistake|useful_check|myth_break|personal_gain", whyItWorks: "", riskNote: "" }], recommendedHook: "" },
+    { hookSet: [{ hook: "", mechanism: "curiosity|fear_of_mistake|useful_check|myth_break|personal_gain", payoffQuestion: "", whyItWorks: "", riskNote: "" }], recommendedHook: "", recommendedPayoffQuestion: "" },
     {
       rules: [
         "Если hookLibrary содержит хуки, используй один из них как случайную формулу внимания, а не как готовый текст.",
         "Адаптируй формулу под пользу продукта, бытовую ситуацию, проверку, ошибку, ритуал или косвенный совет вокруг продукта.",
         "Не делай хук и headline про бренд, название продукта, SKU или упаковку; бренд может остаться только внутренним контекстом.",
-        "Хук короткий, конкретный и понятный без расшифровки.",
+        "Хук короткий: лучше до 12 слов, максимум 14 слов.",
+        "Хук конкретный и понятный без расшифровки.",
+        "Для каждого hook заполни payoffQuestion: какой вопрос или обещание обязан закрыть будущий сценарий.",
         ...clickbaitHeadlineRules,
         ...simpleAudienceLanguageRules,
+        ...viralReelsHookRules,
         "Не используй мутные формулы вроде 'главная ошибка' или 'одна привычка', если не называешь конкретику.",
+        "Не выбирай recommendedHook, если он звучит как тема статьи, а не как первая фраза Reels.",
+        "recommendedPayoffQuestion должен совпадать с payoffQuestion выбранного recommendedHook.",
         "Хук может быть острым, но не должен лгать, пугать без причины или обещать гарантированный результат."
       ],
       productPassport,
@@ -235,9 +244,9 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, 
   return JSON.stringify(basePayload(
     "Напиши финальный смысловой сценарий для одного экрана.",
     "Ты social scriptwriter и редактор инфографик.",
-    { contentScript: { headline: "", subhead: "", points: [], invisibleNotes: { productBridge: "", claimSafety: "", whatNotToShow: [] } } },
+    { contentScript: { headline: "", subhead: "", points: [], invisibleNotes: { hookPayoff: "", productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: ["Headline максимум 6 слов.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, "Subhead одна короткая строка.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: ["Headline обычно 4-9 слов; если recommendedHook сильный и помещается в дизайн, используй его как headline или укороти без потери смысла.", "Headline не обязан быть дословно 6 слов, если это ломает живой Reels-хук.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: объясняет конфликт headline, а не повторяет его.", "Первые 1-2 points закрывают recommendedPayoffQuestion выбранного hookSet.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       creativeBrief,
       hookSet,
@@ -271,7 +280,7 @@ function safetyEditorInstruction(body, productPassport, creativeBrief, contentSc
     "Ты safety editor для рекламного и образовательного контента.",
     { safetyReview: { generationAllowed: true, issues: [], fixedContentScript: { headline: "", subhead: "", points: [] }, fixedVisualBrief: {}, finalWarnings: [] } },
     {
-      rules: ["Найди выдуманные факты, запрещенные promises, медицинские, финансовые и юридические гарантии, токсичные формулировки, CTA/футеры/дисклеймеры и несоответствие продукта визуалу.", "Если риск можно исправить, верни исправленную версию.", "Если риск критичный, generationAllowed=false."],
+      rules: ["Найди выдуманные факты, запрещенные promises, медицинские, финансовые и юридические гарантии, токсичные формулировки, CTA/футеры/дисклеймеры и несоответствие продукта визуалу.", ...hookPayoffRules, "Если headline обещает одно, а points раскрывают другое, исправь fixedContentScript без смены темы.", "Если риск можно исправить, верни исправленную версию.", "Если риск критичный, generationAllowed=false."],
       productPassport,
       creativeBrief,
       contentScript,
@@ -324,6 +333,7 @@ function flattenCreativeTeamDraft(parts) {
     creativeBrief,
     hookSet: hookPayload.hookSet,
     recommendedHook: hookPayload.recommendedHook,
+    recommendedPayoffQuestion: hookPayload.recommendedPayoffQuestion,
     contentScript: finalScript,
     visualBrief: Object.keys(outputSafetyReview?.fixedVisualBrief || {}).length ? outputSafetyReview.fixedVisualBrief : visualBrief,
     formatCompliance: parts.formatCompliance.formatCompliance || parts.formatCompliance,
@@ -400,6 +410,7 @@ function normalizeHookPayload(payload) {
   const source = payload.hookSet ? payload : payload.hookSet || {};
   return {
     hookSet: Array.isArray(source.hookSet) ? source.hookSet : [],
-    recommendedHook: source.recommendedHook || source.hookSet?.[0]?.hook || ""
+    recommendedHook: source.recommendedHook || source.hookSet?.[0]?.hook || "",
+    recommendedPayoffQuestion: source.recommendedPayoffQuestion || source.hookSet?.[0]?.payoffQuestion || ""
   };
 }
