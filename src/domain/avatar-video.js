@@ -23,6 +23,7 @@ const NEGATIVE_CONTRACT = [
 
 export function createAvatarVideoRecord(character, payload = {}) {
   const motionPrompt = payload.motionPrompt || "Subtle natural idle movements and small hand gestures.";
+  const name = normalizeAvatarVideoRecordName(payload.name || payload.emotionName || `${character.name || "Аватар"} · спокойная экспертность`);
   return {
     id: createAvatarVideoId(),
     imageTaskId: "",
@@ -30,7 +31,7 @@ export function createAvatarVideoRecord(character, payload = {}) {
     provider: "kie.ai",
     model: "kling-3.0/video",
     status: "preparing-image",
-    name: `${character.name || "Аватар"} · хромакей`,
+    name,
     motionPrompt,
     imagePrompt: buildAvatarChromaImagePrompt(character, motionPrompt),
     finalPrompt: buildAvatarVideoPrompt(character, motionPrompt),
@@ -56,16 +57,21 @@ export function createAvatarVideoRecord(character, payload = {}) {
   };
 }
 
+export function updateAvatarVideoName(video, name) {
+  const normalized = normalizeAvatarVideoRecordName(name);
+  return normalized ? { ...video, name: normalized } : video;
+}
+
 export function attachAvatarChromaImageTask(video, imageTaskId) {
-  return { ...video, imageTaskId, status: "generating-image" };
+  return { ...clearAvatarVideoRecovery(video), imageTaskId, status: "generating-image" };
 }
 
 export function attachAvatarChromaImage(video, imageUrl) {
-  return { ...video, chromaImageUrl: imageUrl, status: "submitting-video", failMsg: "" };
+  return { ...clearAvatarVideoRecovery(video), chromaImageUrl: imageUrl, status: "submitting-video", failMsg: "" };
 }
 
 export function attachAvatarVideoTask(video, taskId) {
-  return { ...video, taskId, status: "waiting" };
+  return { ...clearAvatarVideoRecovery(video), taskId, status: "waiting" };
 }
 
 export function attachCompositeAvatarVideo(video, { videoUrl, backgroundImageUrl }) {
@@ -74,14 +80,44 @@ export function attachCompositeAvatarVideo(video, { videoUrl, backgroundImageUrl
 
 export function updateAvatarVideoRecord(video, status) {
   if (["success", "succeeded", "completed", "complete"].includes(status.state) && status.videoUrl) {
-    return { ...video, status: "ready", videoUrl: status.videoUrl, failMsg: "" };
+    return { ...clearAvatarVideoRecovery(video), status: "ready", videoUrl: status.videoUrl, failMsg: "" };
   }
 
   if (["fail", "failed", "error"].includes(status.state)) {
     return { ...video, status: "failed", failMsg: status.failMsg || "Kie.ai video generation failed" };
   }
 
-  return { ...video, status: normalizeAvatarVideoKieState(status.state) || video.status };
+  return { ...clearAvatarVideoRecovery(video), status: normalizeAvatarVideoKieState(status.state) || video.status };
+}
+
+export function markAvatarVideoConnectionRecovering(video, message) {
+  return {
+    ...video,
+    failMsg: message,
+    recoveryCount: Math.max(0, Number(video.recoveryCount) || 0) + 1,
+    recoveryUpdatedAt: new Date().toISOString()
+  };
+}
+
+export function markAvatarAlphaConnectionRecovering(video, message) {
+  return {
+    ...video,
+    alphaStatus: "converting",
+    alphaFailMsg: message,
+    alphaRecoveryCount: Math.max(0, Number(video.alphaRecoveryCount) || 0) + 1,
+    alphaRecoveryUpdatedAt: new Date().toISOString()
+  };
+}
+
+export function attachAvatarAlphaVideo(video, alphaVideoUrl) {
+  return {
+    ...video,
+    alphaStatus: "ready",
+    alphaVideoUrl,
+    alphaFailMsg: "",
+    alphaRecoveryCount: 0,
+    alphaRecoveryUpdatedAt: ""
+  };
 }
 
 export function buildAvatarVideoPrompt(character, motionPrompt = "") {
@@ -113,8 +149,21 @@ function normalizeAvatarVideoKieState(state) {
   return state;
 }
 
+function clearAvatarVideoRecovery(video) {
+  return {
+    ...video,
+    failMsg: "",
+    recoveryCount: 0,
+    recoveryUpdatedAt: ""
+  };
+}
+
 function createAvatarVideoId() {
   return `avatar-video-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function normalizeAvatarVideoRecordName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 80);
 }
 
 function normalizeAvatarVideoRecordOverlay(payload = {}) {

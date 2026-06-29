@@ -87,6 +87,7 @@ function renderAvatarVideoPanel(character) {
         </div>
       </div>
       <form id="avatar-video-form" class="ops-form text-editor-form avatar-video-form">
+        ${avatarField("Название / эмоция ролика", "name", "Например: спокойная экспертность, тревожное предупреждение, дружелюбный совет", "input", false)}
         ${avatarField("Движение", "motionPrompt", "Небольшие естественные жесты руками, спокойная поза, легкое движение корпуса.", "textarea", false)}
         <button class="secondary-btn" type="submit" ${canCreate ? "" : "disabled"}>Создать хромакей-видео</button>
       </form>
@@ -110,9 +111,14 @@ function renderAvatarVideoList(videos) {
             label: "Открыть видео крупно"
           }) : `<div class="avatar-video-pending">9:16</div>`}
           <div>
-            <strong>${escapeHtml(getVideoStatus(video))}</strong>
+            <strong>${escapeHtml(video.name || getVideoStatus(video))}</strong>
+            <small>${escapeHtml(getVideoStatus(video))}</small>
             <small>${escapeHtml(video.failMsg || video.motionPrompt)}</small>
             <small>${escapeHtml(getVideoActiveLabel(video))}</small>
+            <form class="avatar-video-name-form" data-avatar-video-name-form="${escapeHtml(video.id)}">
+              <input name="name" class="text-input" value="${escapeHtml(video.name || "")}" placeholder="Эмоция ролика" />
+              <button class="ghost-btn" type="submit">Сохранить</button>
+            </form>
             ${video.chromaImageUrl ? `<small>Кадр подготовлен</small>` : ""}
             ${video.alphaStatus === "ready" ? "<small>Прозрачный слой сохранен</small>" : ""}
             ${video.alphaStatus === "converting" ? "<small>Удаляем зеленый фон...</small>" : ""}

@@ -3,6 +3,7 @@ import { createLayoutContentPlan } from "../src/domain/layout-content-planner.js
 import { normalizeHookLibrary, selectHookReference } from "../src/domain/hook-library.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { createAvatarReservedZone } from "../src/domain/avatar-overlay-zone.js";
+import { createAvatarEmotionPromptContext } from "../src/domain/avatar-emotion.js";
 import { createProductVisibilityDecision } from "../src/domain/product-visibility-decision.js";
 import { createTopicClusterPlan } from "../src/domain/topic-clusters.js";
 import {
@@ -61,6 +62,7 @@ async function requestServerAiBrief(origin, { project, product, reference, hookD
     topicClusterPlan,
     topicCluster: topicClusterPlan.selected,
     avatarSafeZone,
+    availableAvatarEmotions: createAvatarEmotionPromptContext(project),
     existingJobs: createRecentJobDigest(existingJobs),
     diversitySlot: slot
   }));

@@ -285,6 +285,12 @@ function bindEvents(root, store, options = {}) {
       store.setAvatarVideoActive(button.dataset.avatarVideoActive, button.dataset.avatarVideoNextActive === "true");
     });
   });
+  root.querySelectorAll("[data-avatar-video-name-form]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      store.updateAvatarVideoName?.(form.dataset.avatarVideoNameForm, getFormSnapshot(form).name || "");
+    });
+  });
   root.querySelectorAll("[data-avatar-active]").forEach((button) => {
     button.addEventListener("click", () => {
       store.setCharacterActive(button.dataset.avatarActive, button.dataset.avatarNextActive === "true");

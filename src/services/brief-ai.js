@@ -1,6 +1,7 @@
 import { createContentSlot, createRecentJobDigest } from "../domain/content-rotation.js";
 import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
 import { normalizeHookLibrary } from "../domain/hook-library.js";
+import { createAvatarEmotionPromptContext } from "../domain/avatar-emotion.js";
 import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
 import {
   assessAiBriefFreshness,
@@ -56,6 +57,7 @@ async function requestAiBrief({ project, product, preparedReference, activeDesig
       layoutContentPlan: createLayoutContentPlan(preparedReference),
       hookLibrary: hookDigest,
       existingJobs: createRecentJobDigest(existingJobs),
+      availableAvatarEmotions: createAvatarEmotionPromptContext(project),
       diversitySlot: slot
     }))
   });

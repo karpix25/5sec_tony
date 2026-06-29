@@ -1,5 +1,6 @@
 import { generationStages } from "./entities.js";
 import { noAvatarCharacterId } from "./avatar-selection.js";
+import { resolveAvatarEmotionSelection } from "./avatar-emotion.js";
 import { createContentSlot, refreshContentSlotLayer } from "./content-rotation.js";
 import { getCompositionInstruction, pickCompositionMode } from "./composition-modes.js";
 import { getContentLayerInstruction } from "./content-layers.js";
@@ -23,6 +24,7 @@ import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avat
 import { formatCurrentDatePrompt } from "./current-date-context.js";
 import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.js";
 import { formatProductVisualContext, getProductVisualPromptPolicy, resolveProductVisualMode } from "./product-visual-policy.js";
+import { getProductReferenceTransferInstruction } from "./product-reference-transfer.js";
 import { createProductVisibilityDecision } from "./product-visibility-decision.js";
 import { createPromptContract } from "./prompt-contract.js";
 import { createGenerationAiTrace } from "./generation-ai-trace.js";
@@ -170,15 +172,28 @@ function formatProductInsightPrompt(profile) {
 
 export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [], hookLibrary }) {
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
-  const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
+  const avatarEmotion = resolveAvatarEmotionSelection({
+    project,
+    topic: brief.topic,
+    hook: brief.hook,
+    brief,
+    selectedCharacterId: character?.id || noAvatarCharacterId
+  });
+  const characterId = avatarEmotion.characterId || character?.id || noAvatarCharacterId;
+  const selectedCharacter = project.characters?.find((item) => item.id === characterId) || character;
+  const avatarSafeZone = createAvatarReservedZone({ character: selectedCharacter, ctaOverlay: project?.ctaOverlay });
   const inputReferences = getGenerationInputReferences({ reference, product, productVisibilityDecision: brief.productVisibilityDecision });
   const promptContract = generationBrief?.promptContract || createPromptContract({ brief, reference, inputReferences, avatarSafeZone });
-  const prompt = buildImagePrompt({ project, product, reference, character, generationBrief: { ...brief, promptContract }, freePrompt, existingJobs, hookLibrary });
+  const prompt = buildImagePrompt({ project, product, reference, character: selectedCharacter, generationBrief: { ...brief, promptContract }, freePrompt, existingJobs, hookLibrary });
   return {
     id: createUniqueJobId(existingJobs),
     projectId: project.id,
     productId: product.id,
-    characterId: character?.id || noAvatarCharacterId,
+    characterId,
+    avatarVideoId: avatarEmotion.avatarVideoId,
+    avatarEmotionName: avatarEmotion.avatarEmotionName,
+    avatarEmotionSource: avatarEmotion.source,
+    availableAvatarEmotions: avatarEmotion.availableAvatarEmotions.map(({ emotionName, videoId, characterId }) => ({ emotionName, videoId, characterId })),
     status: "queued",
     stage: generationStages[0],
     progress: 6,
@@ -248,23 +263,6 @@ function isRemoteImageUrl(value) { return /^https?:\/\//.test(String(value || ""
 function isDataImageUrl(value) { return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || "")); }
 function isImageReferenceUrl(value) {
   return isRemoteImageUrl(value) || isDataImageUrl(value) || /^\/api\/reference-assets\/[^/?#]+/.test(String(value || ""));
-}
-
-function getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode }) {
-  const productRefCount = remoteProductRefs + localProductRefs;
-  if (productVisualMode === "exact-product" && productRefCount) {
-    return [
-      `PRODUCT REFERENCE PLAN: product-present, передано ${productRefCount} product reference image(s).`,
-      "Локальные product reference images будут опубликованы как S3/public URL перед запросом к генератору; считай их доступными для image-to-image.",
-      "Тема требует показать продукт: продукт должен быть визуально виден в кадре.",
-      "Внешний вид продукта повторяет product reference: форма, цвет, этикетка, название, крышка, коробка и SKU."
-    ].join(" ");
-  }
-  return [
-    "PRODUCT REFERENCE PLAN: product-absent.",
-    "Product reference images остаются вне image-to-image входа для этой генерации.",
-    "Визуальная идея собирается как retention visual: ситуация, ритуал, интерфейс, предмет боли, абстрактный объект, свет или фактура."
-  ].join(" ");
 }
 
 function cleanDesignReferenceText(value) {

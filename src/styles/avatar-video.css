@@ -33,6 +33,13 @@
   gap: var(--space-3);
 }
 
+.avatar-video-name-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 .avatar-video-head {
   display: flex;
   align-items: center;
@@ -101,5 +108,9 @@
 @media (max-width: 680px) {
   .avatar-video-item {
     grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .avatar-video-name-form {
+    grid-template-columns: 1fr;
   }
 }

@@ -194,7 +194,10 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
   const project = record.context.project || {};
   const selectedCharacterId = record.job.characterId || record.context.selectedCharacterId || noAvatarCharacterId;
   const allowNoAvatar = isNoAvatarCharacterId(selectedCharacterId);
-  const avatarVideoPick = allowNoAvatar ? null : pickAvatarVideoRoundRobin(project, selectedCharacterId);
+  const avatarVideoPick = allowNoAvatar ? null : pickAvatarVideoRoundRobin(project, selectedCharacterId, {
+    videoId: record.job.avatarVideoId,
+    emotionName: record.job.avatarEmotionName || record.job.desiredAvatarEmotion
+  });
   const avatarVideo = avatarVideoPick?.video;
   const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
   const renderWithoutAvatar = allowNoAvatar || !avatarVideoUrl;
@@ -205,6 +208,7 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
     allowNoAvatar,
     hasAvatarVideoUrl: Boolean(avatarVideoUrl),
     avatarVideoId: avatarVideo?.id || "",
+    avatarEmotionName: avatarVideo?.name || record.job.avatarEmotionName || "",
     hasAudio: Boolean(audio?.fileData)
   });
 

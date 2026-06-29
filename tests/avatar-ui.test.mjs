@@ -120,6 +120,27 @@ test("avatar overlay composer stays visible without avatar video so CTA can be c
   assert.match(html, /Сначала создайте аватар-видео, потом здесь появится настройка его позиции\./);
 });
 
+test("avatar video section renders editable emotional name", () => {
+  const project = {
+    ...projects[0],
+    characters: [{
+      ...projects[0].characters[0],
+      avatarVideos: [{
+        id: "avatar-video-emotion",
+        name: "тревожное предупреждение",
+        status: "ready",
+        alphaVideoUrl: "https://cdn.example.com/avatar.webm",
+        motionPrompt: "Строгий жест"
+      }]
+    }]
+  };
+  const html = renderAvatarSettings({ project, character: project.characters[0] });
+
+  assert.match(html, /Название \/ эмоция ролика/);
+  assert.match(html, /data-avatar-video-name-form="avatar-video-emotion"/);
+  assert.match(html, /value="тревожное предупреждение"/);
+});
+
 test("avatar overlay composer routes no-avatar cta actions to project workflow", () => {
   const originalFormData = globalThis.FormData;
   const root = new FakeElement();

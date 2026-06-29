@@ -97,6 +97,7 @@ export function createAvatarWorkflow({ getState, setState, getProject }) {
     approveAvatarVideoCtaCandidate: avatarVideoWorkflow.approveAvatarVideoCtaCandidate,
     resetAvatarVideoCtaOverlay: avatarVideoWorkflow.resetAvatarVideoCtaOverlay,
     setAvatarVideoActive: avatarVideoWorkflow.setAvatarVideoActive,
+    updateAvatarVideoName: avatarVideoWorkflow.updateAvatarVideoName,
     markAvatarVideoUsed(characterId, videoId, nextIndex, nextCharacterIndex) {
       const state = getState();
       const nextProjectIndex = Math.max(0, Math.round(Number(nextCharacterIndex) || 0));

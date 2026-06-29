@@ -411,6 +411,7 @@ export function createStore() {
     setCharacterActive: avatarWorkflow.setCharacterActive,
     createAvatarVideo: avatarWorkflow.createAvatarVideo,
     updateAvatarVideoOverlay: avatarWorkflow.updateAvatarVideoOverlay,
+    updateAvatarVideoName: avatarWorkflow.updateAvatarVideoName,
     setAvatarVideoActive: avatarWorkflow.setAvatarVideoActive,
     createAudio(payload) {
       const audio = createAudioEntity(payload);

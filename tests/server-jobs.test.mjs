@@ -22,7 +22,7 @@ test("server job runs image generation, final assembly, avatar usage and disk up
       return jsonResponse({ state: "success", imageUrl: "https://cdn.example.com/background.png" });
     }
     if (String(url).includes("/api/avatar-videos/composite")) {
-      assert.equal(body.avatarVideoUrl, "https://cdn.example.com/avatar-alpha.webm");
+      assert.equal(body.avatarVideoUrl, "https://cdn.example.com/avatar-warning.webm");
       assert.equal(body.backgroundImageUrl, "https://cdn.example.com/background.png");
       assert.equal(body.audioData, "data:audio/wav;base64,UklGRg==");
       assert.deepEqual(body.overlay, { x: 64, y: 92, scale: 40, opacity: 100 });
@@ -45,7 +45,9 @@ test("server job runs image generation, final assembly, avatar usage and disk up
       stage: "idea",
       outputType: "final-video",
       prompt: "Generate a product scene",
-      title: "Final server"
+      title: "Final server",
+      avatarVideoId: "avatar-video-warning",
+      avatarEmotionName: "тревожное предупреждение"
     };
     const project = {
       id: "project-1",
@@ -57,9 +59,18 @@ test("server job runs image generation, final assembly, avatar usage and disk up
         isActive: true,
         avatarVideos: [{
           id: "avatar-video-1",
+          name: "спокойная экспертность",
           status: "ready",
           isActive: true,
           alphaVideoUrl: "https://cdn.example.com/avatar-alpha.webm",
+          overlay: { x: 64, y: 92, scale: 40, opacity: 100 },
+          ctaOverlay: { enabled: false }
+        }, {
+          id: "avatar-video-warning",
+          name: "тревожное предупреждение",
+          status: "ready",
+          isActive: true,
+          alphaVideoUrl: "https://cdn.example.com/avatar-warning.webm",
           overlay: { x: 64, y: 92, scale: 40, opacity: 100 },
           ctaOverlay: { enabled: false }
         }]
@@ -88,7 +99,7 @@ test("server job runs image generation, final assembly, avatar usage and disk up
     assert.equal(finalPayload.job.diskPath, "disk:/ВИДЕО/5сек/Test Avatar/final-server.mp4");
     assert.deepEqual(finalPayload.avatarUsage, {
       characterId: "char-1",
-      videoId: "avatar-video-1",
+      videoId: "avatar-video-warning",
       nextIndex: 0,
       nextCharacterIndex: 0
     });

@@ -3,6 +3,7 @@ import {
   attachAvatarChromaImageTask,
   attachAvatarVideoTask,
   createAvatarVideoRecord,
+  updateAvatarVideoName,
   updateAvatarVideoRecord
 } from "../domain/avatar-video.js";
 import {
@@ -125,6 +126,13 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
       const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
       if (!character) return;
       patchAvatarVideo(character.id, videoId, (item) => ({ ...item, isActive: Boolean(isActive) }));
+    },
+    updateAvatarVideoName(videoId, name) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      const character = project.characters.find((item) => (item.avatarVideos || []).some((video) => video.id === videoId));
+      if (!character) return;
+      patchAvatarVideo(character.id, videoId, (item) => updateAvatarVideoName(item, name));
     },
     resumeAvatarVideoPolling(project) {
       const projects = project ? [project] : getState().projects;
