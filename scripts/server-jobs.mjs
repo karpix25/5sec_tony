@@ -215,7 +215,8 @@ function createLegacyBullMqDispatch(deps) {
 }
 
 function isActiveQueuedServerJob(job) {
-  return ["queued", "running", "retrying"].includes(job?.queueStatus);
+  if (["queued", "running", "retrying"].includes(job?.queueStatus)) return true;
+  return Boolean(job?.serverJobAcceptedAt && job?.status === "running" && !job?.imageTaskId && !job?.imageUrl);
 }
 
 async function enqueueServerJobLedger(record) {

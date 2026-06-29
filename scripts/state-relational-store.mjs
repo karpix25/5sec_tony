@@ -33,7 +33,9 @@ const productKeys = [
 const jobKeys = [
   "id", "projectId", "productId", "characterId", "status", "stage", "progress", "title", "topic", "music", "prompt",
   "referenceTitle", "outputType", "finalVideoUrl", "finalVideoHasAudio", "semanticKey", "meaningPatternId",
-  "productVisualMode", "compositionMode", "contentLayerId", "format", "inputUrls", "inputRefs", "diversitySlot"
+  "productVisualMode", "compositionMode", "contentLayerId", "format", "inputUrls", "inputRefs", "diversitySlot",
+  "queueName", "queueStatus", "queuePriority", "queueAttempts", "queueMaxAttempts", "queueScheduledAt", "queueLockedAt",
+  "queueLockOwner", "queueLastError", "queueIdempotencyKey", "queueProviderTaskId", "queueMetadata"
 ];
 
 const audioKeys = [
@@ -211,7 +213,19 @@ async function loadJobs(query, appStateKey) {
     format: row.format,
     inputUrls: asArray(row.input_urls),
     inputRefs: asArray(row.input_refs),
-    diversitySlot: row.diversity_slot ?? null
+    diversitySlot: row.diversity_slot ?? null,
+    queueName: row.queue_name || "",
+    queueStatus: row.queue_status || "",
+    queuePriority: row.queue_priority || 0,
+    queueAttempts: row.queue_attempts || 0,
+    queueMaxAttempts: row.queue_max_attempts || 1,
+    queueScheduledAt: row.queue_scheduled_at || null,
+    queueLockedAt: row.queue_locked_at || null,
+    queueLockOwner: row.queue_lock_owner || "",
+    queueLastError: row.queue_last_error || "",
+    queueIdempotencyKey: row.queue_idempotency_key || "",
+    queueProviderTaskId: row.queue_provider_task_id || "",
+    queueMetadata: asObject(row.queue_metadata)
   }));
 }
 
@@ -325,9 +339,9 @@ async function saveJobs(query, appStateKey, jobs) {
   for (const [index, job] of jobs.entries()) {
     await query(
       `insert into studio_jobs
-        (app_state_key, id, sort_order, project_id, product_id, character_id, status, stage, progress, title, topic, music, prompt, reference_title, output_type, final_video_url, final_video_has_audio, semantic_key, meaning_pattern_id, product_visual_mode, composition_mode, content_layer_id, format, input_urls, input_refs, diversity_slot, extra, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24::jsonb, $25::jsonb, $26::jsonb, $27::jsonb, now())`,
-      [appStateKey, job.id, index, job.projectId, job.productId, job.characterId || "", job.status || "", job.stage || "", asInteger(job.progress, 0), job.title || "", job.topic || "", job.music || "", job.prompt || "", job.referenceTitle || "", job.outputType || "", job.finalVideoUrl || "", Boolean(job.finalVideoHasAudio), job.semanticKey || "", job.meaningPatternId || "", job.productVisualMode || "", job.compositionMode || "", job.contentLayerId || "", job.format || "", toJson(asArray(job.inputUrls)), toJson(asArray(job.inputRefs)), toJson(job.diversitySlot ?? null), toJson(pickExtraFields(job, jobKeys))]
+        (app_state_key, id, sort_order, project_id, product_id, character_id, status, stage, progress, title, topic, music, prompt, reference_title, output_type, final_video_url, final_video_has_audio, semantic_key, meaning_pattern_id, product_visual_mode, composition_mode, content_layer_id, format, input_urls, input_refs, diversity_slot, queue_name, queue_status, queue_priority, queue_attempts, queue_max_attempts, queue_scheduled_at, queue_locked_at, queue_lock_owner, queue_last_error, queue_idempotency_key, queue_provider_task_id, queue_metadata, extra, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24::jsonb, $25::jsonb, $26::jsonb, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38::jsonb, $39::jsonb, now())`,
+      [appStateKey, job.id, index, job.projectId, job.productId, job.characterId || "", job.status || "", job.stage || "", asInteger(job.progress, 0), job.title || "", job.topic || "", job.music || "", job.prompt || "", job.referenceTitle || "", job.outputType || "", job.finalVideoUrl || "", Boolean(job.finalVideoHasAudio), job.semanticKey || "", job.meaningPatternId || "", job.productVisualMode || "", job.compositionMode || "", job.contentLayerId || "", job.format || "", toJson(asArray(job.inputUrls)), toJson(asArray(job.inputRefs)), toJson(job.diversitySlot ?? null), job.queueName || "generation", job.queueStatus || "", asInteger(job.queuePriority, 0), asInteger(job.queueAttempts, 0), asInteger(job.queueMaxAttempts, 1), job.queueScheduledAt || null, job.queueLockedAt || null, job.queueLockOwner || "", job.queueLastError || "", job.queueIdempotencyKey || "", job.queueProviderTaskId || "", toJson(asObject(job.queueMetadata)), toJson(pickExtraFields(job, jobKeys))]
     );
   }
 }

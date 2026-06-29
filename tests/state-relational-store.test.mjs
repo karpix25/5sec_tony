@@ -37,7 +37,7 @@ test("save normalized state writes separate project product job and hook tables"
     freePrompt: "prompt",
     projects: [{ id: "project-1", name: "Project", references: [], audioLibrary: [], avatarCandidates: [], designReferenceCandidates: [], characters: [] }],
     products: [{ id: "product-1", projectId: "project-1", name: "Product", pains: [], facts: [], forbidden: [], references: [] }],
-    jobs: [{ id: "job-1", projectId: "project-1", productId: "product-1", characterId: "char-1", status: "queued", stage: "brief", progress: 10, inputUrls: [], inputRefs: [] }],
+    jobs: [{ id: "job-1", projectId: "project-1", productId: "product-1", characterId: "char-1", status: "queued", stage: "brief", progress: 10, inputUrls: [], inputRefs: [], queueName: "generation", queueStatus: "running", queueLockOwner: "worker-1", queueIdempotencyKey: "generation:job-1", queueMetadata: { source: "test" } }],
     audioLibrary: [{ id: "audio-1", title: "Audio" }],
     hookLibrary: { activeVersionId: "version-1", versions: [{ id: "version-1", title: "Hooks", status: "active", createdAt: "2026-06-22", sourceType: "text", hooks: [{ id: "hook-1", text: "Hook", enabled: true, tags: ["универсальный"], aggression: "низкая" }] }] },
     reelsResearch: { updatedAt: "2026-06-22", accounts: ["demo"], modelAnalysis: "", modelWriting: "", errors: [], videos: [], summary: {} }
@@ -54,6 +54,8 @@ test("save normalized state writes separate project product job and hook tables"
   assert.ok(queries.some((entry) => /insert into studio_projects[\s\S]*"references"/i.test(entry.text)));
   assert.ok(queries.some((entry) => /insert into studio_products[\s\S]*"references"/i.test(entry.text)));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_jobs")));
+  assert.ok(queries.some((entry) => /insert into studio_jobs[\s\S]*queue_status/i.test(entry.text)));
+  assert.ok(queries.some((entry) => entry.params.includes("running") && entry.params.includes("generation:job-1")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_global_audio_assets")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_hook_versions")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_hook_items")));
@@ -75,7 +77,7 @@ test("load normalized state rebuilds snapshot from separate tables", async () =>
       return { rows: [{ id: "product-1", project_id: "project-1", name: "Product", description: "", offer: "", components: "", pains: [], facts: [], forbidden: [], references: [], extra: {} }] };
     }
     if (/select \* from studio_jobs/i.test(text)) {
-      return { rows: [{ id: "job-1", project_id: "project-1", product_id: "product-1", character_id: "char-1", status: "queued", stage: "brief", progress: 10, title: "", topic: "", music: "", prompt: "", reference_title: "", output_type: "", final_video_url: "", final_video_has_audio: false, semantic_key: "", meaning_pattern_id: "", product_visual_mode: "", composition_mode: "", content_layer_id: "", format: "", input_urls: [], input_refs: [], diversity_slot: null, extra: {} }] };
+      return { rows: [{ id: "job-1", project_id: "project-1", product_id: "product-1", character_id: "char-1", status: "queued", stage: "brief", progress: 10, title: "", topic: "", music: "", prompt: "", reference_title: "", output_type: "", final_video_url: "", final_video_has_audio: false, semantic_key: "", meaning_pattern_id: "", product_visual_mode: "", composition_mode: "", content_layer_id: "", format: "", input_urls: [], input_refs: [], diversity_slot: null, queue_name: "generation", queue_status: "running", queue_priority: 2, queue_attempts: 1, queue_max_attempts: 3, queue_scheduled_at: "2026-06-29T07:30:00.000Z", queue_locked_at: null, queue_lock_owner: "worker-1", queue_last_error: "", queue_idempotency_key: "generation:job-1", queue_provider_task_id: "", queue_metadata: { source: "test" }, extra: {} }] };
     }
     if (/select \* from studio_global_audio_assets/i.test(text)) {
       return { rows: [{ id: "audio-1", title: "Audio", mood: "", duration: "", file_name: "", file_type: "", file_size: 0, file_data: "", created_at: "", extra: {} }] };
@@ -97,6 +99,9 @@ test("load normalized state rebuilds snapshot from separate tables", async () =>
   assert.equal(state.projects[0].id, "project-1");
   assert.equal(state.products[0].projectId, "project-1");
   assert.equal(state.jobs[0].id, "job-1");
+  assert.equal(state.jobs[0].queueStatus, "running");
+  assert.equal(state.jobs[0].queueIdempotencyKey, "generation:job-1");
+  assert.deepEqual(state.jobs[0].queueMetadata, { source: "test" });
   assert.equal(state.audioLibrary[0].id, "audio-1");
   assert.equal(state.hookLibrary.activeVersionId, "version-1");
   assert.equal(state.reelsResearch.accounts[0], "demo");

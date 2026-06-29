@@ -149,6 +149,30 @@ test("status endpoint returns persisted running job without web resume in BullMQ
   assert.equal(response.payload.job.serverJobContext, undefined);
 });
 
+test("status endpoint treats accepted backend jobs as worker-owned even if queue fields were stripped", async () => {
+  const handle = createServerJobsApiHandler({
+    serverJobs: new Map(),
+    shouldUseQueueWorker: () => true,
+    loadPersistedServerJob: async () => ({
+      id: "job-worker-accepted",
+      status: "running",
+      stage: "image",
+      progress: 18,
+      queueStatus: "",
+      serverJobAcceptedAt: "2026-06-29T07:32:42.000Z"
+    }),
+    loadPersistedServerJobContext: async () => {
+      throw new Error("web should not resume accepted backend jobs");
+    }
+  });
+
+  const response = await callServerJobsApi("GET", "/api/jobs/status?jobId=job-worker-accepted", null, handle);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.job.id, "job-worker-accepted");
+  assert.equal(response.payload.job.serverJobAcceptedAt, "2026-06-29T07:32:42.000Z");
+});
+
 async function waitForServerJob(jobId, predicate, handle) {
   for (let index = 0; index < 30; index += 1) {
     const { payload } = await callServerJobsApi("GET", `/api/jobs/status?jobId=${jobId}`, null, handle);
