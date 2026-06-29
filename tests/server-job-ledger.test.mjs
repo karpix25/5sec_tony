@@ -160,21 +160,29 @@ test("job ledger requeues expired worker locks without deleting jobs", async () 
   assert.equal(count, 2);
   assert.match(update.text, /queue_status = case/i);
   assert.match(update.text, /queue_locked_at is null/i);
-  assert.match(update.text, /returning id, queue_status, queue_last_error/i);
+  assert.match(update.text, /returning id, queue_status, queue_last_error, queue_idempotency_key, queue_max_attempts/i);
   assert.doesNotMatch(update.text, /\b(delete|truncate|drop)\b/i);
 });
 
 test("job ledger requeues orphan running jobs without worker locks", async () => {
   const queries = [];
+  const requeuedJobs = [];
   const count = await requeueExpiredJobLocks({
     isPostgresConfigured: () => true,
     lockTimeoutMs: 900000,
+    onRequeuedJobs: async (jobs) => requeuedJobs.push(...jobs),
     withPostgresTransaction: async (callback) => callback({ query: async (text, params = []) => {
       queries.push({ text, params });
       if (/update studio_jobs/i.test(text)) {
         return {
           rowCount: 1,
-          rows: [{ id: "job-orphan", queue_status: "retrying", queue_last_error: "Worker lock missing" }]
+          rows: [{
+            id: "job-orphan",
+            queue_status: "retrying",
+            queue_last_error: "Worker lock missing",
+            queue_idempotency_key: "generation:job-orphan",
+            queue_max_attempts: 3
+          }]
         };
       }
       return { rows: [] };
@@ -188,6 +196,13 @@ test("job ledger requeues orphan running jobs without worker locks", async () =>
   assert.ok(event);
   assert.equal(event.params.includes("lock_reaped"), true);
   assert.equal(JSON.stringify(event.params).includes("Worker lock missing"), true);
+  assert.deepEqual(requeuedJobs, [{
+    id: "job-orphan",
+    queueStatus: "retrying",
+    queueLastError: "Worker lock missing",
+    queueIdempotencyKey: "generation:job-orphan",
+    queueMaxAttempts: 3
+  }]);
 });
 
 

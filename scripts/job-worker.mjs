@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
+import { dispatchJobToQueue, getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
 import { appendJobQueueEvent } from "./job-ledger-events.mjs";
 import { claimNextQueuedJob, claimQueuedJobById, markJobWorkerFailure, requeueExpiredJobLocks } from "./job-ledger-store.mjs";
 import { queryPostgres } from "./postgres-client.mjs";
@@ -57,7 +57,7 @@ export async function startBullMqWorker(deps = {}) {
     throw new Error("BullMQ worker requires JOB_QUEUE_MODE=bullmq and Redis connection settings");
   }
   const { Worker } = await loadBullMq(deps);
-  await (deps.requeueExpiredJobLocks || requeueExpiredJobLocks)(deps);
+  await requeueAndRedispatchExpiredJobLocks(deps, env);
   const lockReaper = startJobLockReaper(deps, env);
   const worker = new Worker(queueName, async (job) => {
     await runPersistedJobById(job.data.jobId, deps);
@@ -69,14 +69,34 @@ export async function startBullMqWorker(deps = {}) {
 export function startJobLockReaper(deps = {}, env = process.env) {
   if (deps.disableLockReaper) return null;
   const intervalMs = Math.max(1000, Number(env.JOB_LOCK_REAPER_INTERVAL_MS || 60000));
-  const requeueLocks = deps.requeueExpiredJobLocks || requeueExpiredJobLocks;
   const timer = setInterval(() => {
-    requeueLocks(deps).catch((error) => {
+    requeueAndRedispatchExpiredJobLocks(deps, env).catch((error) => {
       console.error(`[job-worker] lock reaper failed: ${error.message || error}`);
     });
   }, intervalMs);
   timer.unref?.();
   return timer;
+}
+
+export async function requeueAndRedispatchExpiredJobLocks(deps = {}, env = process.env) {
+  const redispatches = [];
+  const requeueLocks = deps.requeueExpiredJobLocks || requeueExpiredJobLocks;
+  const dispatch = deps.dispatchJobToQueue || dispatchJobToQueue;
+  const count = await requeueLocks({
+    ...deps,
+    onRequeuedJobs: async (jobs) => {
+      for (const job of jobs || []) {
+        const dispatchJob = {
+          id: job.id,
+          queueIdempotencyKey: `${job.queueIdempotencyKey || job.id}:requeue:${Date.now()}`,
+          queueMaxAttempts: job.queueMaxAttempts || 3
+        };
+        const result = await dispatch(dispatchJob, { ...deps, env });
+        redispatches.push({ jobId: job.id, result });
+      }
+    }
+  });
+  return { count, redispatches };
 }
 
 async function loadBullMq(deps) {

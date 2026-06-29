@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runPersistedJobById, startJobLockReaper } from "../scripts/job-worker.mjs";
+import { requeueAndRedispatchExpiredJobLocks, runPersistedJobById, startJobLockReaper } from "../scripts/job-worker.mjs";
 
 test("BullMQ worker refuses to run a job that was not claimed in Postgres", async () => {
   let fetchCalled = false;
@@ -94,4 +94,28 @@ test("job lock reaper periodically requeues expired worker locks", async () => {
     globalThis.setInterval = originalSetInterval;
     globalThis.clearInterval = originalClearInterval;
   }
+});
+
+test("BullMQ lock reaper redispatches requeued orphan jobs", async () => {
+  const dispatched = [];
+  const result = await requeueAndRedispatchExpiredJobLocks({
+    requeueExpiredJobLocks: async (options) => {
+      await options.onRequeuedJobs([{
+        id: "job-orphan",
+        queueIdempotencyKey: "generation:job-orphan",
+        queueMaxAttempts: 3
+      }]);
+      return 1;
+    },
+    dispatchJobToQueue: async (job, deps) => {
+      dispatched.push({ job, env: deps.env });
+      return { mode: "bullmq", enqueued: true };
+    }
+  }, { JOB_QUEUE_MODE: "bullmq", REDIS_URL: "redis://localhost:6379" });
+
+  assert.equal(result.count, 1);
+  assert.equal(result.redispatches.length, 1);
+  assert.equal(dispatched[0].job.id, "job-orphan");
+  assert.match(dispatched[0].job.queueIdempotencyKey, /^generation:job-orphan:requeue:/);
+  assert.equal(dispatched[0].job.queueMaxAttempts, 3);
 });

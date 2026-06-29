@@ -174,7 +174,7 @@ export async function requeueExpiredJobLocks(options = {}) {
             queue_locked_at is null
             or queue_locked_at < now() - ($2::int * interval '1 millisecond')
           )
-        returning id, queue_status, queue_last_error`,
+        returning id, queue_status, queue_last_error, queue_idempotency_key, queue_max_attempts`,
       [appStateKey, lockTimeoutMs]
     );
     for (const row of result.rows || []) {
@@ -183,6 +183,13 @@ export async function requeueExpiredJobLocks(options = {}) {
         lockTimeoutMs
       });
     }
+    await options.onRequeuedJobs?.((result.rows || []).map((row) => ({
+      id: row.id,
+      queueStatus: row.queue_status,
+      queueLastError: row.queue_last_error,
+      queueIdempotencyKey: row.queue_idempotency_key,
+      queueMaxAttempts: row.queue_max_attempts
+    })));
     return result.rowCount || 0;
   });
 }
