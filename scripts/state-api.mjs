@@ -2,8 +2,9 @@ import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./
 import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
 import { statesEqual } from "./state-compare.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
+import { defaultAppStateKey, lockAppState, withAppStateRetry } from "./app-state-lock.mjs";
 
-const appStateKey = process.env.APP_STATE_KEY || "default";
+const appStateKey = defaultAppStateKey;
 
 export const handleStateApi = createStateApiHandler();
 
@@ -71,7 +72,7 @@ async function handleSaveState(request, response, deps) {
     if (!isPlainStateObject(body.state)) {
       return sendJson(response, 400, { error: "state object is required" });
     }
-    const result = await deps.withTransaction(async (tx) => {
+    const result = await withAppStateRetry(() => deps.withTransaction(async (tx) => {
       const nextState = normalizeStateJobIds(body.state);
       const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
       if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
@@ -110,7 +111,7 @@ async function handleSaveState(request, response, deps) {
         updatedAt: legacyResult.rows[0]?.updated_at || null,
         parityOk: true
       };
-    });
+    }));
     if (result.conflict) {
       return sendJson(response, 409, {
         saved: false,
@@ -162,7 +163,7 @@ function isPlainStateObject(value) {
 }
 
 async function lockCurrentUpdatedAt(query, key) {
-  await query("select pg_advisory_xact_lock(hashtext($1))", [key]);
+  await lockAppState(query, key);
   const result = await query("select updated_at from app_state where id = $1 limit 1 for update", [key]);
   return formatUpdatedAt(result.rows[0]?.updated_at || "");
 }
