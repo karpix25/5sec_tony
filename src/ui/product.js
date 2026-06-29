@@ -16,7 +16,7 @@ export function renderProductSettings({ product }) {
         </div>
       </div>
       <div class="product-stage-grid">
-        <form id="product-settings-form" class="ops-form text-editor-form product-editor">
+        <form id="product-settings-form" class="ops-form text-editor-form product-editor" data-transient-context="product:${escapeHtml(product.id || "")}">
           <section class="product-card">
             <div class="product-card-head">
               <div><span class="eyebrow">Основа</span><h3>Название продукта</h3></div>

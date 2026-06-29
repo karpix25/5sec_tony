@@ -39,14 +39,17 @@ function restoreTransientControls(root, controls = {}) {
 function captureTransientForms(root) {
   const forms = {};
   root.querySelectorAll("form[id]").forEach((form) => {
-    forms[form.id] = captureFormDraft(form);
+    forms[form.id] = {
+      context: form.dataset?.transientContext || "",
+      draft: captureFormDraft(form)
+    };
   });
   return forms;
 }
 
 function restoreTransientForms(root, forms = {}) {
-  Object.entries(forms).forEach(([formId, draft]) => {
-    restoreFormDraft(root.querySelector(`#${formId}`), draft);
+  Object.entries(forms).forEach(([formId, entry]) => {
+    restoreFormDraft(root.querySelector(`#${formId}`), normalizeFormSnapshot(entry));
   });
 }
 
@@ -79,10 +82,19 @@ function captureFormDraft(form) {
 
 function restoreFormDraft(form, draft) {
   if (!form || !draft) return;
+  if ((form.dataset?.transientContext || "") !== (draft.context || "")) return;
   [...form.elements].forEach((field) => {
-    if (!field?.name || !Object.hasOwn(draft, field.name)) return;
-    restoreFieldValue(field, draft[field.name]);
+    if (!field?.name || !Object.hasOwn(draft.fields, field.name)) return;
+    restoreFieldValue(field, draft.fields[field.name]);
   });
+}
+
+function normalizeFormSnapshot(entry) {
+  if (!entry) return null;
+  if (Object.hasOwn(entry, "draft")) {
+    return { context: entry.context || "", fields: entry.draft || {} };
+  }
+  return { context: "", fields: entry };
 }
 
 function captureFieldValue(field) {

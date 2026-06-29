@@ -48,6 +48,58 @@ test("transient generation controls survive full rerender restore", () => {
   assert.equal(avatarVideoSection.open, true);
 });
 
+test("transient form restore skips drafts from another product context", () => {
+  const oldName = { name: "name", type: "text", value: "Протеин" };
+  const newName = { name: "name", type: "text", value: "Новый продукт тест" };
+  const snapshot = captureTransientUiState(createRoot({
+    forms: {
+      "product-settings-form": {
+        id: "product-settings-form",
+        dataset: { transientContext: "product:old" },
+        elements: [oldName]
+      }
+    }
+  }));
+
+  restoreTransientUiState(createRoot({
+    forms: {
+      "product-settings-form": {
+        id: "product-settings-form",
+        dataset: { transientContext: "product:new" },
+        elements: [newName]
+      }
+    }
+  }), snapshot);
+
+  assert.equal(newName.value, "Новый продукт тест");
+});
+
+test("transient form restore keeps drafts for the same product context", () => {
+  const draftName = { name: "name", type: "text", value: "Черновик продукта" };
+  const renderedName = { name: "name", type: "text", value: "Сохраненное имя" };
+  const snapshot = captureTransientUiState(createRoot({
+    forms: {
+      "product-settings-form": {
+        id: "product-settings-form",
+        dataset: { transientContext: "product:same" },
+        elements: [draftName]
+      }
+    }
+  }));
+
+  restoreTransientUiState(createRoot({
+    forms: {
+      "product-settings-form": {
+        id: "product-settings-form",
+        dataset: { transientContext: "product:same" },
+        elements: [renderedName]
+      }
+    }
+  }), snapshot);
+
+  assert.equal(renderedName.value, "Черновик продукта");
+});
+
 test("transient details restore keeps forced avatar video section open", () => {
   const avatarVideoSection = { dataset: { avatarSection: "video", forceOpen: "true" }, open: false };
   const root = createRoot({ details: { video: avatarVideoSection } });

@@ -18,6 +18,7 @@ test("product settings save reads form without resetting values", () => {
 
 test("product questionnaire fields are open inside settings form by default", () => {
   const product = projects[0].products?.[0] || {
+    id: "product-test",
     name: "Хлорофил",
     description: "Описание",
     offer: "Роль",
@@ -30,6 +31,7 @@ test("product questionnaire fields are open inside settings form by default", ()
   const formEnd = html.indexOf("</form>");
 
   assert.doesNotMatch(html, /id="product-fields-modal"/);
+  assert.match(html, /id="product-settings-form"[^>]+data-transient-context="product:/);
   assert.doesNotMatch(html, /id="open-product-fields-modal"/);
   assert.doesNotMatch(html, /Сначала загрузите фото продукта/);
   assert.ok(html.indexOf('name="description"') > 0 && html.indexOf('name="description"') < formEnd);
