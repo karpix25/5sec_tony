@@ -5,11 +5,14 @@ import { projects } from "../src/domain/entities.js";
 import { renderProductSettings } from "../src/ui/product.js";
 
 test("product settings save reads form without resetting values", () => {
-  const source = readFileSync(new URL("../src/ui/render.js", import.meta.url), "utf8");
+  const renderSource = readFileSync(new URL("../src/ui/render.js", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../src/ui/product-events.js", import.meta.url), "utf8");
   const handler = source.match(/#product-settings-form[\s\S]+?}\);/);
 
+  assert.match(renderSource, /bindProductEvents\(root, store\)/);
   assert.ok(handler, "product settings submit handler exists");
-  assert.match(handler[0], /store\.updateProduct\(getFormSnapshot\(event\.currentTarget\)\)/);
+  assert.match(source, /store\.updateProductRemote/);
+  assert.match(handler[0], /runProductSettingsSave\(root, store, event\.currentTarget\)/);
   assert.doesNotMatch(handler[0], /getFormPayload\(event\.currentTarget\)/);
 });
 

@@ -8,17 +8,15 @@ import { bindAiMemoryControls } from "./ai-memory-controls.js";
 import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
 import { bindProjectAutomationControls } from "./project-automation-controls.js";
-import { warnButtonBlocked } from "./button-debug.js";
 import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
 import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewModal } from "./modals.js";
 import { bindPreviewModalEvents } from "./preview-modal.js";
-import { getLiveProductDraft, mergeAnalyzedProductDraft } from "./product-analysis-merge.js";
-import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft, productReferencesFromImages } from "./product-ai.js";
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
-import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
+import { renderProductSettings } from "./product.js";
+import { bindProductEvents } from "./product-events.js";
+import { getFormPayload, getFormSnapshot, readFileAsDataUrl } from "./form-data.js";
 import { deleteAudioAsset } from "../services/audio-assets.js";
-import { uploadProductReferenceAssets } from "../services/product-reference-assets.js";
 import { renderProjectManagementSettings } from "./project.js";
 import { bindProjectRangeControls } from "./project-range-controls.js";
 import { getProjectAutomationState } from "../domain/project-automation.js";
@@ -226,30 +224,7 @@ function bindEvents(root, store, options = {}) {
     store.createProject(getFormPayload(event.currentTarget));
     closeProjectModal(root);
   });
-  root.querySelector("#open-product-modal")?.addEventListener("click", () => openProductModal(root));
-  root.querySelector("#open-product-reference-modal")?.addEventListener("click", () => openProductReferenceModal(root));
-  root.querySelector("#open-delete-product-modal")?.addEventListener("click", () => openDeleteProductModal(root));
-  root.querySelectorAll("[data-close-product-modal]").forEach((button) => {
-    button.addEventListener("click", () => closeProductModal(root));
-  });
-  root.querySelectorAll("[data-close-product-reference-modal]").forEach((button) => {
-    button.addEventListener("click", () => closeProductReferenceModal(root));
-  });
-  root.querySelectorAll("[data-close-delete-product-modal]").forEach((button) => {
-    button.addEventListener("click", () => closeDeleteProductModal(root));
-  });
-  root.querySelector("#product-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    runCreateProductFromPhotos(root, store, event.currentTarget);
-  });
-  root.querySelector("#product-settings-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    store.updateProduct(getFormSnapshot(event.currentTarget));
-  });
-  root.querySelector("#product-photo-analysis-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    runProductPhotoAnalysis(root, store, event.currentTarget);
-  });
+  bindProductEvents(root, store);
   root.querySelector("#project-settings-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     saveProjectAndRefreshAiMemory(event.currentTarget, store);
@@ -263,13 +238,6 @@ function bindEvents(root, store, options = {}) {
   root.querySelector("#generation-brief-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     store.updateGenerationBrief(getFormPayload(event.currentTarget));
-  });
-  root.querySelector("#product-reference-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    getProductReferencePayload(event.currentTarget, store.getState().selectedProductId).then((payload) => {
-      store.createProductReference(payload);
-      closeProductReferenceModal(root);
-    }).catch((error) => window.alert?.(error.message || "Не удалось добавить фото продукта"));
   });
   bindDesignReferenceFormEvents(root, store);
   bindAiMemoryControls(root, store);
@@ -314,22 +282,6 @@ function bindEvents(root, store, options = {}) {
       closeDeleteProjectModal(root);
     });
   });
-  root.querySelectorAll("[data-delete-product]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const result = store.deleteProduct(button.dataset.deleteProduct);
-      if (result?.ok === false) {
-        warnButtonBlocked(result.reason || "delete-product-blocked", {
-          buttonId: button.id || null,
-          targetProductId: button.dataset.deleteProduct || null
-        });
-        return;
-      }
-      closeDeleteProductModal(root);
-    });
-  });
-  root.querySelectorAll("[data-delete-product-reference]").forEach((button) => {
-    button.addEventListener("click", () => store.deleteProductReference(button.dataset.deleteProductReference));
-  });
   root.querySelectorAll("[data-delete-reference]").forEach((button) => {
     button.addEventListener("click", () => store.deleteReference(button.dataset.deleteReference));
   });
@@ -370,12 +322,6 @@ function bindEvents(root, store, options = {}) {
   bindHooksEvents(root, { getLibrary: () => store.getState().hookLibrary, saveLibrary: (hookLibrary) => store.updateHookLibrary(hookLibrary), refresh: options.rerender || (() => renderApp(root, store, options)) });
 }
 
-function getFormPayload(form) {
-  const payload = Object.fromEntries(new FormData(form).entries());
-  form.reset();
-  return payload;
-}
-
 function getAvatarUploadPayload(form) {
   const file = form.querySelector("input[type='file']")?.files?.[0];
   const payload = Object.fromEntries(new FormData(form).entries());
@@ -383,71 +329,6 @@ function getAvatarUploadPayload(form) {
   return readFileAsDataUrl(file).then((imageData) => {
     form.reset();
     return { ...payload, imageName: file.name, imageData };
-  });
-}
-
-function getFormSnapshot(form) {
-  return form ? Object.fromEntries(new FormData(form).entries()) : {};
-}
-
-async function runProductPhotoAnalysis(root, store, form) {
-  const status = root.querySelector("#product-ai-status");
-  const productForm = root.querySelector("#product-settings-form");
-  const state = store.getState();
-  const context = getContext(state);
-  const productId = context.product.id;
-  let product = context.product;
-  let references = [];
-  try {
-    if (status) status.textContent = "Анализируем фото и читаем этикетку...";
-    const images = await getProductPhotoPayloads(form);
-    product = { ...context.product, ...getFormSnapshot(productForm) };
-    references = productReferencesFromImages(images);
-    const result = await analyzeProductPhotos({ project: context.project, product, images });
-    references = await uploadProductReferenceAssets(productReferencesFromImages(images, result.draft?.promptComment), productId);
-    const liveProduct = getLiveProductDraft(root, store, productId, getFormSnapshot, product);
-    const payload = mergeAnalyzedProductDraft(productPayloadFromDraft, product, liveProduct, result.draft || {}, references);
-    if (store.getState().selectedProductId === productId) store.updateProduct(payload);
-  } catch (error) {
-    if (references.length && store.getState().selectedProductId === productId) {
-      const liveProduct = getLiveProductDraft(root, store, productId, getFormSnapshot, product);
-      store.updateProduct(productPayloadFromDraft(liveProduct, {}, references));
-    }
-    if (status) status.textContent = error.message || "Не удалось проанализировать фото.";
-  }
-}
-
-async function runCreateProductFromPhotos(root, store, form) {
-  const status = root.querySelector("#new-product-ai-status");
-  const state = store.getState();
-  const context = getContext(state);
-  try {
-    const images = await getProductPhotoPayloads(form);
-    const base = getFormSnapshot(form);
-    if (!images.length) {
-      if (status) status.textContent = "Создаем продукт...";
-      store.createProduct(productPayloadFromDraft(base));
-      form.reset();
-      closeProductModal(root);
-      return;
-    }
-    if (status) status.textContent = "Создаем продукт и анализируем фото...";
-    const result = await analyzeProductPhotos({ project: context.project, product: base, images });
-    const references = await uploadProductReferenceAssets(productReferencesFromImages(images, result.draft?.promptComment));
-    store.createProduct(productPayloadFromDraft(base, result.draft || {}, references));
-    form.reset();
-    closeProductModal(root);
-  } catch (error) {
-    if (status) status.textContent = error.message || "Не удалось создать продукт по фото.";
-  }
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
   });
 }
 
@@ -460,28 +341,6 @@ function openProjectModal(root) {
 
 function closeProjectModal(root) {
   const modal = root.querySelector("#project-modal");
-  if (modal) modal.hidden = true;
-}
-
-function openProductModal(root) {
-  const modal = root.querySelector("#product-modal");
-  if (!modal) return;
-  modal.hidden = false;
-  root.querySelector("#product-form input[name='name']")?.focus();
-}
-
-function closeProductModal(root) {
-  const modal = root.querySelector("#product-modal");
-  if (modal) modal.hidden = true;
-}
-
-function openProductReferenceModal(root) {
-  const modal = root.querySelector("#product-reference-modal");
-  if (modal) modal.hidden = false;
-}
-
-function closeProductReferenceModal(root) {
-  const modal = root.querySelector("#product-reference-modal");
   if (modal) modal.hidden = true;
 }
 

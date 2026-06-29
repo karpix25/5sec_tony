@@ -1,4 +1,5 @@
 import { StateSyncConflictError, loadRemoteState, saveRemoteState } from "../services/state-sync.js";
+import { mergeAvatarVideoNameConflict } from "./state-conflict-merge.js";
 
 const saveDelayMs = 250;
 const defaultRefreshIntervalMs = 10000;
@@ -22,6 +23,7 @@ export function createStatePersistence({
   let hydrated = false;
   let hydratePromise = null;
   let remoteUpdatedAt = "";
+  let remoteStateSnapshot = null;
 
   async function hydrate() {
     if (hydratePromise) return hydratePromise;
@@ -39,6 +41,7 @@ export function createStatePersistence({
         }
         onRemoteModeChange?.("remote");
         remoteUpdatedAt = result.updatedAt || "";
+        remoteStateSnapshot = result.state || null;
         startAutoRefresh();
         if (await restorePendingRemoteSave(result)) return;
         if (result.state) {
@@ -72,21 +75,25 @@ export function createStatePersistence({
     if (saveInFlight) return;
     pendingSave = false;
     saveInFlight = true;
+    const stateToSave = getState();
+    const baseUpdatedAt = remoteUpdatedAt;
+    const baseState = remoteStateSnapshot;
     try {
-      savePendingRemoteSave?.(getState(), remoteUpdatedAt);
-      const result = await saveRemoteState(getState(), remoteUpdatedAt);
+      savePendingRemoteSave?.(stateToSave, baseUpdatedAt);
+      const result = await saveRemoteState(stateToSave, baseUpdatedAt);
       if (result.disabled) {
         stopAutoRefresh();
         clearPendingRemoteSave?.();
         notifyStatus({ status: "local", message: "БД не настроена" });
       } else {
         remoteUpdatedAt = result.updatedAt || remoteUpdatedAt;
+        remoteStateSnapshot = stateToSave;
         clearPendingRemoteSave?.();
         notifyStatus({ status: "saved", message: "Сохранено в БД", updatedAt: result.updatedAt });
       }
     } catch (error) {
       if (error instanceof StateSyncConflictError || error?.conflict) {
-        await acceptRemoteConflict(error);
+        await acceptRemoteConflict(error, { attemptedState: stateToSave, baseState });
         return;
       }
       notifyStatus({ status: "error", message: error.message || "Ошибка сохранения в БД" });
@@ -96,7 +103,16 @@ export function createStatePersistence({
     }
   }
 
-  return { hydrate, scheduleSave, whenHydrated: () => hydratePromise || Promise.resolve() };
+  function recordRemoteSave(nextState = getState(), updatedAt = "") {
+    if (updatedAt) remoteUpdatedAt = updatedAt;
+    remoteStateSnapshot = nextState || getState();
+    pendingSave = false;
+    clearTimeout(timer);
+    clearPendingRemoteSave?.();
+    notifyStatus({ status: "saved", message: "Сохранено в БД", updatedAt: remoteUpdatedAt });
+  }
+
+  return { hydrate, scheduleSave, recordRemoteSave, whenHydrated: () => hydratePromise || Promise.resolve() };
 
   async function restoreLocalFallbackState() {
     const fallbackState = getLocalFallbackState?.();
@@ -146,6 +162,7 @@ export function createStatePersistence({
       }
       if (result.state && result.updatedAt && result.updatedAt !== remoteUpdatedAt) {
         remoteUpdatedAt = result.updatedAt;
+        remoteStateSnapshot = result.state;
         await replaceStateWhenSafe(result.state);
         notifyStatus({ status: "saved", message: "Обновлено из БД", updatedAt: result.updatedAt });
       }
@@ -156,10 +173,27 @@ export function createStatePersistence({
     }
   }
 
-  async function acceptRemoteConflict(error) {
+  async function acceptRemoteConflict(error, { attemptedState, baseState } = {}) {
     pendingSave = false;
     clearPendingRemoteSave?.();
     remoteUpdatedAt = error.updatedAt || remoteUpdatedAt;
+    remoteStateSnapshot = error.state || remoteStateSnapshot;
+    const mergedState = mergeAvatarVideoNameConflict({
+      baseState,
+      localState: attemptedState,
+      remoteState: error.state
+    });
+    if (mergedState) {
+      await replaceStateWhenSafe(mergedState);
+      pendingSave = true;
+      savePendingRemoteSave?.(mergedState, remoteUpdatedAt);
+      notifyStatus({
+        status: "saving",
+        message: "Сохраняем название ролика поверх свежей БД",
+        updatedAt: remoteUpdatedAt
+      });
+      return;
+    }
     if (error.state) {
       await replaceStateWhenSafe(error.state);
     }

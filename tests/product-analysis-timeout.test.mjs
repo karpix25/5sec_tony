@@ -14,7 +14,7 @@ test("product photo analysis has server and client timeouts", () => {
 });
 
 test("product photo analysis merges ai draft with live form state", () => {
-  const renderSource = readFileSync(new URL("../src/ui/render.js", import.meta.url), "utf8");
+  const renderSource = readFileSync(new URL("../src/ui/product-events.js", import.meta.url), "utf8");
   const mergeSource = readFileSync(new URL("../src/ui/product-analysis-merge.js", import.meta.url), "utf8");
 
   assert.match(renderSource, /getLiveProductDraft/);

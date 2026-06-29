@@ -72,8 +72,9 @@ test("composite filter shows cta from third second", () => {
   assert.match(filter, /drawtext/);
   assert.match(filter, /ЧИТАЙ ОПИСАНИЕ/);
   assert.match(filter, /enable='gte\(t,3\)'/);
-  assert.match(filter, /box=1/);
-  assert.match(filter, /boxcolor=0xffffff@1\.00/);
+  assert.match(filter, /color=c=0x111111:s=\d+x\d+:d=5/);
+  assert.match(filter, /color=c=0xffffff:s=\d+x\d+:d=5/);
+  assert.match(filter, /\[ctaOuter\]\[ctaInner\]overlay=x=\d+:y=\d+:format=auto\[ctaBg\]/);
   assert.match(filter, /fontcolor=0x111111/);
 });
 

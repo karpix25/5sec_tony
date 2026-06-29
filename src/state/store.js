@@ -23,6 +23,7 @@ import {
 } from "./store-context.js";
 import { createJobActions } from "./job-actions.js";
 import { createAiMemoryActions } from "./ai-memory-actions.js";
+import { createProductActions } from "./product-actions.js";
 import { rescueStaleBriefJobs } from "./brief-job-rescue.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
@@ -48,13 +49,13 @@ export function createStore() {
   const subscribers = new Set();
   const persistenceSubscribers = new Set();
 
-  function setState(patch) {
+  function setState(patch, options = {}) {
     const previousState = state;
     markPreHydrationPatch(patch);
     const nextState = normalize({ ...state, ...patch });
     state = nextState;
     storeCache.persist(state);
-    if (shouldScheduleRemoteSave(previousState, nextState, patch)) {
+    if (!options.skipRemoteSave && shouldScheduleRemoteSave(previousState, nextState, patch)) {
       statePersistence?.scheduleSave();
     }
     subscribers.forEach((subscriber) => subscriber(state, patch));
@@ -99,6 +100,11 @@ export function createStore() {
   const aiMemoryActions = createAiMemoryActions({
     getState: () => state,
     setState
+  });
+  const productActions = createProductActions({
+    getState: () => state,
+    setState,
+    recordRemoteSave: (nextState, updatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt)
   });
   statePersistence = createStatePersistence({
     getState: () => state,
@@ -305,76 +311,7 @@ export function createStore() {
         generationBrief: ensureGenerationBrief({})
       });
     },
-    createProduct(payload) {
-      const product = createProductEntity(state.selectedProjectId, payload.name || "Новый продукт", payload);
-      setState({
-        products: [product, ...state.products],
-        selectedProductId: product.id
-      });
-    },
-    updateProduct(payload) {
-      setState({
-        products: state.products.map((product) =>
-          product.id === state.selectedProductId
-            ? createProductEntity(product.projectId, payload.name || product.name, { ...product, ...payload })
-            : product
-        )
-      });
-    },
-    createProductReference(payload) {
-      const reference = {
-        id: payload.id || createId("product-ref"),
-        title: payload.title || "Референс продукта",
-        promptComment: payload.promptComment || "",
-        imageName: payload.imageName || "",
-        imageData: payload.imageData || "",
-        createdAt: payload.createdAt || new Date().toISOString()
-      };
-      setState({
-        products: state.products.map((product) =>
-          product.id === state.selectedProductId
-            ? { ...product, references: [reference, ...(product.references || [])] }
-            : product
-        )
-      });
-    },
-    deleteProductReference(referenceId) {
-      setState({
-        products: state.products.map((product) =>
-          product.id === state.selectedProductId
-            ? { ...product, references: (product.references || []).filter((reference) => reference.id !== referenceId) }
-            : product
-        )
-      });
-    },
-    deleteProduct(productId) {
-      const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
-      if (!projectProducts.some((product) => product.id === productId)) {
-        console.warn("[store:delete-product]", {
-          reason: "wrong-project",
-          productId,
-          selectedProjectId: state.selectedProjectId
-        });
-        return { ok: false, reason: "wrong-project" };
-      }
-      if (projectProducts.length <= 1) {
-        console.warn("[store:delete-product]", {
-          reason: "last-product",
-          productId,
-          selectedProjectId: state.selectedProjectId
-        });
-        return { ok: false, reason: "last-product" };
-      }
-      const productsNext = state.products.filter((product) => product.id !== productId);
-      setState({
-        products: productsNext,
-        jobs: state.jobs.filter((job) => job.productId !== productId),
-        deletedProductIds: appendUniqueIds(state.deletedProductIds, [productId]),
-        selectedProductId: getProductsForProject(productsNext, state.selectedProjectId)[0]?.id,
-        generationBrief: ensureGenerationBrief({})
-      });
-      return { ok: true };
-    },
+    ...productActions,
     createReference(payload) {
       const projectsNext = state.projects.map((project) => {
         if (project.id !== state.selectedProjectId) return project;

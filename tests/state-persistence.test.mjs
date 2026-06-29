@@ -269,6 +269,75 @@ test("save conflict accepts postgres state and does not retry stale local state"
   }
 });
 
+test("save conflict replays avatar video name when remote changed another field", async () => {
+  const originalFetch = globalThis.fetch;
+  const saveBodies = [];
+  const replaceCalls = [];
+  const statusUpdates = [];
+  const baseState = createStateWithAvatarVideoName("старое название", { selectedProjectId: "project" });
+  const remoteConflictState = {
+    ...createStateWithAvatarVideoName("старое название", { selectedProjectId: "project" }),
+    products: [{ id: "product-from-other-operator" }]
+  };
+  let currentState = baseState;
+  let saveCount = 0;
+
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/api/state") && (!options.method || options.method === "GET")) {
+      return {
+        ok: true,
+        json: async () => ({
+          state: baseState,
+          updatedAt: "2026-06-16T12:00:00.000Z"
+        })
+      };
+    }
+    saveCount += 1;
+    const body = JSON.parse(options.body);
+    saveBodies.push(body);
+    if (saveCount === 1) {
+      return {
+        ok: false,
+        status: 409,
+        json: async () => ({
+          saved: false,
+          conflict: true,
+          state: remoteConflictState,
+          updatedAt: "2026-06-16T12:05:00.000Z"
+        })
+      };
+    }
+    return { ok: true, json: async () => ({ saved: true, updatedAt: "2026-06-16T12:06:00.000Z" }) };
+  };
+
+  const persistence = createStatePersistence({
+    getState: () => currentState,
+    replaceState: (state) => {
+      currentState = state;
+      replaceCalls.push(state);
+    },
+    notifyStatus: (status) => statusUpdates.push(status),
+    refreshIntervalMs: 0
+  });
+
+  try {
+    await persistence.hydrate();
+    currentState = createStateWithAvatarVideoName("дружелюбный совет", { selectedProjectId: "project" });
+    persistence.scheduleSave();
+    await new Promise((resolve) => setTimeout(resolve, 750));
+
+    assert.equal(saveBodies.length, 2);
+    assert.equal(saveBodies[0].baseUpdatedAt, "2026-06-16T12:00:00.000Z");
+    assert.equal(saveBodies[1].baseUpdatedAt, "2026-06-16T12:05:00.000Z");
+    assert.equal(saveBodies[1].state.products[0].id, "product-from-other-operator");
+    assert.equal(saveBodies[1].state.projects[0].characters[0].avatarVideos[0].name, "дружелюбный совет");
+    assert.equal(replaceCalls.at(-1).projects[0].characters[0].avatarVideos[0].name, "дружелюбный совет");
+    assert.equal(statusUpdates.at(-1).status, "saved");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("hydrate restores local fallback when remote state is disabled", async () => {
   const originalFetch = globalThis.fetch;
   const replaceCalls = [];
@@ -296,3 +365,24 @@ test("hydrate restores local fallback when remote state is disabled", async () =
     globalThis.fetch = originalFetch;
   }
 });
+
+function createStateWithAvatarVideoName(name, overrides = {}) {
+  return {
+    selectedProjectId: "project",
+    jobs: [],
+    products: [],
+    projects: [{
+      id: "project",
+      characters: [{
+        id: "character",
+        avatarVideos: [{
+          id: "avatar-video",
+          name,
+          status: "ready",
+          videoUrl: "https://cdn.example.com/avatar.mp4"
+        }]
+      }]
+    }],
+    ...overrides
+  };
+}

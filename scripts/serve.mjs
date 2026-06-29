@@ -12,6 +12,7 @@ import { handleProductReferenceAssetsApi } from "./product-reference-assets.mjs"
 import { handleReferenceAssetsApi } from "./reference-assets.mjs";
 import { handleReelsResearchApi } from "./reels-research-api.mjs";
 import { handleServerJobsApi } from "./server-jobs.mjs";
+import { handleProductsApi } from "./products-api.mjs";
 import { handleStateApi } from "./state-api.mjs";
 import { handleYandexDiskApi } from "./yandex-disk-api.mjs";
 import { handleAuthApi, requireApprovedUser } from "./auth/auth-api.mjs";
@@ -51,6 +52,7 @@ const server = createServer(async (request, response) => {
   if (await handleGenerationBatchesApi(request, response, url)) return;
   if (await handleReelsResearchApi(request, response, url)) return;
   if (await handleServerJobsApi(request, response, url)) return;
+  if (await handleProductsApi(request, response, url)) return;
   if (await handleStateApi(request, response, url)) return;
   if (await handleYandexDiskApi(request, response, url)) return;
 
