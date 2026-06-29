@@ -16,11 +16,13 @@ import { handleYandexDiskApi } from "./yandex-disk-api.mjs";
 import { handleAuthApi, requireApprovedUser } from "./auth/auth-api.mjs";
 import { handleHealthApi } from "./health-api.mjs";
 import { handleAiMemoryApi } from "./ai-memory-api.mjs";
+import { startAudioRefreshReminderScheduler } from "./audio-refresh-reminders.mjs";
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "127.0.0.1";
 loadEnvFile();
+startAudioRefreshReminderScheduler();
 const types = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",

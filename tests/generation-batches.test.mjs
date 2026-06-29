@@ -21,13 +21,13 @@ function createState() {
     projects: [project],
     products: [product],
     jobs: [],
-    audioLibrary: [],
+    audioLibrary: [{ id: "audio-1", title: "Beat", fileData: "https://cdn.example.com/audio.mp3" }],
     hookLibrary: { activeVersionId: "", versions: [] },
     selectedProjectId: project.id,
     selectedProductId: product.id,
     selectedReferenceId: project.references[0].id,
     selectedCharacterId: "__no_avatar__",
-    selectedAudioId: "",
+    selectedAudioId: "audio-1",
     selectedProjectTab: "generation",
     generationBrief: {},
     freePrompt: ""
@@ -73,6 +73,26 @@ test("backend generation batch creates server-owned brief jobs in state", async 
     ["running", "brief", true],
     ["running", "brief", true]
   ]);
+});
+
+test("backend generation preflight blocks jobs when no audio is uploaded", async () => {
+  const state = { ...createState(), audioLibrary: [], selectedAudioId: "" };
+  const deps = createStateDeps(state, { autoStart: false });
+
+  await assert.rejects(() => createGenerationBatch({
+    count: 1,
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: state.selectedProductId,
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  }), /Сначала загрузите аудио/);
+
+  assert.equal(deps.getSnapshots().length, 0);
 });
 
 test("backend generation preflight saves product cards and design analysis before queue jobs", async () => {

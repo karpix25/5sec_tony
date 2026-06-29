@@ -6,6 +6,7 @@ import {
 } from "../src/domain/ai-artifacts.js";
 import { loadGenerationState, updateGenerationState } from "./generation-state.mjs";
 import { createServerSelectionContext } from "./generation-selection-context.mjs";
+import { assertPlayableAudioLibrary } from "./generation-audio-guard.mjs";
 
 export async function ensureGenerationPreflight({ selection = {}, origin, deps = {} }) {
   const state = await loadState(deps);
@@ -13,6 +14,7 @@ export async function ensureGenerationPreflight({ selection = {}, origin, deps =
   if (!context.project) throw new Error("Проект не найден");
   if (!context.product) throw new Error("Карточка продукта не найдена");
   if (!context.reference) throw new Error("Дизайн-референс не выбран");
+  assertPlayableAudioLibrary(context.audioLibrary);
 
   const missingProducts = context.products.filter((product) => !hasUsefulProductPassport(product.aiPassport));
   const missingReference = !hasUsefulDesignAnalysis(context.reference.designAnalysis);
