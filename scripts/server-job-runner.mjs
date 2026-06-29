@@ -2,6 +2,7 @@ import { unlink } from "node:fs/promises";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../src/domain/avatar-video-rotation.js";
 import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
+import { selectServerJobAudio } from "./server-job-audio.mjs";
 import { limitImagePrompt } from "../src/domain/image-prompt-budget.js";
 import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
 import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
@@ -170,7 +171,7 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
   const avatarVideo = avatarVideoPick?.video;
   const avatarVideoUrl = getCompositeAvatarVideoUrl(avatarVideo);
   const renderWithoutAvatar = allowNoAvatar || !avatarVideoUrl;
-  const audio = getServerJobAudio(record);
+  const audio = selectServerJobAudio(record);
   logger.log("assembly:start", {
     job: summarizeJobForLog(record.job),
     renderWithoutAvatar,
@@ -185,6 +186,7 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
     status: "running",
     stage: "assembly",
     progress: 88,
+    music: audio?.title || record.job.music || "",
     renderedWithoutAvatar: renderWithoutAvatar,
     failMsg: renderWithoutAvatar
       ? "Сервер собирает финальное видео из картинки и аудио..."
@@ -296,11 +298,6 @@ async function persistServerJob(record) {
     logger.log("persist:error", { job: summarizeJobForLog(record.job), error: error.message || error });
     console.warn(`[server-job:persist:error] ${error.message || error}`);
   }
-}
-
-function getServerJobAudio(record) {
-  return (record.context.audioLibrary || []).find((item) => item.title === record.job.music)
-    || (record.context.audioLibrary || []).find((item) => item.id === record.context.selectedAudioId);
 }
 
 function resolveServerNoAvatarCtaOverlay(project) {
