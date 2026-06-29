@@ -3,15 +3,19 @@ export async function uploadAudioAsset(audio) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      id: audio.id || "",
+      title: audio.title || "",
       audioData: audio.fileData,
       fileName: audio.fileName || "",
-      fileType: audio.fileType || ""
+      fileType: audio.fileType || "",
+      fileSize: audio.fileSize || 0,
+      createdAt: audio.createdAt || ""
     })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Не удалось сохранить аудио в S3");
   if (!payload.url) throw new Error("Сервер не вернул URL аудио");
-  return { ...audio, fileData: payload.url, fileType: payload.fileType || audio.fileType };
+  return payload.audio || { ...audio, fileData: payload.url, fileType: payload.fileType || audio.fileType };
 }
 
 export async function deleteAudioAsset(audio) {

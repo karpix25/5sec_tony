@@ -18,6 +18,7 @@ import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft,
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal, renderProductSettings } from "./product.js";
 import { deleteAudioAsset } from "../services/audio-assets.js";
+import { uploadProductReferenceAssets } from "../services/product-reference-assets.js";
 import { renderProjectManagementSettings } from "./project.js";
 import { bindProjectRangeControls } from "./project-range-controls.js";
 import { getProjectAutomationState } from "../domain/project-automation.js";
@@ -265,10 +266,10 @@ function bindEvents(root, store, options = {}) {
   });
   root.querySelector("#product-reference-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    getProductReferencePayload(event.currentTarget).then((payload) => {
+    getProductReferencePayload(event.currentTarget, store.getState().selectedProductId).then((payload) => {
       store.createProductReference(payload);
       closeProductReferenceModal(root);
-    });
+    }).catch((error) => window.alert?.(error.message || "Не удалось добавить фото продукта"));
   });
   bindDesignReferenceFormEvents(root, store);
   bindAiMemoryControls(root, store);
@@ -403,7 +404,7 @@ async function runProductPhotoAnalysis(root, store, form) {
     product = { ...context.product, ...getFormSnapshot(productForm) };
     references = productReferencesFromImages(images);
     const result = await analyzeProductPhotos({ project: context.project, product, images });
-    references = productReferencesFromImages(images, result.draft?.promptComment);
+    references = await uploadProductReferenceAssets(productReferencesFromImages(images, result.draft?.promptComment), productId);
     const liveProduct = getLiveProductDraft(root, store, productId, getFormSnapshot, product);
     const payload = mergeAnalyzedProductDraft(productPayloadFromDraft, product, liveProduct, result.draft || {}, references);
     if (store.getState().selectedProductId === productId) store.updateProduct(payload);
@@ -432,7 +433,7 @@ async function runCreateProductFromPhotos(root, store, form) {
     }
     if (status) status.textContent = "Создаем продукт и анализируем фото...";
     const result = await analyzeProductPhotos({ project: context.project, product: base, images });
-    const references = productReferencesFromImages(images, result.draft?.promptComment);
+    const references = await uploadProductReferenceAssets(productReferencesFromImages(images, result.draft?.promptComment));
     store.createProduct(productPayloadFromDraft(base, result.draft || {}, references));
     form.reset();
     closeProductModal(root);

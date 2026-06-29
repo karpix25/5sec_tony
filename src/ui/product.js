@@ -2,6 +2,7 @@ import { escapeHtml } from "./infographic.js";
 import { productBriefFields } from "./brief-field-labels.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 import { renderProductAiPassport } from "./product-ai-passport.js";
+import { uploadProductReferenceAsset } from "../services/product-reference-assets.js";
 
 export function renderProductSettings({ product }) {
   const productCount = Number(product?.projectProductCount || 1);
@@ -128,14 +129,14 @@ function renderCreateProductModal() {
   `;
 }
 
-export async function getProductReferencePayload(form) {
+export async function getProductReferencePayload(form, productId = "") {
   const file = form.querySelector("input[type='file']")?.files?.[0];
   const payload = Object.fromEntries(new FormData(form).entries());
   form.reset();
   if (!file) return payload;
   payload.imageName = file.name;
   payload.imageData = await readProductReferenceFile(file);
-  return payload;
+  return uploadProductReferenceAsset(payload, productId);
 }
 
 function renderProductReferences(product) {

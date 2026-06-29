@@ -323,12 +323,12 @@ export function createStore() {
     },
     createProductReference(payload) {
       const reference = {
-        id: createId("product-ref"),
+        id: payload.id || createId("product-ref"),
         title: payload.title || "Референс продукта",
         promptComment: payload.promptComment || "",
         imageName: payload.imageName || "",
         imageData: payload.imageData || "",
-        createdAt: new Date().toISOString()
+        createdAt: payload.createdAt || new Date().toISOString()
       };
       setState({
         products: state.products.map((product) =>

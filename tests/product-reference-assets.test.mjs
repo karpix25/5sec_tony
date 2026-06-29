@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
-import { handleAudioAssetsApi } from "../scripts/audio-assets.mjs";
+import { handleProductReferenceAssetsApi } from "../scripts/product-reference-assets.mjs";
 
-const tinyAudio = "data:audio/wav;base64,UklGRg==";
+const tinyPng = "data:image/png;base64,iVBORw0KGgo=";
 
-test("audio asset API uploads audio data URLs to S3", async () => {
+test("product reference asset API uploads product photos to S3", async () => {
   const env = snapshotS3Env();
   const dbEnv = snapshotDbEnv();
   const originalFetch = globalThis.fetch;
@@ -19,55 +19,27 @@ test("audio asset API uploads audio data URLs to S3", async () => {
 
   try {
     const response = createJsonCaptureResponse();
-    const request = createJsonRequest({ audioData: tinyAudio, fileName: "beat.wav" });
-    const handled = await handleAudioAssetsApi(request, response, new URL("http://127.0.0.1:4173/api/audio-assets"));
+    const request = createJsonRequest({
+      productId: "product-1",
+      imageData: tinyPng,
+      imageName: "front.png",
+      title: "Фото упаковки"
+    });
+    const handled = await handleProductReferenceAssetsApi(request, response, new URL("http://127.0.0.1:4173/api/product-reference-assets"));
     const { status, payload } = response.readJson();
 
     assert.equal(handled, true);
     assert.equal(status, 200);
-    assert.match(payload.url, /^https:\/\/s3\.ru1\.storage\.beget\.cloud\/anton-assets\/anton-5-sec\/audio\//);
-    assert.match(payload.audio.fileData, /^https:\/\/s3\.ru1\.storage\.beget\.cloud\/anton-assets\/anton-5-sec\/audio\//);
-    assert.equal(payload.audio.fileName, "beat.wav");
-    assert.equal(payload.fileName, "beat.wav");
-    assert.equal(payload.fileType, "audio/wav");
+    assert.match(payload.url, /^https:\/\/s3\.ru1\.storage\.beget\.cloud\/anton-assets\/anton-5-sec\/product-references\//);
+    assert.equal(payload.reference.imageData, payload.url);
+    assert.equal(payload.reference.imageName, "front.png");
     assert.equal(uploads.length, 1);
     assert.equal(uploads[0].options.method, "PUT");
-    assert.equal(uploads[0].options.headers["content-type"], "audio/wav");
+    assert.equal(uploads[0].options.headers["content-type"], "image/png");
   } finally {
     globalThis.fetch = originalFetch;
     restoreS3Env(env);
     restoreDbEnv(dbEnv);
-  }
-});
-
-test("audio asset API deletes S3 object by stored public URL", async () => {
-  const env = snapshotS3Env();
-  const originalFetch = globalThis.fetch;
-  const calls = [];
-  configureS3Env();
-  globalThis.fetch = async (url, options = {}) => {
-    calls.push({ url: String(url), options });
-    return { ok: true, status: 204, text: async () => "" };
-  };
-
-  try {
-    const response = createJsonCaptureResponse();
-    const request = createJsonRequest({
-      url: "https://s3.ru1.storage.beget.cloud/anton-assets/anton-5-sec/audio/2026-06-29/beat.wav"
-    });
-    const handled = await handleAudioAssetsApi(request, response, new URL("http://127.0.0.1:4173/api/audio-assets/delete"));
-    const { status, payload } = response.readJson();
-
-    assert.equal(handled, true);
-    assert.equal(status, 200);
-    assert.deepEqual(payload, { deleted: true });
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].options.method, "DELETE");
-    assert.equal(calls[0].url, "https://s3.ru1.storage.beget.cloud/anton-assets/anton-5-sec/audio/2026-06-29/beat.wav");
-    assert.match(calls[0].options.headers.authorization, /^AWS4-HMAC-SHA256 /);
-  } finally {
-    globalThis.fetch = originalFetch;
-    restoreS3Env(env);
   }
 });
 

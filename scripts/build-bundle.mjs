@@ -79,6 +79,7 @@ const files = [
   "src/services/kie-client.js",
   "src/services/reference-assets.js",
   "src/services/audio-assets.js",
+  "src/services/product-reference-assets.js",
   "src/services/hook-ai.js",
   "src/services/reels-research.js",
   "src/services/state-sync.js",
