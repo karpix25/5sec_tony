@@ -159,7 +159,35 @@ test("job ledger requeues expired worker locks without deleting jobs", async () 
 
   assert.equal(count, 2);
   assert.match(update.text, /queue_status = case/i);
+  assert.match(update.text, /queue_locked_at is null/i);
+  assert.match(update.text, /returning id, queue_status, queue_last_error/i);
   assert.doesNotMatch(update.text, /\b(delete|truncate|drop)\b/i);
+});
+
+test("job ledger requeues orphan running jobs without worker locks", async () => {
+  const queries = [];
+  const count = await requeueExpiredJobLocks({
+    isPostgresConfigured: () => true,
+    lockTimeoutMs: 900000,
+    withPostgresTransaction: async (callback) => callback({ query: async (text, params = []) => {
+      queries.push({ text, params });
+      if (/update studio_jobs/i.test(text)) {
+        return {
+          rowCount: 1,
+          rows: [{ id: "job-orphan", queue_status: "retrying", queue_last_error: "Worker lock missing" }]
+        };
+      }
+      return { rows: [] };
+    } })
+  });
+  const update = queries.find(({ text }) => /update studio_jobs/i.test(text));
+  const event = queries.find(({ text }) => /insert into studio_job_queue_events/i.test(text));
+
+  assert.equal(count, 1);
+  assert.match(update.text, /queue_locked_at is null/i);
+  assert.ok(event);
+  assert.equal(event.params.includes("lock_reaped"), true);
+  assert.equal(JSON.stringify(event.params).includes("Worker lock missing"), true);
 });
 
 

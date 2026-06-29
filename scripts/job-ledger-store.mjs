@@ -149,6 +149,7 @@ export async function requeueExpiredJobLocks(options = {}) {
   const withTransaction = options.withPostgresTransaction || withPostgresTransaction;
   return withTransaction(async (tx) => {
     await ensureJobQueueSchema(tx.query);
+    const lockTimeoutMs = Number(options.lockTimeoutMs || 15 * 60 * 1000);
     const result = await tx.query(
       `update studio_jobs
           set queue_status = case
@@ -161,14 +162,27 @@ export async function requeueExpiredJobLocks(options = {}) {
               end,
               queue_locked_at = null,
               queue_lock_owner = '',
-              queue_last_error = 'Worker lock expired',
+              queue_last_error = case
+                when queue_locked_at is null then 'Worker lock missing'
+                else 'Worker lock expired'
+              end,
               updated_at = now()
         where app_state_key = $1
           and queue_name = 'generation'
           and queue_status = 'running'
-          and queue_locked_at < now() - ($2::int * interval '1 millisecond')`,
-      [appStateKey, Number(options.lockTimeoutMs || 15 * 60 * 1000)]
+          and (
+            queue_locked_at is null
+            or queue_locked_at < now() - ($2::int * interval '1 millisecond')
+          )
+        returning id, queue_status, queue_last_error`,
+      [appStateKey, lockTimeoutMs]
     );
+    for (const row of result.rows || []) {
+      await appendLedgerEvent(tx.query, row.id, "lock_reaped", row.queue_status, {
+        reason: row.queue_last_error,
+        lockTimeoutMs
+      });
+    }
     return result.rowCount || 0;
   });
 }
