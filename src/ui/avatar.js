@@ -5,7 +5,7 @@ import { renderPreviewTrigger } from "./preview-modal.js";
 export function renderAvatarSettings({ project, character }) {
   return `
     ${renderAvatarUploadPanel()}
-    ${renderToggleSection("Аватары проекта", renderApprovedAvatars(project.characters, character?.id))}
+    ${renderToggleSection("Аватары проекта", renderApprovedAvatars(project.characters, character?.id), { section: "approved" })}
     ${renderAvatarVideoPanel(character)}
     ${renderAvatarOverlayComposer({ project, character })}
   `;
@@ -22,12 +22,17 @@ function renderAvatarUploadPanel() {
       <small class="avatar-system-note">Хромакей-видео будет создано из загруженного изображения активного аватара.</small>
       <button class="secondary-btn" type="submit">Загрузить аватар</button>
     </form>
-  `, true);
+  `, { section: "upload", open: true });
 }
 
-function renderToggleSection(title, content, open = false) {
+function renderToggleSection(title, content, options = {}) {
+  const detailsAttrs = [
+    options.open ? "open" : "",
+    options.section ? `data-avatar-section="${escapeHtml(options.section)}"` : "",
+    options.forceOpen ? "data-force-open=\"true\"" : ""
+  ].filter(Boolean).join(" ");
   return `
-    <details class="avatar-toggle-section" ${open ? "open" : ""}>
+    <details class="avatar-toggle-section" ${detailsAttrs}>
       <summary>${escapeHtml(title)}</summary>
       <div class="avatar-toggle-body">${content}</div>
     </details>
@@ -71,6 +76,7 @@ function getAvatarActiveLabel(item, isSelected) {
 function renderAvatarVideoPanel(character) {
   const videos = character?.avatarVideos || [];
   const canCreate = Boolean(character?.imageData);
+  const hasLoadingVideo = videos.some(isVideoLoading);
   return renderToggleSection("Видео активного аватара", `
     <section class="avatar-video-panel">
       <div class="avatar-video-head">
@@ -87,7 +93,7 @@ function renderAvatarVideoPanel(character) {
       ${canCreate ? "" : "<small class=\"avatar-system-note\">Для видео нужен одобренный аватар с изображением.</small>"}
       ${renderAvatarVideoList(videos)}
     </section>
-  `);
+  `, { section: "video", open: hasLoadingVideo, forceOpen: hasLoadingVideo });
 }
 
 function renderAvatarVideoList(videos) {

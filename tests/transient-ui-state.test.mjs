@@ -13,6 +13,7 @@ test("transient generation controls survive full rerender restore", () => {
   const yandexDiskFolder = { name: "yandexDiskFolder", type: "hidden", value: "disk:/ВИДЕО/Клиент/Проект" };
   const automationForm = { id: "automation-form", elements: [enabled, targetCount] };
   const projectForm = { id: "project-settings-form", elements: [projectName, yandexDiskFolder] };
+  const avatarVideoSection = { dataset: { avatarSection: "video" }, open: true };
   const root = createRoot({
     generationCount,
     hookTitle,
@@ -20,7 +21,8 @@ test("transient generation controls survive full rerender restore", () => {
     forms: {
       "automation-form": automationForm,
       "project-settings-form": projectForm
-    }
+    },
+    details: { video: avatarVideoSection }
   });
 
   const snapshot = captureTransientUiState(root);
@@ -32,6 +34,7 @@ test("transient generation controls survive full rerender restore", () => {
   targetCount.value = "10";
   projectName.value = "Старое имя";
   yandexDiskFolder.value = "disk:/ВИДЕО";
+  avatarVideoSection.open = false;
 
   restoreTransientUiState(root, snapshot);
 
@@ -42,6 +45,18 @@ test("transient generation controls survive full rerender restore", () => {
   assert.equal(targetCount.value, "42");
   assert.equal(projectName.value, "Новый проект");
   assert.equal(yandexDiskFolder.value, "disk:/ВИДЕО/Клиент/Проект");
+  assert.equal(avatarVideoSection.open, true);
+});
+
+test("transient details restore keeps forced avatar video section open", () => {
+  const avatarVideoSection = { dataset: { avatarSection: "video", forceOpen: "true" }, open: false };
+  const root = createRoot({ details: { video: avatarVideoSection } });
+  const snapshot = captureTransientUiState(root);
+
+  avatarVideoSection.open = true;
+  restoreTransientUiState(root, snapshot);
+
+  assert.equal(avatarVideoSection.open, true);
 });
 
 test("state persistence guards against blurred dirty form controls", () => {
@@ -53,17 +68,20 @@ test("state persistence guards against blurred dirty form controls", () => {
   assert.match(source, /files\?\.length/);
 });
 
-function createRoot({ generationCount, hookTitle, hookText, forms = {} }) {
+function createRoot({ generationCount, hookTitle, hookText, forms = {}, details = {} }) {
   return {
     querySelector(selector) {
       if (selector === "#generation-count") return generationCount;
       if (selector === "#hook-version-title") return hookTitle;
       if (selector === "#hook-text-input") return hookText;
       if (selector.startsWith("#")) return forms[selector.slice(1)] || null;
+      const detailsMatch = selector.match(/^\[data-avatar-section="([^"]+)"\]$/);
+      if (detailsMatch) return details[detailsMatch[1]] || null;
       return null;
     },
     querySelectorAll(selector) {
       if (selector === "form[id]") return Object.values(forms);
+      if (selector === "[data-avatar-section]") return Object.values(details);
       return [];
     }
   };

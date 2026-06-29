@@ -7,7 +7,8 @@ const transientControlSelectors = [
 export function captureTransientUiState(root) {
   return {
     controls: captureTransientControls(root),
-    forms: captureTransientForms(root)
+    forms: captureTransientForms(root),
+    details: captureTransientDetails(root)
   };
 }
 
@@ -15,6 +16,7 @@ export function restoreTransientUiState(root, snapshot) {
   if (!snapshot) return;
   restoreTransientControls(root, snapshot.controls);
   restoreTransientForms(root, snapshot.forms);
+  restoreTransientDetails(root, snapshot.details);
 }
 
 function captureTransientControls(root) {
@@ -45,6 +47,23 @@ function captureTransientForms(root) {
 function restoreTransientForms(root, forms = {}) {
   Object.entries(forms).forEach(([formId, draft]) => {
     restoreFormDraft(root.querySelector(`#${formId}`), draft);
+  });
+}
+
+function captureTransientDetails(root) {
+  const details = {};
+  root.querySelectorAll("[data-avatar-section]").forEach((section) => {
+    details[section.dataset.avatarSection] = Boolean(section.open);
+  });
+  return details;
+}
+
+function restoreTransientDetails(root, details = {}) {
+  Object.entries(details).forEach(([sectionName, isOpen]) => {
+    const section = root.querySelector(`[data-avatar-section="${sectionName}"]`);
+    if (!section) return;
+    if (!isOpen && section.dataset.forceOpen === "true") return;
+    section.open = Boolean(isOpen);
   });
 }
 

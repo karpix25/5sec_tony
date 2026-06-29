@@ -22,8 +22,8 @@ test("avatar settings uploads avatars and hides generation review flow", () => {
   const avatarForm = html.match(/<form id="avatar-form"[\s\S]*?<\/form>/)?.[0] || "";
 
   assert.ok(html.indexOf("Загрузить аватар") < html.indexOf("Аватары проекта"));
-  assert.match(html, /<details class="avatar-toggle-section" open>/);
-  assert.match(html, /<details class="avatar-toggle-section" >/);
+  assert.match(html, /<details class="avatar-toggle-section" open data-avatar-section="upload">/);
+  assert.match(html, /<details class="avatar-toggle-section" data-avatar-section="approved">/);
   assert.match(html, /<details class="avatar-overlay-composer" open>/);
   assert.match(html, /name="imageFile"/);
   assert.match(html, /Хромакей-видео будет создано из загруженного изображения активного аватара/);
@@ -32,6 +32,24 @@ test("avatar settings uploads avatars and hides generation review flow", () => {
   assert.doesNotMatch(avatarForm, /name="prompt"/);
   assert.doesNotMatch(html, /Создать аватар/);
   assert.match(html, /яркая плашка в стиле проекта/);
+});
+
+test("avatar video section stays open while video is generating", () => {
+  const project = {
+    ...projects[0],
+    characters: [{
+      ...projects[0].characters[0],
+      avatarVideos: [{
+        id: "avatar-video-generating",
+        status: "generating",
+        motionPrompt: "Легкое движение корпуса"
+      }]
+    }]
+  };
+  const html = renderAvatarSettings({ project, character: project.characters[0] });
+
+  assert.match(html, /<details class="avatar-toggle-section" open data-avatar-section="video" data-force-open="true">/);
+  assert.match(html, /Создаем хромакей/);
 });
 
 test("avatar cta badge generation shows busy feedback", () => {
