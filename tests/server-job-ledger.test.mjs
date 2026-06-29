@@ -114,6 +114,22 @@ test("job ledger patch maps terminal job status to completed queue status", asyn
   assert.ok(update);
 });
 
+test("job ledger patch preserves explicit queued status before worker claim", async () => {
+  const queries = [];
+  const patched = await patchJobLedgerRecord(
+    { id: "job-ledger", status: "running", queueStatus: "queued", stage: "image", progress: 18 },
+    {
+      isPostgresConfigured: () => true,
+      withPostgresTransaction: async (callback) => callback({ query: createLedgerQueryRecorder(queries) })
+    }
+  );
+  const update = queries.find(({ text, params }) => /update studio_jobs set/i.test(text) && params.includes("queued"));
+
+  assert.equal(patched, true);
+  assert.ok(update);
+  assert.equal(update.params.includes("running"), false);
+});
+
 test("job ledger marks worker failure as retrying before max attempts", async () => {
   const queries = [];
   const failed = await markJobWorkerFailure("job-ledger", new Error("provider down"), {

@@ -227,6 +227,7 @@ async function appendLedgerEvent(query, jobId, type, status, payload = {}) {
 }
 
 function resolveQueueStatus(job) {
+  if (["queued", "running", "retrying", "failed", "completed"].includes(job.queueStatus)) return job.queueStatus;
   if (job.status === "failed") return "failed";
   if (job.status === "done" || job.status === "review") return "completed";
   if (job.status === "running") return "running";
