@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { statesEqual } from "../scripts/state-compare.mjs";
+import { getStateDifference, statesEqual } from "../scripts/state-compare.mjs";
 
 test("state comparison ignores object key order", () => {
   assert.equal(
@@ -20,4 +20,50 @@ test("state comparison keeps array order significant", () => {
     ),
     false
   );
+});
+
+test("state comparison accepts relational defaults for new products", () => {
+  const attemptedState = {
+    projects: [{ id: "project-1", name: "Project" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: []
+  };
+  const rebuiltState = {
+    projects: [{ id: "project-1", name: "Project", references: [], audioLibrary: [], avatarCandidates: [], designReferenceCandidates: [], characters: [] }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product", description: "", offer: "", components: "", pains: [], facts: [], forbidden: [], aiPassport: {}, references: [] }],
+    jobs: [],
+    audioLibrary: [],
+    hookLibrary: { activeVersionId: "", versions: [] },
+    reelsResearch: null,
+    selectedProjectId: "",
+    selectedProductId: "",
+    selectedReferenceId: "",
+    selectedCharacterId: "",
+    selectedAudioId: "",
+    selectedProjectTab: "project",
+    generationBrief: {},
+    freePrompt: ""
+  };
+
+  assert.equal(statesEqual(rebuiltState, attemptedState), true);
+});
+
+test("state comparison still detects product loss", () => {
+  const attemptedState = {
+    projects: [{ id: "project-1" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: []
+  };
+  const rebuiltState = {
+    projects: [{ id: "project-1" }],
+    products: [],
+    jobs: []
+  };
+
+  assert.equal(statesEqual(rebuiltState, attemptedState), false);
+  assert.deepEqual(getStateDifference(rebuiltState, attemptedState), {
+    path: "$.products.length",
+    left: 0,
+    right: 1
+  });
 });

@@ -1,6 +1,6 @@
 import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
 import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
-import { statesEqual } from "./state-compare.mjs";
+import { getStateDifference, statesEqual } from "./state-compare.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 import { defaultAppStateKey, lockAppState, withAppStateRetry } from "./app-state-lock.mjs";
 
@@ -45,7 +45,7 @@ async function handleLoadState(response, deps) {
           await deps.saveLegacy(tx.query, appStateKey, nextState);
           const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
           if (!statesEqual(rebuiltState, nextState)) {
-            throw new Error("Legacy migration parity check failed");
+            throw new Error(formatParityError("Legacy migration parity check failed", rebuiltState, nextState));
           }
           return rebuiltState;
         });
@@ -105,7 +105,7 @@ async function handleSaveState(request, response, deps) {
       const legacyResult = await deps.saveLegacy(tx.query, appStateKey, nextState);
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
       if (!statesEqual(rebuiltState, nextState)) {
-        throw new Error("Relational state parity check failed");
+        throw new Error(formatParityError("Relational state parity check failed", rebuiltState, nextState));
       }
       return {
         updatedAt: legacyResult.rows[0]?.updated_at || null,
@@ -160,6 +160,12 @@ function sendJson(response, status, payload) {
 
 function isPlainStateObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function formatParityError(message, rebuiltState, nextState) {
+  const diff = getStateDifference(rebuiltState, nextState);
+  if (!diff) return message;
+  return `${message}: ${diff.path}`;
 }
 
 async function lockCurrentUpdatedAt(query, key) {
