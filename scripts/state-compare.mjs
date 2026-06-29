@@ -98,6 +98,7 @@ function canonicalJob(job) {
     topic: "",
     music: "",
     prompt: "",
+    referenceId: "",
     referenceTitle: "",
     outputType: "",
     finalVideoUrl: "",
