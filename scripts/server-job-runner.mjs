@@ -248,9 +248,14 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
     await patchServerJob(record, {
       diskStatus: "done",
       diskPath: result.diskPath,
+      diskUrl: result.diskUrl || result.publicUrl || "",
       diskMessage: "Сохранено в Яндекс.Диск"
     });
-    logger.log("disk:done", { job: summarizeJobForLog(record.job), diskPath: result.diskPath || "" });
+    logger.log("disk:done", {
+      job: summarizeJobForLog(record.job),
+      diskPath: result.diskPath || "",
+      diskUrl: result.diskUrl || result.publicUrl || ""
+    });
   } catch (error) {
     await patchServerJob(record, {
       diskStatus: "failed",

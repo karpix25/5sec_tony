@@ -21,6 +21,7 @@
 
 .media-preview-body {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   place-items: center;
   min-height: 280px;
   overflow: hidden;
@@ -33,6 +34,22 @@
   width: 100%;
   max-height: calc(100vh - 132px);
   object-fit: contain;
+}
+
+.media-preview-actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.media-preview-actions a {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .avatar-video-preview,

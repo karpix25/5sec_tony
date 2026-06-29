@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { listYandexFolders } from "../scripts/yandex-disk-api.mjs";
+import { Readable } from "node:stream";
+import { handleYandexDiskApi, listYandexFolders } from "../scripts/yandex-disk-api.mjs";
 import { listYandexDiskFolders } from "../src/services/yandex-disk.js";
 import { renderProjectManagementSettings } from "../src/ui/project.js";
 
@@ -81,6 +82,65 @@ test("yandex folder API uses pages and narrow fields for large folders", async (
   }
 });
 
+test("yandex upload API publishes file and returns public url", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousToken = process.env.YANDEX_DISK_TOKEN;
+  const calls = [];
+  process.env.YANDEX_DISK_TOKEN = "token";
+  globalThis.fetch = async (url, options = {}) => {
+    const href = String(url);
+    const method = options.method || "GET";
+    calls.push({ href, method });
+
+    if (href.includes("/upload?")) {
+      return jsonResponse({ href: "https://upload.example.com/file" });
+    }
+    if (href === "https://source.example.com/final.mp4") {
+      return {
+        ok: true,
+        arrayBuffer: async () => new TextEncoder().encode("video").buffer
+      };
+    }
+    if (href === "https://upload.example.com/file") {
+      assert.equal(method, "PUT");
+      return jsonResponse({});
+    }
+    if (href.includes("/publish?")) {
+      assert.equal(method, "PUT");
+      return jsonResponse({});
+    }
+    if (href.includes("fields=path%2Cpublic_url%2Cname%2Ctype")) {
+      return jsonResponse({
+        path: "disk:/ВИДЕО/5сек/final.mp4",
+        public_url: "https://disk.yandex.ru/i/final-public"
+      });
+    }
+    if (href.startsWith("https://cloud-api.yandex.net/v1/disk/resources?")) {
+      assert.equal(method, "PUT");
+      return jsonResponse({});
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  try {
+    const response = await callYandexDiskApi("POST", "/api/yandex-disk/upload", {
+      fileUrl: "https://source.example.com/final.mp4",
+      targetFolder: "disk:/ВИДЕО/5сек",
+      fileName: "final.mp4"
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.payload.diskPath, "disk:/ВИДЕО/5сек/final.mp4");
+    assert.equal(response.payload.diskUrl, "https://disk.yandex.ru/i/final-public");
+    assert.equal(response.payload.publicUrl, "https://disk.yandex.ru/i/final-public");
+    assert.ok(calls.some((call) => call.href.includes("/publish?")));
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousToken === undefined) delete process.env.YANDEX_DISK_TOKEN;
+    else process.env.YANDEX_DISK_TOKEN = previousToken;
+  }
+});
+
 test("yandex folder client requests the video root by default", async () => {
   const previousFetch = globalThis.fetch;
   let requestedUrl = "";
@@ -131,3 +191,33 @@ test("yandex picker reuses cached folder tree across rerenders", () => {
   assert.match(source, /cached\?\.payload/);
   assert.match(source, /cached\.request/);
 });
+
+function callYandexDiskApi(method, path, body) {
+  const request = Readable.from([JSON.stringify(body || {})]);
+  request.method = method;
+  const chunks = [];
+  const response = {
+    statusCode: 200,
+    headers: {},
+    writeHead(status, headers) {
+      this.statusCode = status;
+      this.headers = headers;
+    },
+    end(chunk = "") {
+      chunks.push(String(chunk));
+    }
+  };
+  return handleYandexDiskApi(request, response, new URL(path, "http://local")).then(() => ({
+    status: response.statusCode,
+    headers: response.headers,
+    payload: JSON.parse(chunks.join("") || "{}")
+  }));
+}
+
+function jsonResponse(payload, ok = true, status = ok ? 200 : 500) {
+  return {
+    ok,
+    status,
+    json: async () => payload
+  };
+}

@@ -2,6 +2,7 @@ import { buildProductProfile } from "./product-profile.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 import { createTravelTopicPlan } from "./travel-content-plan.js";
 import { createBenefitEcosystem, formatBenefitEcosystemInstruction } from "./benefit-ecosystem.js";
+import { buildTopicSimilarityKey, isSimilarTopicSignature, normalizeTopicText } from "./topic-similarity.js";
 
 const hookStrategies = [
   {
@@ -219,7 +220,7 @@ function getHookStrategyInstruction(candidate) {
 function uniqueCandidatePoints(points) {
   const seen = new Set();
   return points.map((point) => String(point || "").trim()).filter((point) => {
-    const key = normalizeTopicCandidateText(point);
+    const key = normalizeTopicText(point);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -227,8 +228,8 @@ function uniqueCandidatePoints(points) {
 }
 
 function scoreStrategyCandidate(candidate, profile, existingJobs) {
-  const source = normalizeTopicCandidateText(`${candidate.topic} ${candidate.trigger} ${candidate.promptInstruction}`);
-  const used = new Set(existingJobs.map((job) => normalizeTopicCandidateText(`${job.topic || ""} ${job.title || ""}`)));
+  const source = normalizeTopicText(`${candidate.topic} ${candidate.trigger} ${candidate.promptInstruction}`);
+  const used = existingJobs.map(createUsedTopicSignature).filter((item) => item.text);
   const audienceMatchCount = profile.painMap.filter((item) => source.includes(normalizeToken(item))).length;
   const hasAudiencePain = audienceMatchCount > 0;
   const hasSafeProof = profile.proofPoints.some((item) => source.includes(normalizeToken(item)));
@@ -252,25 +253,49 @@ function scoreStrategyCandidate(candidate, profile, existingJobs) {
 }
 
 function getDuplicatePenalty(candidate, used) {
-  const topicKey = normalizeTopicCandidateText(candidate.topic);
-  const headlineKey = normalizeTopicCandidateText(candidate.headline);
-  if (used.has(topicKey) || used.has(headlineKey)) return 8;
-  return [...used].some((item) => isSimilarTopicKey(item, topicKey) || isSimilarTopicKey(item, headlineKey)) ? 4 : 0;
-}
-
-function isSimilarTopicKey(left, right) {
-  if (!left || !right) return false;
-  const leftWords = new Set(left.split(" ").filter((word) => word.length > 4));
-  const rightWords = right.split(" ").filter((word) => word.length > 4);
-  if (!leftWords.size || rightWords.length < 2) return false;
-  const matches = rightWords.filter((word) => leftWords.has(word)).length;
-  return matches >= 2;
+  const signature = createCandidateTopicSignature(candidate);
+  if (!signature.text) return 0;
+  return used.some((item) => item.text === signature.text)
+    ? 8
+    : used.some((item) => isSimilarTopicSignature(item, signature))
+      ? 6
+      : 0;
 }
 
 function normalizeToken(value) {
-  return normalizeTopicCandidateText(value).split(" ").find((word) => word.length > 4) || "";
+  return normalizeTopicText(value).split(" ").find((word) => word.length > 4) || "";
 }
 
-function normalizeTopicCandidateText(value) {
-  return String(value || "").toLowerCase().replace(/[^a-zа-я0-9ё]+/gi, " ").trim();
+function createCandidateTopicSignature(candidate) {
+  return buildTopicSimilarityKey([
+    candidate.topic,
+    candidate.headline,
+    candidate.subhead,
+    candidate.trigger,
+    candidate.pain,
+    candidate.habit,
+    candidate.proof,
+    candidate.useCase,
+    candidate.strategyLabel,
+    candidate.angleLabel
+  ]);
+}
+
+function createUsedTopicSignature(job) {
+  return buildTopicSimilarityKey([
+    job.topic,
+    job.title,
+    job.finalContent?.headline,
+    job.finalContent?.subhead,
+    ...asPointList(job.finalContent?.points),
+    job.aiPlan?.headline,
+    job.aiPlan?.subhead,
+    ...asPointList(job.aiPlan?.points),
+    job.diversitySlot?.contentLayer?.subject,
+    job.contentLayerSubject
+  ]);
+}
+
+function asPointList(value) {
+  return Array.isArray(value) ? value : [];
 }

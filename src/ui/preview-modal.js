@@ -112,7 +112,13 @@ function renderPreviewImage(src) {
 }
 
 function renderPreviewVideo(src) {
-  return `<video src="${escapeHtml(src)}" controls autoplay muted loop playsinline></video>`;
+  const safeSrc = escapeHtml(src);
+  return `
+    <video src="${safeSrc}" controls autoplay muted loop playsinline></video>
+    <div class="media-preview-actions">
+      <a href="${safeSrc}" target="_blank" rel="noreferrer">Открыть видео в новой вкладке</a>
+    </div>
+  `;
 }
 
 function guessPreviewType(src) {

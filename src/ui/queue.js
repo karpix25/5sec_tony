@@ -86,9 +86,10 @@ function renderQueueJob(job, productName = "") {
 
 function renderDiskStatus(job) {
   if (!job.diskStatus) return "";
+  const diskUrl = getYandexDiskUrl(job);
   const label = {
     uploading: "Яндекс.Диск: сохраняем",
-    done: `Яндекс.Диск: ${job.diskPath || "сохранено"}`,
+    done: `Яндекс.Диск: ${diskUrl ? "ссылка готова" : "сохранено, ссылка готовится"}`,
     failed: `Яндекс.Диск: ${job.diskMessage || "ошибка сохранения"}`
   }[job.diskStatus] || job.diskMessage || "";
   return label ? `<span>${escapeHtml(label)}</span>` : "";
@@ -148,23 +149,21 @@ function renderQueuePreview(job, ready, failed, preview) {
 }
 
 function renderYandexDiskVideoLink(job) {
-  if (!job.diskPath || job.diskStatus !== "done") return "";
-  const isWebUrl = /^https?:\/\//i.test(job.diskPath);
+  if (job.diskStatus !== "done") return "";
+  const diskUrl = getYandexDiskUrl(job);
+  if (!diskUrl) return "";
   const label = "Ссылка на ролик на Яндекс.Диске";
-  if (isWebUrl) {
-    return `
-      <a class="queue-disk-link" href="${escapeHtml(job.diskPath)}" target="_blank" rel="noreferrer">
-        <span>${label}</span>
-        <strong>${escapeHtml(job.diskPath)}</strong>
-      </a>
-    `;
-  }
   return `
-    <div class="queue-disk-link">
+    <a class="queue-disk-link" href="${escapeHtml(diskUrl)}" target="_blank" rel="noreferrer">
       <span>${label}</span>
-      <strong>${escapeHtml(job.diskPath)}</strong>
-    </div>
+      <strong>${escapeHtml(diskUrl)}</strong>
+    </a>
   `;
+}
+
+function getYandexDiskUrl(job) {
+  const candidates = [job.diskUrl, job.diskPublicUrl, job.yandexDiskUrl, job.diskPath];
+  return candidates.find((value) => /^https?:\/\//i.test(String(value || ""))) || "";
 }
 
 function renderFinalVideoPoster(job) {

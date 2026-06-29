@@ -54,6 +54,21 @@ test("remote save keeps job quota accounting fields", () => {
   assert.equal(shouldSave, true);
 });
 
+test("remote save keeps yandex disk public url", () => {
+  const previousState = {
+    jobs: [{ id: "job-1", status: "done", diskStatus: "done", diskUrl: "" }]
+  };
+  const nextState = {
+    jobs: [{ id: "job-1", status: "done", diskStatus: "done", diskUrl: "https://disk.yandex.ru/i/final" }]
+  };
+
+  const shouldSave = shouldScheduleRemoteSave(previousState, nextState, {
+    jobs: nextState.jobs
+  });
+
+  assert.equal(shouldSave, true);
+});
+
 test("remote save still runs for mixed patches beyond jobs", () => {
   const previousState = { jobs: [] };
   const nextState = { jobs: [], selectedProjectId: "project-2" };

@@ -5,15 +5,15 @@ export function pickGenerationTopic({ suppliedTopic, candidateTopic, lockedTopic
 }
 
 function shouldReplaceSuppliedTopic(topic, existingJobs) {
-  const normalized = normalizeTopicText(topic);
+  const normalized = normalizeGenerationTopicText(topic);
   if (!normalized) return false;
-  const isRepeated = existingJobs.some((job) => normalizeTopicText(job.topic || job.title) === normalized);
+  const isRepeated = existingJobs.some((job) => normalizeGenerationTopicText(job.topic || job.title) === normalized);
   const isGenericFactPromise = /полезн\w*\s+факт\w*\s+от\s+красив\w*\s+обещан/i.test(topic);
   const isOverpackedList = String(topic || "").split(",").length >= 3 && /как\s+отлич|как\s+понять|проверь/i.test(topic);
   return isRepeated || isGenericFactPromise || isOverpackedList;
 }
 
-function normalizeTopicText(value) {
+function normalizeGenerationTopicText(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/ё/g, "е")

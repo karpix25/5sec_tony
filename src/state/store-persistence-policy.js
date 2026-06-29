@@ -30,6 +30,7 @@ function hasPersistedJobDelta(previous, next) {
     "failMsg",
     "diskStatus",
     "diskPath",
+    "diskUrl",
     "diskMessage"
   ];
   return fields.some((field) => (previous[field] || "") !== (next[field] || ""));

@@ -52,6 +52,7 @@ const files = [
   "src/domain/product-content-focus.js",
   "src/domain/product-profile.js",
   "src/domain/travel-content-plan.js",
+  "src/domain/topic-similarity.js",
   "src/domain/job-identity.js",
   "src/domain/job-quota.js",
   "src/domain/project-automation.js",

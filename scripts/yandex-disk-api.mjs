@@ -32,8 +32,9 @@ export async function handleYandexDiskApi(request, response, url) {
     const bytes = await readSourceBytes(fileUrl);
     const upload = await fetch(uploadUrl, { method: "PUT", body: bytes });
     if (!upload.ok) throw new Error(`Яндекс.Диск не принял файл: ${upload.status}`);
+    const publicUrl = await publishYandexResource(token, diskPath);
 
-    return sendJson(response, 200, { diskPath, fileName });
+    return sendJson(response, 200, { diskPath, diskUrl: publicUrl, publicUrl, fileName });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "Не удалось сохранить файл на Яндекс.Диск" });
   }
@@ -135,6 +136,33 @@ async function getUploadUrl(token, path) {
   const payload = await result.json().catch(() => ({}));
   if (!result.ok || !payload.href) throw new Error(payload.message || "Яндекс.Диск не вернул upload URL");
   return payload.href;
+}
+
+async function publishYandexResource(token, path) {
+  const result = await fetch(`${yandexApiUrl}/publish?path=${encodeURIComponent(path)}`, {
+    method: "PUT",
+    headers: { Authorization: getYandexAuthHeader(token) }
+  });
+  if (!result.ok && result.status !== 409) {
+    const payload = await result.json().catch(() => ({}));
+    throw new Error(payload.message || `Не удалось опубликовать файл Яндекс.Диска: ${path}`);
+  }
+  const resource = await getYandexPublishedResource(token, path);
+  if (!resource.public_url) throw new Error(`Яндекс.Диск не вернул публичную ссылку: ${path}`);
+  return resource.public_url;
+}
+
+async function getYandexPublishedResource(token, path) {
+  const params = new URLSearchParams({
+    path,
+    fields: "path,public_url,name,type"
+  });
+  const result = await fetch(`${yandexApiUrl}?${params}`, {
+    headers: { Authorization: getYandexAuthHeader(token) }
+  });
+  const payload = await result.json().catch(() => ({}));
+  if (!result.ok) throw new Error(payload.message || `Не удалось получить публичную ссылку Яндекс.Диска: ${path}`);
+  return payload;
 }
 
 async function readSourceBytes(source) {

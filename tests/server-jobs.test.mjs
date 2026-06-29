@@ -31,7 +31,10 @@ test("server job runs image generation, final assembly, avatar usage and disk up
     if (String(url).includes("/api/yandex-disk/upload")) {
       assert.equal(body.fileUrl, "/generated/avatar-videos/final-server.mp4");
       assert.equal(body.targetFolder, "disk:/ВИДЕО/5сек/Test Avatar");
-      return jsonResponse({ diskPath: "disk:/ВИДЕО/5сек/Test Avatar/final-server.mp4" });
+      return jsonResponse({
+        diskPath: "disk:/ВИДЕО/5сек/Test Avatar/final-server.mp4",
+        diskUrl: "https://disk.yandex.ru/i/final-server"
+      });
     }
     throw new Error(`unexpected fetch ${url}`);
   };
@@ -97,6 +100,7 @@ test("server job runs image generation, final assembly, avatar usage and disk up
     assert.equal(finalPayload.job.finalVideoUrl, "/generated/avatar-videos/final-server.mp4");
     assert.equal(finalPayload.job.finalVideoHasAudio, true);
     assert.equal(finalPayload.job.diskPath, "disk:/ВИДЕО/5сек/Test Avatar/final-server.mp4");
+    assert.equal(finalPayload.job.diskUrl, "https://disk.yandex.ru/i/final-server");
     assert.deepEqual(finalPayload.avatarUsage, {
       characterId: "char-1",
       videoId: "avatar-video-warning",

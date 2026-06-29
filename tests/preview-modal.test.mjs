@@ -97,7 +97,7 @@ test("queue uses final video preview when the video url is local generated media
   assert.match(html, /src="https:\/\/cdn\.example\.com\/final-frame\.png"/);
 });
 
-test("queue shows saved yandex disk path under final video preview", () => {
+test("queue shows clickable yandex disk url under final video preview", () => {
   const project = projects[0];
   const html = renderQueuePanel({
     products,
@@ -112,6 +112,7 @@ test("queue shows saved yandex disk path under final video preview", () => {
       finalVideoUrl: "https://cdn.example.com/final.mp4",
       diskStatus: "done",
       diskPath: "disk:/ВИДЕО/5сек/Маша/final.mp4",
+      diskUrl: "https://disk.yandex.ru/i/public-video",
       imageUrl: "https://cdn.example.com/final-frame.png",
       title: "Видео",
       topic: "тема",
@@ -121,8 +122,17 @@ test("queue shows saved yandex disk path under final video preview", () => {
   }, { project });
 
   assert.match(html, /Ссылка на ролик на Яндекс\.Диске/);
-  assert.match(html, /disk:\/ВИДЕО\/5сек\/Маша\/final\.mp4/);
-  assert.match(html, /class="queue-disk-link"/);
+  assert.match(html, /class="queue-disk-link" href="https:\/\/disk\.yandex\.ru\/i\/public-video"/);
+  assert.match(html, />https:\/\/disk\.yandex\.ru\/i\/public-video</);
+  assert.doesNotMatch(html, />disk:\/ВИДЕО\/5сек\/Маша\/final\.mp4</);
+});
+
+test("preview video modal offers full video in a new tab", () => {
+  const previewSource = readFileSync(new URL("../src/ui/preview-modal.js", import.meta.url), "utf8");
+
+  assert.match(previewSource, /media-preview-actions/);
+  assert.match(previewSource, /Открыть видео в новой вкладке/);
+  assert.match(previewSource, /target="_blank"/);
 });
 
 test("preview modal survives app rerenders during generation", () => {

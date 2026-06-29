@@ -236,6 +236,62 @@ test("ecosystem topics are ai-generation signals, not final hardcoded headlines"
   assert.doesNotMatch(candidateText, /после воды хочется кофе|нет сил на спорт|украл вчерашний вечер|Крем нанесли/i);
 });
 
+test("topic candidates penalize semantic repeats even when candidate topic is empty", () => {
+  const project = {
+    ...projects[0],
+    projectTheme: "хлорофилл и wellness без одинаковых карточек",
+    audiencePains: "хочется свежести утром\nсомнения где польза а где маркетинг"
+  };
+  const product = {
+    id: "chlorophyll-semantic-repeat",
+    projectId: project.id,
+    name: "Хлорофилл",
+    description: "жидкий хлорофилл для утренней wellness-рутины",
+    offer: "поддержать привычку пить воду утром",
+    components: "жидкий формат, зеленый концентрат",
+    pains: ["хочется свежести утром", "сомнения где польза а где маркетинг"],
+    facts: ["важна регулярность", "без медицинских обещаний"],
+    forbidden: ["лечит", "гарантирует результат"]
+  };
+  const insightMap = buildProductInsightMap({
+    insightMap: {
+      id: "chlorophyll-diversity",
+      benefitZones: [
+        {
+          id: "fresh-morning",
+          pain: "хочется свежести утром",
+          habit: "начать день со стакана воды и зеленого ритуала",
+          safeFact: "важна регулярность"
+        },
+        {
+          id: "marketing-check",
+          pain: "сомнения где польза а где маркетинг",
+          habit: "сравнить состав и формат перед покупкой",
+          safeFact: "без медицинских обещаний"
+        }
+      ]
+    }
+  });
+  const existingJobs = [{
+    title: "4 фактора свежести изнутри",
+    topic: "Внутренняя дезодорация и свежесть",
+    finalContent: {
+      headline: "4 фактора свежести изнутри",
+      points: ["Вода и баланс", "Ритуал утром", "Регулярность"]
+    }
+  }];
+
+  const candidates = buildTopicCandidates({ project, product, existingJobs, insightMap });
+  const repeated = candidates.find((item) => item.pain === "хочется свежести утром");
+  const alternative = candidates.find((item) => item.pain === "сомнения где польза а где маркетинг");
+
+  assert.ok(repeated);
+  assert.ok(alternative);
+  assert.equal(repeated.topic, "");
+  assert.ok(repeated.duplicatePenalty >= 6);
+  assert.equal(alternative.duplicatePenalty, 0);
+});
+
 test("ai department brief overrides local topic rotation", () => {
   const project = { ...projects[0], projectTheme: "здоровье, энергия и полезные привычки" };
   const product = {
