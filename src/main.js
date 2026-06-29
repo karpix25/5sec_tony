@@ -11,6 +11,7 @@ import { updateQueuePanel } from "./ui/queue.js";
 import { captureTransientUiState, restoreTransientUiState } from "./ui/transient-ui-state.js";
 import { createAuthController } from "./ui/auth.js";
 import { renderStudioLoading } from "./ui/studio-loading.js";
+import { capturePagePosition, restorePagePosition, startPagePositionPersistence } from "./ui/page-position-state.js";
 
 const root = document.querySelector("#app");
 let store = null;
@@ -18,6 +19,7 @@ let pendingFrame = 0;
 let needsFullRender = false;
 let pendingState = null;
 let firstRenderReady = false;
+let initialPagePositionRestored = false;
 
 const auth = createAuthController({
   root: null,
@@ -28,6 +30,7 @@ const auth = createAuthController({
 });
 startStudio();
 auth.start();
+startPagePositionPersistence(window);
 
 function startStudio() {
   if (store) return;
@@ -75,9 +78,12 @@ function renderAppSafely() {
   if (!store) return;
   const preview = getOpenMediaPreviewState(root);
   const transientUiState = captureTransientUiState(root);
+  const pagePosition = initialPagePositionRestored ? capturePagePosition(window) : undefined;
   renderApp(root, store, { auth, rerender: renderAppSafely });
   restoreMediaPreviewState(root, preview);
   restoreTransientUiState(root, transientUiState);
+  restorePagePosition(window, pagePosition);
+  initialPagePositionRestored = true;
 }
 
 function isJobsOnlyPatch(patch) {
