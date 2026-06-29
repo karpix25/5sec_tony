@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { buildAvatarOverlayFilter, buildCompositeVideoFilter } from "../scripts/composite-video.mjs";
 
 test("composite filter maps overlay panel values to ffmpeg placement", () => {
@@ -30,4 +31,42 @@ test("composite filter can render final video without avatar input", () => {
   assert.doesNotMatch(filter, /chromakey=0x00FF00/);
   assert.match(filter, /\[bg\]format=rgba\[base\]/);
   assert.match(filter, /\[base\]format=yuv420p\[out\]/);
+});
+
+test("composite filter renders default cta badge with rounded border layer", () => {
+  const filter = buildCompositeVideoFilter({
+    hasAvatarInput: false,
+    ctaOverlay: {
+      enabled: true,
+      mode: "badge",
+      text: "ЧИТАЙ ОПИСАНИЕ",
+      x: 50,
+      y: 78,
+      scale: 100,
+      opacity: 100,
+      background: "#ffffff",
+      border: "#111111",
+      radius: 10
+    }
+  });
+
+  assert.match(filter, /color=c=0x111111:s=\d+x\d+:d=5,format=rgba,geq=r='r\(X,Y\)':g='g\(X,Y\)':b='b\(X,Y\)':a='if\(gt\(/);
+  assert.match(filter, /color=c=0xffffff:s=\d+x\d+:d=5,format=rgba,geq=r='r\(X,Y\)':g='g\(X,Y\)':b='b\(X,Y\)':a='if\(gt\(/);
+  assert.match(filter, /\[ctaOuter\]\[ctaInner\]overlay=x=\d+:y=\d+:format=auto\[ctaBg\]/);
+  assert.match(filter, /\[ctaBg\]drawtext=text='ЧИТАЙ ОПИСАНИЕ'/);
+  assert.match(filter, /\[base\]\[cta\]overlay=x=512-w\/2:y=1398-h\/2:enable='gte\(t,3\)',format=yuv420p\[out\]/);
+});
+
+test("composite video returns local final file without waiting for S3 upload", () => {
+  const source = readFileSync(new URL("../scripts/composite-video.mjs", import.meta.url), "utf8");
+
+  assert.doesNotMatch(source, /uploadFileToS3\(outputPath/);
+  assert.match(source, /videoUrl:\s*localVideoUrl/);
+});
+
+test("composite video uses a fast ffmpeg preset for short renders", () => {
+  const source = readFileSync(new URL("../scripts/composite-video.mjs", import.meta.url), "utf8");
+
+  assert.match(source, /"-c:v",\s*"libx264"/);
+  assert.match(source, /FFMPEG_VIDEO_PRESET\s*\|\|\s*"veryfast"/);
 });

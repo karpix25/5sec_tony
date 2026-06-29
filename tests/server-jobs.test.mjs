@@ -97,7 +97,7 @@ test("server job runs image generation, final assembly, avatar usage and disk up
       payload.job.status === "done" && payload.job.diskStatus === "done"
     );
 
-    assert.equal(finalPayload.job.finalVideoUrl, "/generated/avatar-videos/final-server.mp4");
+    assert.equal(finalPayload.job.finalVideoUrl, "https://disk.yandex.ru/i/final-server");
     assert.equal(finalPayload.job.finalVideoHasAudio, true);
     assert.equal(finalPayload.job.diskPath, "disk:/ВИДЕО/5сек/Test Avatar/final-server.mp4");
     assert.equal(finalPayload.job.diskUrl, "https://disk.yandex.ru/i/final-server");

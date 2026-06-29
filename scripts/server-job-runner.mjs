@@ -1,3 +1,4 @@
+import { unlink } from "node:fs/promises";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../src/domain/avatar-video-rotation.js";
 import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
@@ -245,16 +246,19 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
       targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
       fileName: buildServerExportFileName(project, record.job)
     });
+    const diskUrl = result.diskUrl || result.publicUrl || "";
     await patchServerJob(record, {
       diskStatus: "done",
       diskPath: result.diskPath,
-      diskUrl: result.diskUrl || result.publicUrl || "",
+      diskUrl,
+      finalVideoUrl: diskUrl || record.job.finalVideoUrl,
       diskMessage: "Сохранено в Яндекс.Диск"
     });
+    await cleanupLocalGeneratedVideo(finalVideoUrl);
     logger.log("disk:done", {
       job: summarizeJobForLog(record.job),
       diskPath: result.diskPath || "",
-      diskUrl: result.diskUrl || result.publicUrl || ""
+      diskUrl
     });
   } catch (error) {
     await patchServerJob(record, {
@@ -263,6 +267,24 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
     });
     logger.log("disk:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
   }
+}
+
+async function cleanupLocalGeneratedVideo(videoUrl) {
+  const localPath = getLocalGeneratedVideoPath(videoUrl);
+  if (!localPath) return;
+  try {
+    await unlink(localPath);
+    logger.log("disk:local-cleanup", { file: localPath });
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    logger.log("disk:local-cleanup-failed", { file: localPath, error: error.message || error });
+  }
+}
+
+function getLocalGeneratedVideoPath(videoUrl) {
+  const value = String(videoUrl || "").split("?")[0];
+  if (!value.startsWith("/generated/")) return "";
+  return value.replace(/^\/+/, "");
 }
 
 async function persistServerJob(record) {
