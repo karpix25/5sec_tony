@@ -5,7 +5,7 @@ export async function dispatchJobToQueue(job, deps = {}) {
   const { Queue } = await loadBullMq(deps);
   const queue = new Queue(queueName, { connection: getRedisConnection(deps.env || process.env) });
   await queue.add("run-server-job", { jobId: job.id }, {
-    jobId: job.queueIdempotencyKey || job.id,
+    jobId: toBullMqJobId(job.queueIdempotencyKey || job.id),
     attempts: Number(job.queueMaxAttempts || 3),
     backoff: { type: "exponential", delay: Number(job.queueBackoffMs || 15000) },
     removeOnComplete: 1000,
@@ -13,6 +13,11 @@ export async function dispatchJobToQueue(job, deps = {}) {
   });
   await queue.close();
   return { mode: "bullmq", enqueued: true };
+}
+
+export function toBullMqJobId(value) {
+  const raw = String(value || "").trim() || "job";
+  return `job-${Buffer.from(raw).toString("base64url")}`;
 }
 
 export function shouldUseBullMq(env = process.env) {

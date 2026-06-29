@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dispatchJobToQueue, shouldUseBullMq } from "../scripts/job-queue-dispatcher.mjs";
+import { dispatchJobToQueue, shouldUseBullMq, toBullMqJobId } from "../scripts/job-queue-dispatcher.mjs";
 import { appendJobQueueEvent } from "../scripts/job-ledger-events.mjs";
 import {
   claimNextQueuedJob,
@@ -45,7 +45,8 @@ test("job queue dispatcher enqueues BullMQ job with stable id", async () => {
   assert.deepEqual(result, { mode: "bullmq", enqueued: true });
   assert.equal(added[0].queueName, "generation");
   assert.equal(added[0].payload.jobId, "job-dispatch");
-  assert.equal(added[0].options.jobId, "stable-key");
+  assert.equal(added[0].options.jobId, toBullMqJobId("stable-key"));
+  assert.equal(added[0].options.jobId.includes(":"), false);
   assert.equal(added[0].options.attempts, 5);
   assert.deepEqual(added[0].options.backoff, { type: "exponential", delay: 15000 });
   assert.equal(added[0].connection.url, "redis://localhost:6379");
