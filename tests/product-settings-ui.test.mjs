@@ -76,3 +76,14 @@ test("product screen has a single save changes action", () => {
   assert.doesNotMatch(html, /Сохранить анкету/);
   assert.doesNotMatch(html, /id="open-product-modal"/);
 });
+
+test("sidebar new product button opens modal instead of selecting product tab only", () => {
+  const renderSource = readFileSync(new URL("../src/ui/render.js", import.meta.url), "utf8");
+  const eventsSource = readFileSync(new URL("../src/ui/product-events.js", import.meta.url), "utf8");
+  const button = renderSource.match(/<button id="open-product-modal"[^>]*>/)?.[0] || "";
+
+  assert.match(button, /sidebar-action/);
+  assert.doesNotMatch(button, /data-project-tab/);
+  assert.match(eventsSource, /openProductModalWhenReady\(root, store\)/);
+  assert.match(eventsSource, /store\.selectProjectTab\?\.\("product"\)/);
+});

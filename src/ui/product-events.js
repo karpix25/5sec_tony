@@ -7,7 +7,7 @@ import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductM
 import { uploadProductReferenceAssets } from "../services/product-reference-assets.js";
 
 export function bindProductEvents(root, store) {
-  root.querySelector("#open-product-modal")?.addEventListener("click", () => openProductModal(root));
+  root.querySelector("#open-product-modal")?.addEventListener("click", () => openProductModalWhenReady(root, store));
   root.querySelector("#open-product-reference-modal")?.addEventListener("click", () => openProductReferenceModal(root));
   root.querySelector("#open-delete-product-modal")?.addEventListener("click", () => openDeleteProductModal(root));
   root.querySelectorAll("[data-close-product-modal]").forEach((button) => {
@@ -173,6 +173,20 @@ function openProductModal(root) {
   if (!modal) return;
   modal.hidden = false;
   root.querySelector("#product-form input[name='name']")?.focus();
+}
+
+function openProductModalWhenReady(root, store) {
+  if ((store.getState?.().selectedProjectTab || "project") !== "product") {
+    store.selectProjectTab?.("product");
+    deferUi(() => openProductModal(root));
+    return;
+  }
+  openProductModal(root);
+}
+
+function deferUi(callback) {
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(callback);
+  else setTimeout(callback, 0);
 }
 
 function closeProductModal(root) {

@@ -69,7 +69,7 @@ function renderSidebar(state, context, projectProducts) {
         ${projectProducts.map((product) => option(product.id, product.name, context.product.id)).join("")}
       </select>
       <button class="secondary-btn sidebar-action" data-project-tab="product" type="button">Открыть продукт</button>
-      <button id="open-product-modal" class="ghost-btn sidebar-action" data-project-tab="product" type="button">+ Новый продукт</button>
+      <button id="open-product-modal" class="ghost-btn sidebar-action" type="button">+ Новый продукт</button>
       ${renderGlobalReferenceNav(state)}
       ${renderLimit(context.project)}
       <button id="open-delete-project-modal" class="danger-btn sidebar-danger" type="button">Опасная зона</button>
