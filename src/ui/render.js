@@ -221,10 +221,15 @@ function bindEvents(root, store, options = {}) {
   root.querySelectorAll("[data-close-project-modal]").forEach((button) => {
     button.addEventListener("click", () => closeProjectModal(root));
   });
-  root.querySelector("#project-form")?.addEventListener("submit", (event) => {
+  root.querySelector("#project-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    store.createProject(getFormPayload(event.currentTarget));
-    closeProjectModal(root);
+    try {
+      if (typeof store.createProjectRemote === "function") await store.createProjectRemote(getFormPayload(event.currentTarget));
+      else store.createProject(getFormPayload(event.currentTarget));
+      closeProjectModal(root);
+    } catch (error) {
+      window.alert?.(error.message || "Не удалось создать проект");
+    }
   });
   bindProductEvents(root, store);
   root.querySelector("#project-settings-form")?.addEventListener("submit", (event) => {
@@ -279,9 +284,14 @@ function bindEvents(root, store, options = {}) {
   });
   bindQueuePanelEvents(root, store);
   root.querySelectorAll("[data-delete-project]").forEach((button) => {
-    button.addEventListener("click", () => {
-      store.deleteProject(button.dataset.deleteProject);
-      closeDeleteProjectModal(root);
+    button.addEventListener("click", async () => {
+      try {
+        if (typeof store.deleteProjectRemote === "function") await store.deleteProjectRemote(button.dataset.deleteProject);
+        else store.deleteProject(button.dataset.deleteProject);
+        closeDeleteProjectModal(root);
+      } catch (error) {
+        window.alert?.(error.message || "Не удалось удалить проект");
+      }
     });
   });
   root.querySelectorAll("[data-delete-reference]").forEach((button) => {

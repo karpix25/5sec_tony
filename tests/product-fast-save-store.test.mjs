@@ -15,6 +15,9 @@ test("remote product update skips full state save and refreshes next baseUpdated
     if (String(url).startsWith("/api/products/")) {
       return jsonResponse({ saved: true, product: JSON.parse(options.body).product, updatedAt: "t1" });
     }
+    if (String(url).startsWith("/api/projects/")) {
+      return jsonResponse({ saved: true, project: JSON.parse(options.body).project, updatedAt: "t2" });
+    }
     if (url === "/api/state" && options.method === "POST") {
       return jsonResponse({ saved: true, updatedAt: "t2" });
     }
@@ -33,12 +36,13 @@ test("remote product update skips full state save and refreshes next baseUpdated
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
     assert.equal(calls.some((call) => String(call.url).startsWith("/api/products/")), true);
 
-    store.updateProjectSettings({ name: "Проект после продукта" });
+    await store.updateProjectSettingsRemote({ name: "Проект после продукта" });
     await wait(320);
-    const stateSave = calls.find((call) => call.url === "/api/state" && call.options.method === "POST");
+    const projectSave = calls.find((call) => String(call.url).startsWith("/api/projects/"));
 
-    assert.ok(stateSave, "next project save should still use full-state endpoint");
-    assert.equal(JSON.parse(stateSave.options.body).baseUpdatedAt, "t1");
+    assert.ok(projectSave, "next project save should use the project patch endpoint");
+    assert.equal(JSON.parse(projectSave.options.body).baseUpdatedAt, "t1");
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -54,6 +58,7 @@ test("remote product update joins an already pending full-state save", async () 
       return jsonResponse({ state: remoteState, updatedAt: "t0" });
     }
     if (String(url).startsWith("/api/products/")) return jsonResponse({ error: "product endpoint should not be used while state save is pending" }, 500);
+    if (String(url).startsWith("/api/projects/")) return jsonResponse({ error: "project endpoint should not be used while state save is pending" }, 500);
     if (url === "/api/state" && options.method === "POST") {
       return jsonResponse({ saved: true, updatedAt: "t2" });
     }

@@ -46,7 +46,7 @@ export async function runAudienceExpertAi(button, store) {
     const liveSnapshot = formSnapshot(liveForm);
     const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft);
     applyAudienceExpertDraft(liveForm, mergedDraft);
-    store.updateProjectSettings({ ...formSnapshot(liveForm), ...mergedDraft });
+    await saveProjectSettings(store, { ...formSnapshot(liveForm), ...mergedDraft });
     setStatus(status, "AI-память обновлена и будет использоваться в генерациях.", "success");
   } catch (error) {
     setStatus(status, humanizeError(error), "error");
@@ -68,7 +68,7 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
   setStatus(status, "Сохраняем проект...", "loading");
   try {
     const snapshot = formSnapshot(form);
-    store.updateProjectSettings(snapshot);
+    await saveProjectSettings(store, snapshot);
     projectSaved = true;
     if (button) button.textContent = "Обновляем AI...";
     setStatus(status, "Обновляем AI-память для будущих генераций...", "loading");
@@ -77,7 +77,7 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
     const liveSnapshot = formSnapshot(liveForm);
     const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft, { preserveFilledLiveValues: true });
     applyAudienceExpertDraft(liveForm, mergedDraft);
-    store.updateProjectSettings(formSnapshot(liveForm));
+    await saveProjectSettings(store, formSnapshot(liveForm));
     setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
   } catch (error) {
     setStatus(status, humanizeProjectSaveError(error, { projectSaved }), "error");
@@ -106,7 +106,7 @@ export async function runProjectFieldAi(button, store) {
     const liveField = liveForm?.querySelector(`[name="${fieldName}"]`) || field;
     const nextValue = shouldKeepLiveValue(snapshot[fieldName], liveSnapshot[fieldName]) ? liveSnapshot[fieldName] : (payload.value || snapshot[fieldName] || "");
     if (liveField && nextValue) liveField.value = nextValue;
-    store.updateProjectSettings({ ...liveSnapshot, [fieldName]: nextValue });
+    await saveProjectSettings(store, { ...liveSnapshot, [fieldName]: nextValue });
     setStatus(status, "Готово. Проверьте текст и сохраните настройки.", "success");
   } catch (error) {
     const message = humanizeError(error);
@@ -116,6 +116,14 @@ export async function runProjectFieldAi(button, store) {
     button.textContent = previous;
     button.disabled = false;
   }
+}
+
+async function saveProjectSettings(store, payload) {
+  if (typeof store.updateProjectSettingsRemote === "function") {
+    return store.updateProjectSettingsRemote(payload);
+  }
+  store.updateProjectSettings(payload);
+  return null;
 }
 
 async function requestAudienceExpertDraft(store, snapshot) {

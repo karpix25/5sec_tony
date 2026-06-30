@@ -4,6 +4,7 @@ import { getStateDifference, statesEqual } from "./state-compare.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
 import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.mjs";
+import { getStateTransportMeta, prepareStateForTransport, shouldUseFullStateTransport } from "./state-transport.mjs";
 
 const appStateKey = defaultAppStateKey;
 
@@ -20,16 +21,16 @@ export function createStateApiHandler(deps = {}) {
 
   return async function handleStateApi(request, response, url) {
     if (request.method === "GET" && url.pathname === "/api/state") {
-      return handleLoadState(response, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy });
+      return handleLoadState(response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
-      return handleSaveState(request, response, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized });
+      return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized });
     }
     return false;
   };
 }
 
-async function handleLoadState(response, deps) {
+async function handleLoadState(response, url, deps) {
   if (!deps.isConfigured()) {
     return sendJson(response, 200, { state: null, disabled: true, reason: "postgres_not_configured" });
   }
@@ -53,18 +54,21 @@ async function handleLoadState(response, deps) {
       }
     }
     const meta = await deps.query("select updated_at from app_state where id = $1 limit 1", [appStateKey]);
+    const fullTransport = shouldUseFullStateTransport(url);
+    const transportState = prepareStateForTransport(state, { full: fullTransport });
     return sendJson(response, 200, {
-      state: state || null,
+      state: transportState || null,
       key: appStateKey,
       source,
-      updatedAt: meta.rows[0]?.updated_at || null
+      updatedAt: meta.rows[0]?.updated_at || null,
+      transport: getStateTransportMeta(state, transportState, { full: fullTransport })
     });
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось загрузить состояние из Postgres" });
   }
 }
 
-async function handleSaveState(request, response, deps) {
+async function handleSaveState(request, response, url, deps) {
   if (!deps.isConfigured()) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   }
@@ -114,13 +118,16 @@ async function handleSaveState(request, response, deps) {
       };
     }));
     if (result.conflict) {
+      const fullTransport = shouldUseFullStateTransport(url);
+      const transportState = prepareStateForTransport(result.state, { full: fullTransport });
       return sendJson(response, 409, {
         saved: false,
         conflict: true,
         error: result.error || "State was changed in Postgres by another operator",
         key: appStateKey,
         updatedAt: result.updatedAt,
-        state: result.state || null
+        state: transportState || null,
+        transport: getStateTransportMeta(result.state, transportState, { full: fullTransport })
       });
     }
     return sendJson(response, 200, { saved: true, key: appStateKey, updatedAt: result.updatedAt, parityOk: result.parityOk });

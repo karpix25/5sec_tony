@@ -1,9 +1,9 @@
 import { getProductsForProject } from "../domain/generation.js";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { globalAudioLibrary } from "../domain/entities.js";
-import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
+import { createRemoteProject, deleteRemoteProject, updateRemoteProject } from "../services/projects-sync.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import { createProjectCtaWorkflow } from "./project-cta-workflow.js";
@@ -15,6 +15,7 @@ import {
 } from "./global-assets.js";
 import { createStoreCache } from "./store-cache.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
+import { createProjectBundle } from "./project-creation.js";
 import { updateProjectEntity } from "./store-projects.js";
 import { mergeHydratedReferenceState, normalizePersistedReferenceState } from "./reference-libraries.js";
 import { createStatePersistence } from "./state-persistence.js";
@@ -29,10 +30,7 @@ import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
   createAudioEntity,
   createId,
-  createProductEntity,
   createReferenceEntity,
-  defaultProjectExportFolder,
-  defaultProjectYandexDiskFolder,
   ensureGenerationBrief,
   ensureProductAssets,
   ensureProjectAssets
@@ -205,6 +203,28 @@ export function createStore() {
         )
       });
     },
+    async updateProjectSettingsRemote(payload) {
+      const project = updateProjectEntity(getProject(state, state.selectedProjectId), payload);
+      if (statePersistence?.hasPendingSave?.()) {
+        this.updateProjectSettings(payload);
+        return project;
+      }
+      try {
+        const result = await updateRemoteProject(project.id, project, statePersistence?.getRemoteUpdatedAt?.() || "");
+        if (result.disabled) {
+          this.updateProjectSettings(payload);
+          return project;
+        }
+        setState({
+          projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
+        }, { skipRemoteSave: true });
+        statePersistence?.recordRemoteSave?.(state, result.updatedAt);
+        return result.project || project;
+      } catch (error) {
+        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
+        throw error;
+      }
+    },
     updateProjectAutomation(projectId, payload) {
       setState({
         projects: state.projects.map((project) =>
@@ -243,58 +263,7 @@ export function createStore() {
       });
     },
     createProject(payload) {
-      const project = {
-        id: createId("project"),
-        client: "Anton Studio",
-        name: payload.name || "Новый проект",
-        exportFolder: payload.exportFolder || defaultProjectExportFolder(payload.name || "Новый проект"),
-        yandexDiskFolder: payload.yandexDiskFolder || defaultProjectYandexDiskFolder(payload.name || "Новый проект"),
-        dailyLimit: Number(payload.dailyLimit || 20),
-        usedToday: 0,
-        projectLimit: Number(payload.projectLimit || 500),
-        usedTotal: 0,
-        automation: normalizeProjectAutomation(),
-        ctaOverlay: {
-          enabled: true,
-          mode: "badge",
-          text: "ЧИТАЙ ОПИСАНИЕ",
-          x: 50,
-          y: 78,
-          scale: 100,
-          opacity: 100,
-          background: "#ffffff",
-          color: "#111111",
-          border: "#111111",
-          radius: 10
-        },
-        companyInfo: payload.companyInfo || "",
-        companyAudience: payload.companyAudience || "",
-        projectTheme: payload.projectTheme || "",
-        niche: payload.niche || "",
-        keyScenarios: payload.keyScenarios || "",
-        audiencePains: payload.audiencePains || "",
-        audienceDesires: payload.audienceDesires || "",
-        audienceObjections: payload.audienceObjections || "",
-        allowedTriggers: payload.allowedTriggers || "",
-        forbiddenTriggers: payload.forbiddenTriggers || "",
-        hookAggression: payload.hookAggression || "Средняя",
-        contentRestrictions: payload.contentRestrictions || "",
-        toneOfVoice: payload.toneOfVoice || "спокойный экспертный",
-        restrictions: payload.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
-        style: payload.style || "единый проектный стиль инфографики",
-        lastReferenceUpdate: new Date().toISOString().slice(0, 10),
-        references: [createReferenceEntity({ title: "Базовый стиль проекта" })],
-        audioLibrary: [createAudioEntity({ title: "Default audio 100 BPM", mood: "нейтрально", duration: "5 sec" })],
-        characters: [
-          {
-            id: createId("char"),
-            name: "Новый персонаж",
-            status: "draft",
-            prompt: "персонаж проекта, чистый фон, стабильный образ"
-          }
-        ]
-      };
-      const product = createProductEntity(project.id, payload.productName || "Первый продукт");
+      const { project, product } = createProjectBundle(payload);
       setState({
         projects: [project, ...state.projects],
         products: [product, ...state.products],
@@ -306,6 +275,39 @@ export function createStore() {
         selectedProjectTab: "project",
         generationBrief: ensureGenerationBrief({})
       });
+    },
+    async createProjectRemote(payload) {
+      if (statePersistence?.hasPendingSave?.()) {
+        this.createProject(payload);
+        return null;
+      }
+      const bundle = createProjectBundle(payload);
+      let result;
+      try {
+        result = await createRemoteProject(bundle, statePersistence?.getRemoteUpdatedAt?.() || "");
+      } catch (error) {
+        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
+        throw error;
+      }
+      if (result.disabled) {
+        this.createProject(payload);
+        return null;
+      }
+      const project = result.project || bundle.project;
+      const product = result.product || bundle.product;
+      setState({
+        projects: [project, ...state.projects],
+        products: [product, ...state.products],
+        selectedProjectId: project.id,
+        selectedProductId: product.id,
+        selectedReferenceId: project.references[0]?.id,
+        selectedCharacterId: project.characters[0]?.id,
+        selectedAudioId: state.audioLibrary[0]?.id,
+        selectedProjectTab: "project",
+        generationBrief: ensureGenerationBrief({})
+      }, { skipRemoteSave: true });
+      statePersistence?.recordRemoteSave?.(state, result.updatedAt);
+      return project;
     },
     deleteProject(projectId) {
       if (state.projects.length <= 1) return;
@@ -324,6 +326,36 @@ export function createStore() {
         selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
         generationBrief: ensureGenerationBrief({})
       });
+    },
+    async deleteProjectRemote(projectId) {
+      if (state.projects.length <= 1) return null;
+      if (statePersistence?.hasPendingSave?.()) {
+        this.deleteProject(projectId);
+        return null;
+      }
+      let result;
+      try {
+        result = await deleteRemoteProject(projectId, statePersistence?.getRemoteUpdatedAt?.() || "");
+      } catch (error) {
+        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
+        throw error;
+      }
+      if (result.disabled) {
+        this.deleteProject(projectId);
+        return null;
+      }
+      const projectsNext = state.projects.filter((project) => project.id !== projectId);
+      const selectedProject = projectsNext[0];
+      setState({
+        projects: projectsNext,
+        products: state.products.filter((product) => product.projectId !== projectId),
+        jobs: state.jobs.filter((job) => job.projectId !== projectId),
+        selectedProjectId: selectedProject.id,
+        selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
+        generationBrief: ensureGenerationBrief({})
+      }, { skipRemoteSave: true });
+      statePersistence?.recordRemoteSave?.(state, result.updatedAt);
+      return result;
     },
     ...productActions,
     createReference(payload) {

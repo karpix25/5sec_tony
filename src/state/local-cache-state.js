@@ -20,23 +20,22 @@ export function clearStateFromLocalCache(storageKey) {
 
 export function compactStateForLocalCache(state) {
   if (!state || typeof state !== "object") return state;
-  return {
-    ...state,
-    projects: compactProjects(state.projects || []),
-    products: compactProducts(state.products || []),
-    audioLibrary: compactAudioLibrary(state.audioLibrary || []),
-    jobs: compactJobs(state.jobs || [])
-  };
+  const compacted = { ...state };
+  if (Array.isArray(state.projects)) compacted.projects = compactProjects(state.projects);
+  if (Array.isArray(state.products)) compacted.products = compactProducts(state.products);
+  if (Array.isArray(state.audioLibrary)) compacted.audioLibrary = compactAudioLibrary(state.audioLibrary);
+  if (Array.isArray(state.jobs)) compacted.jobs = compactJobs(state.jobs);
+  return compacted;
 }
 
 function compactProjects(projects) {
   return projects.map((project) => ({
     ...project,
-    references: compactImageCollection(project.references || []),
-    audioLibrary: compactAudioLibrary(project.audioLibrary || []),
-    avatarCandidates: compactImageCollection(project.avatarCandidates || []),
-    designReferenceCandidates: compactImageCollection(project.designReferenceCandidates || []),
-    characters: (project.characters || []).map(compactCharacter)
+    ...compactOptionalArray(project, "references", compactImageCollection),
+    ...compactOptionalArray(project, "audioLibrary", compactAudioLibrary),
+    ...compactOptionalArray(project, "avatarCandidates", compactImageCollection),
+    ...compactOptionalArray(project, "designReferenceCandidates", compactImageCollection),
+    ...compactOptionalArray(project, "characters", (items) => items.map(compactCharacter))
   }));
 }
 
@@ -59,8 +58,12 @@ function compactAvatarVideo(video) {
 function compactProducts(products) {
   return products.map((product) => ({
     ...product,
-    references: compactImageCollection(product.references || [])
+    ...compactOptionalArray(product, "references", compactImageCollection)
   }));
+}
+
+function compactOptionalArray(source, key, compact) {
+  return Array.isArray(source?.[key]) ? { [key]: compact(source[key]) } : {};
 }
 
 function compactAudioLibrary(audioLibrary) {
