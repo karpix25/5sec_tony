@@ -305,6 +305,7 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   });
 
   assert.equal(calls.length, 10);
+  const passportPrompt = JSON.parse(calls[0].content);
   assert.equal(draft.productPassport.productName, "Магний");
   assert.equal(draft.designFormatBrief.formatType, "ranking_leaderboard");
   assert.equal(draft.topic, "Почему вечерняя рутина срывается");
@@ -320,6 +321,10 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.match(calls[5].content, /ranking_leaderboard/);
   assert.match(calls[6].content, /format compliance editor/);
   assert.match(calls[9].content, /ТОП вечерних сбоев/);
+  assert.equal(Object.hasOwn(passportPrompt, "project"), false);
+  assert.equal(Object.hasOwn(passportPrompt, "reference"), false);
+  assert.equal(Object.hasOwn(passportPrompt.product, "references"), false);
+  assert.doesNotMatch(calls[0].content, /reference-assets|designReference|avatar|imageUrl|imageData/i);
 });
 
 test("creative team runner records leaderboard text contract issues without writing replacement copy", async () => {

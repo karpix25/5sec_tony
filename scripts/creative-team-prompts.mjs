@@ -1,5 +1,6 @@
 import { humanizedPointRule, modernFormatOptions, modernImageFormatRule, oldFormatShellBan } from "../src/domain/generation-format-contract.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
+import { createProductPassportInput } from "../src/domain/product-passport-input.js";
 import { getDesignTextContractViolations } from "../src/domain/design-text-contract.js";
 import { formatCurrentDatePrompt } from "../src/domain/current-date-context.js";
 import { clickbaitHeadlineRules, hookPayoffRules, simpleAudienceLanguageRules, viralReelsHookRules } from "../src/domain/headline-style-contract.js";
@@ -112,6 +113,7 @@ function basePayload(task, role, output, extra = {}) {
 }
 
 function productPassportInstruction(body) {
+  const input = createProductPassportInput(body);
   return JSON.stringify(basePayload(
     "Создай паспорт продукта. Это главный источник истины для всех следующих AI-ролей.",
     "Ты senior product strategist и редактор performance-контента.",
@@ -128,11 +130,9 @@ function productPassportInstruction(body) {
         "Внеси что это за продукт, кому он нужен, какие ситуации закрывает, боли, желания, возражения, safe facts и forbidden claims.",
         "Не добавляй visualIdentity и не диктуй визуальный стиль продукта: визуал берется из product reference только когда продукт активен в кадре.",
         "Не расширяй продукт типовыми обещаниями ниши.",
-        "Фото и product references используй только как источник внешнего вида."
+        "Используй только данные product. Дизайн-референсы, аватары, ссылки, изображения и контекст проекта здесь запрещены."
       ],
-      project: body.project,
-      product: body.product,
-      reference: body.reference
+      product: input.product
     }
   ));
 }

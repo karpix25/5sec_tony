@@ -1,4 +1,5 @@
 import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
+import { createProductPassportInput } from "../src/domain/product-passport-input.js";
 import { callOpenRouter } from "./openrouter-api.mjs";
 import { parseJsonDraft } from "./openrouter-response.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
@@ -80,106 +81,11 @@ export function productPassportInstruction(body) {
         openQuestions: []
       }
     },
-    project: input.project,
     product: input.product
   });
 }
 
-export function createProductPassportInput(body = {}) {
-  return {
-    project: compactProjectForProductPassport(body.project || {}),
-    product: compactProductForProductPassport(body.product || {})
-  };
-}
-
-function compactProjectForProductPassport(project = {}) {
-  return prunePlainObject({
-    id: project.id,
-    name: project.name,
-    client: project.client,
-    niche: project.niche,
-    companyInfo: project.companyInfo,
-    companyAudience: project.companyAudience,
-    projectTheme: project.projectTheme,
-    keyScenarios: project.keyScenarios,
-    audiencePains: project.audiencePains,
-    audienceDesires: project.audienceDesires,
-    audienceObjections: project.audienceObjections,
-    allowedTriggers: project.allowedTriggers,
-    forbiddenTriggers: project.forbiddenTriggers,
-    toneOfVoice: project.toneOfVoice,
-    restrictions: project.restrictions,
-    style: project.style
-  });
-}
-
-function compactProductForProductPassport(product = {}) {
-  return prunePlainObject({
-    id: product.id,
-    projectId: product.projectId,
-    name: product.name,
-    description: product.description,
-    offer: product.offer,
-    audience: product.audience,
-    pains: product.pains,
-    facts: product.facts,
-    components: product.components,
-    objections: product.objections,
-    forbidden: product.forbidden,
-    allowed: product.allowed,
-    useCases: product.useCases,
-    purchaseReasons: product.purchaseReasons,
-    competitorNegatives: product.competitorNegatives,
-    physicalProperties: product.physicalProperties,
-    references: compactProductReferences(product.references)
-  });
-}
-
-function compactProductReferences(references = []) {
-  return (Array.isArray(references) ? references : [])
-    .slice(0, 12)
-    .map((reference) => prunePlainObject({
-      id: reference?.id,
-      title: reference?.title,
-      role: reference?.role,
-      kind: reference?.kind,
-      imageName: reference?.imageName,
-      imageUrl: isSafeSmallUrl(reference?.imageUrl || reference?.url || reference?.imageData)
-        ? reference.imageUrl || reference.url || reference.imageData
-        : ""
-    }))
-    .filter((reference) => Object.keys(reference).length);
-}
-
-function prunePlainObject(value = {}) {
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, compactValue(item)]).filter(([, item]) => {
-    if (Array.isArray(item)) return item.length;
-    if (item && typeof item === "object") return Object.keys(item).length;
-    return item !== undefined && item !== null && item !== "";
-  }));
-}
-
-function compactValue(value) {
-  if (Array.isArray(value)) return value.map(compactValue).filter(Boolean).slice(0, 30);
-  if (value && typeof value === "object") return prunePlainObject(value);
-  if (typeof value === "string") return compactText(value);
-  return value;
-}
-
-function compactText(value = "") {
-  const text = String(value || "").trim();
-  if (isLargeMediaValue(text)) return "";
-  return text.length > 4000 ? `${text.slice(0, 4000)}...` : text;
-}
-
-function isSafeSmallUrl(value = "") {
-  const text = String(value || "").trim();
-  return Boolean(text && !isLargeMediaValue(text));
-}
-
-function isLargeMediaValue(value = "") {
-  return /^data:(?:image|video|audio)\//i.test(String(value || "")) || String(value || "").length > 12000;
-}
+export { createProductPassportInput };
 
 function designAnalysisInstruction(body) {
   return JSON.stringify({
