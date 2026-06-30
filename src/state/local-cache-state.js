@@ -66,6 +66,11 @@ function compactOptionalArray(source, key, compact) {
   return Array.isArray(source?.[key]) ? { [key]: compact(source[key]) } : {};
 }
 
+function compactOptionalObject(source, key, compact) {
+  const value = source?.[key];
+  return value && typeof value === "object" && !Array.isArray(value) ? { [key]: compact(value) } : {};
+}
+
 function compactAudioLibrary(audioLibrary) {
   return audioLibrary.map((audio) => ({
     ...audio,
@@ -77,8 +82,18 @@ function compactJobs(jobs) {
   return jobs.map((job) => ({
     ...job,
     imageData: compactJobPreview(job),
-    inputUrls: (job.inputUrls || []).filter((url) => !isEmbeddedAssetUrl(url))
+    inputUrls: (job.inputUrls || []).filter((url) => !isEmbeddedAssetUrl(url)),
+    ...compactOptionalObject(job, "serverJobContext", compactServerJobContext)
   }));
+}
+
+function compactServerJobContext(context) {
+  return {
+    ...context,
+    project: context.project ? compactProjects([context.project])[0] : context.project,
+    product: context.product ? compactProducts([context.product])[0] : context.product,
+    products: Array.isArray(context.products) ? compactProducts(context.products) : context.products
+  };
 }
 
 function compactJobPreview(job) {

@@ -26,6 +26,8 @@ test("state api compact transport strips embedded blobs by default", async () =>
   assert.equal(response.payload.state.audioLibrary[0].fileData, "");
   assert.equal(response.payload.state.jobs[0].imageData, "");
   assert.deepEqual(response.payload.state.jobs[0].inputUrls, ["https://cdn.example.com/input.png"]);
+  assert.equal(response.payload.state.jobs[0].serverJobContext.project.characters[0].imageData, "");
+  assert.equal(response.payload.state.jobs[0].serverJobContext.product.references[0].imageData, "");
   assert.equal(response.payload.transport.savedBytes > 0, true);
 });
 
@@ -107,7 +109,25 @@ function createHeavyState() {
       projectId: "project-1",
       imageUrl: "https://cdn.example.com/job.png",
       imageData: "https://cdn.example.com/job.png",
-      inputUrls: ["data:image/png;base64,EEE", "https://cdn.example.com/input.png"]
+      inputUrls: ["data:image/png;base64,EEE", "https://cdn.example.com/input.png"],
+      serverJobContext: {
+        project: {
+          id: "project-1",
+          references: [],
+          audioLibrary: [],
+          avatarCandidates: [],
+          designReferenceCandidates: [],
+          characters: [{ id: "char-1", imageData: "data:image/png;base64,FFF" }]
+        },
+        product: {
+          id: "product-1",
+          references: [{ id: "context-product-ref", imageData: "data:image/png;base64,GGG" }]
+        },
+        products: [{
+          id: "product-1",
+          references: [{ id: "context-product-list-ref", imageData: "data:image/png;base64,HHH" }]
+        }]
+      }
     }]
   };
 }
