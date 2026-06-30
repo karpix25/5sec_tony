@@ -38,6 +38,7 @@ export function getProjectSelectionContext(state, projectId, getProject) {
 }
 
 export function createSelectionJobBatch(state, context, count, options = {}) {
+  if (!context.reference) return [];
   const projectJobs = state.jobs.filter((item) => item.projectId === context.project.id);
   const reserved = countActiveQuotaReservations(projectJobs);
   const dailyLeft = Math.max(0, Number(context.project.dailyLimit || 0) - Number(context.project.usedToday || 0) - reserved);

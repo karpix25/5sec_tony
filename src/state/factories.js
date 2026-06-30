@@ -123,7 +123,7 @@ export function ensureProjectAssets(project) {
     automation: normalizeProjectAutomation(project.automation),
     ctaOverlay: normalizeCtaOverlay(project.ctaOverlay),
     avatarRoundRobinIndex: normalizeFactoryRoundRobinIndex(project.avatarRoundRobinIndex),
-    references: references.length ? references : [createReferenceEntity({ title: "Базовый стиль проекта" })],
+    references,
     audioLibrary: getAudioLibrary(project, legacyAudios),
     avatarCandidates: project.avatarCandidates || [],
     designReferenceCandidates: project.designReferenceCandidates || [],
@@ -212,6 +212,7 @@ function normalizeFactoryRoundRobinIndex(value) {
 
 function ensureProjectReferenceDefaults(project) {
   const references = project.references || [];
+  if (!references.length) return references;
   if (!isPpmLikeProject(project) || references.some((item) => item.id === ppmViralReference.id)) return references;
   return [ppmViralReference, ...references];
 }

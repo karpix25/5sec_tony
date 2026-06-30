@@ -211,6 +211,7 @@ test("store creates a project with a starter product", () => {
 
   assert.equal(state.selectedProjectId, project.id);
   assert.equal(product.name, "Новый продукт");
+  assert.deepEqual(project.references, []);
   assert.equal(project.exportFolder, "Yandex Disk / 5сек / Новый проект");
   assert.equal(project.yandexDiskFolder, "disk:/ВИДЕО/5сек/Новый проект");
 });
@@ -467,7 +468,6 @@ test("store manages product-level references and adds them to prompt", () => {
   product = state.products.find((item) => item.id === state.selectedProductId);
   assert.equal(product.references.some((item) => item.id === productReference.id), false);
 });
-
 
 test("store manages global audio library", () => {
   const store = createStore();

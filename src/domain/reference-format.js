@@ -1,6 +1,7 @@
 const rankingPattern = /ranking[_-]?leaderboard|leaderboard|top[- ]?chart|top\s*\d+|топ\s*\d+|рейтинг|ранг|rank|мест[ао]|value label|чарт/i;
 
 export function getReferenceFormatSignal(reference = {}) {
+  reference = reference || {};
   const source = [
     reference.layoutType,
     reference.title,
@@ -20,6 +21,7 @@ export function getReferenceFormatSignal(reference = {}) {
 }
 
 export function getReferenceFormatSource(reference = {}) {
+  reference = reference || {};
   return [
     getReferenceFormatSignal(reference),
     reference.layoutType,

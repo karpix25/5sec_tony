@@ -3,7 +3,6 @@ import {
   createAudioEntity,
   createId,
   createProductEntity,
-  createReferenceEntity,
   defaultProjectExportFolder,
   defaultProjectYandexDiskFolder
 } from "./factories.js";
@@ -50,7 +49,7 @@ export function createProjectBundle(payload = {}) {
     restrictions: payload.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
     style: payload.style || "единый проектный стиль инфографики",
     lastReferenceUpdate: new Date().toISOString().slice(0, 10),
-    references: [createReferenceEntity({ title: "Базовый стиль проекта" })],
+    references: [],
     audioLibrary: [createAudioEntity({ title: "Default audio 100 BPM", mood: "нейтрально", duration: "5 sec" })],
     characters: [{
       id: createId("char"),

@@ -269,7 +269,7 @@ export function createStore() {
         products: [product, ...state.products],
         selectedProjectId: project.id,
         selectedProductId: product.id,
-        selectedReferenceId: project.references[0].id,
+        selectedReferenceId: project.references[0]?.id || "",
         selectedCharacterId: project.characters[0].id,
         selectedAudioId: state.audioLibrary[0]?.id,
         selectedProjectTab: "project",

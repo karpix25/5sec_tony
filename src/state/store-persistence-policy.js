@@ -1,7 +1,26 @@
+const localUiStateKeys = new Set([
+  "selectedProjectId",
+  "selectedProductId",
+  "selectedReferenceId",
+  "selectedCharacterId",
+  "selectedAudioId",
+  "selectedProjectTab"
+]);
+
 export function shouldScheduleRemoteSave(previousState, nextState, patch) {
-  if (!patch || !Object.keys(patch).length) return true;
-  if (!Array.isArray(patch.jobs) || Object.keys(patch).length !== 1) return true;
+  const patchKeys = Object.keys(patch || {});
+  if (!patchKeys.length) return true;
+  if (isLocalUiPatch(patchKeys)) return false;
+  if (!Array.isArray(patch.jobs) || patchKeys.length !== 1) return true;
   return hasMeaningfulJobPersistenceChange(previousState.jobs || [], nextState.jobs || []);
+}
+
+function isLocalUiPatch(patchKeys) {
+  if (patchKeys.every((key) => localUiStateKeys.has(key))) return true;
+  const keysWithoutBrief = patchKeys.filter((key) => key !== "generationBrief");
+  return patchKeys.includes("generationBrief")
+    && keysWithoutBrief.length > 0
+    && keysWithoutBrief.every((key) => localUiStateKeys.has(key));
 }
 
 function hasMeaningfulJobPersistenceChange(previousJobs, nextJobs) {
