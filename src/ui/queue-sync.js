@@ -83,7 +83,7 @@ function hasActiveQueueJobs(store) {
 
 function getActiveQueueJobs(store) {
   const jobs = store.getState?.().jobs || [];
-  return jobs.filter((job) => queueSyncActiveStatuses.has(job?.status));
+  return jobs.filter((job) => queueSyncActiveStatuses.has(job?.status) || job?.diskStatus === "uploading");
 }
 
 function shouldApplyRemoteJob(job) {

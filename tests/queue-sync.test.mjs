@@ -45,6 +45,47 @@ test("queue sync merges completed server jobs from remote state", async () => {
   }
 });
 
+test("queue sync keeps polling completed jobs while Yandex Disk upload is pending", async () => {
+  const originalFetch = globalThis.fetch;
+  const localJob = {
+    id: "job-disk-uploading",
+    status: "done",
+    stage: "export",
+    progress: 100,
+    finalVideoUrl: "/generated/avatar-videos/final.mp4",
+    diskStatus: "uploading",
+    diskMessage: "Сервер сохраняет в Яндекс.Диск..."
+  };
+  const store = createTestStore({ jobs: [localJob] });
+
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "/api/state");
+    return jsonResponse({
+      state: {
+        jobs: [{
+          ...localJob,
+          diskStatus: "done",
+          diskUrl: "https://yadi.sk/d/final-link",
+          finalVideoUrl: "https://yadi.sk/d/final-link",
+          diskMessage: "Сохранено в Яндекс.Диск"
+        }]
+      },
+      updatedAt: "2026-06-30T12:57:25.569Z"
+    });
+  };
+
+  try {
+    const updates = await refreshQueueFromRemoteState(store);
+
+    assert.equal(updates.length, 1);
+    assert.equal(store.state.jobs[0].diskStatus, "done");
+    assert.equal(store.state.jobs[0].diskUrl, "https://yadi.sk/d/final-link");
+    assert.equal(store.state.jobs[0].finalVideoUrl, "https://yadi.sk/d/final-link");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("queue status sync starts after hydration and updates stale active jobs", async () => {
   const restoreTimers = installImmediateTimers();
   const originalFetch = globalThis.fetch;
