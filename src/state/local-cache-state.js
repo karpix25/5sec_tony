@@ -79,12 +79,59 @@ function compactAudioLibrary(audioLibrary) {
 }
 
 function compactJobs(jobs) {
-  return jobs.map((job) => ({
+  return jobs.map((job) => compactHistoricalJob({
     ...job,
     imageData: compactJobPreview(job),
     inputUrls: (job.inputUrls || []).filter((url) => !isEmbeddedAssetUrl(url)),
     ...compactOptionalObject(job, "serverJobContext", compactServerJobContext)
   }));
+}
+
+function compactHistoricalJob(job) {
+  if (!isCompactTerminalJob(job)) return job;
+  return removeEmptyFields({
+    ...job,
+    prompt: "",
+    serverJobContext: undefined,
+    aiTrace: undefined,
+    promptContract: undefined,
+    imagePromptContract: undefined,
+    imagePromptPackage: undefined,
+    attentionMap: undefined,
+    qaReview: undefined,
+    creativeQuality: undefined,
+    visualBrief: undefined,
+    contentScript: undefined,
+    creativeBrief: compactTextObject(job.creativeBrief, ["topic", "hook"]),
+    diversitySlot: compactDiversitySlot(job.diversitySlot),
+    hookIntelligence: compactTextObject(job.hookIntelligence, ["hookType", "primaryEmotion"]),
+    layoutContentPlan: compactTextObject(job.layoutContentPlan, ["layoutType"])
+  });
+}
+
+function isCompactTerminalJob(job) {
+  return ["done", "failed", "review"].includes(String(job?.status || ""));
+}
+
+function compactDiversitySlot(slot) {
+  if (!slot || typeof slot !== "object") return slot;
+  return {
+    contentLayer: compactTextObject(slot.contentLayer, ["id", "subject"]),
+    topicCluster: compactTextObject(slot.topicCluster, ["id", "label"])
+  };
+}
+
+function compactTextObject(value, keys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const result = {};
+  keys.forEach((key) => {
+    if (value[key]) result[key] = value[key];
+  });
+  return Object.keys(result).length ? result : undefined;
+}
+
+function removeEmptyFields(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
 }
 
 function compactServerJobContext(context) {

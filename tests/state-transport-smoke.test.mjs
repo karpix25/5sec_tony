@@ -28,6 +28,13 @@ test("state api compact transport strips embedded blobs by default", async () =>
   assert.deepEqual(response.payload.state.jobs[0].inputUrls, ["https://cdn.example.com/input.png"]);
   assert.equal(response.payload.state.jobs[0].serverJobContext.project.characters[0].imageData, "");
   assert.equal(response.payload.state.jobs[0].serverJobContext.product.references[0].imageData, "");
+  assert.equal(response.payload.state.jobs[1].prompt, "");
+  assert.equal("serverJobContext" in response.payload.state.jobs[1], false);
+  assert.equal("aiTrace" in response.payload.state.jobs[1], false);
+  assert.deepEqual(response.payload.state.jobs[1].diversitySlot, {
+    contentLayer: { id: "layer-1", subject: "subject" },
+    topicCluster: { id: "cluster-1", label: "cluster" }
+  });
   assert.equal(response.payload.transport.savedBytes > 0, true);
 });
 
@@ -127,6 +134,21 @@ function createHeavyState() {
           id: "product-1",
           references: [{ id: "context-product-list-ref", imageData: "data:image/png;base64,HHH" }]
         }]
+      }
+    }, {
+      id: "job-terminal",
+      status: "done",
+      prompt: "x".repeat(8000),
+      serverJobContext: {
+        project: { characters: [{ imageData: "data:image/png;base64,III" }] }
+      },
+      aiTrace: { version: "trace-v1", imagePromptContract: { huge: "x".repeat(8000) } },
+      promptContract: { huge: "x".repeat(8000) },
+      imagePromptContract: { huge: "x".repeat(8000) },
+      imagePromptPackage: { huge: "x".repeat(8000) },
+      diversitySlot: {
+        contentLayer: { id: "layer-1", subject: "subject", huge: "x".repeat(8000) },
+        topicCluster: { id: "cluster-1", label: "cluster", huge: "x".repeat(8000) }
       }
     }]
   };
