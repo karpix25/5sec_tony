@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
+import { createDesignReferenceAnalysisInput } from "../src/domain/design-reference-analysis-input.js";
 import { createProductPassportInput } from "../src/domain/product-passport-input.js";
 import { createGenerationJob } from "../src/domain/generation.js";
 
@@ -62,6 +63,39 @@ test("product AI passport input strips heavy media fields", () => {
   assert.equal(input.product.description.length <= 4003, true);
   assert.equal(Object.hasOwn(input, "project"), false);
   assert.equal(Object.hasOwn(input.product, "references"), false);
+});
+
+test("design reference analysis input keeps only one lightweight reference", () => {
+  const hugeImage = `data:image/png;base64,${"a".repeat(30000)}`;
+  const input = createDesignReferenceAnalysisInput({
+    project: {
+      id: "project-heavy",
+      characters: [{ imageData: hugeImage }],
+      avatarCandidates: [{ imageUrl: "/api/avatar.png" }],
+      designReferenceCandidates: [{ imageData: hugeImage }],
+      references: [{ id: "other-design", imageData: hugeImage }]
+    },
+    reference: {
+      id: "design-ref",
+      title: "Design",
+      promptComment: "x".repeat(5000),
+      imageData: hugeImage,
+      imageUrl: "/api/reference-assets/design.png",
+      designAnalysis: { visualGrammar: "old" },
+      nested: { imageData: hugeImage }
+    }
+  });
+  const raw = JSON.stringify(input);
+
+  assert.equal(Object.hasOwn(input, "project"), false);
+  assert.equal(Object.hasOwn(input.reference, "imageData"), false);
+  assert.equal(Object.hasOwn(input.reference, "imageUrl"), false);
+  assert.equal(Object.hasOwn(input.reference, "designAnalysis"), false);
+  assert.equal(raw.includes("project-heavy"), false);
+  assert.equal(raw.includes("avatar"), false);
+  assert.equal(raw.includes("data:image/png"), false);
+  assert.equal(raw.includes("/api/reference-assets/design.png"), false);
+  assert.equal(input.reference.promptComment.length <= 3003, true);
 });
 
 test("generation job keeps prompt contract, trace and active product refs together", () => {

@@ -1,4 +1,5 @@
 import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
+import { createDesignReferenceAnalysisInput } from "../src/domain/design-reference-analysis-input.js";
 import { createProductPassportInput } from "../src/domain/product-passport-input.js";
 import { callOpenRouter } from "./openrouter-api.mjs";
 import { parseJsonDraft } from "./openrouter-response.mjs";
@@ -88,6 +89,7 @@ export function productPassportInstruction(body) {
 export { createProductPassportInput };
 
 function designAnalysisInstruction(body) {
+  const input = createDesignReferenceAnalysisInput(body);
   return JSON.stringify({
     task: "Проанализируй дизайн-референс один раз как reusable visual grammar для будущих постов.",
     rules: [
@@ -109,8 +111,7 @@ function designAnalysisInstruction(body) {
         ctaPolicy: "ignore-reference-cta"
       }
     },
-    reference: body.reference,
-    project: body.project
+    reference: input.reference
   });
 }
 

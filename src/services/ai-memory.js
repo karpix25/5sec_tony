@@ -3,8 +3,8 @@ export async function refreshProductPassport({ project, product }) {
   return payload.passport || {};
 }
 
-export async function refreshDesignAnalysis({ project, reference }) {
-  const payload = await postJson("/api/design-references/analyze", { project, reference });
+export async function refreshDesignAnalysis({ reference }) {
+  const payload = await postJson("/api/design-references/analyze", { reference });
   return payload.designAnalysis || {};
 }
 

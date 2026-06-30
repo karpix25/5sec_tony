@@ -86,8 +86,8 @@ async function refreshProductPassportViaApi({ project, product, origin }) {
   return payload.passport;
 }
 
-async function refreshDesignAnalysisViaApi({ project, reference, origin }) {
-  const payload = await postJson(origin, "/api/design-references/analyze", { project, reference });
+async function refreshDesignAnalysisViaApi({ reference, origin }) {
+  const payload = await postJson(origin, "/api/design-references/analyze", { reference });
   return payload.designAnalysis;
 }
 
