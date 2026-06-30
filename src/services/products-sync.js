@@ -1,4 +1,5 @@
 import { StateSyncConflictError } from "./state-sync.js";
+import { fetchJsonWithRetry } from "./sync-fetch.js";
 
 export async function createRemoteProduct(product, baseUpdatedAt = "") {
   return saveRemoteProduct("/api/products", "POST", product, baseUpdatedAt);
@@ -10,13 +11,13 @@ export async function updateRemoteProduct(productId, product, baseUpdatedAt = ""
 
 async function saveRemoteProduct(url, method, product, baseUpdatedAt) {
   const body = JSON.stringify({ product, baseUpdatedAt });
-  const response = await fetch(url, {
+  const { response, payload } = await fetchJsonWithRetry(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body,
     keepalive: body.length < 60 * 1024
   });
-  const payload = await readProductSyncResponse(response);
+  readProductSyncPayload(response, payload);
   return {
     saved: Boolean(payload.saved),
     disabled: Boolean(payload.disabled),
@@ -26,14 +27,9 @@ async function saveRemoteProduct(url, method, product, baseUpdatedAt) {
   };
 }
 
-async function readProductSyncResponse(response) {
-  let payload = {};
-  try {
-    payload = await response.json();
-  } catch {}
+function readProductSyncPayload(response, payload = {}) {
   if (response.status === 409 || payload.conflict) {
     throw new StateSyncConflictError(payload);
   }
   if (!response.ok) throw new Error(payload.error || "Product sync request failed");
-  return payload;
 }

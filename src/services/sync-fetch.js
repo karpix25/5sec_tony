@@ -1,0 +1,52 @@
+const defaultAttempts = 3;
+const defaultTimeoutMs = 15000;
+const retryBaseDelayMs = 350;
+
+export async function fetchJsonWithRetry(url, options = {}) {
+  const attempts = Number(options.attempts || defaultAttempts);
+  const timeoutMs = Number(options.timeoutMs || defaultTimeoutMs);
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url, options, timeoutMs);
+      const payload = await readJsonPayload(response);
+      if (!shouldRetryResponse(response) || attempt === attempts) return { response, payload };
+      lastError = new Error(payload.error || `Request failed: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableError(error) || attempt === attempts) throw error;
+    }
+    await wait(retryBaseDelayMs * attempt);
+  }
+  throw lastError || new Error("Request failed");
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function readJsonPayload(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function shouldRetryResponse(response) {
+  return response.status === 408 || response.status === 429 || response.status >= 500;
+}
+
+function isRetryableError(error) {
+  return error?.name === "AbortError" || /failed to fetch|network|load failed|fetch/i.test(String(error?.message || ""));
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

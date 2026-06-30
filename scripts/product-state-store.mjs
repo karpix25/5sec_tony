@@ -18,7 +18,7 @@ export async function saveProductForState(query, appStateKey, productPayload, op
   await ensureStateSchema(query);
   const mode = options.mode || "update";
   const existing = productPayload.id ? await loadProduct(query, appStateKey, productPayload.id) : null;
-  if (mode === "update" && !existing) {
+  if (mode === "update" && !existing && !productPayload.projectId) {
     throw new ProductPersistenceError("Product not found", 404);
   }
 

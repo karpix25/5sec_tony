@@ -1,6 +1,8 @@
+import { fetchJsonWithRetry } from "./sync-fetch.js";
+
 export async function loadRemoteState() {
-  const response = await fetch("/api/state", { method: "GET" });
-  const payload = await readStateSyncResponse(response);
+  const { response, payload } = await fetchJsonWithRetry("/api/state", { method: "GET" });
+  readStateSyncPayload(response, payload);
   return {
     state: payload.state || null,
     disabled: Boolean(payload.disabled),
@@ -20,12 +22,12 @@ export class StateSyncConflictError extends Error {
 }
 
 export async function saveRemoteState(state, baseUpdatedAt = "") {
-  const response = await fetch("/api/state", {
+  const { response, payload } = await fetchJsonWithRetry("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ state, baseUpdatedAt })
   });
-  const payload = await readStateSyncResponse(response);
+  readStateSyncPayload(response, payload);
   return {
     saved: Boolean(payload.saved),
     disabled: Boolean(payload.disabled),
@@ -35,14 +37,9 @@ export async function saveRemoteState(state, baseUpdatedAt = "") {
   };
 }
 
-async function readStateSyncResponse(response) {
-  let payload = {};
-  try {
-    payload = await response.json();
-  } catch {}
+function readStateSyncPayload(response, payload = {}) {
   if (response.status === 409 || payload.conflict) {
     throw new StateSyncConflictError(payload);
   }
   if (!response.ok) throw new Error(payload.error || "State sync request failed");
-  return payload;
 }

@@ -124,6 +124,39 @@ test("products api accepts product writes on the current base version", async ()
   assert.deepEqual(calls[0], { name: "Fresh save", id: "product-1" });
 });
 
+test("products api recreates a locally known product when relational row is missing", async () => {
+  const calls = [];
+  const response = createJsonResponse();
+  const handle = createProductsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/updated_at/.test(text)) return { rows: [{ updated_at: "db-v1" }] };
+        return { rows: [] };
+      }
+    }),
+    saveProductForState: async (_query, _key, product, options) => {
+      calls.push({ product, options });
+      return { product: { ...product, name: "Recovered" }, updatedAt: "db-v2" };
+    }
+  });
+
+  await handle(
+    createJsonRequest("PATCH", { product: { id: "product-lost", projectId: "project-1", name: "Local draft" }, baseUpdatedAt: "db-v1" }),
+    response,
+    new URL("http://localhost/api/products/product-lost")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.saved, true);
+  assert.equal(response.payload.product.name, "Recovered");
+  assert.deepEqual(calls[0], {
+    product: { id: "product-lost", projectId: "project-1", name: "Local draft" },
+    options: { mode: "update", selectProduct: false }
+  });
+});
+
+
 test("products api rejects product id mismatches", async () => {
   const response = createJsonResponse();
   const handle = createProductsApiHandler({
