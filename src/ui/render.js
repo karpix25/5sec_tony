@@ -29,11 +29,12 @@ import { renderPersistenceStatus, updatePersistenceStatusView } from "./persiste
 export function renderApp(root, store, options = {}) {
   const state = store.getState();
   const context = getContext(state);
+  const projectProducts = getProductsForProject(state.products, context.project.id);
   const persistenceStatus = store.getPersistenceStatus?.() || {};
 
   root.innerHTML = `
     <main class="shell">
-      ${renderSidebar(state, context)}
+      ${renderSidebar(state, context, projectProducts)}
       <section class="workspace">
         ${renderHeader(context, persistenceStatus, options.auth)}
         ${renderOperationsPanel(state, context)}
@@ -52,7 +53,7 @@ export function updatePersistenceStatus(root, status) {
   updatePersistenceStatusView(root, status);
 }
 
-function renderSidebar(state, context) {
+function renderSidebar(state, context, projectProducts) {
   return `
     <aside class="sidebar">
       <div class="brand">
@@ -66,7 +67,7 @@ function renderSidebar(state, context) {
       <button id="open-project-modal" class="primary-btn sidebar-action" type="button">+ Создать проект</button>
       <label class="field-label" for="product-select">Продукт</label>
       <select id="product-select" class="select">
-        ${renderProductSelectOptions(state.projects, state.products, context.product.id)}
+        ${renderProductSelectOptions(projectProducts, context.product.id)}
       </select>
       <button class="secondary-btn sidebar-action" data-project-tab="product" type="button">Открыть продукт</button>
       <button id="open-product-modal" class="ghost-btn sidebar-action" type="button">+ Новый продукт</button>
