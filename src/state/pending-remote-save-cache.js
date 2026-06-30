@@ -1,5 +1,6 @@
 import { readJsonStorage, removeJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
 import { compactStateForLocalCache } from "./local-cache-state.js";
+import { compactStateForPendingRemoteSave } from "./pending-remote-save-state.js";
 
 export function readPendingRemoteSave(storageKey, storageVersion, normalize) {
   const pending = readJsonStorage(storageKey, {
@@ -31,7 +32,7 @@ function compactPendingRemoteSave(pending) {
   if (!isPendingRemoteSave(pending)) return pending;
   return {
     ...pending,
-    state: compactStateForLocalCache(pending.state)
+    state: compactStateForPendingRemoteSave(compactStateForLocalCache(pending.state))
   };
 }
 

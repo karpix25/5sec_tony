@@ -11,7 +11,6 @@ const runningBatches = new Map();
 
 export async function createGenerationBatch({ count, selection = {}, origin, deps = {} }) {
   const batchId = `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  await ensureGenerationPreflight({ selection, origin, deps });
   const result = await updateState(deps, (state) => {
     const context = createServerSelectionContext(state, selection);
     const safeCount = Math.max(1, Math.min(10, Number(count || 1)));
@@ -80,17 +79,21 @@ async function prepareServerJob(jobId, origin, deps) {
     ...(placeholder.selectionSnapshot || {}),
     referenceId: placeholder.referenceId || placeholder.selectionSnapshot?.referenceId || ""
   };
-  const context = createServerSelectionContext(state, selection, placeholder.productId);
-  const existingJobs = (state.jobs || []).filter((job) => job.id !== jobId && job.projectId === context.project.id);
+  await ensureGenerationPreflight({ selection, origin, deps });
+  const preparedState = await loadState(deps);
+  const preparedPlaceholder = (preparedState.jobs || []).find((job) => job.id === jobId);
+  if (!preparedPlaceholder) throw new Error("Задача не найдена");
+  const context = createServerSelectionContext(preparedState, selection, preparedPlaceholder.productId);
+  const existingJobs = (preparedState.jobs || []).filter((job) => job.id !== jobId && job.projectId === context.project.id);
   const generateBrief = deps.generateServerAiBrief || generateServerAiBrief;
   const brief = await generateBrief({
     origin,
     ...context,
     existingJobs,
-    hookLibrary: state.hookLibrary
+    hookLibrary: preparedState.hookLibrary
   });
   const job = {
-    ...createGenerationJob({ ...context, generationBrief: brief, existingJobs, hookLibrary: state.hookLibrary }),
+    ...createGenerationJob({ ...context, generationBrief: brief, existingJobs, hookLibrary: preparedState.hookLibrary }),
     id: jobId,
     serverBatchId: placeholder.serverBatchId,
     serverOwned: true
@@ -99,9 +102,9 @@ async function prepareServerJob(jobId, origin, deps) {
     job,
     context: {
       project: context.project,
-      audioLibrary: state.audioLibrary || [],
-      selectedAudioId: selection.audioId || state.selectedAudioId || "",
-      selectedCharacterId: selection.characterId || state.selectedCharacterId || ""
+      audioLibrary: preparedState.audioLibrary || [],
+      selectedAudioId: selection.audioId || preparedState.selectedAudioId || "",
+      selectedCharacterId: selection.characterId || preparedState.selectedCharacterId || ""
     }
   };
   await updateState(deps, (current) => {

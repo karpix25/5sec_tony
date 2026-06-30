@@ -75,11 +75,11 @@ test("backend generation batch creates server-owned brief jobs in state", async 
   ]);
 });
 
-test("backend generation preflight blocks jobs when no audio is uploaded", async () => {
+test("backend generation batch enqueues quickly when audio preflight would fail", async () => {
   const state = { ...createState(), audioLibrary: [], selectedAudioId: "" };
   const deps = createStateDeps(state, { autoStart: false });
 
-  await assert.rejects(() => createGenerationBatch({
+  const result = await createGenerationBatch({
     count: 1,
     origin: "http://127.0.0.1:4173",
     selection: {
@@ -90,12 +90,15 @@ test("backend generation preflight blocks jobs when no audio is uploaded", async
       audioId: ""
     },
     deps
-  }), /Сначала загрузите аудио/);
+  });
 
-  assert.equal(deps.getSnapshots().length, 0);
+  assert.equal(result.jobs.length, 1);
+  assert.equal(result.jobs[0].status, "running");
+  assert.equal(result.jobs[0].stage, "brief");
+  assert.equal(deps.getSnapshots().length, 1);
 });
 
-test("backend generation preflight saves product cards and design analysis before queue jobs", async () => {
+test("backend generation worker saves product cards and design analysis after enqueue", async () => {
   const state = createState();
   const secondProduct = {
     ...products.find((item) => item.projectId === state.selectedProjectId && item.id !== state.selectedProductId),
@@ -108,7 +111,6 @@ test("backend generation preflight saves product cards and design analysis befor
   }];
   const calls = [];
   const deps = createStateDeps(state, {
-    autoStart: false,
     refreshProductPassport: async ({ product }) => {
       calls.push(["passport", product.id]);
       return { productName: product.name, safeFacts: [`Факт ${product.id}`] };
@@ -116,6 +118,14 @@ test("backend generation preflight saves product cards and design analysis befor
     refreshDesignAnalysis: async ({ reference }) => {
       calls.push(["design", reference.id]);
       return { formatType: "symptom_poster", layoutSlots: ["headline", "cards"] };
+    },
+    generateServerAiBrief: async ({ product }) => {
+      calls.push(["brief", product.id]);
+      return { topic: "Тема", hook: "Хук", aiPlan: { headline: "Хук", subhead: "", points: ["Пункт"] } };
+    },
+    postServerJob: async ({ job }) => {
+      calls.push(["serverJob", job.id]);
+      return { job };
     }
   });
 
@@ -131,33 +141,39 @@ test("backend generation preflight saves product cards and design analysis befor
     },
     deps
   });
+  await waitFor(() => deps.getSnapshots().some((snapshot) =>
+    snapshot.products.every((product) => product.aiPassport?.productName)
+    && snapshot.projects[0].references[0].designAnalysis?.formatType === "symptom_poster"
+  ));
   const snapshots = deps.getSnapshots();
-  const preflightSnapshot = snapshots[0];
-  const queueSnapshot = snapshots[1];
+  const queueSnapshot = snapshots[0];
+  const preflightSnapshot = snapshots.find((snapshot) =>
+    snapshot.products.every((product) => product.aiPassport?.productName)
+    && snapshot.projects[0].references[0].designAnalysis?.formatType === "symptom_poster"
+  );
 
-  assert.deepEqual(calls, [
+  assert.deepEqual(calls.slice(0, 3), [
     ["passport", state.products[0].id],
     ["passport", secondProduct.id],
     ["design", state.selectedReferenceId]
   ]);
   assert.equal(result.jobs.length, 1);
-  assert.equal(preflightSnapshot.jobs.length, 0);
+  assert.ok(preflightSnapshot);
+  assert.equal(queueSnapshot.jobs.length, 1);
   assert.equal(preflightSnapshot.products.every((product) => product.aiPassport?.productName), true);
   assert.equal(preflightSnapshot.projects[0].references[0].designAnalysis.formatType, "symptom_poster");
-  assert.equal(queueSnapshot.jobs.length, 1);
 });
 
-test("backend generation preflight failure prevents queue jobs", async () => {
+test("backend generation worker marks job failed when preflight fails", async () => {
   const state = createState();
   state.products = state.products.map((product) => ({ ...product, aiPassport: null }));
   const deps = createStateDeps(state, {
-    autoStart: false,
     refreshProductPassport: async () => {
       throw new Error("passport provider failed");
     }
   });
 
-  await assert.rejects(() => createGenerationBatch({
+  const result = await createGenerationBatch({
     count: 1,
     origin: "http://127.0.0.1:4173",
     selection: {
@@ -168,9 +184,12 @@ test("backend generation preflight failure prevents queue jobs", async () => {
       audioId: ""
     },
     deps
-  }), /passport provider failed/);
-  assert.equal(deps.getState().jobs.length, 0);
-  assert.equal(deps.getSnapshots().length, 0);
+  });
+  await waitFor(() => deps.getState().jobs[0]?.status === "failed");
+
+  assert.equal(result.jobs.length, 1);
+  assert.equal(deps.getState().jobs.length, 1);
+  assert.equal(deps.getState().jobs[0].failMsg, "passport provider failed");
 });
 
 test("backend generation worker prepares brief and hands job to server pipeline", async () => {
@@ -288,9 +307,9 @@ test("server brief generation accepts fallback after stale retry budget", async 
 });
 
 async function waitFor(predicate) {
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < 200; index += 1) {
     if (predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 1));
   }
   assert.fail("condition was not met");
 }
