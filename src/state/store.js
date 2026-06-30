@@ -159,7 +159,18 @@ export function createStore() {
       });
     },
     selectProduct(productId) {
-      setState({ selectedProductId: productId });
+      const product = state.products.find((item) => item.id === productId);
+      if (!product) {
+        setState({ selectedProductId: productId });
+        return;
+      }
+      const project = getProject(state, product.projectId);
+      setState({
+        selectedProjectId: product.projectId,
+        selectedProductId: product.id,
+        selectedReferenceId: project.references[0]?.id,
+        selectedCharacterId: project.characters[0]?.id
+      });
     },
     selectReference(referenceId) {
       setState({ selectedReferenceId: referenceId });

@@ -14,6 +14,7 @@ import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewM
 import { bindPreviewModalEvents } from "./preview-modal.js";
 import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
 import { renderProductSettings } from "./product.js";
+import { renderProductSelectOptions } from "./product-select.js";
 import { bindProductEvents } from "./product-events.js";
 import { getFormPayload, getFormSnapshot, readFileAsDataUrl } from "./form-data.js";
 import { deleteAudioAsset } from "../services/audio-assets.js";
@@ -28,12 +29,11 @@ import { renderPersistenceStatus, updatePersistenceStatusView } from "./persiste
 export function renderApp(root, store, options = {}) {
   const state = store.getState();
   const context = getContext(state);
-  const projectProducts = getProductsForProject(state.products, context.project.id);
   const persistenceStatus = store.getPersistenceStatus?.() || {};
 
   root.innerHTML = `
     <main class="shell">
-      ${renderSidebar(state, context, projectProducts)}
+      ${renderSidebar(state, context)}
       <section class="workspace">
         ${renderHeader(context, persistenceStatus, options.auth)}
         ${renderOperationsPanel(state, context)}
@@ -52,7 +52,7 @@ export function updatePersistenceStatus(root, status) {
   updatePersistenceStatusView(root, status);
 }
 
-function renderSidebar(state, context, projectProducts) {
+function renderSidebar(state, context) {
   return `
     <aside class="sidebar">
       <div class="brand">
@@ -66,7 +66,7 @@ function renderSidebar(state, context, projectProducts) {
       <button id="open-project-modal" class="primary-btn sidebar-action" type="button">+ Создать проект</button>
       <label class="field-label" for="product-select">Продукт</label>
       <select id="product-select" class="select">
-        ${projectProducts.map((product) => option(product.id, product.name, context.product.id)).join("")}
+        ${renderProductSelectOptions(state.projects, state.products, context.product.id)}
       </select>
       <button class="secondary-btn sidebar-action" data-project-tab="product" type="button">Открыть продукт</button>
       <button id="open-product-modal" class="ghost-btn sidebar-action" type="button">+ Новый продукт</button>
