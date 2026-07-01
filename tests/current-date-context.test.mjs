@@ -44,4 +44,7 @@ test("creative team text and render prompts receive current date rules", () => {
   assert.match(instruction, /АКТУАЛЬНАЯ ДАТА/);
   assert.match(renderPrompt, /АКТУАЛЬНАЯ ДАТА/);
   assert.match(renderPrompt, /2025/);
+  assert.match(renderPrompt, /Видимый текст/);
+  assert.match(renderPrompt, /Верхний хук/);
+  assert.doesNotMatch(renderPrompt, /Visible text|Top hook|Point 1|Footer/);
 });

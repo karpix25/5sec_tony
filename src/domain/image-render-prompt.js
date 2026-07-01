@@ -2,32 +2,33 @@ import { formatCurrentDatePrompt } from "./current-date-context.js";
 
 export function buildImageRenderPrompt({ strategy, card, reference }) {
   return [
-    "Create a vertical 9:16 Russian fintech infographic for a social video cover.",
+    "Создай вертикальную 9:16 инфографику на русском языке для обложки социального видео.",
+    "ЖЕСТКОЕ ПРАВИЛО: весь видимый текст на финальной картинке только на русском; не писать английские служебные подписи, интерфейсные ярлыки, заглушки или псевдолатинский текст.",
     formatCurrentDatePrompt(),
     "",
-    "Visible text:",
-    `Top hook: ${card.headline}`,
-    `Main thesis: ${card.subhead}`,
-    ...card.points.map((point, index) => `Point ${index + 1}: ${point}`),
-    card.footer ? `Footer: ${card.footer}` : "",
+    "Видимый текст:",
+    `Верхний хук: ${card.headline}`,
+    `Главный тезис: ${card.subhead}`,
+    ...card.points.map((point, index) => `Пункт ${index + 1}: ${point}`),
+    card.footer ? `Нижняя подпись: ${card.footer}` : "",
     "",
-    `Product context: ${strategy.productName}. ${strategy.productBridge}`,
-    `Visual idea: ${strategy.visualObject}`,
-    `Layout: ${card.layout}`,
+    `Контекст продукта: ${strategy.productName}. ${strategy.productBridge}`,
+    `Визуальная идея: ${strategy.visualObject}`,
+    `Макет: ${card.layout}`,
     referenceInstruction(reference),
     "",
-    "Create only the final image: a clear poster with strong hierarchy, readable Russian text, and comfortable margins.",
-    "Avoid bank logos, payment system logos, gray schemes, sanctions bypass promises, and guaranteed payment claims."
+    "Создай только финальную картинку: понятный постер с сильной иерархией, читаемым русским текстом и комфортными полями.",
+    "Не использовать логотипы банков и платежных систем, серые схемы, обещания обхода санкций и гарантированные платежные claims."
   ].filter(Boolean).join("\n");
 }
 
 function referenceInstruction(reference) {
   if (!reference) return "";
   const parts = [
-    reference.title ? `Use design reference mood: ${reference.title}.` : "",
-    reference.palette ? `Palette: ${reference.palette}.` : "",
-    reference.headlineStyle ? `Headline style: ${reference.headlineStyle}.` : "",
-    reference.takeaways ? `Design cues only: ${cleanReferenceText(reference.takeaways)}` : ""
+    reference.title ? `Настроение дизайн-референса: ${reference.title}.` : "",
+    reference.palette ? `Палитра: ${reference.palette}.` : "",
+    reference.headlineStyle ? `Стиль заголовка: ${reference.headlineStyle}.` : "",
+    reference.takeaways ? `Только дизайн-подсказки: ${cleanReferenceText(reference.takeaways)}` : ""
   ].filter(Boolean);
   return parts.join(" ");
 }

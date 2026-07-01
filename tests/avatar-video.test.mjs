@@ -48,6 +48,34 @@ test("store toggles reusable avatar videos for round robin", () => {
   assert.equal(getProjectAvatarVideos(store)[0].isActive, true);
 });
 
+test("store toggles avatar video by id even when no avatar is selected", () => {
+  const store = createStore();
+  const state = store.getState();
+  const project = getSelectedProject(store);
+  const video = {
+    id: "avatar-video-hidden-owner",
+    status: "ready",
+    videoUrl: "https://cdn.example.com/avatar-green.mp4",
+    isActive: true
+  };
+  state.projects = state.projects.map((item) =>
+    item.id === project.id
+      ? {
+          ...item,
+          characters: [
+            { ...item.characters[0], avatarVideos: [] },
+            { ...item.characters[0], id: "second-character", name: "Второй аватар", avatarVideos: [video] }
+          ]
+        }
+      : item
+  );
+  state.selectedCharacterId = "__no_avatar__";
+
+  store.setAvatarVideoActive(video.id, false);
+
+  assert.equal(getProjectAvatarVideos(store).find((item) => item.id === video.id).isActive, false);
+});
+
 test("store updates and approves avatar video cta badge", async () => {
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;

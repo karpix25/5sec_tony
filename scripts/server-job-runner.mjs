@@ -4,6 +4,7 @@ import { getCompositeAvatarVideoUrl, pickAvatarVideoRoundRobin } from "../src/do
 import { normalizeCtaOverlay } from "../src/domain/cta-overlay.js";
 import { selectServerJobAudio } from "./server-job-audio.mjs";
 import { limitImagePrompt } from "../src/domain/image-prompt-budget.js";
+import { ensureRussianImagePromptGuard } from "../src/domain/language-policy.js";
 import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
 import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
 import { createOperationLogger, summarizeJobForLog } from "./operation-logger.mjs";
@@ -89,7 +90,7 @@ async function runServerImageGeneration(record, provider) {
     failMsg: provider === fallbackProvider ? "Основной способ не ответил, пробуем резервный..." : "Сервер ожидает картинку..."
   });
   const task = await postServerJson(record.origin, "/api/images/generate", {
-    prompt: limitImagePrompt(record.job.prompt),
+    prompt: limitImagePrompt(ensureRussianImagePromptGuard(record.job.prompt)),
     inputUrls: record.job.inputUrls || [],
     inputRefs: record.job.inputRefs || [],
     promptContract: record.job.promptContract || record.job.imagePromptContract || null,

@@ -15,7 +15,9 @@ test("server job runs image generation, final assembly, avatar usage and disk up
 
     if (String(url).includes("/api/images/generate")) {
       assert.equal(body.provider, "gpt-image-2");
-      assert.equal(body.prompt, "Generate a product scene");
+      assert.match(body.prompt, /ЖЕСТКИЙ ЯЗЫКОВОЙ КОНТРАКТ/);
+      assert.match(body.prompt, /только на русском/);
+      assert.match(body.prompt, /Generate a product scene/);
       return jsonResponse({ taskId: "image-task-server" });
     }
     if (String(url).includes("/api/images/status")) {
@@ -265,6 +267,7 @@ test("server job limits old overlong prompts before image generation request", a
     const payload = await waitForServerJob("job-overlong-prompt", (item) => item.job.status === "review", handle);
     assert.equal(payload.job.imageUrl, "https://cdn.example.com/limited-prompt.png");
     assert.ok(imagePrompt.length <= IMAGE_PROMPT_MAX_CHARS);
+    assert.match(imagePrompt, /ЖЕСТКИЙ ЯЗЫКОВОЙ КОНТРАКТ/);
     assert.match(imagePrompt, /ЯЗЫК НА ИЗОБРАЖЕНИИ/);
     assert.match(imagePrompt, /Заголовок: Важная тема/);
   } finally {

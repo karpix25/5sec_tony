@@ -122,7 +122,7 @@ test("generation structure preview keeps payment prompt clean and product-specif
 
   assert.match(`${preview.strategy.topic} ${preview.strategy.hook} ${preview.strategy.nicheFact}`, /карт|оплат|подписк|сервис/i);
   assert.doesNotMatch(text, /подписка сгорит|счет из-за рубежа|оплатить что угодно/i);
-  assert.match(preview.imagePrompt, /Visible text:/);
+  assert.match(preview.imagePrompt, /Видимый текст:/);
   assert.doesNotMatch(text, /composition mode|safe zone|semantic plan|sourcebrief|анкета продукта|режим продукта/);
 });
 

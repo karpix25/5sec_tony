@@ -135,7 +135,9 @@ export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter
     setAvatarVideoActive(videoId, isActive) {
       const state = getState();
       const project = getProject(state, state.selectedProjectId);
-      const character = project.characters.find((item) => item.id === state.selectedCharacterId) || project.characters[0];
+      const character = project.characters.find((item) =>
+        (item.avatarVideos || []).some((video) => video.id === videoId)
+      );
       if (!character) return;
       patchAvatarVideo(character.id, videoId, (item) => ({ ...item, isActive: Boolean(isActive) }));
     },

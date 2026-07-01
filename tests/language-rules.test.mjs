@@ -23,7 +23,7 @@ test("image prompt requires Russian visible text", () => {
   });
 
   assert.match(prompt, /весь видимый текст строго на русском языке/);
-  assert.match(prompt, /английский UI\/text запрещен/);
+  assert.match(prompt, /английский интерфейсный или служебный текст запрещен/);
   assert.match(prompt, /Официальные названия брендов и сервисов/);
 });
 

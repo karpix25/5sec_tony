@@ -6,7 +6,7 @@ export function renderAvatarSettings({ project, character }) {
   return `
     ${renderAvatarUploadPanel()}
     ${renderToggleSection("Аватары проекта", renderApprovedAvatars(project.characters, character?.id), { section: "approved" })}
-    ${renderAvatarVideoPanel(character)}
+    ${renderAvatarVideoPanel(project, character)}
     ${renderAvatarOverlayComposer({ project, character })}
   `;
 }
@@ -73,17 +73,18 @@ function getAvatarActiveLabel(item, isSelected) {
   return isSelected ? "Выбран и активен в avatar round robin" : "Активен в avatar round robin";
 }
 
-function renderAvatarVideoPanel(character) {
+function renderAvatarVideoPanel(project, character) {
   const videos = character?.avatarVideos || [];
+  const videoRows = getProjectAvatarVideoRows(project);
   const canCreate = Boolean(character?.imageData);
-  const hasLoadingVideo = videos.some(isVideoLoading);
-  return renderToggleSection("Видео активного аватара", `
+  const hasLoadingVideo = videoRows.some(({ video }) => isVideoLoading(video));
+  return renderToggleSection("Видео аватаров проекта", `
     <section class="avatar-video-panel">
       <div class="avatar-video-head">
         <div>
           <span class="eyebrow">Хромакей</span>
-          <strong>Видео активного аватара</strong>
-          <small>Reusable ролики 9:16, по пояс, чистый #00FF00.</small>
+          <strong>Видео аватаров проекта</strong>
+          <small>Reusable ролики 9:16, по пояс, чистый #00FF00. Их можно выключать независимо от выбранного режима генерации.</small>
         </div>
       </div>
       <form id="avatar-video-form" class="ops-form text-editor-form avatar-video-form">
@@ -92,16 +93,16 @@ function renderAvatarVideoPanel(character) {
         <button class="secondary-btn" type="submit" ${canCreate ? "" : "disabled"}>Создать хромакей-видео</button>
       </form>
       ${canCreate ? "" : "<small class=\"avatar-system-note\">Для видео нужен одобренный аватар с изображением.</small>"}
-      ${renderAvatarVideoList(videos)}
+      ${renderAvatarVideoList(videoRows)}
     </section>
   `, { section: "video", open: hasLoadingVideo, forceOpen: hasLoadingVideo });
 }
 
-function renderAvatarVideoList(videos) {
-  if (!videos.length) return "<small class=\"avatar-system-note\">Видео для активного аватара еще не создавались.</small>";
+function renderAvatarVideoList(videoRows) {
+  if (!videoRows.length) return "<small class=\"avatar-system-note\">Видео аватаров проекта еще не создавались.</small>";
   return `
     <div class="avatar-video-list">
-      ${videos.map((video) => `
+      ${videoRows.map(({ character, video }) => `
         <article class="avatar-video-item">
           ${getPlayableVideoUrl(video) ? renderPreviewTrigger({
             src: getPlayableVideoUrl(video),
@@ -112,6 +113,7 @@ function renderAvatarVideoList(videos) {
           }) : `<div class="avatar-video-pending">9:16</div>`}
           <div>
             <strong>${escapeHtml(video.name || getVideoStatus(video))}</strong>
+            <small>Аватар: ${escapeHtml(character.name || "Без имени")}</small>
             <small>${escapeHtml(getVideoStatus(video))}</small>
             <small>${escapeHtml(video.failMsg || video.motionPrompt)}</small>
             <small>${escapeHtml(getVideoActiveLabel(video))}</small>
@@ -130,6 +132,12 @@ function renderAvatarVideoList(videos) {
       `).join("")}
     </div>
   `;
+}
+
+function getProjectAvatarVideoRows(project) {
+  return (project?.characters || []).flatMap((character) =>
+    (character.avatarVideos || []).map((video) => ({ character, video }))
+  );
 }
 
 function renderAvatarVideoActiveButton(video) {

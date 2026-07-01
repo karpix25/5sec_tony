@@ -52,6 +52,30 @@ test("avatar video section stays open while video is generating", () => {
   assert.match(html, /Создаем хромакей/);
 });
 
+test("avatar video section shows project videos when no avatar is selected", () => {
+  const project = {
+    ...projects[0],
+    characters: [{
+      ...projects[0].characters[0],
+      name: "Алина",
+      avatarVideos: [{
+        id: "avatar-video-visible-without-selection",
+        name: "спокойная экспертность",
+        status: "ready",
+        videoUrl: "https://cdn.example.com/avatar.mp4",
+        isActive: true
+      }]
+    }]
+  };
+  const html = renderAvatarSettings({ project, character: null });
+
+  assert.match(html, /Видео аватаров проекта/);
+  assert.match(html, /спокойная экспертность/);
+  assert.match(html, /Аватар: Алина/);
+  assert.match(html, /data-avatar-video-active="avatar-video-visible-without-selection"/);
+  assert.doesNotMatch(html, /Видео для активного аватара еще не создавались/);
+});
+
 test("avatar cta badge generation shows busy feedback", () => {
   const project = {
     ...projects[0],

@@ -21,8 +21,8 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({ productVisualMode });
   return limitImagePrompt([
     safePackagePrompt,
-    safePromptContract ? `JSON PROMPT CONTRACT:\n${stringifyPromptContract(safePromptContract)}` : "",
-    "TECHNICAL RENDERING GUARDRAILS:",
+    safePromptContract ? `JSON-КОНТРАКТ ПРОМПТА:\n${stringifyPromptContract(safePromptContract)}` : "",
+    "ТЕХНИЧЕСКИЕ ПРАВИЛА РЕНДЕРА:",
     currentDatePrompt,
     productVisualContract,
     avatarReservedZonePrompt,
@@ -51,25 +51,25 @@ function sanitizePromptContract(contract, content) {
 
 function getFormatLock(formatType = "") {
   if (formatType !== "ranking_leaderboard") return "";
-  return "ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK: сохранить leaderboard/top-chart skeleton из дизайн-референса: плотный постер, крупная заголовочная зона, служебная строка/легенда, повторяемые высокие вертикальные ранговые колонки или rank cards, номера мест, короткие value labels, светящиеся рамки/разделители. Итоговый макет выглядит как вертикальный top-chart poster с постерной плотностью.";
+  return "ОБЯЗАТЕЛЬНАЯ ФИКСАЦИЯ ФОРМАТА: сохранить структуру рейтингового top-chart из дизайн-референса: плотный постер, крупная заголовочная зона, служебная строка/легенда, повторяемые высокие вертикальные ранговые колонки или карточки, номера мест, короткие подписи значений, светящиеся рамки/разделители. Итоговый макет выглядит как вертикальный рейтинговый постер с постерной плотностью.";
 }
 
 function getTextContractRule(formatType = "") {
   if (formatType !== "ranking_leaderboard") {
     return "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ: не менять тему и видимые формулировки.";
   }
-  return "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ ДЛЯ TOP-CHART: сохранить тему и смысл, но адаптировать видимый текст под leaderboard skeleton; не копировать checklist wording дословно, если оно ломает количество и форму rank cards.";
+  return "ФИНАЛЬНЫЙ ТЕКСТОВЫЙ КОНТРАКТ ДЛЯ TOP-CHART: сохранить тему и смысл, но адаптировать видимый текст под рейтинговую структуру; не копировать формулировки чеклиста дословно, если они ломают количество и форму ранговых карточек.";
 }
 
 function getReferenceTraceContract(formatType = "") {
   if (formatType !== "ranking_leaderboard") return "";
   return [
-    "REFERENCE TRACE CONTRACT: финальное изображение является узнаваемой адаптацией приложенного top-chart reference.",
-    "Повтори геометрию: темный насыщенный фон, крупный верхний headline block, маленькая source/legend strip под заголовком, сетка из многих высоких вертикальных ranked columns/bars, glow outlines, gold/white/blue contrast, нижний ряд компактных mini rank cards.",
-    "Меняется смысл, подписи и объекты под новый продукт; skeleton остается top-chart: темная постерная основа, вертикальные ranked columns, compact rank cards и glow separators.",
-    "Палитра остается в логике темного chart reference даже для wellness, воды, трав или косметики.",
-    "Если контента меньше чем слотов в референсе, заполни 8-12 rank cards короткими безопасными признаками/критериями.",
-    "Палитра дизайн-референса ведет кадр: для темно-синего/золотого/cyan референса сохраняется темный chart poster."
+    "КОНТРАКТ СЛЕДОВАНИЯ РЕФЕРЕНСУ: финальное изображение является узнаваемой адаптацией приложенного top-chart референса.",
+    "Повтори геометрию: темный насыщенный фон, крупный верхний блок заголовка, маленькая строка источника/легенды под заголовком, сетка из многих высоких вертикальных рейтинговых колонок, светящиеся контуры, контраст золота, белого и синего, нижний ряд компактных мини-карточек.",
+    "Меняется смысл, подписи и объекты под новый продукт; структура остается top-chart: темная постерная основа, вертикальные рейтинговые колонки, компактные ранговые карточки и светящиеся разделители.",
+    "Палитра остается в логике темного chart-референса даже для wellness, воды, трав или косметики.",
+    "Если контента меньше чем слотов в референсе, заполни 8-12 ранговых карточек короткими безопасными признаками/критериями.",
+    "Палитра дизайн-референса ведет кадр: для темно-синего, золотого и голубого референса сохраняется темный chart-постер."
   ].join(" ");
 }
 
@@ -77,20 +77,20 @@ function getRankingAdaptationContract(formatType = "", content = {}) {
   if (formatType !== "ranking_leaderboard") return "";
   const count = Array.isArray(content.points) ? content.points.length : 0;
   return [
-    "RANKING ADAPTATION PLAN: если исходный сценарий похож на checklist, диагностическую карточку или содержит 4-6 пунктов, использовать его как сырье для top-chart структуры.",
-    "Перепаковать тему в TOP 10 или TOP 12 chart: крупный заголовок начинается с ТОП, subtitle/legend совпадает с числом rank cards.",
-    "Каждый rank item является высокой вертикальной карточкой/колонкой с компактной подписью.",
-    count && count < 8 ? `Исходных пунктов ${count}; это сырье для смысла. Финальный макет должен иметь 8-12 коротких rank cards.` : "",
-    "Leaderboard держит главный визуальный вес через rank cards, numbers, glow dividers и poster hierarchy; продуктовый сигнал остается компактным."
+    "ПЛАН АДАПТАЦИИ ПОД РЕЙТИНГ: если исходный сценарий похож на чеклист, диагностическую карточку или содержит 4-6 пунктов, использовать его как сырье для top-chart структуры.",
+    "Перепаковать тему в ТОП 10 или ТОП 12 chart: крупный заголовок начинается с ТОП, подзаголовок/легенда совпадает с числом ранговых карточек.",
+    "Каждый рейтинговый элемент является высокой вертикальной карточкой/колонкой с компактной подписью.",
+    count && count < 8 ? `Исходных пунктов ${count}; это сырье для смысла. Финальный макет должен иметь 8-12 коротких ранговых карточек.` : "",
+    "Leaderboard держит главный визуальный вес через ранговые карточки, числа, светящиеся разделители и постерную иерархию; продуктовый сигнал остается компактным."
   ].filter(Boolean).join(" ");
 }
 
 function getRankingProductDominanceContract(formatType = "", brief = {}) {
   if (formatType !== "ranking_leaderboard" || isDirectProductVisualTopic(brief)) return "";
   return [
-    "PRODUCT DOMINANCE PLAN: эта картинка работает как самостоятельный top-chart poster.",
-    "COLOR PLAN: палитра дизайн-референса ведет кадр: dark navy/deep blue background, gold headline accents, cyan/blue glow borders.",
-    "Главный visual hook: рейтинг, контраст, символы критериев, glow cards, числа и постерная иерархия.",
+    "ПЛАН РОЛИ ПРОДУКТА: эта картинка работает как самостоятельный top-chart постер.",
+    "ПЛАН ЦВЕТА: палитра дизайн-референса ведет кадр: темный синий фон, золотые акценты заголовка, голубое свечение и контуры.",
+    "Главный визуальный хук: рейтинг, контраст, символы критериев, светящиеся карточки, числа и постерная иерархия.",
     "Связь с продуктом остается мягким смысловым мостом внутри темы."
   ].join(" ");
 }
@@ -99,7 +99,7 @@ function formatGrammarLine(label, value, formatType = "") {
   if (!value) return "";
   const text = Array.isArray(value) ? value.join(", ") : String(value);
   if (formatType === "ranking_leaderboard" && /green|зелен|product|wellness/i.test(text)) {
-    return `${label}: dark navy/deep blue base, gold accents, white text, cyan/blue glow borders.`;
+    return `${label}: темно-синяя база, золотые акценты, белый текст, голубое свечение и контуры.`;
   }
   return `${label}: ${text}.`;
 }

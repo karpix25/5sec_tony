@@ -14,11 +14,11 @@ test("design reference candidate prompt creates a safe reusable template", () =>
     takeaways: "розовый хук и карточки"
   });
 
-  assert.match(candidate.finalPrompt, /vertical 9:16 design reference template/);
-  assert.match(candidate.finalPrompt, /Visible text may only be short neutral Russian placeholders/);
-  assert.match(candidate.finalPrompt, /Do not show product packaging, avatar/);
-  assert.match(candidate.finalPrompt, /center-aligned vertical composition/);
-  assert.match(candidate.finalPrompt, /top and bottom margins completely clean/);
+  assert.match(candidate.finalPrompt, /вертикальный 9:16 дизайн-шаблон/);
+  assert.match(candidate.finalPrompt, /Видимый текст может быть только короткими нейтральными русскими заглушками/);
+  assert.match(candidate.finalPrompt, /Не показывай упаковку продукта, аватара/);
+  assert.match(candidate.finalPrompt, /композицию по центру кадра/);
+  assert.match(candidate.finalPrompt, /верхнее и нижнее поля полностью чистыми/);
   assert.equal(candidate.isActive, undefined);
 });
 
@@ -54,7 +54,7 @@ test("store reviews and approves generated design reference templates", async ()
   globalThis.fetch = async (url, options = {}) => {
     const body = options.body ? JSON.parse(options.body) : {};
     if (String(url).includes("/api/images/generate")) {
-      assert.match(body.prompt, /design reference template/);
+      assert.match(body.prompt, /дизайн-шаблон/);
       assert.equal(body.provider, "gpt-image-2");
       return { ok: true, json: async () => ({ taskId: "design-template-task" }) };
     }

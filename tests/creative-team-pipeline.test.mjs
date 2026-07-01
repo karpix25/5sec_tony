@@ -75,11 +75,11 @@ test("creative team prompt package is not replaced by local leaderboard prompt",
   });
 
   assert.match(prompt, /AI_SAFE_LEADERBOARD_PROMPT/);
-  assert.match(prompt, /TECHNICAL RENDERING GUARDRAILS/);
+  assert.match(prompt, /ТЕХНИЧЕСКИЕ ПРАВИЛА РЕНДЕРА/);
   assert.match(prompt, /Топ признаков/);
-  assert.doesNotMatch(prompt, /PRODUCT DOMINANCE PLAN/);
-  assert.doesNotMatch(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
-  assert.doesNotMatch(prompt, /REFERENCE TRACE CONTRACT/);
+  assert.doesNotMatch(prompt, /ПЛАН РОЛИ ПРОДУКТА/);
+  assert.doesNotMatch(prompt, /ОБЯЗАТЕЛЬНАЯ ФИКСАЦИЯ ФОРМАТА/);
+  assert.doesNotMatch(prompt, /КОНТРАКТ СЛЕДОВАНИЯ РЕФЕРЕНСУ/);
   assert.doesNotMatch(prompt, /Фон референса: dark blue cosmic poster/);
 });
 
@@ -107,7 +107,7 @@ test("ai prompt package keeps final prompt ownership for leaderboard references"
 
   assert.match(prompt, /Adapt the wellness checklist into the chart reference/);
   assert.match(prompt, /Усталость или сигнал организма/);
-  assert.doesNotMatch(prompt, /RANKING ADAPTATION PLAN/);
+  assert.doesNotMatch(prompt, /ПЛАН АДАПТАЦИИ ПОД РЕЙТИНГ/);
   assert.doesNotMatch(prompt, /TOP 10 или TOP 12 chart/);
   assert.doesNotMatch(prompt, /Исходных пунктов 5/);
 });
@@ -137,7 +137,7 @@ test("creative team prompt does not synthesize local format lock when ai format 
 
   assert.match(prompt, /Create a skincare infographic from the reference/);
   assert.match(prompt, /Что проверить утром/);
-  assert.doesNotMatch(prompt, /ОБЯЗАТЕЛЬНЫЙ FORMAT LOCK/);
+  assert.doesNotMatch(prompt, /ОБЯЗАТЕЛЬНАЯ ФИКСАЦИЯ ФОРМАТА/);
   assert.doesNotMatch(prompt, /rankedItems\[8-21\]/);
 });
 
