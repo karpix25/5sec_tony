@@ -35,6 +35,7 @@ const files = [
   "src/domain/generation-format-contract.js",
   "src/domain/image-prompt-budget.js",
   "src/domain/current-date-context.js",
+  "src/domain/language-policy.js",
   "src/domain/design-text-contract.js",
   "src/domain/ai-artifacts.js",
   "src/domain/product-visual-policy.js",

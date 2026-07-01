@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { projects, products } from "../src/domain/entities.js";
 import { buildImagePrompt } from "../src/domain/generation.js";
-import { createReferenceEntity } from "../src/state/factories.js";
+import { requiredRussianImageTextRule } from "../src/domain/language-policy.js";
+import { createProjectBundle } from "../src/state/project-creation.js";
+import { createReferenceEntity, ensureProjectAssets } from "../src/state/factories.js";
+import { createStore } from "../src/state/store.js";
 import { renderDesignSettings } from "../src/ui/design.js";
 
 test("image prompt requires Russian visible text", () => {
@@ -22,6 +25,33 @@ test("image prompt requires Russian visible text", () => {
   assert.match(prompt, /весь видимый текст строго на русском языке/);
   assert.match(prompt, /английский UI\/text запрещен/);
   assert.match(prompt, /Официальные названия брендов и сервисов/);
+});
+
+test("new project settings require Russian final image text", () => {
+  const { project } = createProjectBundle({ name: "Тестовый проект" });
+
+  assert.match(project.contentRestrictions, /ЯЗЫК ФИНАЛЬНЫХ КАРТИНОК/);
+  assert.match(project.contentRestrictions, /строго на русском языке/);
+});
+
+test("loaded project settings restore Russian final image text rule", () => {
+  const project = ensureProjectAssets({
+    id: "project-without-language-rule",
+    name: "Старый проект",
+    references: [],
+    contentRestrictions: "Не обещать гарантированный результат."
+  });
+
+  assert.match(project.contentRestrictions, /ЯЗЫК ФИНАЛЬНЫХ КАРТИНОК/);
+  assert.match(project.contentRestrictions, /Не обещать гарантированный результат/);
+});
+
+test("project settings save cannot remove Russian final image text rule", () => {
+  const store = createStore();
+  store.updateProjectSettings({ contentRestrictions: "", restrictions: "Не обещать лечение" });
+  const project = store.getState().projects.find((item) => item.id === store.getState().selectedProjectId);
+
+  assert.equal(project.contentRestrictions, requiredRussianImageTextRule);
 });
 
 test("design reference font is fixed for image generations", () => {

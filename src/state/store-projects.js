@@ -1,5 +1,6 @@
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
+import { ensureRussianImageTextRestriction } from "../domain/language-policy.js";
 import { defaultProjectYandexDiskFolder } from "./factories.js";
 import { normalizeProjectDailyLimit, normalizeProjectTotalLimit } from "./store-normalizers.js";
 
@@ -26,7 +27,7 @@ export function updateProjectEntity(project, payload) {
     allowedTriggers: textValue("allowedTriggers"),
     forbiddenTriggers: textValue("forbiddenTriggers"),
     hookAggression: textValue("hookAggression", "Средняя"),
-    contentRestrictions: textValue("contentRestrictions"),
+    contentRestrictions: ensureRussianImageTextRestriction(textValue("contentRestrictions")),
     companyInfo: projectTextValue(Object.hasOwn(payload, "companyInfo") ? payload.companyInfo : (projectAbout ?? project.companyInfo ?? "")),
     companyAudience: textValue("companyAudience"),
     toneOfVoice: textValue("toneOfVoice"),

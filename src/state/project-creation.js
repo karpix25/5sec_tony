@@ -1,4 +1,5 @@
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
+import { ensureRussianImageTextRestriction } from "../domain/language-policy.js";
 import {
   createAudioEntity,
   createId,
@@ -44,7 +45,7 @@ export function createProjectBundle(payload = {}) {
     allowedTriggers: payload.allowedTriggers || "",
     forbiddenTriggers: payload.forbiddenTriggers || "",
     hookAggression: payload.hookAggression || "Средняя",
-    contentRestrictions: payload.contentRestrictions || "",
+    contentRestrictions: ensureRussianImageTextRestriction(payload.contentRestrictions),
     toneOfVoice: payload.toneOfVoice || "спокойный экспертный",
     restrictions: payload.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
     style: payload.style || "единый проектный стиль инфографики",

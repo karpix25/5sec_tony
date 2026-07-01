@@ -3,6 +3,7 @@ import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
 import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../domain/ai-artifacts.js";
+import { ensureRussianImageTextRestriction } from "../domain/language-policy.js";
 
 export const defaultGenerationBrief = {
   topic: "",
@@ -110,7 +111,7 @@ export function ensureProjectAssets(project) {
     allowedTriggers: project.allowedTriggers || "",
     forbiddenTriggers: project.forbiddenTriggers || "",
     hookAggression: project.hookAggression || "Средняя",
-    contentRestrictions: project.contentRestrictions || "",
+    contentRestrictions: ensureRussianImageTextRestriction(project.contentRestrictions),
     toneOfVoice: project.toneOfVoice || "спокойный экспертный",
     restrictions: project.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
     exportFolder: normalizeProjectExportFolder(project.exportFolder, project.name),
