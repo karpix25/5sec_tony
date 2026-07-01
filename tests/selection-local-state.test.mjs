@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { createInitialState } from "../src/state/initial-state.js";
 import { createStore } from "../src/state/store.js";
 
@@ -34,6 +35,37 @@ test("selection-only store actions do not post full state to the database", asyn
     assert.equal(store.getState().selectedProductId, "serum");
     assert.equal(store.getState().selectedProjectTab, "queue");
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("new sessions default generation to no avatar", () => {
+  const state = createInitialState();
+  assert.equal(state.selectedCharacterId, noAvatarCharacterId);
+});
+
+test("project and product switches default generation to no avatar until explicitly selected", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: createInitialState(), updatedAt: "t0" });
+    }
+    return jsonResponse({ disabled: true }, 503);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+
+    store.selectProject("beauty");
+    assert.equal(store.getState().selectedCharacterId, noAvatarCharacterId);
+
+    store.selectCharacter("beauty-host");
+    assert.equal(store.getState().selectedCharacterId, "beauty-host");
+
+    store.selectProduct("crosspay");
+    assert.equal(store.getState().selectedCharacterId, noAvatarCharacterId);
   } finally {
     globalThis.fetch = originalFetch;
   }

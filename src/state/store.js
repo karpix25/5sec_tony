@@ -151,7 +151,7 @@ export function createStore() {
         selectedProjectId: projectId,
         selectedProductId: projectProducts[0]?.id,
         selectedReferenceId: getProject(state, projectId).references[0]?.id,
-        selectedCharacterId: getProject(state, projectId).characters[0]?.id,
+        selectedCharacterId: noAvatarCharacterId,
         selectedProjectTab: "project",
         generationBrief: ensureGenerationBrief({})
       });
@@ -167,7 +167,7 @@ export function createStore() {
         selectedProjectId: product.projectId,
         selectedProductId: product.id,
         selectedReferenceId: project.references[0]?.id,
-        selectedCharacterId: project.characters[0]?.id
+        selectedCharacterId: noAvatarCharacterId
       });
     },
     selectReference(referenceId) {
@@ -270,7 +270,7 @@ export function createStore() {
         selectedProjectId: project.id,
         selectedProductId: product.id,
         selectedReferenceId: project.references[0]?.id || "",
-        selectedCharacterId: project.characters[0].id,
+        selectedCharacterId: noAvatarCharacterId,
         selectedAudioId: state.audioLibrary[0]?.id,
         selectedProjectTab: "project",
         generationBrief: ensureGenerationBrief({})
@@ -301,7 +301,7 @@ export function createStore() {
         selectedProjectId: project.id,
         selectedProductId: product.id,
         selectedReferenceId: project.references[0]?.id,
-        selectedCharacterId: project.characters[0]?.id,
+        selectedCharacterId: noAvatarCharacterId,
         selectedAudioId: state.audioLibrary[0]?.id,
         selectedProjectTab: "project",
         generationBrief: ensureGenerationBrief({})
@@ -324,6 +324,7 @@ export function createStore() {
         deletedProductIds: appendUniqueIds(state.deletedProductIds, deletedProductIds),
         selectedProjectId: selectedProject.id,
         selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
+        selectedCharacterId: noAvatarCharacterId,
         generationBrief: ensureGenerationBrief({})
       });
     },
@@ -352,6 +353,7 @@ export function createStore() {
         jobs: state.jobs.filter((job) => job.projectId !== projectId),
         selectedProjectId: selectedProject.id,
         selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
+        selectedCharacterId: noAvatarCharacterId,
         generationBrief: ensureGenerationBrief({})
       }, { skipRemoteSave: true });
       statePersistence?.recordRemoteSave?.(state, result.updatedAt);
@@ -460,7 +462,7 @@ function normalize(nextState) {
       ? noAvatarCharacterId
       : project.characters.some((char) => char.id === nextState.selectedCharacterId)
         ? nextState.selectedCharacterId
-        : project.characters[0]?.id,
+        : noAvatarCharacterId,
     selectedAudioId: getSelectedGlobalAudioId(audioLibrary, nextState.selectedAudioId),
     selectedProjectTab: ["project", "product", "audio", "design", "avatars", "generation", "queue", "hooks"].includes(nextState.selectedProjectTab)
       ? nextState.selectedProjectTab

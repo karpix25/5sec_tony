@@ -1,4 +1,5 @@
 import { globalAudioLibrary, initialJobs, products, projects } from "../domain/entities.js";
+import { noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { defaultGenerationBrief } from "./factories.js";
 import { createPersistedReferenceState } from "./reference-libraries.js";
 
@@ -11,7 +12,7 @@ export function createInitialState() {
     selectedProjectId: projects[0].id,
     selectedProductId: products[0].id,
     selectedReferenceId: projects[0].references[0].id,
-    selectedCharacterId: projects[0].characters[0].id,
+    selectedCharacterId: noAvatarCharacterId,
     selectedAudioId: globalAudioLibrary[0].id,
     selectedProjectTab: "project",
     generationBrief: defaultGenerationBrief,
