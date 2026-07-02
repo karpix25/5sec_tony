@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { createInitialState } from "../src/state/initial-state.js";
 import { createStore } from "../src/state/store.js";
+import { getSelectionContext } from "../src/state/store-context.js";
 
 test("selection-only store actions do not post full state to the database", async () => {
   const originalFetch = globalThis.fetch;
@@ -69,6 +70,36 @@ test("project and product switches default generation to no avatar until explici
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("selection context ignores a product from another project", () => {
+  const state = {
+    projects: [
+      { id: "project-a", name: "A", references: [{ id: "ref-a" }], characters: [] },
+      { id: "project-b", name: "B", references: [{ id: "ref-b" }], characters: [] }
+    ],
+    products: [
+      { id: "product-a", projectId: "project-a", name: "Old product" },
+      { id: "product-b", projectId: "project-b", name: "Current product" }
+    ],
+    selectedProjectId: "project-b",
+    selectedProductId: "product-a",
+    selectedReferenceId: "ref-b",
+    selectedCharacterId: noAvatarCharacterId,
+    audioLibrary: [],
+    selectedAudioId: "",
+    hookLibrary: [],
+    reelsResearch: [],
+    generationBrief: {},
+    freePrompt: ""
+  };
+
+  const context = getSelectionContext(state, (current, projectId) =>
+    current.projects.find((project) => project.id === projectId) || current.projects[0]
+  );
+
+  assert.equal(context.project.id, "project-b");
+  assert.equal(context.product.id, "product-b");
 });
 
 function jsonResponse(payload, status = 200) {

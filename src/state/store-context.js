@@ -7,7 +7,8 @@ import { createGenerationJobBatch } from "./job-batch.js";
 
 export function getSelectionContext(state, getProject) {
   const project = getProject(state, state.selectedProjectId);
-  const product = state.products.find((item) => item.id === state.selectedProductId) || getProductsForProject(state.products, project.id)[0];
+  const projectProducts = getProductsForProject(state.products, project.id);
+  const product = projectProducts.find((item) => item.id === state.selectedProductId) || projectProducts[0];
   const references = getDesignReferences(project);
   const selectedCharacterId = isNoAvatarCharacterId(state.selectedCharacterId) ? noAvatarCharacterId : state.selectedCharacterId;
   return {
