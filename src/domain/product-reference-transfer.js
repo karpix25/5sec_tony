@@ -5,7 +5,8 @@ export function getProductReferenceTransferInstruction({ remoteProductRefs, loca
       `PRODUCT REFERENCE PLAN: product-present, передано ${productRefCount} product reference image(s).`,
       "Локальные product reference images будут опубликованы как S3/public URL перед запросом к генератору; считай их доступными для image-to-image.",
       "Тема требует показать продукт: продукт должен быть визуально виден в кадре.",
-      "Внешний вид продукта повторяет product reference: форма, цвет, этикетка, название, крышка, коробка и SKU."
+      "Внешний вид продукта повторяет product reference: форма, цвет, этикетка, название, крышка, коробка и SKU.",
+      "ТЕКСТ НА РЕАЛЬНОЙ УПАКОВКЕ: текст, логотипы и названия, уже напечатанные на упаковке, являются частью физического объекта: не переводить их на русский, не локализовать и не заменять похожими русскими словами."
     ].join(" ");
   }
   return [

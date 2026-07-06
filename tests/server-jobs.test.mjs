@@ -229,7 +229,8 @@ test("server job limits old overlong prompts before image generation request", a
   const originalSetTimeout = globalThis.setTimeout;
   const overlongPrompt = [
     "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
-    "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
+    "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь редакционный текст инфографики строго на русском языке.",
+    "ИСКЛЮЧЕНИЕ ДЛЯ УПАКОВКИ: текст на реальной упаковке из product reference не переводить.",
     Array.from({ length: 900 }, () => "длинный старый контекст проекта").join(". "),
     "Заголовок: Важная тема.",
     "Подзаголовок: Короткое объяснение."

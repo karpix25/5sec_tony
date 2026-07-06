@@ -38,7 +38,8 @@ test("default project fixtures stay inside image prompt budget", () => {
 test("prompt budget compacts long optional context while preserving required sentences", () => {
   const prompt = limitImagePrompt([
     "GPT Image 2: создай вертикальную рекламную инфографику 9:16.",
-    "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь видимый текст строго на русском языке.",
+    "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь редакционный текст инфографики строго на русском языке.",
+    "ИСКЛЮЧЕНИЕ ДЛЯ УПАКОВКИ: текст на реальной упаковке из product reference не переводить.",
     "CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН: не рисовать кнопки.",
     repeatText("Длинный необязательный контекст компании", 300),
     "Заголовок: Важная тема.",

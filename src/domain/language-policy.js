@@ -1,20 +1,27 @@
-export const requiredRussianImageTextRule = "ЯЗЫК ФИНАЛЬНЫХ КАРТИНОК: весь видимый текст должен быть строго на русском языке; английские заголовки, служебные интерфейсные ярлыки, псевдолатинский текст и случайная латиница запрещены.";
+export const requiredRussianImageTextRule = "ЯЗЫК ФИНАЛЬНЫХ КАРТИНОК: весь редакционный текст инфографики должен быть строго на русском языке; английские заголовки, служебные интерфейсные ярлыки, псевдолатинский текст и случайная латиница запрещены. Исключение: текст, логотипы, SKU и названия, напечатанные на реальной упаковке из product reference, не переводить и не перерисовывать.";
 export const russianImagePromptGuard = [
-  "ЖЕСТКИЙ ЯЗЫКОВОЙ КОНТРАКТ ДЛЯ ФИНАЛЬНОЙ КАРТИНКИ: весь видимый текст на изображении должен быть только на русском языке.",
+  "ЖЕСТКИЙ ЯЗЫКОВОЙ КОНТРАКТ ДЛЯ ФИНАЛЬНОЙ КАРТИНКИ: весь редакционный текст, заголовки, подписи, карточки и служебные элементы инфографики должны быть только на русском языке.",
   "Запрещены английские заголовки, английские подписи, служебные интерфейсные ярлыки на английском, псевдолатинский текст, случайная латиница и англоязычные заглушки.",
-  "Если в исходном промпте, референсе или брифе есть английские слова для видимого текста, переведи их на естественный русский до рендера.",
-  "Исключение только для официальных названий брендов, если они реально являются частью продукта."
+  "Если в исходном промпте, дизайн-референсе или брифе есть английские слова для редакционного текста, переведи их на естественный русский до рендера.",
+  "ТЕКСТ НА УПАКОВКЕ ИЗ PRODUCT REFERENCE: не переводить, не локализовать, не переписывать и не заменять надписи, логотипы, SKU, объем, вкус, линейку и название продукта, которые уже напечатаны на реальной упаковке; скопировать их как часть физического объекта.",
+  "Официальные названия брендов и сервисов можно оставить латиницей, если они реально являются частью продукта."
 ].join(" ");
+const packageTextRestrictionRule = "Исключение: текст, логотипы, SKU и названия, напечатанные на реальной упаковке из product reference, не переводить и не перерисовывать.";
+const packageTextPromptGuard = "ТЕКСТ НА УПАКОВКЕ ИЗ PRODUCT REFERENCE: не переводить, не локализовать, не переписывать и не заменять надписи, логотипы, SKU, объем, вкус, линейку и название продукта, которые уже напечатаны на реальной упаковке; скопировать их как часть физического объекта.";
 
 export function ensureRussianImageTextRestriction(value = "") {
   const source = textValue(value).trim();
-  if (hasRussianImageTextRestriction(source)) return source;
+  if (hasRussianImageTextRestriction(source)) {
+    return hasProductPackageTextException(source) ? source : [source, packageTextRestrictionRule].filter(Boolean).join("\n");
+  }
   return [requiredRussianImageTextRule, source].filter(Boolean).join("\n");
 }
 
 export function ensureRussianImagePromptGuard(value = "") {
   const source = textValue(value).trim();
-  if (hasRussianImagePromptGuard(source)) return source;
+  if (hasRussianImagePromptGuard(source)) {
+    return hasProductPackageTextException(source) ? source : [packageTextPromptGuard, source].filter(Boolean).join(" ");
+  }
   return [russianImagePromptGuard, source].filter(Boolean).join(" ");
 }
 
@@ -24,6 +31,10 @@ function hasRussianImageTextRestriction(value) {
 
 function hasRussianImagePromptGuard(value) {
   return /жестк(?:ий|ого)\s+языков(?:ой|ого)\s+контракт/i.test(value || "");
+}
+
+function hasProductPackageTextException(value) {
+  return /product reference.*не\s+перевод|текст\s+на\s+упаковке|текст\s+на\s+реальной\s+упаковке/i.test(value || "");
 }
 
 function textValue(value) {
