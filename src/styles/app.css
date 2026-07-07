@@ -396,6 +396,15 @@ h2 {
   line-height: 1.45;
 }
 
+.generation-mode-toggle {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--color-muted);
+  font-size: 14px;
+  font-weight: 720;
+}
+
 .advanced-generation summary {
   cursor: pointer;
   color: var(--color-accent-strong);

@@ -47,6 +47,7 @@ async function createAutomationBatch(store, projectId, count) {
   const state = store.getState();
   const response = await createServerGenerationBatch({
     count,
+    distributeProducts: true,
     selection: {
       projectId,
       productId: "",

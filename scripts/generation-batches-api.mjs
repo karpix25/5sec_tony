@@ -15,6 +15,7 @@ async function createBatch(request, response) {
     const body = await readJson(request);
     const payload = await createGenerationBatch({
       count: body.count,
+      distributeProducts: body.distributeProducts === true,
       selection: body.selection || {},
       origin: getInternalServerOrigin()
     });

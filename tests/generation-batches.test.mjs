@@ -51,7 +51,15 @@ function createStateDeps(initialState, extra = {}) {
 }
 
 test("backend generation batch creates server-owned brief jobs in state", async () => {
-  const deps = createStateDeps(createState(), { autoStart: false });
+  const state = createState();
+  const firstProduct = state.products[0];
+  const selectedProduct = {
+    ...products.find((item) => item.projectId === state.selectedProjectId && item.id !== firstProduct.id),
+    aiPassport: { productName: "Выбранный продукт", safeFacts: ["Факт выбранного продукта"] }
+  };
+  state.products = [firstProduct, selectedProduct];
+  state.selectedProductId = selectedProduct.id;
+  const deps = createStateDeps(state, { autoStart: false });
   const result = await createGenerationBatch({
     count: 2,
     origin: "http://127.0.0.1:4173",
@@ -73,6 +81,36 @@ test("backend generation batch creates server-owned brief jobs in state", async 
     ["running", "brief", true],
     ["running", "brief", true]
   ]);
+  assert.deepEqual(result.jobs.map((job) => job.productId), [selectedProduct.id, selectedProduct.id]);
+  assert.deepEqual(result.jobs.map((job) => job.productName), [selectedProduct.name, selectedProduct.name]);
+});
+
+test("backend generation batch distributes products only when explicitly requested", async () => {
+  const state = createState();
+  const firstProduct = state.products[0];
+  const selectedProduct = {
+    ...products.find((item) => item.projectId === state.selectedProjectId && item.id !== firstProduct.id),
+    aiPassport: { productName: "Выбранный продукт", safeFacts: ["Факт выбранного продукта"] }
+  };
+  state.products = [firstProduct, selectedProduct];
+  state.selectedProductId = selectedProduct.id;
+  const deps = createStateDeps(state, { autoStart: false });
+
+  const result = await createGenerationBatch({
+    count: 2,
+    distributeProducts: true,
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: state.selectedProductId,
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  });
+
+  assert.deepEqual(result.jobs.map((job) => job.productId), [firstProduct.id, selectedProduct.id]);
 });
 
 test("backend generation batch enqueues quickly when audio preflight would fail", async () => {
@@ -227,6 +265,7 @@ test("backend generation worker prepares brief and hands job to server pipeline"
   assert.equal(job.isBriefPlaceholder, undefined);
   assert.equal(job.serverOwned, true);
   assert.equal(job.title, "Серверный хук");
+  assert.deepEqual(deps.getState().generationBrief, {});
   assert.deepEqual(calls, [
     ["brief", deps.getState().selectedProductId, 0],
     ["serverJob", job.id, "Серверный хук", "queued", "brief", deps.getState().selectedProjectId]

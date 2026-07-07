@@ -145,13 +145,13 @@ test("store counts image-only review jobs as successful usage", () => {
   assert.equal(updated.usedTotal, 1);
 });
 
-test("store distributes batch jobs across project products", () => {
+test("store manual batch keeps selected product", () => {
   const store = createStore();
   const state = store.getState();
   const project = state.projects.find((item) => item.id === "supplements");
   const projectProducts = products.filter((item) => item.projectId === project.id);
   state.selectedProjectId = project.id;
-  state.selectedProductId = projectProducts[0].id;
+  state.selectedProductId = projectProducts[1].id;
   state.jobs = [];
   state.projects = state.projects.map((item) =>
     item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 0, projectLimit: 50, usedTotal: 0 } : item
@@ -160,9 +160,9 @@ test("store distributes batch jobs across project products", () => {
   const jobs = store.createJobs(4);
 
   assert.deepEqual(jobs.map((job) => job.productId), [
-    projectProducts[0].id,
     projectProducts[1].id,
-    projectProducts[0].id,
+    projectProducts[1].id,
+    projectProducts[1].id,
     projectProducts[1].id
   ]);
 });

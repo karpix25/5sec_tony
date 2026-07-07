@@ -37,6 +37,7 @@ export function pickUiCacheState(state = {}) {
     selectedCharacterId: state.selectedCharacterId || "",
     selectedAudioId: state.selectedAudioId || "",
     selectedProjectTab: state.selectedProjectTab || "project",
+    queueProductFilter: state.queueProductFilter || "current",
     generationBrief: state.generationBrief || {},
     freePrompt: state.freePrompt || ""
   };
@@ -55,7 +56,8 @@ function pickDefinedHydratedUiState(uiCache) {
     selectedReferenceId,
     selectedCharacterId,
     selectedAudioId,
-    selectedProjectTab
+    selectedProjectTab,
+    queueProductFilter
   } = pickUiCacheState(uiCache);
   return Object.fromEntries(
     Object.entries({
@@ -64,7 +66,8 @@ function pickDefinedHydratedUiState(uiCache) {
       selectedReferenceId,
       selectedCharacterId,
       selectedAudioId,
-      selectedProjectTab
+      selectedProjectTab,
+      queueProductFilter
     }).filter(([, value]) => value !== undefined)
   );
 }

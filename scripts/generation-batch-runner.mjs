@@ -9,12 +9,12 @@ import { createServerSelectionContext } from "./generation-selection-context.mjs
 
 const runningBatches = new Map();
 
-export async function createGenerationBatch({ count, selection = {}, origin, deps = {} }) {
+export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, origin, deps = {} }) {
   const batchId = `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const result = await updateState(deps, (state) => {
     const context = createServerSelectionContext(state, selection);
     const safeCount = Math.max(1, Math.min(10, Number(count || 1)));
-    const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts: true })
+    const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts })
       .map((job, index) => createPendingGenerationJob(job, index, safeCount, {
         serverBatchId: batchId,
         selectionSnapshot: normalizeSelection(selection),
@@ -123,7 +123,6 @@ async function prepareServerJob(jobId, origin, deps) {
       ...current,
       products,
       projects,
-      generationBrief: brief,
       jobs: current.jobs.map((item) => (item.id === jobId ? job : item))
     };
   }, deps);

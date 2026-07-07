@@ -3,6 +3,29 @@
   gap: var(--space-4);
 }
 
+.queue-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.queue-filter-btn {
+  padding: 9px 12px;
+  background: rgba(31, 111, 115, 0.07);
+  border: 1px solid rgba(31, 111, 115, 0.16);
+  border-radius: var(--radius-control);
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.queue-filter-btn.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
 .queue-job {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(120px, 150px);

@@ -4,7 +4,8 @@ const localUiStateKeys = new Set([
   "selectedReferenceId",
   "selectedCharacterId",
   "selectedAudioId",
-  "selectedProjectTab"
+  "selectedProjectTab",
+  "queueProductFilter"
 ]);
 
 export function shouldScheduleRemoteSave(previousState, nextState, patch) {

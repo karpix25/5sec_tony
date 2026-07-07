@@ -1,5 +1,6 @@
 const transientControlSelectors = [
   "#generation-count",
+  "#generation-distribute-products",
   "#hook-version-title",
   "#hook-text-input"
 ];

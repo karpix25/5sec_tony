@@ -23,6 +23,10 @@ export function renderStudioPanel(state, context) {
             <span>Количество</span>
             <input id="generation-count" class="text-input" type="number" min="1" max="10" value="1" />
           </label>
+          <label class="generation-mode-toggle">
+            <input id="generation-distribute-products" type="checkbox" />
+            <span>Распределить по всем продуктам проекта</span>
+          </label>
         </div>
       </div>
     </section>
@@ -43,6 +47,7 @@ export function bindGenerationPanelEvents(root, store) {
       }
       const payload = await createServerGenerationBatch({
         count,
+        distributeProducts: shouldDistributeProducts(root),
         selection: createGenerationSelection(store)
       });
       jobs = store.mergeServerJobs(payload.jobs || []);
@@ -72,6 +77,10 @@ function canRunCreativeTeamPreflight(store) {
   return typeof store.getState === "function"
     && typeof store.mergeServerJobs === "function"
     && typeof store.selectProjectTab === "function";
+}
+
+function shouldDistributeProducts(root) {
+  return Boolean(root.querySelector("#generation-distribute-products")?.checked);
 }
 
 function createGenerationSelection(store) {

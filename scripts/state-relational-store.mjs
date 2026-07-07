@@ -8,6 +8,7 @@ const uiKeys = [
   "selectedCharacterId",
   "selectedAudioId",
   "selectedProjectTab",
+  "queueProductFilter",
   "generationBrief",
   "freePrompt",
   "projects",

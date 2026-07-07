@@ -189,6 +189,7 @@ export function createGenerationJob({ project, product, reference, character, au
     id: createUniqueJobId(existingJobs),
     projectId: project.id,
     productId: product.id,
+    productName: product.name,
     characterId,
     avatarVideoId: avatarEmotion.avatarVideoId,
     avatarEmotionName: avatarEmotion.avatarEmotionName,

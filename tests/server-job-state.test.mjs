@@ -18,7 +18,25 @@ test("server job progress updates normalized row without touching legacy app sta
   assert.equal(queries.some(({ text }) => /update app_state/i.test(text)), false);
 });
 
-function createQueryRecorder(queries) {
+test("server job progress updates keep product name snapshot in relational extra", async () => {
+  const queries = [];
+  const persisted = await persistServerJobSnapshot(
+    { id: "job-1", status: "running", progress: 42 },
+    {
+      isPostgresConfigured: () => true,
+      withPostgresTransaction: async (callback) => callback({
+        query: createQueryRecorder(queries, { extra: { productName: "Старое имя продукта" } })
+      })
+    }
+  );
+  const update = queries.find(({ text }) => /update studio_jobs/i.test(text));
+  const extra = JSON.parse(update.params.at(-1));
+
+  assert.equal(persisted, true);
+  assert.equal(extra.productName, "Старое имя продукта");
+});
+
+function createQueryRecorder(queries, options = {}) {
   return async function query(text, params = []) {
     queries.push({ text, params });
     if (/to_regclass/i.test(text)) return { rows: [{ table_name: "studio_jobs" }] };
@@ -49,7 +67,7 @@ function createQueryRecorder(queries) {
           input_urls: [],
           input_refs: [],
           diversity_slot: null,
-          extra: {}
+          extra: options.extra || {}
         }]
       };
     }

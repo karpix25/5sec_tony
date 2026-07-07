@@ -21,7 +21,7 @@ export function createJobActions({ getState, setState, getProject }) {
     createJobs(count) {
       const state = getState();
       const context = getSelectionContext(state, getProject);
-      const jobs = createSelectionJobBatch(state, context, count, { distributeProducts: true });
+      const jobs = createSelectionJobBatch(state, context, count);
       setState(withCreatedJobs(state, jobs, context.project.id));
       return jobs;
     },
@@ -35,7 +35,7 @@ export function createJobActions({ getState, setState, getProject }) {
     createPendingGenerationJobs(count) {
       const state = getState();
       const context = getSelectionContext(state, getProject);
-      const reservedJobs = createSelectionJobBatch(state, context, count, { distributeProducts: true })
+      const reservedJobs = createSelectionJobBatch(state, context, count)
         .map((job, index) => createPendingGenerationJobWithStartedAt(job, index, count));
       setState(withCreatedJobs(state, reservedJobs, context.project.id));
       return reservedJobs;

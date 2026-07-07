@@ -53,6 +53,121 @@ test("queue delete buttons bind once and rebind after partial list rerender", ()
   assert.deepEqual(deleted, ["job-1", "job-2"]);
 });
 
+test("queue defaults to current product and can show all project products", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  const filterCurrent = new FakeElement({ dataset: { queueProductFilter: "current" } });
+  const filterAll = new FakeElement({ dataset: { queueProductFilter: "all" } });
+  const selectedFilters = [];
+  root.append(panel);
+  panel.append(filterCurrent, filterAll, list);
+
+  updateQueuePanel(root, {
+    queueProductFilter: "current",
+    jobs: [
+      {
+        id: "job-current",
+        projectId: "project-1",
+        productId: "product-1",
+        productName: "Снимок продукта",
+        status: "review",
+        stage: "approval",
+        outputType: "image",
+        imageUrl: "https://cdn.example.com/current.png",
+        title: "Задача выбранного продукта"
+      },
+      {
+        id: "job-other",
+        projectId: "project-1",
+        productId: "product-2",
+        status: "review",
+        stage: "approval",
+        outputType: "image",
+        imageUrl: "https://cdn.example.com/other.png",
+        title: "Задача другого продукта"
+      }
+    ],
+    products: [
+      { id: "product-1", name: "Переименованный продукт" },
+      { id: "product-2", name: "Другой продукт" }
+    ]
+  }, {
+    project: { id: "project-1" },
+    product: { id: "product-1", name: "Выбранный продукт" }
+  }, {
+    deleteJob() {},
+    selectQueueProductFilter(filter) {
+      selectedFilters.push(filter);
+    }
+  });
+
+  assert.match(list.innerHTML, /Задача выбранного продукта/);
+  assert.doesNotMatch(list.innerHTML, /Задача другого продукта/);
+  assert.match(list.innerHTML, /Продукт: Снимок продукта/);
+  filterAll.dispatchEvent({ type: "click", target: filterAll });
+  assert.deepEqual(selectedFilters, ["all"]);
+
+  updateQueuePanel(root, {
+    queueProductFilter: "all",
+    jobs: [
+      { id: "job-current", projectId: "project-1", productId: "product-1", status: "review", stage: "approval", title: "Задача выбранного продукта" },
+      { id: "job-other", projectId: "project-1", productId: "product-2", status: "review", stage: "approval", title: "Задача другого продукта" }
+    ],
+    products: [
+      { id: "product-1", name: "Выбранный продукт" },
+      { id: "product-2", name: "Другой продукт" }
+    ]
+  }, {
+    project: { id: "project-1" },
+    product: { id: "product-1", name: "Выбранный продукт" }
+  }, { deleteJob() {} });
+
+  assert.match(list.innerHTML, /Задача выбранного продукта/);
+  assert.match(list.innerHTML, /Задача другого продукта/);
+});
+
+test("queue partial update refreshes product filter counters", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const filterWrap = new FakeElement({ className: "queue-filter-wrap" });
+  const list = new FakeElement({ className: "queue-list" });
+  root.append(panel);
+  panel.append(filterWrap, list);
+
+  updateQueuePanel(root, {
+    queueProductFilter: "current",
+    jobs: [
+      { id: "job-current", projectId: "project-1", productId: "product-1", status: "review", stage: "approval", title: "Задача выбранного продукта" },
+      { id: "job-other", projectId: "project-1", productId: "product-2", status: "review", stage: "approval", title: "Задача другого продукта" }
+    ],
+    products: [
+      { id: "product-1", name: "Выбранный продукт" },
+      { id: "product-2", name: "Другой продукт" }
+    ]
+  }, {
+    project: { id: "project-1" },
+    product: { id: "product-1", name: "Выбранный продукт" }
+  }, { deleteJob() {} });
+
+  assert.match(filterWrap.innerHTML, /Текущий продукт \(1\)/);
+  assert.match(filterWrap.innerHTML, /Все продукты проекта \(2\)/);
+
+  updateQueuePanel(root, {
+    queueProductFilter: "current",
+    jobs: [
+      { id: "job-current", projectId: "project-1", productId: "product-1", status: "review", stage: "approval", title: "Задача выбранного продукта" }
+    ],
+    products: [{ id: "product-1", name: "Выбранный продукт" }]
+  }, {
+    project: { id: "project-1" },
+    product: { id: "product-1", name: "Выбранный продукт" }
+  }, { deleteJob() {} });
+
+  assert.match(filterWrap.innerHTML, /Текущий продукт \(1\)/);
+  assert.match(filterWrap.innerHTML, /Все продукты проекта \(1\)/);
+});
+
 test("queue final video waiting state keeps preview disabled until video is ready", () => {
   const root = new FakeElement();
   const panel = new FakeElement({ className: "queue-panel" });

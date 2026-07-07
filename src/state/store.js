@@ -182,6 +182,9 @@ export function createStore() {
     selectProjectTab(tab) {
       setState({ selectedProjectTab: tab });
     },
+    selectQueueProductFilter(filter) {
+      setState({ queueProductFilter: filter === "all" ? "all" : "current" });
+    },
     setFreePrompt(freePrompt) {
       setState({ freePrompt });
     },
@@ -467,6 +470,7 @@ function normalize(nextState) {
     selectedProjectTab: ["project", "product", "audio", "design", "avatars", "generation", "queue", "hooks"].includes(nextState.selectedProjectTab)
       ? nextState.selectedProjectTab
       : "project",
+    queueProductFilter: nextState.queueProductFilter === "all" ? "all" : "current",
     generationBrief: ensureGenerationBrief(nextState.generationBrief)
   };
 }

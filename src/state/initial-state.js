@@ -15,6 +15,7 @@ export function createInitialState() {
     selectedCharacterId: noAvatarCharacterId,
     selectedAudioId: globalAudioLibrary[0].id,
     selectedProjectTab: "project",
+    queueProductFilter: "current",
     generationBrief: defaultGenerationBrief,
     freePrompt: "Сделать спорный, но правдивый хук без репутационного риска.",
     ...createPersistedReferenceState()

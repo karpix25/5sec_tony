@@ -9,9 +9,10 @@ function createGenerationDom(count = "1") {
   const root = new FakeElement();
   const createJobButton = new FakeElement({ id: "create-job", tagName: "button" });
   const countInput = new FakeElement({ id: "generation-count", value: count });
+  const distributeProducts = new FakeElement({ id: "generation-distribute-products", type: "checkbox" });
   const status = new FakeElement({ id: "creative-team-status" });
-  root.append(createJobButton, countInput, status);
-  return { root, createJobButton, status };
+  root.append(createJobButton, countInput, distributeProducts, status);
+  return { root, createJobButton, distributeProducts, status };
 }
 
 function createGenerationStoreDouble({ project, product, calls = [] }) {
@@ -78,6 +79,7 @@ test("generation start sends a clamped backend batch request and switches to que
 
     assert.equal(requests[0][0], "/api/generation/batches");
     assert.equal(requests[0][1].count, 10);
+    assert.equal(requests[0][1].distributeProducts, false);
     assert.deepEqual(requests[0][1].selection, {
       projectId: project.id,
       productId: product.id,
@@ -91,6 +93,36 @@ test("generation start sends a clamped backend batch request and switches to que
       ["selectProjectTab", "queue"]
     ]);
     assert.equal(status.textContent, "Серверная очередь приняла 2 из 10.");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("generation project distribution mode is explicit", async () => {
+  const previousFetch = globalThis.fetch;
+  const { root, createJobButton, distributeProducts } = createGenerationDom("2");
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const requests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push([url, JSON.parse(options.body || "{}")]);
+    return {
+      ok: true,
+      json: async () => ({
+        batchId: "batch-1",
+        jobs: [{ id: "job-1", projectId: project.id, productId: product.id, status: "running", stage: "brief" }]
+      })
+    };
+  };
+  const { store } = createGenerationStoreDouble({ project, product });
+
+  try {
+    distributeProducts.checked = true;
+    bindGenerationPanelEvents(root, store);
+    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+    await waitForGenerationTicks();
+
+    assert.equal(requests[0][1].distributeProducts, true);
   } finally {
     globalThis.fetch = previousFetch;
   }

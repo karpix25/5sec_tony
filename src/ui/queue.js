@@ -20,31 +20,79 @@ export function renderQueuePanel(state, context) {
       <div class="panel-head">
         <div><span class="eyebrow">Очередь генерации</span><h2>Статус задач</h2></div>
       </div>
+      <div class="queue-filter-wrap">${renderQueueProductFilter(state, context)}</div>
       <div class="queue-list">${renderQueueList(state, context)}</div>
     </section>
   `;
 }
 
 export function updateQueuePanel(root, state, context, store) {
-  const list = root.querySelector(".queue-panel .queue-list");
+  const panel = root.querySelector(".queue-panel");
+  if (!panel) return false;
+  const filter = panel.querySelector(".queue-filter-wrap");
+  const list = panel.querySelector(".queue-list");
   if (!list) return false;
+  if (filter) filter.innerHTML = renderQueueProductFilter(state, context);
   list.innerHTML = renderQueueList(state, context);
   bindQueuePanelEvents(root, store);
   return true;
 }
 
+function renderQueueProductFilter(state, context) {
+  const filter = getQueueProductFilter(state);
+  const projectJobs = getProjectQueueJobs(state, context);
+  const currentProductJobs = projectJobs.filter((job) => job.productId === context.product?.id);
+  return `
+    <div class="queue-filter" role="group" aria-label="Фильтр очереди по продукту">
+      ${renderQueueFilterButton("current", `Текущий продукт (${currentProductJobs.length})`, filter)}
+      ${renderQueueFilterButton("all", `Все продукты проекта (${projectJobs.length})`, filter)}
+    </div>
+  `;
+}
+
+function renderQueueFilterButton(value, label, selected) {
+  return `<button class="queue-filter-btn ${value === selected ? "active" : ""}" data-queue-product-filter="${value}" type="button">${escapeHtml(label)}</button>`;
+}
+
+function renderQueueList(state, context) {
+  const projectJobs = getVisibleQueueJobs(state, context);
+  const productNames = new Map((state.products || []).map((product) => [product.id, product.name]));
+  return projectJobs.map((job) => renderQueueJob(job, job.productName || productNames.get(job.productId))).join("")
+    || `<p class='empty'>${escapeHtml(getEmptyQueueMessage(state, context))}</p>`;
+}
+
 export function bindQueuePanelEvents(root, store) {
+  root.querySelectorAll("[data-queue-product-filter]:not([data-queue-bound])").forEach((button) => {
+    button.dataset.queueBound = "true";
+    button.addEventListener("click", () => store.selectQueueProductFilter?.(button.dataset.queueProductFilter));
+  });
   root.querySelectorAll("[data-delete-job]:not([data-queue-bound])").forEach((button) => {
     button.dataset.queueBound = "true";
     button.addEventListener("click", () => store.deleteJob(button.dataset.deleteJob));
   });
 }
 
-function renderQueueList(state, context) {
-  const projectJobs = state.jobs.filter((job) => job.projectId === context.project.id);
-  const productNames = new Map((state.products || []).map((product) => [product.id, product.name]));
-  return projectJobs.map((job) => renderQueueJob(job, productNames.get(job.productId))).join("")
-    || "<p class='empty'>Пока нет задач. Запустите генерацию из вкладки «Генерация».</p>";
+function getVisibleQueueJobs(state, context) {
+  const projectJobs = getProjectQueueJobs(state, context);
+  if (!context.product?.id) return projectJobs;
+  if (getQueueProductFilter(state) === "all") return projectJobs;
+  return projectJobs.filter((job) => job.productId === context.product?.id);
+}
+
+function getProjectQueueJobs(state, context) {
+  return (state.jobs || []).filter((job) => job.projectId === context.project.id);
+}
+
+function getQueueProductFilter(state) {
+  return state.queueProductFilter === "all" ? "all" : "current";
+}
+
+function getEmptyQueueMessage(state, context) {
+  if (getQueueProductFilter(state) === "all") {
+    return "Пока нет задач. Запустите генерацию из вкладки «Генерация».";
+  }
+  const productName = context.product?.name || "выбранного продукта";
+  return `Для продукта «${productName}» пока нет задач. Переключите фильтр на все продукты проекта или запустите генерацию.`;
 }
 
 function renderQueueJob(job, productName = "") {
