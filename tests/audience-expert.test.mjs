@@ -69,7 +69,7 @@ test("audience expert surfaces plain text backend errors", async () => {
   }
 });
 
-test("audience expert skips corrupted ai lines before they reach project fields", async () => {
+test("audience expert strips replacement signs from ai lines before project fields", async () => {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
     ok: true,
@@ -87,7 +87,7 @@ test("audience expert skips corrupted ai lines before they reach project fields"
   try {
     const draft = await generateAudienceExpertDraft({ project: {}, draft: {}, products: [] });
 
-    assert.equal(draft.audienceObjections, "Боюсь побочных эффектов");
+    assert.equal(draft.audienceObjections, "Это просто мартинг, эффекта не будет\nБоюсь побочных эффектов");
     assert.equal(draft.restrictions, "Не обещать лечение");
     assert.doesNotMatch(JSON.stringify(draft), /\uFFFD/);
   } finally {

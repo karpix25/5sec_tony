@@ -1,4 +1,4 @@
-import { hasUnicodeReplacementCharacter } from "../domain/text-integrity.js";
+import { stripUnicodeReplacementCharacters } from "../domain/text-integrity.js";
 
 export async function generateAudienceExpertDraft({ project, draft, products }) {
   const response = await fetch("/api/project/audience-expert", {
@@ -36,12 +36,11 @@ function audienceLines(value) {
 function audienceClean(value) {
   if (value == null) return "";
   if (typeof value === "string") {
-    const text = value.trim();
-    return hasUnicodeReplacementCharacter(text) ? "" : text;
+    return stripUnicodeReplacementCharacters(value).trim();
   }
   if (Array.isArray(value)) return value.map(audienceClean).filter(Boolean).join("\n");
   if (typeof value === "object") return Object.values(value).map(audienceClean).filter(Boolean).join(" — ");
-  return String(value || "").trim();
+  return stripUnicodeReplacementCharacters(value || "").trim();
 }
 
 async function readAudiencePayload(response) {

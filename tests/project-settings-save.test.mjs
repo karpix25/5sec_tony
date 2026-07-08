@@ -320,7 +320,7 @@ test("project save keeps saved status when only ai memory fails", async () => {
   assert.equal(form.button.disabled, false);
 });
 
-test("project save ignores corrupted ai memory text and keeps saved project fields", async () => {
+test("project save strips replacement signs from ai memory text", async () => {
   const originalFetch = globalThis.fetch;
   const originalFormData = globalThis.FormData;
   const form = createProjectSettingsForm({
@@ -328,7 +328,7 @@ test("project save ignores corrupted ai memory text and keeps saved project fiel
     yandexDiskFolder: "disk:/ВИДЕО/Старое",
     dailyLimit: "20",
     projectLimit: "100",
-    audienceObjections: "Ручное возражение"
+    audienceObjections: ""
   });
   const updates = [];
   const store = {
@@ -362,7 +362,7 @@ test("project save ignores corrupted ai memory text and keeps saved project fiel
     globalThis.FormData = originalFormData;
   }
 
-  assert.equal(updates.at(-1).audienceObjections, "Ручное возражение");
+  assert.equal(updates.at(-1).audienceObjections, "Это просто мартинг, эффекта не будет");
   assert.doesNotMatch(JSON.stringify(updates), /\uFFFD/);
   assert.doesNotMatch(form.status.textContent, /битый текст|�/);
   assert.equal(form.button.disabled, false);
