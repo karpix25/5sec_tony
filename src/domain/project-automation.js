@@ -2,7 +2,6 @@ import { countSuccessfulGenerationJobs } from "./job-quota.js";
 
 export const defaultAutomation = {
   enabled: false,
-  targetCount: 10,
   batchSize: 1,
   concurrency: 1,
   status: "idle",
@@ -10,13 +9,13 @@ export const defaultAutomation = {
 };
 
 export function normalizeProjectAutomation(value = {}) {
+  const isLegacyCompletedTarget = isLegacyCompletedTargetState(value);
   return {
     enabled: Boolean(value.enabled),
-    targetCount: clampAutomationNumber(value.targetCount, defaultAutomation.targetCount, 1, 500),
     batchSize: clampAutomationNumber(value.batchSize, defaultAutomation.batchSize, 1, 10),
     concurrency: clampAutomationNumber(value.concurrency, defaultAutomation.concurrency, 1, 5),
-    status: value.status || defaultAutomation.status,
-    lastMessage: value.lastMessage || ""
+    status: isLegacyCompletedTarget ? defaultAutomation.status : value.status || defaultAutomation.status,
+    lastMessage: isLegacyCompletedTarget ? "" : value.lastMessage || ""
   };
 }
 
@@ -48,4 +47,8 @@ function clampAutomationNumber(value, fallback, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+function isLegacyCompletedTargetState(value = {}) {
+  return value.status === "done" && /Цель авторежима выполнена/i.test(String(value.lastMessage || ""));
 }

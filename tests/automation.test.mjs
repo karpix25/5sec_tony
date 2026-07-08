@@ -14,9 +14,24 @@ test("automation settings normalize into safe limits", () => {
   });
 
   assert.equal(automation.enabled, true);
-  assert.equal(automation.targetCount, 500);
+  assert.equal("targetCount" in automation, false);
   assert.equal(automation.batchSize, 10);
   assert.equal(automation.concurrency, 5);
+});
+
+test("automation normalizer drops legacy completed target state", () => {
+  const automation = normalizeProjectAutomation({
+    enabled: false,
+    targetCount: 10,
+    batchSize: 1,
+    concurrency: 1,
+    status: "done",
+    lastMessage: "Цель авторежима выполнена."
+  });
+
+  assert.equal("targetCount" in automation, false);
+  assert.equal(automation.status, "idle");
+  assert.equal(automation.lastMessage, "");
 });
 
 test("automation state caps next batch by daily limit, project limit and active reservations", () => {

@@ -57,7 +57,7 @@ function getAutomationStatusView(automationState) {
   if (automation?.enabled && !remainingDaily) return { label: "Лимит дня", tone: "idle" };
   if (automation?.enabled && canRun) return { label: "Включен", tone: "running" };
   if (automation?.enabled) return { label: "Ждет", tone: "idle" };
-  if (automation?.status === "done") return { label: "Лимит проекта", tone: "paused" };
+  if (automation?.status === "done" && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
   if (automation?.status === "paused") return { label: "Остановлен", tone: "paused" };
   return { label: "Выключен", tone: "idle" };
 }

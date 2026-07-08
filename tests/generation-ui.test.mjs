@@ -254,3 +254,26 @@ test("project automation render shows waiting daily-limit state without disablin
   assert.doesNotMatch(html, /Цель готова/);
   assert.doesNotMatch(html, /До цели/);
 });
+
+test("project automation render does not turn legacy done status into project limit", () => {
+  const html = renderProjectAutomationControls(
+    { id: "project-1", dailyLimit: 20, projectLimit: 126 },
+    {
+      automation: {
+        enabled: false,
+        status: "done",
+        lastMessage: "Цель авторежима выполнена."
+      },
+      activeJobs: 0,
+      completedJobs: 16,
+      remainingDaily: 4,
+      remainingProject: 110,
+      canRun: false
+    }
+  );
+
+  assert.match(html, /Выключен/);
+  assert.match(html, /Включить авторежим/);
+  assert.doesNotMatch(html, /Лимит проекта/);
+  assert.doesNotMatch(html, /Цель авторежима выполнена/);
+});
