@@ -1,11 +1,10 @@
 import { getProjectAutomationState } from "../domain/project-automation.js";
 
 export function formatAutomationStats(automationState) {
-  const { automation, activeJobs, completedJobs, remainingDaily, remainingProject } = automationState;
+  const { automation, activeJobs, completedJobs, remainingProject } = automationState;
   const parts = [
     `Готово: ${completedJobs}.`,
     `В работе: ${activeJobs}.`,
-    `Дневной остаток: ${remainingDaily}.`,
     `Остаток проекта: ${remainingProject}.`
   ];
   const message = getAutomationMessage(automation);

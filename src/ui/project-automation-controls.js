@@ -2,7 +2,7 @@ import { escapeHtml } from "./infographic.js";
 import { formatAutomationStats } from "./generation-live.js";
 
 export function renderProjectAutomationControls(project, automationState) {
-  const { automation, activeJobs, completedJobs, remainingDaily, remainingProject } = automationState;
+  const { automation, activeJobs, completedJobs, remainingProject } = automationState;
   const statusView = getAutomationStatusView(automationState);
   const nextEnabled = !automation.enabled;
   return `
@@ -24,7 +24,7 @@ export function renderProjectAutomationControls(project, automationState) {
           <span>Лимит на весь проект</span>
           <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
         </label>
-        <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingDaily, remainingProject }))}</small>
+        <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingProject }))}</small>
         <button
           id="toggle-automation-mode"
           class="${automation.enabled ? "ghost-btn" : "secondary-btn"}"
@@ -51,9 +51,8 @@ export function bindProjectAutomationControls(root, store) {
 }
 
 function getAutomationStatusView(automationState) {
-  const { automation, activeJobs, remainingDaily, remainingProject, canRun } = automationState;
+  const { automation, activeJobs, remainingProject, canRun } = automationState;
   if (automation?.enabled && activeJobs > 0) return { label: "В работе", tone: "running" };
-  if (automation?.enabled && !remainingDaily) return { label: "Лимит дня", tone: "paused" };
   if (automation?.enabled && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
   if (automation?.enabled && canRun) return { label: "Включен", tone: "running" };
   if (automation?.enabled) return { label: "Ждет", tone: "idle" };

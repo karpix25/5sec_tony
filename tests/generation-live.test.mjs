@@ -7,14 +7,13 @@ test("automation stats formatter includes live counters and message", () => {
     automation: { lastMessage: "Авторежим включен." },
     activeJobs: 2,
     completedJobs: 5,
-    remainingDaily: 7,
     remainingProject: 18
   });
 
   assert.match(text, /Готово: 5\./);
   assert.match(text, /В работе: 2\./);
   assert.doesNotMatch(text, /До цели/);
-  assert.match(text, /Дневной остаток: 7\./);
+  assert.doesNotMatch(text, /Дневной остаток/);
   assert.match(text, /Остаток проекта: 18\./);
   assert.match(text, /Авторежим включен\./);
 });
@@ -24,7 +23,6 @@ test("automation stats formatter hides legacy completed target message", () => {
     automation: { status: "done", lastMessage: "Цель авторежима выполнена." },
     activeJobs: 0,
     completedJobs: 90,
-    remainingDaily: 0,
     remainingProject: 92
   });
 

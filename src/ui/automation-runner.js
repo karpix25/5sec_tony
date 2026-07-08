@@ -18,10 +18,6 @@ function scheduleAutomation(store) {
     if (scheduledProjects.has(project.id)) return;
     if (!automationState.canRun) {
       if (automationState.activeJobs > 0) return;
-      if (!automationState.remainingDaily) {
-        markAutomation(store, project.id, "waiting", "Дневной лимит исчерпан. Авторежим включен и ждет лимит.");
-        return;
-      }
       if (!automationState.remainingProject) {
         markAutomation(store, project.id, "waiting", "Лимит проекта исчерпан. Авторежим включен и ждет новый лимит.");
       }

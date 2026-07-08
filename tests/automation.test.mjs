@@ -18,7 +18,7 @@ test("automation settings normalize into safe limits", () => {
   assert.equal(automation.concurrency, 5);
 });
 
-test("automation state caps next batch by daily limit and active reservations", () => {
+test("automation state caps next batch by project limit and active reservations", () => {
   const project = {
     id: "auto-project",
     dailyLimit: 10,
@@ -39,7 +39,7 @@ test("automation state caps next batch by daily limit and active reservations", 
   assert.equal(state.completedJobs, 2);
   assert.equal(state.remainingDaily, 2);
   assert.equal(state.remainingProject, 3);
-  assert.equal(state.nextCount, 1);
+  assert.equal(state.nextCount, 2);
   assert.equal(state.canRun, true);
 });
 
@@ -58,6 +58,24 @@ test("automation state caps next batch by total project limit", () => {
   assert.equal(state.remainingDaily, 8);
   assert.equal(state.remainingProject, 1);
   assert.equal(state.nextCount, 1);
+});
+
+test("automation state keeps running when daily limit is exhausted but project limit has room", () => {
+  const project = {
+    id: "auto-project-daily-exhausted",
+    dailyLimit: 100,
+    usedToday: 100,
+    projectLimit: 176,
+    usedTotal: 90,
+    automation: { enabled: true, targetCount: 10, batchSize: 5, concurrency: 3 }
+  };
+
+  const state = getProjectAutomationState({ project, jobs: [] });
+
+  assert.equal(state.remainingDaily, 0);
+  assert.equal(state.remainingProject, 86);
+  assert.equal(state.nextCount, 3);
+  assert.equal(state.canRun, true);
 });
 
 test("automation state ignores legacy target count when project limits have room", () => {
