@@ -19,7 +19,11 @@ function scheduleAutomation(store) {
     if (!automationState.canRun) {
       if (automationState.activeJobs > 0) return;
       if (!automationState.remainingProject) {
-        markAutomation(store, project.id, "waiting", "Лимит проекта исчерпан. Авторежим включен и ждет новый лимит.");
+        markAutomation(store, project.id, "done", "Лимит проекта исчерпан. Авторежим выключен.", { enabled: false });
+        return;
+      }
+      if (!automationState.remainingDaily) {
+        markAutomation(store, project.id, "waiting", "Дневной лимит исчерпан. Авторежим включен и продолжит после обновления дневного лимита.");
       }
       return;
     }

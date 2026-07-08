@@ -232,26 +232,25 @@ test("project automation button toggles autorun without saving project limits", 
   ]);
 });
 
-test("project automation render stays enabled when only daily limit is exhausted", () => {
+test("project automation render shows waiting daily-limit state without disabling autorun", () => {
   const html = renderProjectAutomationControls(
     { id: "project-1", dailyLimit: 100, projectLimit: 176 },
     {
       automation: {
         enabled: true,
-        status: "running",
-        lastMessage: "Авторежим включен."
+        status: "waiting",
+        lastMessage: "Дневной лимит исчерпан. Авторежим включен и продолжит после обновления дневного лимита."
       },
       activeJobs: 0,
       completedJobs: 90,
       remainingDaily: 0,
       remainingProject: 92,
-      canRun: true
+      canRun: false
     }
   );
 
-  assert.match(html, /Включен/);
+  assert.match(html, /Лимит дня/);
   assert.match(html, /Остановить авторежим/);
-  assert.doesNotMatch(html, /Лимит дня/);
   assert.doesNotMatch(html, /Цель готова/);
   assert.doesNotMatch(html, /До цели/);
 });

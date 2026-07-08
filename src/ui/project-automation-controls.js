@@ -51,11 +51,13 @@ export function bindProjectAutomationControls(root, store) {
 }
 
 function getAutomationStatusView(automationState) {
-  const { automation, activeJobs, remainingProject, canRun } = automationState;
+  const { automation, activeJobs, remainingDaily, remainingProject, canRun } = automationState;
   if (automation?.enabled && activeJobs > 0) return { label: "В работе", tone: "running" };
   if (automation?.enabled && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
+  if (automation?.enabled && !remainingDaily) return { label: "Лимит дня", tone: "idle" };
   if (automation?.enabled && canRun) return { label: "Включен", tone: "running" };
   if (automation?.enabled) return { label: "Ждет", tone: "idle" };
+  if (automation?.status === "done") return { label: "Лимит проекта", tone: "paused" };
   if (automation?.status === "paused") return { label: "Остановлен", tone: "paused" };
   return { label: "Выключен", tone: "idle" };
 }

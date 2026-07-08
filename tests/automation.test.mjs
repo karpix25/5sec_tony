@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { products } from "../src/domain/entities.js";
 import { getProjectAutomationState, normalizeProjectAutomation } from "../src/domain/project-automation.js";
 import { createStore } from "../src/state/store.js";
+import { startAutomationRunner } from "../src/ui/automation-runner.js";
 
 test("automation settings normalize into safe limits", () => {
   const automation = normalizeProjectAutomation({
@@ -18,7 +19,7 @@ test("automation settings normalize into safe limits", () => {
   assert.equal(automation.concurrency, 5);
 });
 
-test("automation state caps next batch by project limit and active reservations", () => {
+test("automation state caps next batch by daily limit, project limit and active reservations", () => {
   const project = {
     id: "auto-project",
     dailyLimit: 10,
@@ -39,7 +40,7 @@ test("automation state caps next batch by project limit and active reservations"
   assert.equal(state.completedJobs, 2);
   assert.equal(state.remainingDaily, 2);
   assert.equal(state.remainingProject, 3);
-  assert.equal(state.nextCount, 2);
+  assert.equal(state.nextCount, 1);
   assert.equal(state.canRun, true);
 });
 
@@ -60,7 +61,7 @@ test("automation state caps next batch by total project limit", () => {
   assert.equal(state.nextCount, 1);
 });
 
-test("automation state keeps running when daily limit is exhausted but project limit has room", () => {
+test("automation state respects exhausted daily limit without changing enabled flag", () => {
   const project = {
     id: "auto-project-daily-exhausted",
     dailyLimit: 100,
@@ -74,8 +75,9 @@ test("automation state keeps running when daily limit is exhausted but project l
 
   assert.equal(state.remainingDaily, 0);
   assert.equal(state.remainingProject, 86);
-  assert.equal(state.nextCount, 3);
-  assert.equal(state.canRun, true);
+  assert.equal(state.nextCount, 0);
+  assert.equal(state.canRun, false);
+  assert.equal(state.automation.enabled, true);
 });
 
 test("automation state ignores legacy target count when project limits have room", () => {
@@ -101,6 +103,44 @@ test("automation state ignores legacy target count when project limits have room
   assert.equal(state.remainingProject, 110);
   assert.equal(state.nextCount, 2);
   assert.equal(state.canRun, true);
+});
+
+test("automation runner waits at daily limit without disabling autorun", async () => {
+  const store = createAutomationRunnerStore({
+    id: "auto-runner-daily",
+    dailyLimit: 1,
+    usedToday: 1,
+    projectLimit: 5,
+    usedTotal: 1,
+    automation: { enabled: true, status: "running" }
+  });
+
+  startAutomationRunner(store);
+  await waitForAutomationRunner();
+
+  const automation = store.getState().projects[0].automation;
+  assert.equal(automation.enabled, true);
+  assert.equal(automation.status, "waiting");
+  assert.match(automation.lastMessage, /Дневной лимит/);
+});
+
+test("automation runner disables autorun when project limit is reached", async () => {
+  const store = createAutomationRunnerStore({
+    id: "auto-runner-project",
+    dailyLimit: 10,
+    usedToday: 1,
+    projectLimit: 5,
+    usedTotal: 5,
+    automation: { enabled: true, status: "running" }
+  });
+
+  startAutomationRunner(store);
+  await waitForAutomationRunner();
+
+  const automation = store.getState().projects[0].automation;
+  assert.equal(automation.enabled, false);
+  assert.equal(automation.status, "done");
+  assert.match(automation.lastMessage, /Лимит проекта/);
 });
 
 test("store creates jobs only up to unreserved project daily limit", () => {
@@ -233,3 +273,22 @@ test("store updates project daily limit and resets daily usage", () => {
   assert.equal(updated.usedToday, 0);
   assert.equal(updated.usedTotal, 0);
 });
+
+function createAutomationRunnerStore(project) {
+  const state = { projects: [project], jobs: [] };
+  return {
+    getState: () => state,
+    subscribe() {},
+    updateProjectAutomation(projectId, payload) {
+      state.projects = state.projects.map((item) =>
+        item.id === projectId
+          ? { ...item, automation: { ...(item.automation || {}), ...payload } }
+          : item
+      );
+    }
+  };
+}
+
+async function waitForAutomationRunner() {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
