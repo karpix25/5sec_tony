@@ -113,6 +113,46 @@ test("stale remote project create refreshes state instead of overwriting", async
   }
 });
 
+test("remote project update falls back to pending state save on network failure", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  const nextName = "Локально сохраненный проект";
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (String(url).startsWith("/api/projects/") && options.method === "PATCH") {
+      throw new TypeError("Failed to fetch");
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ saved: true, updatedAt: "t1" });
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await store.updateProjectSettingsRemote({ name: nextName });
+    await wait(360);
+
+    const state = store.getState();
+    const project = state.projects.find((item) => item.id === state.selectedProjectId);
+    const stateSaves = calls.filter((call) => call.url === "/api/state" && call.options.method === "POST");
+    const savedBody = JSON.parse(stateSaves[0].options.body);
+    assert.equal(project.name, nextName);
+    assert.equal(stateSaves.length, 1);
+    assert.equal(savedBody.baseUpdatedAt, "t0");
+    assert.equal(savedBody.state.projects.find((item) => item.id === state.selectedProjectId).name, nextName);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function jsonResponse(payload, status = 200) {
   return {
     ok: status >= 200 && status < 300,

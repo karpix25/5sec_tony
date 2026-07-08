@@ -43,8 +43,12 @@ function shouldRetryResponse(response) {
   return response.status === 408 || response.status === 429 || response.status >= 500;
 }
 
-function isRetryableError(error) {
+export function isTransientFetchError(error) {
   return error?.name === "AbortError" || /failed to fetch|network|load failed|fetch/i.test(String(error?.message || ""));
+}
+
+function isRetryableError(error) {
+  return isTransientFetchError(error);
 }
 
 function wait(ms) {

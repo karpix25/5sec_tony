@@ -4,6 +4,7 @@ import { globalAudioLibrary } from "../domain/entities.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
 import { createRemoteProject, deleteRemoteProject, updateRemoteProject } from "../services/projects-sync.js";
+import { isTransientFetchError } from "../services/sync-fetch.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import { createProjectCtaWorkflow } from "./project-cta-workflow.js";
@@ -225,6 +226,10 @@ export function createStore() {
         return result.project || project;
       } catch (error) {
         if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
+        if (!error?.conflict && isTransientFetchError(error)) {
+          this.updateProjectSettings(payload);
+          return project;
+        }
         throw error;
       }
     },
