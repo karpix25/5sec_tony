@@ -1,3 +1,5 @@
+import { stripUnicodeReplacementCharacters } from "../domain/text-integrity.js";
+
 export function renderInfographicPreview({ project, product, reference, generationBrief }) {
   const accent = project.id === "beauty" ? "rose" : project.id === "ppm" ? "mint" : "blue";
   const pain = product.pains[0] || "ключевая боль";
@@ -22,7 +24,7 @@ export function renderInfographicPreview({ project, product, reference, generati
 }
 
 export function escapeHtml(value) {
-  return String(value)
+  return stripUnicodeReplacementCharacters(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")

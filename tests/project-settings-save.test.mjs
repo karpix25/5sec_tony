@@ -320,7 +320,7 @@ test("project save keeps saved status when only ai memory fails", async () => {
   assert.equal(form.button.disabled, false);
 });
 
-test("project save refuses corrupted ai memory text and keeps saved project fields", async () => {
+test("project save ignores corrupted ai memory text and keeps saved project fields", async () => {
   const originalFetch = globalThis.fetch;
   const originalFormData = globalThis.FormData;
   const form = createProjectSettingsForm({
@@ -362,10 +362,9 @@ test("project save refuses corrupted ai memory text and keeps saved project fiel
     globalThis.FormData = originalFormData;
   }
 
-  assert.equal(updates.length, 1);
-  assert.equal(updates[0].audienceObjections, "Ручное возражение");
+  assert.equal(updates.at(-1).audienceObjections, "Ручное возражение");
   assert.doesNotMatch(JSON.stringify(updates), /\uFFFD/);
-  assert.match(form.status.textContent, /Проект сохранен\. AI-память не обновлена: AI вернул битый текст\./);
+  assert.doesNotMatch(form.status.textContent, /битый текст|�/);
   assert.equal(form.button.disabled, false);
 });
 

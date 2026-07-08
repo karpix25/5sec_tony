@@ -25,6 +25,23 @@ test("project text fields render object arrays as readable text", () => {
   assert.match(html, /Мамы — ищут быстрый уход без сложных схем/);
 });
 
+test("project text fields hide unicode replacement signs from saved text", () => {
+  const html = renderProjectManagementSettings({
+    project: {
+      name: "SONRE",
+      yandexDiskFolder: "disk:/ВИДЕО/5сек/SONRE",
+      companyAudience: "Женщины 25-35",
+      toneOfVoice: "",
+      keyScenarios: "",
+      audienceObjections: "Это просто мар��тинг, эффекта не будет",
+      restrictions: ""
+    }
+  });
+
+  assert.doesNotMatch(html, /\uFFFD/);
+  assert.match(html, /Это просто мар/);
+});
+
 test("project settings expose product in frame percentage slider", () => {
   const html = renderProjectManagementSettings({
     project: {

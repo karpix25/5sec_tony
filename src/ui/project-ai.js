@@ -216,9 +216,6 @@ function humanizeError(error) {
 function humanizeMemoryError(error) {
   const message = humanizeError(error);
   if (message.includes("OPENROUTER_API_KEY")) return message;
-  if (message.includes("битый текст") || message.includes("�")) {
-    return "AI-память не обновлена: AI вернул битый текст.";
-  }
   return "AI-память обновим позже.";
 }
 

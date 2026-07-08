@@ -8,13 +8,7 @@ export async function generateAudienceExpertDraft({ project, draft, products }) 
   });
   const payload = await readAudiencePayload(response);
   if (!response.ok) throw new Error(payload.error || "OpenRouter audience expert failed");
-  assertAudienceDraftIntegrity(payload.draft || {});
   return normalizeAudienceDraft(payload.draft || {});
-}
-
-function assertAudienceDraftIntegrity(draft) {
-  if (!hasUnicodeReplacementCharacter(draft)) return;
-  throw new Error("AI вернул битый текст с символом �. AI-память не обновлена.");
 }
 
 function normalizeAudienceDraft(draft) {
@@ -41,7 +35,10 @@ function audienceLines(value) {
 
 function audienceClean(value) {
   if (value == null) return "";
-  if (typeof value === "string") return value.trim();
+  if (typeof value === "string") {
+    const text = value.trim();
+    return hasUnicodeReplacementCharacter(text) ? "" : text;
+  }
   if (Array.isArray(value)) return value.map(audienceClean).filter(Boolean).join("\n");
   if (typeof value === "object") return Object.values(value).map(audienceClean).filter(Boolean).join(" — ");
   return String(value || "").trim();

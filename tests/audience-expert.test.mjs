@@ -69,22 +69,27 @@ test("audience expert surfaces plain text backend errors", async () => {
   }
 });
 
-test("audience expert rejects corrupted ai text before it reaches project fields", async () => {
+test("audience expert skips corrupted ai lines before they reach project fields", async () => {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
     ok: true,
     json: async () => ({
       draft: {
-        audienceObjections: "Это просто мар��тинг, эффекта не будет"
+        audienceObjections: [
+          "Это просто мар��тинг, эффекта не будет",
+          "Боюсь побочных эффектов"
+        ],
+        restrictions: "Не обещать лечение"
       }
     })
   });
 
   try {
-    await assert.rejects(
-      generateAudienceExpertDraft({ project: {}, draft: {}, products: [] }),
-      /битый текст/
-    );
+    const draft = await generateAudienceExpertDraft({ project: {}, draft: {}, products: [] });
+
+    assert.equal(draft.audienceObjections, "Боюсь побочных эффектов");
+    assert.equal(draft.restrictions, "Не обещать лечение");
+    assert.doesNotMatch(JSON.stringify(draft), /\uFFFD/);
   } finally {
     globalThis.fetch = previousFetch;
   }
