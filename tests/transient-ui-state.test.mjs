@@ -7,19 +7,17 @@ test("transient generation controls survive full rerender restore", () => {
   const generationCount = { value: "7" };
   const hookTitle = { value: "Хуки июнь" };
   const hookText = { value: "Первый хук\nВторой хук" };
-  const enabled = { name: "enabled", type: "checkbox", checked: true };
-  const targetCount = { name: "targetCount", type: "number", value: "42" };
+  const dailyLimit = { name: "dailyLimit", type: "number", value: "42" };
+  const projectLimit = { name: "projectLimit", type: "number", value: "176" };
   const projectName = { name: "name", type: "text", value: "Новый проект" };
   const yandexDiskFolder = { name: "yandexDiskFolder", type: "hidden", value: "disk:/ВИДЕО/Клиент/Проект" };
-  const automationForm = { id: "automation-form", elements: [enabled, targetCount] };
-  const projectForm = { id: "project-settings-form", elements: [projectName, yandexDiskFolder] };
+  const projectForm = { id: "project-settings-form", elements: [projectName, yandexDiskFolder, dailyLimit, projectLimit] };
   const avatarVideoSection = { dataset: { avatarSection: "video" }, open: true };
   const root = createRoot({
     generationCount,
     hookTitle,
     hookText,
     forms: {
-      "automation-form": automationForm,
       "project-settings-form": projectForm
     },
     details: { video: avatarVideoSection }
@@ -30,8 +28,8 @@ test("transient generation controls survive full rerender restore", () => {
   generationCount.value = "1";
   hookTitle.value = "";
   hookText.value = "";
-  enabled.checked = false;
-  targetCount.value = "10";
+  dailyLimit.value = "10";
+  projectLimit.value = "20";
   projectName.value = "Старое имя";
   yandexDiskFolder.value = "disk:/ВИДЕО";
   avatarVideoSection.open = false;
@@ -41,8 +39,8 @@ test("transient generation controls survive full rerender restore", () => {
   assert.equal(generationCount.value, "7");
   assert.equal(hookTitle.value, "Хуки июнь");
   assert.equal(hookText.value, "Первый хук\nВторой хук");
-  assert.equal(enabled.checked, true);
-  assert.equal(targetCount.value, "42");
+  assert.equal(dailyLimit.value, "42");
+  assert.equal(projectLimit.value, "176");
   assert.equal(projectName.value, "Новый проект");
   assert.equal(yandexDiskFolder.value, "disk:/ВИДЕО/Клиент/Проект");
   assert.equal(avatarVideoSection.open, true);

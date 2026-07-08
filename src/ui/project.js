@@ -7,12 +7,12 @@ const yandexDiskRoot = "disk:/ВИДЕО";
 
 export function renderProjectManagementSettings({ project, automationState }) {
   const safeAutomationState = automationState || {
-    automation: { enabled: false, targetCount: 10, batchSize: 1, concurrency: 1, lastMessage: "" },
+    automation: { enabled: false, batchSize: 1, concurrency: 1, lastMessage: "" },
     activeJobs: 0,
     completedJobs: 0,
     remainingDaily: Math.max(0, Number(project.dailyLimit || 20) - Number(project.usedToday || 0)),
     remainingProject: Math.max(0, Number(project.projectLimit || 500) - Number(project.usedTotal || 0)),
-    remainingTarget: 10
+    canRun: false
   };
   return `
     <form id="project-settings-form" class="ops-form text-editor-form project-settings-form">

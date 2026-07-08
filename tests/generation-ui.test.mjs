@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { bindGenerationPanelEvents } from "../src/ui/generation.js";
-import { bindProjectAutomationControls } from "../src/ui/project-automation-controls.js";
+import { bindProjectAutomationControls, renderProjectAutomationControls } from "../src/ui/project-automation-controls.js";
 import { projects, products } from "../src/domain/entities.js";
 import { FakeElement } from "./helpers/fake-ui-dom.mjs";
 
@@ -230,4 +230,27 @@ test("project automation button toggles autorun without saving project limits", 
       lastMessage: "Авторежим остановлен."
     }]
   ]);
+});
+
+test("project automation render shows enabled waiting state when daily limit is exhausted", () => {
+  const html = renderProjectAutomationControls(
+    { id: "project-1", dailyLimit: 100, projectLimit: 176 },
+    {
+      automation: {
+        enabled: true,
+        status: "waiting",
+        lastMessage: "Дневной лимит исчерпан. Авторежим включен и ждет лимит."
+      },
+      activeJobs: 0,
+      completedJobs: 90,
+      remainingDaily: 0,
+      remainingProject: 92,
+      canRun: false
+    }
+  );
+
+  assert.match(html, /Лимит дня/);
+  assert.match(html, /Остановить авторежим/);
+  assert.doesNotMatch(html, /Цель готова/);
+  assert.doesNotMatch(html, /До цели/);
 });

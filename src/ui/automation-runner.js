@@ -18,9 +18,13 @@ function scheduleAutomation(store) {
     if (scheduledProjects.has(project.id)) return;
     if (!automationState.canRun) {
       if (automationState.activeJobs > 0) return;
-      if (!automationState.remainingDaily) markAutomation(store, project.id, "paused", "Дневной лимит исчерпан.");
-      if (!automationState.remainingProject) markAutomation(store, project.id, "paused", "Лимит проекта исчерпан.");
-      if (!automationState.remainingTarget) markAutomation(store, project.id, "done", "Цель авторежима выполнена.");
+      if (!automationState.remainingDaily) {
+        markAutomation(store, project.id, "waiting", "Дневной лимит исчерпан. Авторежим включен и ждет лимит.");
+        return;
+      }
+      if (!automationState.remainingProject) {
+        markAutomation(store, project.id, "waiting", "Лимит проекта исчерпан. Авторежим включен и ждет новый лимит.");
+      }
       return;
     }
     scheduledProjects.add(project.id);
@@ -37,7 +41,7 @@ async function runAutomationBatch(store, projectId) {
     const jobs = await createAutomationBatch(store, projectId, automationState.nextCount);
     if (jobs.length) markAutomation(store, projectId, "running", `Запущено задач: ${jobs.length}.`);
   } catch (error) {
-    markAutomation(store, projectId, "paused", `${error.message || "Серверная очередь недоступна"}. Авторежим остановлен.`);
+    markAutomation(store, projectId, "paused", `${error.message || "Серверная очередь недоступна"}. Авторежим остановлен.`, { enabled: false });
   } finally {
     scheduledProjects.delete(projectId);
   }
@@ -60,8 +64,11 @@ async function createAutomationBatch(store, projectId, count) {
   return store.mergeServerJobs(response.jobs || []);
 }
 
-function markAutomation(store, projectId, status, lastMessage) {
+function markAutomation(store, projectId, status, lastMessage, options = {}) {
   const project = store.getState().projects.find((item) => item.id === projectId);
-  if (project?.automation?.status === status && project?.automation?.lastMessage === lastMessage) return;
-  store.updateProjectAutomation(projectId, { status, lastMessage, enabled: status === "running" });
+  const payload = { status, lastMessage };
+  if (Object.hasOwn(options, "enabled")) payload.enabled = options.enabled;
+  const enabledUnchanged = !Object.hasOwn(payload, "enabled") || project?.automation?.enabled === payload.enabled;
+  if (project?.automation?.status === status && project?.automation?.lastMessage === lastMessage && enabledUnchanged) return;
+  store.updateProjectAutomation(projectId, payload);
 }

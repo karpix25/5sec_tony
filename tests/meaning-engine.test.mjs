@@ -311,7 +311,7 @@ test("project management UI exposes limits and autorun controls on the right-sid
       completedJobs: 6,
       remainingDaily: 8,
       remainingProject: 120,
-      remainingTarget: 3
+      canRun: false
     }
   });
 
@@ -327,8 +327,7 @@ test("project management UI exposes limits and autorun controls on the right-sid
   assert.match(html, /disk:\/ВИДЕО/);
   assert.match(html, /Дневной лимит генераций/);
   assert.match(html, /Лимит на весь проект/);
-  assert.match(html, /Активен/);
-  assert.match(html, /Остановить авторежим/);
+  assert.match(html, /В работе[\s\S]*Остановить авторежим/);
   assert.doesNotMatch(html, /Авторежим до лимита/);
   assert.doesNotMatch(html, /Цель роликов/);
   assert.doesNotMatch(html, /Пакет/);

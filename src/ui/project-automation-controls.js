@@ -2,8 +2,8 @@ import { escapeHtml } from "./infographic.js";
 import { formatAutomationStats } from "./generation-live.js";
 
 export function renderProjectAutomationControls(project, automationState) {
-  const { automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget } = automationState;
-  const statusView = getAutomationStatusView(automation);
+  const { automation, activeJobs, completedJobs, remainingDaily, remainingProject } = automationState;
+  const statusView = getAutomationStatusView(automationState);
   const nextEnabled = !automation.enabled;
   return `
     <section class="automation-card project-automation-card">
@@ -24,7 +24,7 @@ export function renderProjectAutomationControls(project, automationState) {
           <span>Лимит на весь проект</span>
           <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
         </label>
-        <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget }))}</small>
+        <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingDaily, remainingProject }))}</small>
         <button
           id="toggle-automation-mode"
           class="${automation.enabled ? "ghost-btn" : "secondary-btn"}"
@@ -50,11 +50,14 @@ export function bindProjectAutomationControls(root, store) {
   });
 }
 
-function getAutomationStatusView(automation) {
-  const status = automation?.status || "";
-  if (automation?.enabled) return { label: "Активен", tone: "running" };
-  if (status === "done") return { label: "Цель готова", tone: "done" };
-  if (status === "paused") return { label: "Остановлен", tone: "paused" };
+function getAutomationStatusView(automationState) {
+  const { automation, activeJobs, remainingDaily, remainingProject, canRun } = automationState;
+  if (automation?.enabled && activeJobs > 0) return { label: "В работе", tone: "running" };
+  if (automation?.enabled && !remainingDaily) return { label: "Лимит дня", tone: "paused" };
+  if (automation?.enabled && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
+  if (automation?.enabled && canRun) return { label: "Включен", tone: "running" };
+  if (automation?.enabled) return { label: "Ждет", tone: "idle" };
+  if (automation?.status === "paused") return { label: "Остановлен", tone: "paused" };
   return { label: "Выключен", tone: "idle" };
 }
 

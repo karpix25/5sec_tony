@@ -60,6 +60,31 @@ test("automation state caps next batch by total project limit", () => {
   assert.equal(state.nextCount, 1);
 });
 
+test("automation state ignores legacy target count when project limits have room", () => {
+  const project = {
+    id: "auto-project-legacy-target",
+    dailyLimit: 100,
+    usedToday: 10,
+    projectLimit: 200,
+    usedTotal: 90,
+    automation: { enabled: true, targetCount: 10, batchSize: 4, concurrency: 2 }
+  };
+  const jobs = Array.from({ length: 90 }, (_, index) => ({
+    id: `job-${index}`,
+    projectId: project.id,
+    status: "done",
+    finalVideoUrl: `/generated/${index}.mp4`
+  }));
+
+  const state = getProjectAutomationState({ project, jobs });
+
+  assert.equal(state.completedJobs, 90);
+  assert.equal(state.remainingDaily, 90);
+  assert.equal(state.remainingProject, 110);
+  assert.equal(state.nextCount, 2);
+  assert.equal(state.canRun, true);
+});
+
 test("store creates jobs only up to unreserved project daily limit", () => {
   const store = createStore();
   const state = store.getState();

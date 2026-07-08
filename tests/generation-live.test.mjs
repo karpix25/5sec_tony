@@ -8,16 +8,28 @@ test("automation stats formatter includes live counters and message", () => {
     activeJobs: 2,
     completedJobs: 5,
     remainingDaily: 7,
-    remainingProject: 18,
-    remainingTarget: 3
+    remainingProject: 18
   });
 
   assert.match(text, /Готово: 5\./);
   assert.match(text, /В работе: 2\./);
-  assert.match(text, /До цели: 3\./);
+  assert.doesNotMatch(text, /До цели/);
   assert.match(text, /Дневной остаток: 7\./);
   assert.match(text, /Остаток проекта: 18\./);
   assert.match(text, /Авторежим включен\./);
+});
+
+test("automation stats formatter hides legacy completed target message", () => {
+  const text = formatAutomationStats({
+    automation: { status: "done", lastMessage: "Цель авторежима выполнена." },
+    activeJobs: 0,
+    completedJobs: 90,
+    remainingDaily: 0,
+    remainingProject: 92
+  });
+
+  assert.doesNotMatch(text, /Цель авторежима выполнена/);
+  assert.doesNotMatch(text, /До цели/);
 });
 
 test("jobs-only updates refresh the visible automation counter", () => {
@@ -54,6 +66,6 @@ test("jobs-only updates refresh the visible automation counter", () => {
 
   assert.match(node.textContent, /Готово: 1\./);
   assert.match(node.textContent, /В работе: 2\./);
-  assert.match(node.textContent, /До цели: 7\./);
+  assert.doesNotMatch(node.textContent, /До цели/);
   assert.match(node.textContent, /Собираем видео\./);
 });

@@ -27,11 +27,10 @@ export function getProjectAutomationState({ project, jobs = [] }) {
   const completedJobs = countSuccessfulGenerationJobs(projectJobs);
   const remainingDaily = Math.max(0, Number(project?.dailyLimit || 0) - Number(project?.usedToday || 0));
   const remainingProject = Math.max(0, Number(project?.projectLimit || 0) - Number(project?.usedTotal || 0));
-  const remainingTarget = Math.max(0, automation.targetCount - completedJobs - activeJobs);
   const availableSlots = Math.max(0, automation.concurrency - activeJobs);
   const availableDailySlots = Math.max(0, remainingDaily - activeJobs);
   const availableProjectSlots = Math.max(0, remainingProject - activeJobs);
-  const nextCount = Math.min(automation.batchSize, availableSlots, availableDailySlots, availableProjectSlots, remainingTarget);
+  const nextCount = Math.min(automation.batchSize, availableSlots, availableDailySlots, availableProjectSlots);
 
   return {
     automation,
@@ -39,7 +38,6 @@ export function getProjectAutomationState({ project, jobs = [] }) {
     completedJobs,
     remainingDaily,
     remainingProject,
-    remainingTarget,
     availableSlots,
     nextCount,
     canRun: automation.enabled && nextCount > 0
