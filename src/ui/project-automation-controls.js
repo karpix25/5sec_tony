@@ -3,6 +3,8 @@ import { formatAutomationStats } from "./generation-live.js";
 
 export function renderProjectAutomationControls(project, automationState) {
   const { automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget } = automationState;
+  const statusView = getAutomationStatusView(automation);
+  const nextEnabled = !automation.enabled;
   return `
     <section class="automation-card project-automation-card">
       <div class="automation-head">
@@ -10,9 +12,7 @@ export function renderProjectAutomationControls(project, automationState) {
           <span class="eyebrow">Автоматизация</span>
           <h3>Лимиты и авторежим</h3>
         </div>
-      </div>
-      <div class="automation-note">
-        Задайте дневной лимит, лимит на весь проект и включите авторежим, чтобы система сама добирала ролики в рамках заданных границ.
+        <span class="automation-status" data-tone="${statusView.tone}">${escapeHtml(statusView.label)}</span>
       </div>
       <div id="automation-form" class="automation-form" data-automation-form>
         <input type="hidden" name="projectId" value="${escapeHtml(project.id)}">
@@ -24,12 +24,13 @@ export function renderProjectAutomationControls(project, automationState) {
           <span>Лимит на весь проект</span>
           <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
         </label>
-        <label class="automation-toggle">
-          <input name="enabled" type="checkbox" ${automation.enabled ? "checked" : ""}>
-          <span>Авторежим до лимита</span>
-        </label>
         <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingDaily, remainingProject, remainingTarget }))}</small>
-        <button id="save-automation-settings" class="secondary-btn" type="button">${automation.enabled ? "Сохранить авторежим" : "Включить авторежим"}</button>
+        <button
+          id="toggle-automation-mode"
+          class="${automation.enabled ? "ghost-btn" : "secondary-btn"}"
+          type="button"
+          data-next-enabled="${nextEnabled ? "true" : "false"}"
+        >${automation.enabled ? "Остановить авторежим" : "Включить авторежим"}</button>
       </div>
     </section>
   `;
@@ -37,47 +38,26 @@ export function renderProjectAutomationControls(project, automationState) {
 
 export function bindProjectAutomationControls(root, store) {
   const panel = root.querySelector("#automation-form");
-  panel?.querySelector("#save-automation-settings")?.addEventListener("click", () => {
-    const payload = getAutomationPayload(panel);
-    store.updateProjectSettings({
-      dailyLimit: payload.dailyLimit,
-      projectLimit: payload.projectLimit
-    });
+  panel?.querySelector("#toggle-automation-mode")?.addEventListener("click", (event) => {
+    const projectId = readFieldValue(panel, "projectId");
+    const enabled = event.currentTarget?.dataset?.nextEnabled === "true";
     const automationPayload = {
-      enabled: payload.enabled === "on",
-      status: payload.enabled === "on" ? "running" : "paused",
-      lastMessage: payload.enabled === "on" ? "Авторежим включен." : "Авторежим остановлен."
+      enabled,
+      status: enabled ? "running" : "paused",
+      lastMessage: enabled ? "Авторежим включен." : "Авторежим остановлен."
     };
-    if (Object.hasOwn(payload, "targetCount")) automationPayload.targetCount = payload.targetCount;
-    if (Object.hasOwn(payload, "batchSize")) automationPayload.batchSize = payload.batchSize;
-    if (Object.hasOwn(payload, "concurrency")) automationPayload.concurrency = payload.concurrency;
-    store.updateProjectAutomation(payload.projectId, automationPayload);
+    store.updateProjectAutomation(projectId, automationPayload);
   });
 }
 
-function getAutomationPayload(panel) {
-  const payload = {
-    projectId: readFieldValue(panel, "projectId"),
-    dailyLimit: readFieldValue(panel, "dailyLimit"),
-    projectLimit: readFieldValue(panel, "projectLimit"),
-    enabled: readFieldChecked(panel, "enabled") ? "on" : undefined
-  };
-  ["targetCount", "batchSize", "concurrency"].forEach((name) => {
-    const value = readOptionalFieldValue(panel, name);
-    if (value !== undefined) payload[name] = value;
-  });
-  return payload;
+function getAutomationStatusView(automation) {
+  const status = automation?.status || "";
+  if (automation?.enabled) return { label: "Активен", tone: "running" };
+  if (status === "done") return { label: "Цель готова", tone: "done" };
+  if (status === "paused") return { label: "Остановлен", tone: "paused" };
+  return { label: "Выключен", tone: "idle" };
 }
 
 function readFieldValue(panel, name) {
   return panel.querySelector(`[name="${name}"]`)?.value || "";
-}
-
-function readOptionalFieldValue(panel, name) {
-  const field = panel.querySelector(`[name="${name}"]`);
-  return field ? field.value : undefined;
-}
-
-function readFieldChecked(panel, name) {
-  return Boolean(panel.querySelector(`[name="${name}"]`)?.checked);
 }

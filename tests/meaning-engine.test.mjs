@@ -327,7 +327,9 @@ test("project management UI exposes limits and autorun controls on the right-sid
   assert.match(html, /disk:\/ВИДЕО/);
   assert.match(html, /Дневной лимит генераций/);
   assert.match(html, /Лимит на весь проект/);
-  assert.match(html, /Авторежим до лимита/);
+  assert.match(html, /Активен/);
+  assert.match(html, /Остановить авторежим/);
+  assert.doesNotMatch(html, /Авторежим до лимита/);
   assert.doesNotMatch(html, /Цель роликов/);
   assert.doesNotMatch(html, /Пакет/);
   assert.doesNotMatch(html, /Параллельно/);
