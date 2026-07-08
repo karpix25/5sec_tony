@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ensureStateSchema } from "../scripts/state-schema.mjs";
 import { loadNormalizedState, saveNormalizedState } from "../scripts/state-relational-store.mjs";
+import { createFakeRelationalStateDb } from "./helpers/fake-relational-state-db.mjs";
 
 test("state schema creates normalized tables and justified indexes", async () => {
   const queries = [];
@@ -33,6 +34,7 @@ test("save normalized state writes separate project product job and hook tables"
     selectedCharacterId: "char-1",
     selectedAudioId: "audio-1",
     selectedProjectTab: "project",
+    queueProductFilter: "all",
     generationBrief: { topic: "Тест" },
     freePrompt: "prompt",
     projects: [{ id: "project-1", name: "Project", references: [], audioLibrary: [], avatarCandidates: [], designReferenceCandidates: [], characters: [] }],
@@ -48,7 +50,9 @@ test("save normalized state writes separate project product job and hook tables"
     return { rows: [] };
   }, "workspace-1", state);
 
-  assert.ok(queries.some((entry) => entry.text.includes("insert into studio_app_ui_state")));
+  const uiInsert = queries.find((entry) => entry.text.includes("insert into studio_app_ui_state"));
+  assert.ok(uiInsert);
+  assert.equal(JSON.parse(uiInsert.params[9]).queueProductFilter, "all");
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_projects")));
   assert.ok(queries.some((entry) => entry.text.includes("insert into studio_products")));
   assert.ok(queries.some((entry) => /insert into studio_projects[\s\S]*"references"/i.test(entry.text)));
@@ -68,7 +72,7 @@ test("load normalized state rebuilds snapshot from separate tables", async () =>
     if (/alter table studio_jobs add column if not exists queue_name/i.test(text)) return { rows: [] };
     if (/exists\(select 1 from studio_app_ui_state/i.test(text)) return { rows: [{ present: true }] };
     if (/select \* from studio_app_ui_state/i.test(text)) {
-      return { rows: [{ selected_project_id: "project-1", selected_product_id: "product-1", selected_reference_id: "ref-1", selected_character_id: "char-1", selected_audio_id: "audio-1", selected_project_tab: "hooks", generation_brief: { topic: "Тест" }, free_prompt: "prompt", extra: {} }] };
+      return { rows: [{ selected_project_id: "project-1", selected_product_id: "product-1", selected_reference_id: "ref-1", selected_character_id: "char-1", selected_audio_id: "audio-1", selected_project_tab: "hooks", generation_brief: { topic: "Тест" }, free_prompt: "prompt", extra: { queueProductFilter: "all" } }] };
     }
     if (/select \* from studio_projects/i.test(text)) {
       return { rows: [{ id: "project-1", name: "Project", client: "", export_folder: "", yandex_disk_folder: "", daily_limit: 20, used_today: 0, project_limit: 500, used_total: 0, company_info: "", company_audience: "", project_theme: "", niche: "", key_scenarios: "", audience_pains: "", audience_desires: "", audience_objections: "", allowed_triggers: "", forbidden_triggers: "", hook_aggression: "", content_restrictions: "", tone_of_voice: "", restrictions: "", style: "", last_reference_update: "", avatar_round_robin_index: 0, automation: {}, cta_overlay: {}, references: [], audio_library: [], avatar_candidates: [], design_reference_candidates: [], characters: [], extra: {} }] };
@@ -96,6 +100,7 @@ test("load normalized state rebuilds snapshot from separate tables", async () =>
   }, "workspace-1");
 
   assert.equal(state.selectedProjectId, "project-1");
+  assert.equal(state.queueProductFilter, "all");
   assert.equal(state.projects[0].id, "project-1");
   assert.equal(state.products[0].projectId, "project-1");
   assert.equal(state.jobs[0].id, "job-1");
@@ -105,6 +110,24 @@ test("load normalized state rebuilds snapshot from separate tables", async () =>
   assert.equal(state.audioLibrary[0].id, "audio-1");
   assert.equal(state.hookLibrary.activeVersionId, "version-1");
   assert.equal(state.reelsResearch.accounts[0], "demo");
+});
+
+test("save and load normalized state preserves queue product filter", async () => {
+  const db = createFakeRelationalStateDb();
+  const state = {
+    queueProductFilter: "all",
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: []
+  };
+
+  await saveNormalizedState(db.query, "workspace-queue-filter", state);
+  const loadedState = await loadNormalizedState(db.query, "workspace-queue-filter");
+
+  assert.equal(loadedState.queueProductFilter, "all");
+  assert.deepEqual(loadedState.products.map((product) => product.id), ["product-1"]);
 });
 
 test("load normalized state queries one postgres client sequentially", async () => {
