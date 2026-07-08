@@ -320,6 +320,55 @@ test("project save keeps saved status when only ai memory fails", async () => {
   assert.equal(form.button.disabled, false);
 });
 
+test("project save refuses corrupted ai memory text and keeps saved project fields", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  const form = createProjectSettingsForm({
+    name: "Проект",
+    yandexDiskFolder: "disk:/ВИДЕО/Старое",
+    dailyLimit: "20",
+    projectLimit: "100",
+    audienceObjections: "Ручное возражение"
+  });
+  const updates = [];
+  const store = {
+    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project" }], products: [] }),
+    updateProjectSettings: (payload) => updates.push({ ...payload })
+  };
+  globalThis.FormData = class FakeFormData {
+    constructor(target) {
+      this.entriesList = Object.entries(target.values);
+    }
+    entries() {
+      return this.entriesList[Symbol.iterator]();
+    }
+    [Symbol.iterator]() {
+      return this.entriesList[Symbol.iterator]();
+    }
+  };
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      draft: {
+        audienceObjections: "Это просто мар��тинг, эффекта не будет"
+      }
+    })
+  });
+
+  try {
+    await saveProjectAndRefreshAiMemory(form, store);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.FormData = originalFormData;
+  }
+
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].audienceObjections, "Ручное возражение");
+  assert.doesNotMatch(JSON.stringify(updates), /\uFFFD/);
+  assert.match(form.status.textContent, /Проект сохранен\. AI-память не обновлена: AI вернул битый текст\./);
+  assert.equal(form.button.disabled, false);
+});
+
 function createProjectSettingsForm(values) {
   const button = { textContent: "Сохранить проект", disabled: false };
   const status = { textContent: "", dataset: {} };

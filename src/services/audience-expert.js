@@ -1,3 +1,5 @@
+import { hasUnicodeReplacementCharacter } from "../domain/text-integrity.js";
+
 export async function generateAudienceExpertDraft({ project, draft, products }) {
   const response = await fetch("/api/project/audience-expert", {
     method: "POST",
@@ -6,7 +8,13 @@ export async function generateAudienceExpertDraft({ project, draft, products }) 
   });
   const payload = await readAudiencePayload(response);
   if (!response.ok) throw new Error(payload.error || "OpenRouter audience expert failed");
+  assertAudienceDraftIntegrity(payload.draft || {});
   return normalizeAudienceDraft(payload.draft || {});
+}
+
+function assertAudienceDraftIntegrity(draft) {
+  if (!hasUnicodeReplacementCharacter(draft)) return;
+  throw new Error("AI вернул битый текст с символом �. AI-память не обновлена.");
 }
 
 function normalizeAudienceDraft(draft) {

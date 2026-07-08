@@ -68,3 +68,24 @@ test("audience expert surfaces plain text backend errors", async () => {
     globalThis.fetch = previousFetch;
   }
 });
+
+test("audience expert rejects corrupted ai text before it reaches project fields", async () => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      draft: {
+        audienceObjections: "Это просто мар��тинг, эффекта не будет"
+      }
+    })
+  });
+
+  try {
+    await assert.rejects(
+      generateAudienceExpertDraft({ project: {}, draft: {}, products: [] }),
+      /битый текст/
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
