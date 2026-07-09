@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseJsonDraft } from "../scripts/openrouter-response.mjs";
+import { isJsonDraftFormatError, parseJsonDraft } from "../scripts/openrouter-response.mjs";
 
 test("OpenRouter draft parser repairs missing commas between array objects", () => {
   const draft = parseJsonDraft(`
@@ -46,4 +46,11 @@ test("OpenRouter draft parser hides technical parse positions from users", () =>
     /AI-команда вернула черновик в неправильном формате/
   );
   assert.doesNotThrow(() => parseJsonDraft("{\"items\": [\"фон\", invalid]}", { strict: false }));
+});
+
+test("OpenRouter draft parser marks format errors as retryable", () => {
+  assert.throws(
+    () => parseJsonDraft("черновик без json"),
+    (error) => isJsonDraftFormatError(error)
+  );
 });

@@ -6,6 +6,7 @@ import { formatCurrentDatePrompt } from "../src/domain/current-date-context.js";
 import { clickbaitHeadlineRules, hookPayoffRules, simpleAudienceLanguageRules, viralReelsHookRules } from "../src/domain/headline-style-contract.js";
 import { hasUsefulDesignAnalysis, hasUsefulProductPassport, normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
+import { isJsonDraftFormatError } from "./openrouter-response.mjs";
 
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
@@ -38,6 +39,7 @@ const commonRoleRules = [
 ];
 
 const roleSystemPrompt = "Ты senior-участник AI-креативной команды. Пиши по-русски. Верни только JSON без markdown.";
+const maxRoleJsonAttempts = 3;
 
 export async function runCreativeTeamBrief({ token, body, model, referenceModel, callOpenRouter, parseJsonDraft }) {
   body = createCreativeTeamPayload(body);
@@ -101,11 +103,34 @@ async function runRole({ token, model, callOpenRouter, parseJsonDraft, instructi
   const userContent = imageUrls.length
     ? [{ type: "text", text: instruction }, ...imageUrls.map((url) => ({ type: "image_url", image_url: { url } }))]
     : instruction;
-  const content = await callOpenRouter(token, model, [
-    { role: "system", content: roleSystemPrompt },
-    { role: "user", content: userContent }
-  ]);
-  return parseJsonDraft(content);
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxRoleJsonAttempts; attempt += 1) {
+    const content = await callOpenRouter(token, model, [
+      { role: "system", content: getRoleSystemPrompt(attempt) },
+      { role: "user", content: userContent }
+    ]);
+    try {
+      return parseJsonDraft(content);
+    } catch (error) {
+      if (!isJsonDraftFormatError(error)) throw error;
+      if (attempt === maxRoleJsonAttempts) throw createRoleFormatError(error);
+      lastError = error;
+      console.warn(`[creative-team:json-retry] attempt=${attempt} reason=${error.message || error}`);
+    }
+  }
+  throw createRoleFormatError(lastError);
+}
+
+function getRoleSystemPrompt(attempt) {
+  if (attempt <= 1) return roleSystemPrompt;
+  return `${roleSystemPrompt} Предыдущий ответ был отклонен: верни строго один JSON-объект, без markdown, комментариев, пояснений и текста вокруг.`;
+}
+
+function createRoleFormatError(error) {
+  const wrapped = new Error("AI-команда несколько раз вернула черновик в неправильном формате. Запустите генерацию еще раз.");
+  wrapped.cause = error;
+  wrapped.code = error?.code || "json_draft_format";
+  return wrapped;
 }
 
 function basePayload(task, role, output, extra = {}) {

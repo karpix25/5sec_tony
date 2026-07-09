@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/generation.js";
 import { projects, products } from "../src/domain/entities.js";
 import { runCreativeTeamBrief } from "../scripts/creative-team-prompts.mjs";
+import { parseJsonDraft } from "../scripts/openrouter-response.mjs";
 
 test("creative team image prompt package and script are authoritative", () => {
   const project = projects[0];
@@ -270,6 +271,39 @@ test("creative team prompt removes visible medicine disclaimers", () => {
   assert.match(prompt, /Почему вода не бодрит/);
   assert.match(prompt, /Скучный вкус ломает привычку/);
   assert.doesNotMatch(prompt, /не является лекарственным средством|лекарственным средством/i);
+});
+
+test("creative team retries a malformed role JSON draft before failing the brief", async () => {
+  const responses = [
+    "Конечно, вот черновик без JSON",
+    { productPassport: { productName: "Шиммер", safeFacts: ["косметический продукт"], forbiddenClaims: [] } },
+    { designFormatBrief: { formatType: "checklist_cards", structureName: "Checklist" } },
+    { attentionMap: { scrollStopperAngles: [{ angle: "Патчи скатываются" }] } },
+    { creativeBrief: { topic: "Почему патчи скатываются", formatIntent: "saveable_note", productBridge: "шиммер уместен как мягкий косметический контекст" } },
+    { hookSet: [{ hook: "Патчи скатываются не просто так" }], recommendedHook: "Патчи скатываются не просто так" },
+    { contentScript: { headline: "Патчи скатываются не просто так", subhead: "Причина часто в слое ухода", points: ["Крем оставляет пленку", "Консилер снижает сцепление", "Кожа слишком влажная", "Патч не успевает лечь"] } },
+    { formatCompliance: { formatMatched: true, issues: [], fixedContentScript: {}, finalRules: [] } },
+    { visualBrief: { mainVisualObject: "гелевые патчи", productUsage: "small_signal" } },
+    { safetyReview: { generationAllowed: true, issues: [], fixedContentScript: { headline: "", subhead: "", points: [] }, fixedVisualBrief: {}, finalWarnings: [] } },
+    { imagePromptPackage: { provider: "gpt-image-2", prompt: "Create cosmetic checklist", inputRefs: [], promptBudgetNotes: { mustKeep: [], canDropIfTooLong: [] } } }
+  ];
+  const systemPrompts = [];
+
+  const draft = await runCreativeTeamBrief({
+    token: "token",
+    model: "test-model",
+    callOpenRouter: async (_token, _model, messages) => {
+      systemPrompts.push(messages[0].content);
+      const response = responses.shift();
+      return typeof response === "string" ? response : JSON.stringify(response);
+    },
+    parseJsonDraft,
+    body: { project: projects[0], product: products[0], reference: projects[0].references[0], existingJobs: [] }
+  });
+
+  assert.equal(draft.productPassport.productName, "Шиммер");
+  assert.equal(systemPrompts.length, 11);
+  assert.match(systemPrompts[1], /Предыдущий ответ был отклонен/);
 });
 
 test("creative team brief runner executes role chain and flattens legacy fields", async () => {
