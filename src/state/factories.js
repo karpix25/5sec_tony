@@ -3,6 +3,7 @@ import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
 import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../domain/ai-artifacts.js";
+import { normalizeProjectDailyUsage } from "../domain/daily-usage.js";
 import { ensureRussianImageTextRestriction } from "../domain/language-policy.js";
 
 export const defaultGenerationBrief = {
@@ -93,13 +94,14 @@ export function createProductEntity(projectId, name, payload = {}) {
 }
 
 export function ensureProjectAssets(project) {
-  const legacyAudios = (project.references || []).filter((item) => item.type === "audio");
-  const projectReferences = ensureProjectReferenceDefaults(project);
+  const dailyProject = normalizeProjectDailyUsage(project);
+  const legacyAudios = (dailyProject.references || []).filter((item) => item.type === "audio");
+  const projectReferences = ensureProjectReferenceDefaults(dailyProject);
   const references = projectReferences
     .filter(isDesignReference)
     .map(createReferenceEntity);
   return {
-    ...project,
+    ...dailyProject,
     companyInfo: project.companyInfo || "",
     companyAudience: project.companyAudience || "",
     projectTheme: project.projectTheme || "",
@@ -114,12 +116,13 @@ export function ensureProjectAssets(project) {
     contentRestrictions: ensureRussianImageTextRestriction(project.contentRestrictions),
     toneOfVoice: project.toneOfVoice || "спокойный экспертный",
     restrictions: project.restrictions || "Не обещать лечение, диагнозы, гарантированный результат или обход правил.",
-    exportFolder: normalizeProjectExportFolder(project.exportFolder, project.name),
-    yandexDiskFolder: normalizeProjectYandexFolder(project.yandexDiskFolder, project.name),
-    dailyLimit: normalizeAssetLimit(project.dailyLimit, 20),
-    usedToday: normalizeAssetUsage(project.usedToday),
-    projectLimit: normalizeAssetLimit(project.projectLimit, 500),
-    usedTotal: normalizeAssetUsage(project.usedTotal),
+    exportFolder: normalizeProjectExportFolder(dailyProject.exportFolder, dailyProject.name),
+    yandexDiskFolder: normalizeProjectYandexFolder(dailyProject.yandexDiskFolder, dailyProject.name),
+    dailyLimit: normalizeAssetLimit(dailyProject.dailyLimit, 20),
+    usedToday: normalizeAssetUsage(dailyProject.usedToday),
+    dailyUsageDate: dailyProject.dailyUsageDate,
+    projectLimit: normalizeAssetLimit(dailyProject.projectLimit, 500),
+    usedTotal: normalizeAssetUsage(dailyProject.usedTotal),
     productInFramePercent: normalizeProductInFramePercent(project.productInFramePercent),
     automation: normalizeProjectAutomation(project.automation),
     ctaOverlay: normalizeCtaOverlay(project.ctaOverlay),

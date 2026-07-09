@@ -56,6 +56,7 @@ const files = [
   "src/domain/travel-content-plan.js",
   "src/domain/topic-similarity.js",
   "src/domain/job-identity.js",
+  "src/domain/daily-usage.js",
   "src/domain/job-quota.js",
   "src/domain/project-automation.js",
   "src/domain/topic-candidates.js",

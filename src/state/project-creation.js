@@ -1,3 +1,4 @@
+import { createDailyUsageDate } from "../domain/daily-usage.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { ensureRussianImageTextRestriction } from "../domain/language-policy.js";
 import {
@@ -18,6 +19,7 @@ export function createProjectBundle(payload = {}) {
     yandexDiskFolder: payload.yandexDiskFolder || defaultProjectYandexDiskFolder(name),
     dailyLimit: Number(payload.dailyLimit || 20),
     usedToday: 0,
+    dailyUsageDate: createDailyUsageDate(),
     projectLimit: Number(payload.projectLimit || 500),
     usedTotal: 0,
     automation: normalizeProjectAutomation(),

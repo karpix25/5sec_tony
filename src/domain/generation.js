@@ -1,3 +1,4 @@
+import { normalizeProjectDailyUsage } from "./daily-usage.js";
 import { generationStages } from "./entities.js";
 import { noAvatarCharacterId } from "./avatar-selection.js";
 import { resolveAvatarEmotionSelection } from "./avatar-emotion.js";
@@ -419,8 +420,9 @@ export function advanceJob(job) {
 }
 
 export function getLimitState(project) {
-  const daily = getSingleLimitState(project.dailyLimit, project.usedToday);
-  const total = getSingleLimitState(project.projectLimit ?? project.dailyLimit, project.usedTotal ?? project.usedToday);
+  const normalizedProject = normalizeProjectDailyUsage(project);
+  const daily = getSingleLimitState(normalizedProject.dailyLimit, normalizedProject.usedToday);
+  const total = getSingleLimitState(normalizedProject.projectLimit ?? normalizedProject.dailyLimit, normalizedProject.usedTotal ?? normalizedProject.usedToday);
   const remaining = Math.min(daily.remaining, total.remaining);
   const percent = Math.max(daily.percent, total.percent);
   return { remaining, percent, isNearLimit: percent >= 80, daily, total };
@@ -433,7 +435,6 @@ function getSingleLimitState(limitValue, usedValue) {
   const percent = Math.min(100, Math.round((used / limit) * 100));
   return { limit, used, remaining, percent, isNearLimit: percent >= 80 };
 }
-
 function buildAutoHook({ project, product, topic, fact, desire, existingJobs = [] }) {
   return pickUniqueHook([
     topic,

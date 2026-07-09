@@ -1,3 +1,4 @@
+import { getDailyUsageInfo, normalizeProjectDailyUsage } from "./daily-usage.js";
 import { countSuccessfulGenerationJobs } from "./job-quota.js";
 
 export const defaultAutomation = {
@@ -20,12 +21,14 @@ export function normalizeProjectAutomation(value = {}) {
 }
 
 export function getProjectAutomationState({ project, jobs = [] }) {
-  const automation = normalizeProjectAutomation(project?.automation);
-  const projectJobs = jobs.filter((job) => job.projectId === project?.id);
+  const normalizedProject = normalizeProjectDailyUsage(project);
+  const automation = normalizeProjectAutomation(normalizedProject?.automation);
+  const projectJobs = jobs.filter((job) => job.projectId === normalizedProject?.id);
   const activeJobs = projectJobs.filter((job) => ["queued", "running"].includes(job.status)).length;
   const completedJobs = countSuccessfulGenerationJobs(projectJobs);
-  const remainingDaily = Math.max(0, Number(project?.dailyLimit || 0) - Number(project?.usedToday || 0));
-  const remainingProject = Math.max(0, Number(project?.projectLimit || 0) - Number(project?.usedTotal || 0));
+  const dailyUsage = getDailyUsageInfo(normalizedProject);
+  const remainingDaily = dailyUsage.remaining;
+  const remainingProject = Math.max(0, Number(normalizedProject?.projectLimit || 0) - Number(normalizedProject?.usedTotal || 0));
   const availableSlots = Math.max(0, automation.concurrency - activeJobs);
   const availableDailySlots = Math.max(0, remainingDaily - activeJobs);
   const availableProjectSlots = Math.max(0, remainingProject - activeJobs);
@@ -36,6 +39,7 @@ export function getProjectAutomationState({ project, jobs = [] }) {
     activeJobs,
     completedJobs,
     remainingDaily,
+    dailyUsage,
     remainingProject,
     availableSlots,
     nextCount,

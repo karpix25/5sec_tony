@@ -2,7 +2,7 @@ import { escapeHtml } from "./infographic.js";
 import { formatAutomationStats } from "./generation-live.js";
 
 export function renderProjectAutomationControls(project, automationState) {
-  const { automation, activeJobs, completedJobs, remainingProject } = automationState;
+  const { automation, activeJobs, completedJobs, dailyUsage, remainingDaily, remainingProject } = automationState;
   const statusView = getAutomationStatusView(automationState);
   const nextEnabled = !automation.enabled;
   return `
@@ -24,7 +24,13 @@ export function renderProjectAutomationControls(project, automationState) {
           <span>Лимит на весь проект</span>
           <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
         </label>
-        <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, remainingProject }))}</small>
+        <div class="automation-limit-summary">
+          <strong>Сегодня: ${Number(dailyUsage?.used || 0)} / ${Number(dailyUsage?.limit || project.dailyLimit || 0)}</strong>
+          <span>Осталось сегодня: ${Number(remainingDaily || 0)}</span>
+          <span>Проект: ${Number(project.usedTotal || 0)} / ${Number(project.projectLimit || 0)}</span>
+          <span>Осталось по проекту: ${Number(remainingProject || 0)}</span>
+        </div>
+        <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, dailyUsage, remainingProject }))}</small>
         <button
           id="toggle-automation-mode"
           class="${automation.enabled ? "ghost-btn" : "secondary-btn"}"

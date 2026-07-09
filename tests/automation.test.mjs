@@ -76,11 +76,32 @@ test("automation state caps next batch by total project limit", () => {
   assert.equal(state.nextCount, 1);
 });
 
-test("automation state respects exhausted daily limit without changing enabled flag", () => {
+test("automation state resets stale daily usage without changing total usage", () => {
+  const project = {
+    id: "auto-project-new-day",
+    dailyLimit: 100,
+    usedToday: 100,
+    dailyUsageDate: getYesterdayDateString(),
+    projectLimit: 176,
+    usedTotal: 90,
+    automation: { enabled: true, targetCount: 10, batchSize: 5, concurrency: 3 }
+  };
+
+  const state = getProjectAutomationState({ project, jobs: [] });
+
+  assert.equal(state.remainingDaily, 100);
+  assert.equal(state.remainingProject, 86);
+  assert.equal(state.nextCount, 3);
+  assert.equal(state.canRun, true);
+  assert.equal(state.automation.enabled, true);
+});
+
+test("automation state respects exhausted current-day daily limit without changing enabled flag", () => {
   const project = {
     id: "auto-project-daily-exhausted",
     dailyLimit: 100,
     usedToday: 100,
+    dailyUsageDate: getTodayDateString(),
     projectLimit: 176,
     usedTotal: 90,
     automation: { enabled: true, targetCount: 10, batchSize: 5, concurrency: 3 }
@@ -125,6 +146,7 @@ test("automation runner waits at daily limit without disabling autorun", async (
     id: "auto-runner-daily",
     dailyLimit: 1,
     usedToday: 1,
+    dailyUsageDate: getTodayDateString(),
     projectLimit: 5,
     usedTotal: 1,
     automation: { enabled: true, status: "running" }
@@ -144,6 +166,7 @@ test("automation runner disables autorun when project limit is reached", async (
     id: "auto-runner-project",
     dailyLimit: 10,
     usedToday: 1,
+    dailyUsageDate: getTodayDateString(),
     projectLimit: 5,
     usedTotal: 5,
     automation: { enabled: true, status: "running" }
@@ -200,30 +223,43 @@ test("store counts daily usage only when a job succeeds once", () => {
   const project = state.projects.find((item) => item.id === state.selectedProjectId);
   state.jobs = [];
   state.projects = state.projects.map((item) =>
-    item.id === project.id ? { ...item, dailyLimit: 20, usedToday: 18, projectLimit: 50, usedTotal: 48 } : item
+    item.id === project.id
+      ? {
+        ...item,
+        dailyLimit: 20,
+        usedToday: 18,
+        dailyUsageDate: getYesterdayDateString(),
+        projectLimit: 50,
+        usedTotal: 48
+      }
+      : item
   );
 
   const [job] = store.createJobs(1);
   let updated = store.getState().projects.find((item) => item.id === project.id);
-  assert.equal(updated.usedToday, 18);
+  assert.equal(updated.usedToday, 0);
   assert.equal(updated.usedTotal, 48);
+  assert.equal(updated.dailyUsageDate, getTodayDateString());
 
   store.patchJob(job.id, { status: "failed", failMsg: "provider error" });
   updated = store.getState().projects.find((item) => item.id === project.id);
-  assert.equal(updated.usedToday, 18);
+  assert.equal(updated.usedToday, 0);
   assert.equal(updated.usedTotal, 48);
+  assert.equal(updated.dailyUsageDate, getTodayDateString());
 
   store.patchJob(job.id, { status: "done", finalVideoUrl: "/generated/final.mp4" });
   updated = store.getState().projects.find((item) => item.id === project.id);
   const countedJob = store.getState().jobs.find((item) => item.id === job.id);
-  assert.equal(updated.usedToday, 19);
+  assert.equal(updated.usedToday, 1);
   assert.equal(updated.usedTotal, 49);
+  assert.equal(updated.dailyUsageDate, getTodayDateString());
   assert.ok(countedJob.quotaCountedAt);
 
   store.patchJob(job.id, { progress: 100, diskStatus: "done" });
   updated = store.getState().projects.find((item) => item.id === project.id);
-  assert.equal(updated.usedToday, 19);
+  assert.equal(updated.usedToday, 1);
   assert.equal(updated.usedTotal, 49);
+  assert.equal(updated.dailyUsageDate, getTodayDateString());
 });
 
 test("store counts image-only review jobs as successful usage", () => {
@@ -288,6 +324,20 @@ test("store updates project daily limit and resets daily usage", () => {
   assert.equal(updated.usedToday, 0);
   assert.equal(updated.usedTotal, 0);
 });
+
+function getTodayDateString() {
+  return formatDateString(new Date());
+}
+
+function getYesterdayDateString() {
+  const date = new Date();
+  date.setDate(date.getDate() - 1);
+  return formatDateString(date);
+}
+
+function formatDateString(date) {
+  return date.toISOString().slice(0, 10);
+}
 
 function createAutomationRunnerStore(project) {
   const state = { projects: [project], jobs: [] };

@@ -1,3 +1,5 @@
+import { createDailyUsageDate, normalizeProjectDailyUsage } from "./daily-usage.js";
+
 const activeQuotaStatuses = ["queued", "running"];
 
 export function patchJobWithQuotaAccounting(state, jobId, payload, createTimestamp = createIsoTimestamp) {
@@ -21,11 +23,7 @@ export function patchJobWithQuotaAccounting(state, jobId, payload, createTimesta
     jobs,
     projects: state.projects.map((project) =>
       project.id === quotaProjectId
-        ? {
-          ...project,
-          usedToday: Number(project.usedToday || 0) + 1,
-          usedTotal: Number(project.usedTotal || 0) + 1
-        }
+        ? incrementProjectUsage(project)
         : project
     )
   };
@@ -37,6 +35,16 @@ export function countSuccessfulGenerationJobs(jobs = []) {
 
 export function countActiveQuotaReservations(jobs = []) {
   return jobs.filter((job) => !job.quotaCountedAt && activeQuotaStatuses.includes(job.status)).length;
+}
+
+function incrementProjectUsage(project) {
+  const normalized = normalizeProjectDailyUsage(project);
+  return {
+    ...normalized,
+    usedToday: Number(normalized.usedToday || 0) + 1,
+    usedTotal: Number(normalized.usedTotal || 0) + 1,
+    dailyUsageDate: normalized.dailyUsageDate || createDailyUsageDate()
+  };
 }
 
 function shouldAccountJobQuota(previousJob, nextJob) {

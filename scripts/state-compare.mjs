@@ -40,6 +40,7 @@ function canonicalProject(project) {
     yandexDiskFolder: "",
     dailyLimit: 20,
     usedToday: 0,
+    dailyUsageDate: "",
     projectLimit: 500,
     usedTotal: 0,
     companyInfo: "",

@@ -1,3 +1,4 @@
+import { normalizeStateDailyUsage } from "../src/domain/daily-usage.js";
 import { createGenerationJob } from "../src/domain/generation.js";
 import { createPendingGenerationJob } from "../src/domain/generation-placeholder.js";
 import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
@@ -12,9 +13,10 @@ const runningBatches = new Map();
 export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, origin, deps = {} }) {
   const batchId = `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const result = await updateState(deps, (state) => {
-    const context = createServerSelectionContext(state, selection);
+    const dailyState = normalizeStateDailyUsage(state);
+    const context = createServerSelectionContext(dailyState, selection);
     const safeCount = Math.max(1, Math.min(10, Number(count || 1)));
-    const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts })
+    const reservedJobs = createSelectionJobBatch(dailyState, context, safeCount, { distributeProducts })
       .map((job, index) => createPendingGenerationJob(job, index, safeCount, {
         serverBatchId: batchId,
         selectionSnapshot: normalizeSelection(selection),
@@ -22,7 +24,7 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
       }));
     if (!reservedJobs.length) throw new Error("Не удалось создать задачи. Проверьте лимиты проекта.");
     return {
-      ...state,
+      ...dailyState,
       selectedProjectTab: "queue",
       jobs: [...reservedJobs, ...(state.jobs || [])]
     };

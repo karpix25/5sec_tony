@@ -1,4 +1,6 @@
+import { patchJobWithQuotaAccounting } from "../src/domain/job-quota.js";
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
+import { loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
 const jobColumns = {
@@ -48,7 +50,12 @@ export async function persistServerJobSnapshot(job, deps = {}) {
     const current = await loadPersistedJob(tx.query, job.id);
     if (!current) return false;
     const merged = { ...current, ...job };
-    await updateRelationalJobRow(tx.query, merged);
+    const accounted = await applyQuotaAccounting(tx.query, current, merged);
+    await updateRelationalJobRow(tx.query, accounted.job);
+    if (accounted.project) {
+      await updateProjectUsageRow(tx.query, accounted.project);
+      await rebuildLegacyMirror(tx.query);
+    }
     return true;
   });
 }
@@ -121,18 +128,60 @@ async function loadRelationalJobRow(query, jobId) {
 }
 
 async function loadServerJobProject(query, projectId) {
-  const result = await query("select * from studio_projects where app_state_key = $1 and id = $2 limit 1", [appStateKey, projectId]);
-  const row = result.rows[0];
+  const row = await loadProjectRow(query, projectId);
   if (!row) return null;
   return {
     ...asObject(row.extra),
     id: row.id,
     name: row.name,
     yandexDiskFolder: row.yandex_disk_folder,
+    dailyLimit: row.daily_limit,
+    usedToday: row.used_today,
+    dailyUsageDate: row.daily_usage_date || "",
+    projectLimit: row.project_limit,
+    usedTotal: row.used_total,
     avatarRoundRobinIndex: row.avatar_round_robin_index,
     ctaOverlay: asObject(row.cta_overlay),
     characters: asArray(row.characters)
   };
+}
+
+async function applyQuotaAccounting(query, currentJob, mergedJob) {
+  if (!mergedJob?.projectId) return { job: mergedJob, project: null };
+  const projectRow = await loadProjectRow(query, mergedJob.projectId);
+  if (!projectRow) return { job: mergedJob, project: null };
+  const project = {
+    id: projectRow.id,
+    dailyLimit: projectRow.daily_limit,
+    usedToday: projectRow.used_today,
+    dailyUsageDate: projectRow.daily_usage_date || "",
+    projectLimit: projectRow.project_limit,
+    usedTotal: projectRow.used_total
+  };
+  const result = patchJobWithQuotaAccounting({ jobs: [currentJob], projects: [project] }, mergedJob.id, mergedJob);
+  return {
+    job: result.jobs?.[0] || mergedJob,
+    project: result.projects?.[0] !== project ? result.projects?.[0] : null
+  };
+}
+
+async function loadProjectRow(query, projectId) {
+  const result = await query("select * from studio_projects where app_state_key = $1 and id = $2 limit 1", [appStateKey, projectId]);
+  return result.rows[0] || null;
+}
+
+async function updateProjectUsageRow(query, project) {
+  await query(
+    `update studio_projects
+     set used_today = $3, daily_usage_date = $4, used_total = $5, updated_at = now()
+     where app_state_key = $1 and id = $2`,
+    [appStateKey, project.id, project.usedToday || 0, project.dailyUsageDate || "", project.usedTotal || 0]
+  );
+}
+
+async function rebuildLegacyMirror(query) {
+  const state = await loadNormalizedState(query, appStateKey);
+  if (state) await saveLegacyState(query, appStateKey, state);
 }
 
 async function loadServerJobAudioLibrary(query) {

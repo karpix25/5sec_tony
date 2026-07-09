@@ -32,6 +32,7 @@ export async function ensureStateSchema(query) {
       yandex_disk_folder text not null default '',
       daily_limit integer not null default 20,
       used_today integer not null default 0,
+      daily_usage_date text not null default '',
       project_limit integer not null default 500,
       used_total integer not null default 0,
       company_info text not null default '',
@@ -82,6 +83,8 @@ export async function ensureStateSchema(query) {
       primary key (app_state_key, id),
       foreign key (app_state_key, project_id) references studio_projects(app_state_key, id) on delete cascade
     );
+
+    alter table studio_projects add column if not exists daily_usage_date text not null default '';
 
     alter table studio_products add column if not exists ai_passport jsonb not null default '{}'::jsonb;
 

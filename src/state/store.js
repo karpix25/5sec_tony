@@ -1,3 +1,4 @@
+import { createDailyUsageDate } from "../domain/daily-usage.js";
 import { getProductsForProject } from "../domain/generation.js";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { globalAudioLibrary } from "../domain/entities.js";
@@ -249,7 +250,7 @@ export function createStore() {
     resetProjectDailyUsage(projectId = state.selectedProjectId) {
       setState({
         projects: state.projects.map((project) =>
-          project.id === projectId ? { ...project, usedToday: 0 } : project
+          project.id === projectId ? { ...project, usedToday: 0, dailyUsageDate: createDailyUsageDate() } : project
         )
       });
     },
