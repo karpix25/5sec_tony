@@ -1,7 +1,19 @@
-import { ensureJobQueueSchema } from "./job-queue-schema.mjs";
+import { JOB_QUEUE_SCHEMA_DDL, markJobQueueSchemaReady } from "./job-queue-schema.mjs";
 
 export async function ensureStateSchema(query) {
-  await query(`
+  if (stateSchemaReady) return;
+  if (!stateSchemaPromise) {
+    stateSchemaPromise = applyStateSchema(query);
+  }
+  await stateSchemaPromise;
+}
+
+let stateSchemaReady = false;
+let stateSchemaPromise = null;
+
+async function applyStateSchema(query) {
+  try {
+    await query(`
     create table if not exists app_state (
       id text primary key,
       data jsonb not null,
@@ -211,6 +223,13 @@ export async function ensureStateSchema(query) {
     create unique index if not exists idx_studio_hook_versions_one_active
       on studio_hook_versions(app_state_key)
       where status = 'active';
+
+    ${JOB_QUEUE_SCHEMA_DDL}
   `);
-  await ensureJobQueueSchema(query);
+    markJobQueueSchemaReady();
+    stateSchemaReady = true;
+  } catch (error) {
+    stateSchemaPromise = null;
+    throw error;
+  }
 }

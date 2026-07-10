@@ -54,5 +54,26 @@ export const JOB_QUEUE_SCHEMA_DDL = `
 `;
 
 export async function ensureJobQueueSchema(query) {
-  await query(JOB_QUEUE_SCHEMA_DDL);
+  if (jobQueueSchemaReady) return;
+  if (!jobQueueSchemaPromise) {
+    jobQueueSchemaPromise = applyJobQueueSchema(query);
+  }
+  await jobQueueSchemaPromise;
+}
+
+export function markJobQueueSchemaReady() {
+  jobQueueSchemaReady = true;
+}
+
+let jobQueueSchemaReady = false;
+let jobQueueSchemaPromise = null;
+
+async function applyJobQueueSchema(query) {
+  try {
+    await query(JOB_QUEUE_SCHEMA_DDL);
+    jobQueueSchemaReady = true;
+  } catch (error) {
+    jobQueueSchemaPromise = null;
+    throw error;
+  }
 }

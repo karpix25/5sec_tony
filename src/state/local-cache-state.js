@@ -28,6 +28,38 @@ export function compactStateForLocalCache(state) {
   return compacted;
 }
 
+const compactTerminalJobFields = [
+  "id",
+  "projectId",
+  "productId",
+  "productName",
+  "characterId",
+  "status",
+  "stage",
+  "progress",
+  "title",
+  "topic",
+  "music",
+  "imageUrl",
+  "imageData",
+  "finalVideoUrl",
+  "finalVideoHasAudio",
+  "diskStatus",
+  "diskUrl",
+  "diskPublicUrl",
+  "yandexDiskUrl",
+  "diskMessage",
+  "failMsg",
+  "outputType",
+  "requiresFinalVideo",
+  "renderedWithoutAvatar",
+  "productVisualMode",
+  "inputUrls",
+  "inputRefs",
+  "quotaCountedAt",
+  "quotaCountedStatus"
+];
+
 function compactProjects(projects) {
   return projects.map((project) => ({
     ...project,
@@ -89,23 +121,21 @@ function compactJobs(jobs) {
 
 function compactHistoricalJob(job) {
   if (!isCompactTerminalJob(job)) return job;
+  return compactTerminalQueueJob(job);
+}
+
+function compactTerminalQueueJob(job) {
   return removeEmptyFields({
-    ...job,
-    prompt: "",
-    serverJobContext: undefined,
-    aiTrace: undefined,
-    promptContract: undefined,
-    imagePromptContract: undefined,
-    imagePromptPackage: undefined,
-    attentionMap: undefined,
-    qaReview: undefined,
-    creativeQuality: undefined,
-    visualBrief: undefined,
-    contentScript: undefined,
-    creativeBrief: compactTextObject(job.creativeBrief, ["topic", "hook"]),
-    diversitySlot: compactDiversitySlot(job.diversitySlot),
-    hookIntelligence: compactTextObject(job.hookIntelligence, ["hookType", "primaryEmotion"]),
-    layoutContentPlan: compactTextObject(job.layoutContentPlan, ["layoutType"])
+    ...pickFields(job, compactTerminalJobFields),
+    ...pickQueueFields(job),
+    title: compactText(job.title, 360),
+    topic: compactText(job.topic, 360),
+    music: compactText(job.music, 160),
+    failMsg: compactText(job.failMsg, 500),
+    diskMessage: compactText(job.diskMessage, 500),
+    queueLastError: compactText(job.queueLastError, 500),
+    diskPath: keepPublicHttpUrl(job.diskPath),
+    inputRefs: compactInputRefs(job.inputRefs)
   });
 }
 
@@ -113,21 +143,34 @@ function isCompactTerminalJob(job) {
   return ["done", "failed", "review"].includes(String(job?.status || ""));
 }
 
-function compactDiversitySlot(slot) {
-  if (!slot || typeof slot !== "object") return slot;
-  return {
-    contentLayer: compactTextObject(slot.contentLayer, ["id", "subject"]),
-    topicCluster: compactTextObject(slot.topicCluster, ["id", "label"])
-  };
+function compactInputRefs(inputRefs) {
+  if (!Array.isArray(inputRefs)) return inputRefs;
+  return inputRefs.map((item) => pickFields(item, ["role", "title", "isLocalData"]));
 }
 
-function compactTextObject(value, keys) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const result = {};
-  keys.forEach((key) => {
-    if (value[key]) result[key] = value[key];
-  });
-  return Object.keys(result).length ? result : undefined;
+function compactText(value, maxLength) {
+  const text = String(value || "");
+  if (!text || text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}…`;
+}
+
+function keepPublicHttpUrl(value) {
+  return /^https?:\/\//i.test(String(value || "")) ? String(value) : undefined;
+}
+
+function pickFields(source, fields) {
+  return fields.reduce((result, field) => {
+    if (hasOwn(source, field)) result[field] = source[field];
+    return result;
+  }, {});
+}
+
+function pickQueueFields(source) {
+  return Object.fromEntries(Object.entries(source || {}).filter(([key]) => key.startsWith("queue")));
+}
+
+function hasOwn(source, field) {
+  return Object.prototype.hasOwnProperty.call(source || {}, field);
 }
 
 function removeEmptyFields(value) {

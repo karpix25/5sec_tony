@@ -80,11 +80,52 @@ test("ensureJobQueueSchema sends one self-contained DDL batch", async () => {
   assert.deepEqual(queries, [JOB_QUEUE_SCHEMA_DDL]);
 });
 
+test("ensureJobQueueSchema does not repeat DDL after success", async () => {
+  const { ensureJobQueueSchema: ensureFreshJobQueueSchema } = await importFreshJobQueueSchema();
+  const queries = [];
+
+  await ensureFreshJobQueueSchema(async (text) => {
+    queries.push(text);
+    return { rows: [] };
+  });
+  await ensureFreshJobQueueSchema(async () => {
+    throw new Error("schema should already be initialized");
+  });
+
+  assert.deepEqual(queries, [JOB_QUEUE_SCHEMA_DDL]);
+});
+
+test("ensureJobQueueSchema retries after DDL failure", async () => {
+  const { ensureJobQueueSchema: ensureFreshJobQueueSchema } = await importFreshJobQueueSchema();
+  const queries = [];
+
+  await assert.rejects(
+    ensureFreshJobQueueSchema(async (text) => {
+      queries.push(text);
+      throw new Error("DDL failed");
+    }),
+    /DDL failed/
+  );
+  await ensureFreshJobQueueSchema(async (text) => {
+    queries.push(text);
+    return { rows: [] };
+  });
+
+  assert.deepEqual(queries, [JOB_QUEUE_SCHEMA_DDL, JOB_QUEUE_SCHEMA_DDL]);
+});
+
 function extractCreateTableBody(tableName) {
   const pattern = new RegExp(`create\\s+table\\s+if\\s+not\\s+exists\\s+${tableName}\\s+\\(([\\s\\S]*?)\\n\\s+\\);`, "i");
   const match = JOB_QUEUE_SCHEMA_DDL.match(pattern);
   assert.ok(match, `Missing create table body for ${tableName}`);
   return match[1];
+}
+
+let importCounter = 0;
+
+async function importFreshJobQueueSchema() {
+  importCounter += 1;
+  return import(`../scripts/job-queue-schema.mjs?cache=${importCounter}`);
 }
 
 function extractColumnNames(tableBody) {
