@@ -15,7 +15,7 @@ export function renderProjectManagementSettings({ project, automationState }) {
     canRun: false
   };
   return `
-    <form id="project-settings-form" class="ops-form text-editor-form project-settings-form">
+    <form id="project-settings-form" class="ops-form text-editor-form project-settings-form" data-transient-context="project:${escapeHtml(project.id || "")}">
       <div class="project-settings-layout">
         <section class="project-core-fields">
           ${projectTextField(projectBriefFields.name.label, "name", projectBriefFields.name.placeholder, project.name)}

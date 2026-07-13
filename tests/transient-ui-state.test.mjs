@@ -72,6 +72,58 @@ test("transient form restore skips drafts from another product context", () => {
   assert.equal(newName.value, "Новый продукт тест");
 });
 
+test("transient form restore skips project settings drafts from another project", () => {
+  const oldName = { name: "name", type: "text", value: "Power Pro" };
+  const newName = { name: "name", type: "text", value: "BBHERB" };
+  const snapshot = captureTransientUiState(createRoot({
+    forms: {
+      "project-settings-form": {
+        id: "project-settings-form",
+        dataset: { transientContext: "project:old" },
+        elements: [oldName]
+      }
+    }
+  }));
+
+  restoreTransientUiState(createRoot({
+    forms: {
+      "project-settings-form": {
+        id: "project-settings-form",
+        dataset: { transientContext: "project:new" },
+        elements: [newName]
+      }
+    }
+  }), snapshot);
+
+  assert.equal(newName.value, "BBHERB");
+});
+
+test("transient form restore keeps project settings drafts for the same project", () => {
+  const draftName = { name: "name", type: "text", value: "Черновик проекта" };
+  const renderedName = { name: "name", type: "text", value: "Сохраненное имя" };
+  const snapshot = captureTransientUiState(createRoot({
+    forms: {
+      "project-settings-form": {
+        id: "project-settings-form",
+        dataset: { transientContext: "project:same" },
+        elements: [draftName]
+      }
+    }
+  }));
+
+  restoreTransientUiState(createRoot({
+    forms: {
+      "project-settings-form": {
+        id: "project-settings-form",
+        dataset: { transientContext: "project:same" },
+        elements: [renderedName]
+      }
+    }
+  }), snapshot);
+
+  assert.equal(renderedName.value, "Черновик проекта");
+});
+
 test("transient form restore keeps drafts for the same product context", () => {
   const draftName = { name: "name", type: "text", value: "Черновик продукта" };
   const renderedName = { name: "name", type: "text", value: "Сохраненное имя" };

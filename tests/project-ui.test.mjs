@@ -64,6 +64,24 @@ test("project settings expose product in frame percentage slider", () => {
   assert.match(html, /data-product-in-frame-value/);
 });
 
+test("project settings form scopes transient drafts to the project", () => {
+  const html = renderProjectManagementSettings({
+    project: {
+      id: "project-sonre",
+      name: "SONRE",
+      yandexDiskFolder: "disk:/ВИДЕО/5сек/SONRE",
+      companyAudience: "",
+      toneOfVoice: "",
+      keyScenarios: "",
+      audienceObjections: "",
+      restrictions: ""
+    }
+  });
+
+  assert.match(html, /id="project-settings-form"/);
+  assert.match(html, /data-transient-context="project:project-sonre"/);
+});
+
 test("product in frame percentage label updates while range changes", () => {
   const field = new FakeElement({ dataset: { productInFrameField: "" } });
   const input = new FakeElement({ value: "65", dataset: { productInFrameInput: "" } });
