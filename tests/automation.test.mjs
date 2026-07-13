@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { products } from "../src/domain/entities.js";
 import { getProjectAutomationState, normalizeProjectAutomation } from "../src/domain/project-automation.js";
 import { createStore } from "../src/state/store.js";
-import { startAutomationRunner } from "../src/ui/automation-runner.js";
+import { startAutomationRunnerWithOptions } from "../src/ui/automation-runner.js";
 
 test("automation settings normalize into safe limits", () => {
   const automation = normalizeProjectAutomation({
@@ -116,6 +116,54 @@ test("automation state respects exhausted current-day daily limit without changi
   assert.equal(state.automation.enabled, true);
 });
 
+test("automation state keeps queue errors enabled but blocked from reruns", () => {
+  const project = {
+    id: "auto-project-queue-error",
+    dailyLimit: 10,
+    usedToday: 1,
+    dailyUsageDate: getTodayDateString(),
+    projectLimit: 20,
+    usedTotal: 2,
+    automation: { enabled: true, status: "error", batchSize: 1, concurrency: 1 }
+  };
+
+  const state = getProjectAutomationState({ project, jobs: [] });
+
+  assert.equal(state.automation.enabled, true);
+  assert.equal(state.nextCount, 1);
+  assert.equal(state.canRun, false);
+});
+
+test("automation runner marks queue config errors without disabling autorun", async () => {
+  let calls = 0;
+  const store = createAutomationRunnerStore({
+    id: "auto-runner-queue-error",
+    dailyLimit: 10,
+    usedToday: 0,
+    dailyUsageDate: getTodayDateString(),
+    projectLimit: 20,
+    usedTotal: 0,
+    automation: { enabled: true, status: "running" }
+  });
+
+  startAutomationRunnerWithOptions(store, {
+    createServerGenerationBatch: async () => {
+      calls += 1;
+      const error = new Error("Серверная очередь не настроена. Авторежим не запущен.");
+      error.code = "JOB_QUEUE_NOT_CONFIGURED";
+      throw error;
+    }
+  });
+  await waitForAutomationRunner();
+  await waitForAutomationRunner();
+
+  const automation = store.getState().projects[0].automation;
+  assert.equal(calls, 1);
+  assert.equal(automation.enabled, true);
+  assert.equal(automation.status, "error");
+  assert.match(automation.lastMessage, /очередь не настроена/i);
+});
+
 test("automation state ignores legacy target count when project limits have room", () => {
   const project = {
     id: "auto-project-legacy-target",
@@ -152,7 +200,7 @@ test("automation runner waits at daily limit without disabling autorun", async (
     automation: { enabled: true, status: "running" }
   });
 
-  startAutomationRunner(store);
+  startAutomationRunnerWithOptions(store);
   await waitForAutomationRunner();
 
   const automation = store.getState().projects[0].automation;
@@ -172,7 +220,7 @@ test("automation runner disables autorun when project limit is reached", async (
     automation: { enabled: true, status: "running" }
   });
 
-  startAutomationRunner(store);
+  startAutomationRunnerWithOptions(store);
   await waitForAutomationRunner();
 
   const automation = store.getState().projects[0].automation;

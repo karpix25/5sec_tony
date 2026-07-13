@@ -33,6 +33,7 @@ export function getProjectAutomationState({ project, jobs = [] }) {
   const availableDailySlots = Math.max(0, remainingDaily - activeJobs);
   const availableProjectSlots = Math.max(0, remainingProject - activeJobs);
   const nextCount = Math.min(automation.batchSize, availableSlots, availableDailySlots, availableProjectSlots);
+  const isBlockedByError = automation.status === "error";
 
   return {
     automation,
@@ -43,7 +44,7 @@ export function getProjectAutomationState({ project, jobs = [] }) {
     remainingProject,
     availableSlots,
     nextCount,
-    canRun: automation.enabled && nextCount > 0
+    canRun: automation.enabled && !isBlockedByError && nextCount > 0
   };
 }
 

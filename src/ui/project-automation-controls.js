@@ -4,7 +4,9 @@ import { formatAutomationStats } from "./generation-live.js";
 export function renderProjectAutomationControls(project, automationState) {
   const { automation, activeJobs, completedJobs, dailyUsage, remainingDaily, remainingProject } = automationState;
   const statusView = getAutomationStatusView(automationState);
-  const nextEnabled = !automation.enabled;
+  const canRetryError = automation.enabled && automation.status === "error";
+  const nextEnabled = !automation.enabled || canRetryError;
+  const buttonLabel = getAutomationButtonLabel(automation, canRetryError);
   return `
     <section class="automation-card project-automation-card">
       <div class="automation-head">
@@ -36,7 +38,7 @@ export function renderProjectAutomationControls(project, automationState) {
           class="${automation.enabled ? "ghost-btn" : "secondary-btn"}"
           type="button"
           data-next-enabled="${nextEnabled ? "true" : "false"}"
-        >${automation.enabled ? "Остановить авторежим" : "Включить авторежим"}</button>
+        >${buttonLabel}</button>
       </div>
     </section>
   `;
@@ -58,6 +60,7 @@ export function bindProjectAutomationControls(root, store) {
 
 function getAutomationStatusView(automationState) {
   const { automation, activeJobs, remainingDaily, remainingProject, canRun } = automationState;
+  if (automation?.status === "error") return { label: "Ошибка очереди", tone: "paused" };
   if (automation?.enabled && activeJobs > 0) return { label: "В работе", tone: "running" };
   if (automation?.enabled && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
   if (automation?.enabled && !remainingDaily) return { label: "Лимит дня", tone: "idle" };
@@ -66,6 +69,11 @@ function getAutomationStatusView(automationState) {
   if (automation?.status === "done" && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
   if (automation?.status === "paused") return { label: "Остановлен", tone: "paused" };
   return { label: "Выключен", tone: "idle" };
+}
+
+function getAutomationButtonLabel(automation, canRetryError) {
+  if (canRetryError) return "Повторить авторежим";
+  return automation.enabled ? "Остановить авторежим" : "Включить авторежим";
 }
 
 function readFieldValue(panel, name) {

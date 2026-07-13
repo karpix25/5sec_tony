@@ -1,4 +1,5 @@
 import { createGenerationBatch, getGenerationBatchStatus } from "./generation-batch-runner.mjs";
+import { assertBullMqConfig } from "./job-queue-dispatcher.mjs";
 
 export async function handleGenerationBatchesApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/generation/batches") {
@@ -13,6 +14,7 @@ export async function handleGenerationBatchesApi(request, response, url) {
 async function createBatch(request, response) {
   try {
     const body = await readJson(request);
+    ensureRequiredQueue(body);
     const payload = await createGenerationBatch({
       count: body.count,
       distributeProducts: body.distributeProducts === true,
@@ -21,7 +23,23 @@ async function createBatch(request, response) {
     });
     return sendJson(response, 202, payload);
   } catch (error) {
-    return sendJson(response, 502, { error: error.message || "Не удалось запустить очередь генерации" });
+    const status = error.code === "JOB_QUEUE_NOT_CONFIGURED" ? 503 : 502;
+    return sendJson(response, status, {
+      error: error.message || "Не удалось запустить очередь генерации",
+      code: error.code || "GENERATION_BATCH_ERROR"
+    });
+  }
+}
+
+function ensureRequiredQueue(body = {}) {
+  if (body.requireQueue !== true && body.source !== "automation") return;
+  try {
+    assertBullMqConfig(process.env, { requireStrict: true });
+  } catch (error) {
+    if (error.code !== "JOB_QUEUE_NOT_CONFIGURED") throw error;
+    const wrapped = new Error(`Серверная очередь не настроена. Авторежим не запущен: ${error.message}.`);
+    wrapped.code = error.code;
+    throw wrapped;
   }
 }
 

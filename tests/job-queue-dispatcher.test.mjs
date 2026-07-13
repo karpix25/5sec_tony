@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getRedisConnection, shouldUseBullMq, toBullMqJobId } from "../scripts/job-queue-dispatcher.mjs";
+import {
+  assertBullMqConfig,
+  getBullMqConfigError,
+  getRedisConnection,
+  shouldUseBullMq,
+  toBullMqJobId
+} from "../scripts/job-queue-dispatcher.mjs";
 
 test("job queue dispatcher uses BullMQ only when explicitly enabled with Redis", () => {
   assert.equal(shouldUseBullMq({ JOB_QUEUE_MODE: "inline", REDIS_URL: "redis://localhost:6379" }), false);
@@ -16,6 +22,31 @@ test("job queue dispatcher builds Redis connection without leaking job data", ()
     port: 6380,
     password: "secret"
   });
+});
+
+test("job queue dispatcher explains missing strict BullMQ config", () => {
+  assert.equal(getBullMqConfigError({ JOB_QUEUE_MODE: "inline" }), "JOB_QUEUE_MODE должен быть bullmq");
+  assert.equal(getBullMqConfigError({ JOB_QUEUE_MODE: "bullmq" }), "REDIS_HOST или REDIS_URL не настроен");
+  assert.equal(
+    getBullMqConfigError({ JOB_QUEUE_MODE: "bullmq", REDIS_HOST: "redis" }, { requireStrict: true }),
+    "JOB_QUEUE_STRICT должен быть true"
+  );
+  assert.equal(getBullMqConfigError({
+    JOB_QUEUE_MODE: "bullmq",
+    REDIS_HOST: "redis",
+    JOB_QUEUE_STRICT: "true"
+  }, { requireStrict: true }), "");
+
+  assert.throws(() => assertBullMqConfig({ JOB_QUEUE_MODE: "inline" }), /JOB_QUEUE_MODE/);
+});
+
+test("job queue dispatcher marks strict config errors with a stable code", () => {
+  try {
+    assertBullMqConfig({ JOB_QUEUE_MODE: "bullmq" });
+    assert.fail("expected missing Redis to throw");
+  } catch (error) {
+    assert.equal(error.code, "JOB_QUEUE_NOT_CONFIGURED");
+  }
 });
 
 test("job queue dispatcher encodes BullMQ job ids without Redis separators", () => {

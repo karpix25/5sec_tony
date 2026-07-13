@@ -5,6 +5,11 @@ export async function createServerGenerationBatch(payload) {
     body: JSON.stringify(payload)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Не удалось запустить серверную очередь");
+  if (!response.ok) {
+    const error = new Error(data.error || "Не удалось запустить серверную очередь");
+    error.code = data.code || "";
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }

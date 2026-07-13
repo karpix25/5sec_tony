@@ -255,6 +255,56 @@ test("project automation render shows waiting daily-limit state without disablin
   assert.doesNotMatch(html, /До цели/);
 });
 
+test("project automation render shows queue error as retryable", () => {
+  const html = renderProjectAutomationControls(
+    { id: "project-1", dailyLimit: 20, projectLimit: 126 },
+    {
+      automation: {
+        enabled: true,
+        status: "error",
+        lastMessage: "Серверная очередь не настроена. Авторежим не запущен."
+      },
+      activeJobs: 0,
+      completedJobs: 16,
+      dailyUsage: { used: 2, limit: 20 },
+      remainingDaily: 18,
+      remainingProject: 110,
+      canRun: false
+    }
+  );
+
+  assert.match(html, /Ошибка очереди/);
+  assert.match(html, /Повторить авторежим/);
+  assert.match(html, /data-next-enabled="true"/);
+  assert.match(html, /Серверная очередь не настроена/);
+});
+
+test("project automation retry button sets autorun back to running", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ id: "automation-form" });
+  const retryButton = new FakeElement({ id: "toggle-automation-mode", tagName: "button", dataset: { nextEnabled: "true" } });
+  const projectId = new FakeElement({ name: "projectId", value: "project-1" });
+  const automationCalls = [];
+  const store = {
+    updateProjectAutomation(projectId, payload) {
+      automationCalls.push([projectId, payload]);
+    }
+  };
+
+  panel.append(projectId, retryButton);
+  root.append(panel);
+  bindProjectAutomationControls(root, store);
+  retryButton.dispatchEvent({ type: "click", target: retryButton, currentTarget: retryButton });
+
+  assert.deepEqual(automationCalls, [
+    ["project-1", {
+      enabled: true,
+      status: "running",
+      lastMessage: "Авторежим включен."
+    }]
+  ]);
+});
+
 test("project automation render does not turn legacy done status into project limit", () => {
   const html = renderProjectAutomationControls(
     { id: "project-1", dailyLimit: 20, projectLimit: 126 },
