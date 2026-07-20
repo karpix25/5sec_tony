@@ -142,7 +142,7 @@ test("yandex upload API publishes file and returns public url", async () => {
   }
 });
 
-test("generation yandex folder uses brand avatar product hierarchy", () => {
+test("generation yandex folder respects selected brand folder and appends avatar product", () => {
   const folder = buildGenerationYandexDiskFolder("disk:/ВИДЕО/5сек/BBHERB", {
     projectName: "BBHERB",
     brandName: "Power Pro",
@@ -150,7 +150,7 @@ test("generation yandex folder uses brand avatar product hierarchy", () => {
     productName: "Шиммер"
   });
 
-  assert.equal(folder, "disk:/ВИДЕО/5сек/Power Pro/Антон/Шиммер");
+  assert.equal(folder, "disk:/ВИДЕО/5сек/BBHERB/Антон/Шиммер");
 });
 
 test("generation yandex folder does not duplicate brand segment", () => {
@@ -162,6 +162,17 @@ test("generation yandex folder does not duplicate brand segment", () => {
   });
 
   assert.equal(folder, "disk:/ВИДЕО/5сек/Power Pro/Антон/Шиммер");
+});
+
+test("generation yandex folder keeps no-avatar product segment for selected project folder", () => {
+  const folder = buildGenerationYandexDiskFolder("disk:/ВИДЕО/5сек/SONRE", {
+    projectName: "SONRE",
+    brandName: "Anton Studio",
+    avatarName: "Без аватара",
+    productName: "Натуральный коллаген для суставов желе"
+  });
+
+  assert.equal(folder, "disk:/ВИДЕО/5сек/SONRE/Без аватара/Натуральный коллаген для суставов желе");
 });
 
 test("generation yandex folder sanitizes segments and keeps fallbacks", () => {

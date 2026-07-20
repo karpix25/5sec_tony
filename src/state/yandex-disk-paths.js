@@ -12,15 +12,14 @@ export function buildGenerationYandexDiskFolder(baseFolder, options = {}) {
 function resolveGenerationBrandYandexFolder(baseFolder, options = {}) {
   const projectName = options.projectName || "Проект";
   const brandSegment = sanitizeFolderSegment(options.brandName || projectName, "Бренд");
-  const projectSegment = sanitizeFolderSegment(projectName, "");
   const normalizedBase = normalizeProjectYandexFolder(baseFolder, projectName);
   const parts = getYandexDiskFolderParts(normalizedBase);
-  const lastSegment = parts[parts.length - 1] || "";
-  if (lastSegment === brandSegment) return normalizedBase;
-  if (projectSegment && lastSegment === projectSegment && projectSegment !== brandSegment) {
-    return `disk:/${[...parts.slice(0, -1), brandSegment].join("/")}`;
-  }
+  if (isExplicitBrandFolder(parts)) return normalizedBase;
   return `${normalizedBase}/${brandSegment}`;
+}
+
+function isExplicitBrandFolder(parts) {
+  return parts.length > 2 && parts[0] === "ВИДЕО" && parts[1] === "5сек";
 }
 
 function getYandexDiskFolderParts(folder) {
