@@ -18,14 +18,24 @@ export function renderProjectAutomationControls(project, automationState) {
       </div>
       <div id="automation-form" class="automation-form" data-automation-form>
         <input type="hidden" name="projectId" value="${escapeHtml(project.id)}">
-        <label class="stacked-field compact-field">
-          <span>Дневной лимит генераций</span>
-          <input name="dailyLimit" class="text-input" type="number" min="1" max="500" step="1" value="${Number(project.dailyLimit || 20)}" required>
-        </label>
-        <label class="stacked-field compact-field">
-          <span>Лимит на весь проект</span>
-          <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
-        </label>
+        <div class="automation-grid">
+          <label class="stacked-field compact-field">
+            <span>Дневной лимит генераций</span>
+            <input name="dailyLimit" class="text-input" type="number" min="1" max="500" step="1" value="${Number(project.dailyLimit || 20)}" required>
+          </label>
+          <label class="stacked-field compact-field">
+            <span>Лимит на весь проект</span>
+            <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
+          </label>
+          <label class="stacked-field compact-field">
+            <span>Запускать за раз</span>
+            <input name="batchSize" class="text-input" type="number" min="1" max="10" step="1" value="${Number(automation.batchSize || 1)}" required>
+          </label>
+          <label class="stacked-field compact-field">
+            <span>Параллельно в работе</span>
+            <input name="concurrency" class="text-input" type="number" min="1" max="5" step="1" value="${Number(automation.concurrency || 1)}" required>
+          </label>
+        </div>
         <div class="automation-limit-summary">
           <strong>Сегодня: ${Number(dailyUsage?.used || 0)} / ${Number(dailyUsage?.limit || project.dailyLimit || 0)}</strong>
           <span>Осталось сегодня: ${Number(remainingDaily || 0)}</span>
@@ -46,6 +56,17 @@ export function renderProjectAutomationControls(project, automationState) {
 
 export function bindProjectAutomationControls(root, store) {
   const panel = root.querySelector("#automation-form");
+  panel?.addEventListener("change", () => {
+    const projectId = readFieldValue(panel, "projectId");
+    store.updateProjectSettings?.({
+      dailyLimit: readNumberField(panel, "dailyLimit"),
+      projectLimit: readNumberField(panel, "projectLimit")
+    });
+    store.updateProjectAutomation(projectId, {
+      batchSize: readNumberField(panel, "batchSize"),
+      concurrency: readNumberField(panel, "concurrency")
+    });
+  });
   panel?.querySelector("#toggle-automation-mode")?.addEventListener("click", (event) => {
     const projectId = readFieldValue(panel, "projectId");
     const enabled = event.currentTarget?.dataset?.nextEnabled === "true";
@@ -61,6 +82,7 @@ export function bindProjectAutomationControls(root, store) {
 function getAutomationStatusView(automationState) {
   const { automation, activeJobs, remainingDaily, remainingProject, canRun } = automationState;
   if (automation?.status === "error") return { label: "Ошибка очереди", tone: "paused" };
+  if (automation?.status === "dispatching") return { label: "Подготовка", tone: "running" };
   if (automation?.enabled && activeJobs > 0) return { label: "В работе", tone: "running" };
   if (automation?.enabled && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
   if (automation?.enabled && !remainingDaily) return { label: "Лимит дня", tone: "idle" };
@@ -78,4 +100,8 @@ function getAutomationButtonLabel(automation, canRetryError) {
 
 function readFieldValue(panel, name) {
   return panel.querySelector(`[name="${name}"]`)?.value || "";
+}
+
+function readNumberField(panel, name) {
+  return Number(readFieldValue(panel, name) || 0);
 }

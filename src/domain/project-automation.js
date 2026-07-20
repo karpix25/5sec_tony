@@ -6,8 +6,11 @@ export const defaultAutomation = {
   batchSize: 1,
   concurrency: 1,
   status: "idle",
-  lastMessage: ""
+  lastMessage: "",
+  dispatchStartedAt: ""
 };
+
+export const automationDispatchTimeoutMs = 10 * 60 * 1000;
 
 export function normalizeProjectAutomation(value = {}) {
   const isLegacyCompletedTarget = isLegacyCompletedTargetState(value);
@@ -16,11 +19,12 @@ export function normalizeProjectAutomation(value = {}) {
     batchSize: clampAutomationNumber(value.batchSize, defaultAutomation.batchSize, 1, 10),
     concurrency: clampAutomationNumber(value.concurrency, defaultAutomation.concurrency, 1, 5),
     status: isLegacyCompletedTarget ? defaultAutomation.status : value.status || defaultAutomation.status,
-    lastMessage: isLegacyCompletedTarget ? "" : value.lastMessage || ""
+    lastMessage: isLegacyCompletedTarget ? "" : value.lastMessage || "",
+    dispatchStartedAt: value.dispatchStartedAt || ""
   };
 }
 
-export function getProjectAutomationState({ project, jobs = [] }) {
+export function getProjectAutomationState({ project, jobs = [], now = Date.now() }) {
   const normalizedProject = normalizeProjectDailyUsage(project);
   const automation = normalizeProjectAutomation(normalizedProject?.automation);
   const projectJobs = jobs.filter((job) => job.projectId === normalizedProject?.id);
@@ -34,6 +38,7 @@ export function getProjectAutomationState({ project, jobs = [] }) {
   const availableProjectSlots = Math.max(0, remainingProject - activeJobs);
   const nextCount = Math.min(automation.batchSize, availableSlots, availableDailySlots, availableProjectSlots);
   const isBlockedByError = automation.status === "error";
+  const isDispatchLocked = isAutomationDispatchLocked(automation, now);
 
   return {
     automation,
@@ -44,8 +49,17 @@ export function getProjectAutomationState({ project, jobs = [] }) {
     remainingProject,
     availableSlots,
     nextCount,
-    canRun: automation.enabled && !isBlockedByError && nextCount > 0
+    isDispatchLocked,
+    canRun: automation.enabled && !isBlockedByError && !isDispatchLocked && nextCount > 0
   };
+}
+
+export function isAutomationDispatchLocked(automation = {}, now = Date.now()) {
+  const normalized = normalizeProjectAutomation(automation);
+  if (normalized.status !== "dispatching") return false;
+  const startedAt = Date.parse(normalized.dispatchStartedAt || "");
+  if (!Number.isFinite(startedAt)) return true;
+  return now - startedAt < automationDispatchTimeoutMs;
 }
 
 function clampAutomationNumber(value, fallback, min, max) {

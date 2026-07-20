@@ -1,0 +1,107 @@
+import { assertBullMqConfig } from "../job-queue-dispatcher.mjs";
+import { normalizeProjectAutomation } from "../../src/domain/project-automation.js";
+import { updateGenerationState } from "../generation-state.mjs";
+import { createGenerationBatch } from "../generation-batch-runner.mjs";
+import { claimAutomationDispatches } from "./scheduler-planner.mjs";
+import { getAutomationErrorMessage, markAutomationStatus } from "./scheduler-status.mjs";
+import { withAutomationSchedulerLock } from "./scheduler-lock.mjs";
+
+export async function runLockedAutomationSchedulerOnce(options = {}) {
+  const deps = options.deps || {};
+  const lock = deps.withAutomationSchedulerLock || withAutomationSchedulerLock;
+  return lock(() => runAutomationSchedulerOnce(options), options);
+}
+
+export async function runAutomationSchedulerOnce(options = {}) {
+  const deps = options.deps || {};
+  const env = options.env || process.env;
+  const queueReady = ensureStrictQueue(env, deps);
+  if (!queueReady.ok) return markEnabledProjectsQueueError(queueReady.error, deps);
+
+  const claim = await claimDispatches(options, deps);
+  const results = [];
+  for (const dispatch of claim.dispatches) {
+    results.push(await runDispatch(dispatch, options, deps));
+  }
+  return { ...claim, results };
+}
+
+function ensureStrictQueue(env, deps) {
+  try {
+    const assertQueue = deps.assertBullMqConfig || assertBullMqConfig;
+    assertQueue(env, { requireStrict: true });
+    return { ok: true, error: null };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+async function claimDispatches(options, deps) {
+  const updateState = deps.updateGenerationState || updateGenerationState;
+  let dispatches = [];
+  let rescued = 0;
+  const result = await updateState((state) => {
+    const claim = claimAutomationDispatches(state, {
+      now: options.now,
+      maxProjectsPerTick: options.maxProjectsPerTick,
+      staleBriefTimeoutMs: options.staleBriefTimeoutMs
+    });
+    dispatches = claim.dispatches;
+    rescued = claim.rescued;
+    return claim.state;
+  }, deps);
+  return { dispatches, rescued, state: result.state || result };
+}
+
+async function runDispatch(dispatch, options, deps) {
+  try {
+    const createBatch = deps.createGenerationBatch || createGenerationBatch;
+    const payload = await createBatch({
+      count: dispatch.count,
+      distributeProducts: true,
+      origin: getAutomationOrigin(options.env || process.env),
+      selection: dispatch.selection,
+      deps: deps.generationBatchDeps || {}
+    });
+    const jobs = payload.jobs || [];
+    await markAutomationStatus(dispatch.projectId, {
+      status: "running",
+      lastMessage: `Запущено задач: ${jobs.length || dispatch.count}.`,
+      dispatchStartedAt: ""
+    }, deps);
+    return { projectId: dispatch.projectId, ok: true, count: jobs.length || dispatch.count, batchId: payload.batchId || "" };
+  } catch (error) {
+    await markAutomationStatus(dispatch.projectId, {
+      status: "error",
+      lastMessage: getAutomationErrorMessage(error),
+      dispatchStartedAt: ""
+    }, deps);
+    return { projectId: dispatch.projectId, ok: false, error: error.message || String(error) };
+  }
+}
+
+async function markEnabledProjectsQueueError(error, deps) {
+  const updateState = deps.updateGenerationState || updateGenerationState;
+  const message = `Серверная очередь не настроена. Авторежим не запущен: ${error.message || error}.`;
+  const result = await updateState((state) => ({
+    ...state,
+    projects: (state.projects || []).map((project) => {
+      if (!project.automation?.enabled) return project;
+      return {
+        ...project,
+        automation: normalizeProjectAutomation({
+          ...(project.automation || {}),
+          enabled: true,
+          status: "error",
+          lastMessage: message,
+          dispatchStartedAt: ""
+        })
+      };
+    })
+  }), deps);
+  return { dispatches: [], rescued: 0, results: [], state: result.state || result, queueError: message };
+}
+
+function getAutomationOrigin(env) {
+  return env.AUTOMATION_ORIGIN || env.INTERNAL_SERVER_ORIGIN || `http://127.0.0.1:${env.PORT || 4173}`;
+}
