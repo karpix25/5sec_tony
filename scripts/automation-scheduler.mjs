@@ -45,16 +45,36 @@ export function createAutomationScheduler(options = {}) {
 
 async function runOnce(options, logger) {
   try {
-    const summary = await runLockedAutomationSchedulerOnce({
+    const result = await runLockedAutomationSchedulerOnce({
       deps: options.deps || {},
       env: options.env || process.env,
       staleBriefTimeoutMs: options.staleBriefMs,
       now: options.now
     });
-    logger.log(`[automation-scheduler] cycle ${JSON.stringify(summary)}`);
+    logger.log(`[automation-scheduler] cycle ${JSON.stringify(summarizeSchedulerResult(result))}`);
   } catch (error) {
     logger.error(`[automation-scheduler:error] ${error.stack || error.message || error}`);
   }
+}
+
+function summarizeSchedulerResult(result = {}) {
+  const results = result.results || [];
+  return {
+    skipped: result.skipped === true,
+    reason: result.reason || "",
+    rescued: Number(result.rescued || 0),
+    dispatches: Array.isArray(result.dispatches) ? result.dispatches.length : 0,
+    ok: results.filter((item) => item.ok).length,
+    failed: results.filter((item) => !item.ok).length,
+    queueError: result.queueError || "",
+    projects: results.map((item) => ({
+      projectId: item.projectId || "",
+      ok: item.ok === true,
+      count: Number(item.count || 0),
+      batchId: item.batchId || "",
+      error: item.error || ""
+    }))
+  };
 }
 
 function sleep(ms) {

@@ -27,7 +27,8 @@ export function isStaleBriefPlaceholder(job = {}, nowMs = Date.now(), staleMs = 
   if (!activeStatuses.has(job.status)) return false;
   if (hasActiveQueueStatus(job)) return false;
   const startedMs = getBriefStartedAtMs(job);
-  return Number.isFinite(startedMs) && nowMs - startedMs >= staleMs;
+  if (!Number.isFinite(startedMs)) return true;
+  return nowMs - startedMs >= staleMs;
 }
 
 function hasActiveQueueStatus(job) {

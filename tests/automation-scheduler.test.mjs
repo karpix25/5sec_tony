@@ -221,6 +221,31 @@ test("scheduler does not rescue fresh server-owned brief placeholders", () => {
   assert.equal(claim.dispatches.length, 0);
 });
 
+test("scheduler rescues legacy brief placeholders without started time", () => {
+  const state = createBaseState({
+    projects: [createProject("legacy-project", { automation: { enabled: true, batchSize: 1, concurrency: 1 } })],
+    jobs: [{
+      id: "legacy-brief",
+      serverBatchId: "batch-legacy",
+      projectId: "legacy-project",
+      status: "queued",
+      stage: "brief",
+      progress: 6,
+      isBriefPlaceholder: true,
+      queueStatus: ""
+    }]
+  });
+
+  const claim = claimAutomationDispatches(state, {
+    now: Date.parse("2026-07-20T09:20:00.000Z"),
+    staleBriefTimeoutMs: 15 * 60 * 1000
+  });
+
+  assert.equal(claim.rescued, 1);
+  assert.equal(claim.state.jobs[0].status, "failed");
+  assert.equal(claim.dispatches.length, 1);
+});
+
 test("automation selection stays inside the target project", () => {
   const state = createBaseState({
     selectedReferenceId: "ref-1",
