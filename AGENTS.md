@@ -1,4 +1,5 @@
 # Lessons
+- Remote node -e ESM import checks must quote module specifiers inside the evaluated JavaScript, not rely on shell quoting.
 - Production DB diagnostics must select compact fields only; never dump large JSON payloads such as job extra unless explicitly needed.
 - Yandex export paths must respect the UI-selected folder as the brand root and only append avatar/product segments.
 - Scheduler logs must never serialize the full application state; log compact counters and ids only.
