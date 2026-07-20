@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { basename, extname } from "node:path";
+import { createYandexDiskError, withYandexDiskMutationLock, withYandexDiskRetry } from "./yandex-disk-resilience.mjs";
 
 const yandexApiUrl = "https://cloud-api.yandex.net/v1/disk/resources";
 const defaultFoldersRoot = "disk:/ВИДЕО";
@@ -26,18 +27,25 @@ export async function handleYandexDiskApi(request, response, url) {
     const fileName = normalizeDiskFileName(body.fileName || basename(fileUrl.split("?")[0]) || "anton-video.mp4");
     if (!fileUrl) return sendJson(response, 400, { error: "fileUrl is required" });
 
-    await ensureYandexFolder(token, targetFolder);
     const diskPath = `${targetFolder}/${fileName}`;
-    const uploadUrl = await getUploadUrl(token, diskPath);
     const bytes = await readSourceBytes(fileUrl);
-    const upload = await fetch(uploadUrl, { method: "PUT", body: bytes });
-    if (!upload.ok) throw new Error(`Яндекс.Диск не принял файл: ${upload.status}`);
-    const publicUrl = await publishYandexResource(token, diskPath);
+    const publicUrl = await withYandexDiskMutationLock(() => uploadYandexDiskBytes({
+      token,
+      targetFolder,
+      diskPath,
+      bytes
+    }));
 
     return sendJson(response, 200, { diskPath, diskUrl: publicUrl, publicUrl, fileName });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "Не удалось сохранить файл на Яндекс.Диск" });
   }
+}
+
+async function uploadYandexDiskBytes({ token, targetFolder, diskPath, bytes }) {
+  await ensureYandexFolder(token, targetFolder);
+  await uploadYandexDiskResource(token, diskPath, bytes);
+  return await publishYandexResource(token, diskPath);
 }
 
 async function handleYandexFoldersApi(request, response, url) {
@@ -102,14 +110,15 @@ async function ensureYandexFolder(token, folder) {
   let current = "disk:";
   for (const part of parts) {
     current = `${current}/${part}`;
-    const result = await fetch(`${yandexApiUrl}?path=${encodeURIComponent(current)}`, {
-      method: "PUT",
-      headers: { Authorization: getYandexAuthHeader(token) }
-    });
-    if (!result.ok && result.status !== 409) {
+    await withYandexDiskRetry(async () => {
+      const result = await fetch(`${yandexApiUrl}?path=${encodeURIComponent(current)}`, {
+        method: "PUT",
+        headers: { Authorization: getYandexAuthHeader(token) }
+      });
+      if (result.ok || result.status === 409) return;
       const payload = await result.json().catch(() => ({}));
-      throw new Error(payload.message || `Не удалось создать папку Яндекс.Диска: ${current}`);
-    }
+      throw createYandexHttpError(result.status, payload, `Не удалось создать папку Яндекс.Диска: ${current}`);
+    });
   }
 }
 
@@ -130,25 +139,44 @@ async function getYandexResource(token, path, offset = 0) {
 }
 
 async function getUploadUrl(token, path) {
-  const result = await fetch(`${yandexApiUrl}/upload?path=${encodeURIComponent(path)}&overwrite=true`, {
-    headers: { Authorization: getYandexAuthHeader(token) }
+  return await withYandexDiskRetry(async () => {
+    const result = await fetch(`${yandexApiUrl}/upload?path=${encodeURIComponent(path)}&overwrite=true`, {
+      headers: { Authorization: getYandexAuthHeader(token) }
+    });
+    const payload = await result.json().catch(() => ({}));
+    if (!result.ok) throw createYandexHttpError(result.status, payload, "Яндекс.Диск не вернул upload URL");
+    if (!payload.href) throw createYandexDiskError("Яндекс.Диск не вернул upload URL", { retryable: true });
+    return payload.href;
   });
-  const payload = await result.json().catch(() => ({}));
-  if (!result.ok || !payload.href) throw new Error(payload.message || "Яндекс.Диск не вернул upload URL");
-  return payload.href;
+}
+
+async function uploadYandexDiskResource(token, path, bytes) {
+  await withYandexDiskRetry(async () => {
+    const uploadUrl = await getUploadUrl(token, path);
+    const upload = await fetch(uploadUrl, { method: "PUT", body: bytes });
+    if (!upload.ok) throw createYandexDiskError(`Яндекс.Диск не принял файл: ${upload.status}`, { status: upload.status });
+  });
 }
 
 async function publishYandexResource(token, path) {
-  const result = await fetch(`${yandexApiUrl}/publish?path=${encodeURIComponent(path)}`, {
-    method: "PUT",
-    headers: { Authorization: getYandexAuthHeader(token) }
-  });
-  if (!result.ok && result.status !== 409) {
+  await withYandexDiskRetry(async () => {
+    const result = await fetch(`${yandexApiUrl}/publish?path=${encodeURIComponent(path)}`, {
+      method: "PUT",
+      headers: { Authorization: getYandexAuthHeader(token) }
+    });
+    if (result.ok || result.status === 409) return;
     const payload = await result.json().catch(() => ({}));
-    throw new Error(payload.message || `Не удалось опубликовать файл Яндекс.Диска: ${path}`);
-  }
-  const resource = await getYandexPublishedResource(token, path);
-  if (!resource.public_url) throw new Error(`Яндекс.Диск не вернул публичную ссылку: ${path}`);
+    throw createYandexHttpError(result.status, payload, `Не удалось опубликовать файл Яндекс.Диска: ${path}`);
+  });
+
+  const resource = await withYandexDiskRetry(async () => {
+    const published = await getYandexPublishedResource(token, path);
+    if (!published.public_url) {
+      throw createYandexDiskError(`Яндекс.Диск ещё не вернул публичную ссылку: ${path}`, { retryable: true });
+    }
+    return published;
+  }, { attempts: 8, baseDelayMs: 1000 });
+
   return resource.public_url;
 }
 
@@ -161,8 +189,13 @@ async function getYandexPublishedResource(token, path) {
     headers: { Authorization: getYandexAuthHeader(token) }
   });
   const payload = await result.json().catch(() => ({}));
-  if (!result.ok) throw new Error(payload.message || `Не удалось получить публичную ссылку Яндекс.Диска: ${path}`);
+  if (!result.ok) throw createYandexHttpError(result.status, payload, `Не удалось получить публичную ссылку Яндекс.Диска: ${path}`);
   return payload;
+}
+
+function createYandexHttpError(status, payload, fallbackMessage) {
+  const message = payload?.message || payload?.description || payload?.error || fallbackMessage;
+  return createYandexDiskError(message, { status, payload });
 }
 
 async function readSourceBytes(source) {
