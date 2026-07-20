@@ -22,13 +22,18 @@ export function rescueStaleBriefJobsInState(state = {}, options = {}) {
 }
 
 export function isStaleBriefPlaceholder(job = {}, nowMs = Date.now(), staleMs = defaultStaleBriefMs) {
-  if (!job.serverBatchId || job.stage !== "brief") return false;
-  if (!job.isBriefPlaceholder && !/AI-бриф/i.test(String(job.title || ""))) return false;
+  if (job.stage !== "brief") return false;
+  if (!looksLikeBriefPlaceholder(job)) return false;
   if (!activeStatuses.has(job.status)) return false;
   if (hasActiveQueueStatus(job)) return false;
   const startedMs = getBriefStartedAtMs(job);
   if (!Number.isFinite(startedMs)) return true;
   return nowMs - startedMs >= staleMs;
+}
+
+function looksLikeBriefPlaceholder(job) {
+  if (job.serverBatchId || job.isBriefPlaceholder || /AI-бриф/i.test(String(job.title || ""))) return true;
+  return job.status === "queued" && !String(job.queueStatus || "").trim() && Number(job.progress || 0) <= 10;
 }
 
 function hasActiveQueueStatus(job) {
