@@ -71,6 +71,7 @@ export async function loadPersistedServerJobContext(job, deps = {}) {
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   return withTransaction(async (tx) => ({
     project: await loadServerJobProject(tx.query, job.projectId),
+    product: await loadServerJobProduct(tx.query, job.productId),
     audioLibrary: await loadServerJobAudioLibrary(tx.query),
     selectedCharacterId: job.characterId || "",
     selectedAudioId: ""
@@ -134,6 +135,7 @@ async function loadServerJobProject(query, projectId) {
     ...asObject(row.extra),
     id: row.id,
     name: row.name,
+    client: row.client,
     yandexDiskFolder: row.yandex_disk_folder,
     dailyLimit: row.daily_limit,
     usedToday: row.used_today,
@@ -143,6 +145,27 @@ async function loadServerJobProject(query, projectId) {
     avatarRoundRobinIndex: row.avatar_round_robin_index,
     ctaOverlay: asObject(row.cta_overlay),
     characters: asArray(row.characters)
+  };
+}
+
+async function loadServerJobProduct(query, productId) {
+  if (!productId) return null;
+  const result = await query("select * from studio_products where app_state_key = $1 and id = $2 limit 1", [appStateKey, productId]);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    ...asObject(row.extra),
+    id: row.id,
+    projectId: row.project_id,
+    name: row.name,
+    description: row.description,
+    offer: row.offer,
+    components: row.components,
+    pains: asArray(row.pains),
+    facts: asArray(row.facts),
+    forbidden: asArray(row.forbidden),
+    aiPassport: asObject(row.ai_passport),
+    references: asArray(row.references)
   };
 }
 

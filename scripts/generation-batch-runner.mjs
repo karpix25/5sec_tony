@@ -104,6 +104,7 @@ async function prepareServerJob(jobId, origin, deps) {
     job,
     context: {
       project: context.project,
+      product: context.product,
       audioLibrary: preparedState.audioLibrary || [],
       selectedAudioId: selection.audioId || preparedState.selectedAudioId || "",
       selectedCharacterId: selection.characterId || preparedState.selectedCharacterId || ""

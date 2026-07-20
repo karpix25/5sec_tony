@@ -93,8 +93,10 @@ function applyAvatarUsage(store, jobId, usage) {
 function createServerJobContext(store, job) {
   const state = store.getState();
   const project = state.projects?.find((item) => item.id === job.projectId) || null;
+  const product = state.products?.find((item) => item.id === job.productId) || null;
   return {
     project,
+    product,
     audioLibrary: state.audioLibrary || [],
     selectedAudioId: state.selectedAudioId || "",
     selectedCharacterId: state.selectedCharacterId || ""

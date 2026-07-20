@@ -6,7 +6,7 @@ import { selectServerJobAudio } from "./server-job-audio.mjs";
 import { limitImagePrompt } from "../src/domain/image-prompt-budget.js";
 import { ensureRussianImagePromptGuard } from "../src/domain/language-policy.js";
 import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
-import { buildAvatarYandexDiskFolder } from "../src/state/factories.js";
+import { buildGenerationYandexDiskFolder } from "../src/state/yandex-disk-paths.js";
 import { createOperationLogger, summarizeJobForLog } from "./operation-logger.mjs";
 
 const successStates = ["success", "succeeded", "completed", "complete"];
@@ -236,17 +236,17 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
     logger.log("disk:skip", { job: summarizeJobForLog(record.job), reason: "project has no yandexDiskFolder" });
     return;
   }
-  const avatarName = resolveServerJobAvatarName(project, record.job, record.context.selectedCharacterId);
+  const targetFolder = buildServerJobYandexDiskFolder(record);
   try {
     logger.log("disk:start", {
       job: summarizeJobForLog(record.job),
-      targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
+      targetFolder,
       fileName: buildServerExportFileName(project, record.job)
     });
     await patchServerJob(record, { diskStatus: "uploading", diskMessage: "Сервер сохраняет в Яндекс.Диск..." });
     const result = await postServerJson(record.origin, "/api/yandex-disk/upload", {
       fileUrl: finalVideoUrl,
-      targetFolder: buildAvatarYandexDiskFolder(project.yandexDiskFolder, avatarName),
+      targetFolder,
       fileName: buildServerExportFileName(project, record.job)
     });
     const diskUrl = result.diskUrl || result.publicUrl || "";
@@ -270,6 +270,24 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
     });
     logger.log("disk:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
   }
+}
+
+function buildServerJobYandexDiskFolder(record) {
+  const project = record.context.project || {};
+  return buildGenerationYandexDiskFolder(project.yandexDiskFolder, {
+    projectName: project.name || "Проект",
+    brandName: project.client || project.name || "Бренд",
+    avatarName: resolveServerJobAvatarName(project, record.job, record.context.selectedCharacterId),
+    productName: resolveServerJobProductName(record)
+  });
+}
+
+function resolveServerJobProductName(record) {
+  const productId = record.job.productId || record.context.product?.id || "";
+  return record.job.productName
+    || record.context.product?.name
+    || record.context.products?.find((item) => item.id === productId)?.name
+    || "Без продукта";
 }
 
 async function cleanupLocalGeneratedVideo(videoUrl) {

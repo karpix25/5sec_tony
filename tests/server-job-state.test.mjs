@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { persistServerJobSnapshot } from "../scripts/server-job-state.mjs";
+import { loadPersistedServerJobContext, persistServerJobSnapshot } from "../scripts/server-job-state.mjs";
 
 test("server job progress updates normalized row without touching legacy app state", async () => {
   const queries = [];
@@ -34,6 +34,21 @@ test("server job progress updates keep product name snapshot in relational extra
 
   assert.equal(persisted, true);
   assert.equal(extra.productName, "Старое имя продукта");
+});
+
+test("server job context restores brand and product for yandex folder path", async () => {
+  const context = await loadPersistedServerJobContext(
+    { projectId: "project-1", productId: "product-1", characterId: "char-1" },
+    {
+      isPostgresConfigured: () => true,
+      withPostgresTransaction: async (callback) => callback({ query: createContextQueryRecorder() })
+    }
+  );
+
+  assert.equal(context.project.client, "Power Pro");
+  assert.equal(context.project.yandexDiskFolder, "disk:/ВИДЕО/5сек/BBHERB");
+  assert.equal(context.product.name, "Шиммер");
+  assert.equal(context.selectedCharacterId, "char-1");
 });
 
 function createQueryRecorder(queries, options = {}) {
@@ -71,6 +86,50 @@ function createQueryRecorder(queries, options = {}) {
         }]
       };
     }
+    return { rows: [] };
+  };
+}
+
+function createContextQueryRecorder() {
+  return async function query(text) {
+    if (/select \* from studio_projects/i.test(text)) {
+      return {
+        rows: [{
+          id: "project-1",
+          name: "BBHERB",
+          client: "Power Pro",
+          yandex_disk_folder: "disk:/ВИДЕО/5сек/BBHERB",
+          daily_limit: 20,
+          used_today: 0,
+          daily_usage_date: "",
+          project_limit: 100,
+          used_total: 0,
+          avatar_round_robin_index: 0,
+          cta_overlay: {},
+          characters: [],
+          extra: {}
+        }]
+      };
+    }
+    if (/select \* from studio_products/i.test(text)) {
+      return {
+        rows: [{
+          id: "product-1",
+          project_id: "project-1",
+          name: "Шиммер",
+          description: "",
+          offer: "",
+          components: "",
+          pains: [],
+          facts: [],
+          forbidden: [],
+          ai_passport: {},
+          references: [],
+          extra: {}
+        }]
+      };
+    }
+    if (/studio_global_audio_assets/i.test(text)) return { rows: [] };
     return { rows: [] };
   };
 }

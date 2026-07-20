@@ -52,6 +52,7 @@ test("image job starts on the server and mirrors final status into the queue", a
   const job = {
     id: "job-server-run",
     projectId: project.id,
+    productId: "product-1",
     status: "queued",
     stage: "idea",
     progress: 6,
@@ -60,6 +61,7 @@ test("image job starts on the server and mirrors final status into the queue", a
   };
   const state = {
     projects: [project],
+    products: [{ id: "product-1", projectId: project.id, name: "Шиммер" }],
     jobs: [job],
     selectedAudioId: "audio-1",
     selectedCharacterId: "char-1",
@@ -105,6 +107,7 @@ test("image job starts on the server and mirrors final status into the queue", a
 
     assert.equal(runPayload.job.id, job.id);
     assert.equal(runPayload.context.project.id, project.id);
+    assert.equal(runPayload.context.product.name, "Шиммер");
     assert.equal(runPayload.context.selectedAudioId, "audio-1");
     assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final.mp4");
     assert.deepEqual(markedUsage, { characterId: "char-1", videoId: "video-1", nextIndex: 1, nextCharacterIndex: 0 });

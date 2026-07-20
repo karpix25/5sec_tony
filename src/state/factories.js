@@ -283,10 +283,11 @@ function buildExportLabelFromDiskFolder(folder) {
   return suffix ? `${yandexExportLabelRoot} / ${suffix}` : yandexExportLabelRoot;
 }
 
-function sanitizeFolderSegment(value, fallback = "Проект") {
+export function sanitizeFolderSegment(value, fallback = "Проект") {
   const cleaned = String(value || "")
     .trim()
-    .replace(/[\\:*?"<>|]+/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return cleaned || fallback;
 }

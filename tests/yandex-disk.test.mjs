@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { Readable } from "node:stream";
 import { handleYandexDiskApi, listYandexFolders } from "../scripts/yandex-disk-api.mjs";
 import { listYandexDiskFolders } from "../src/services/yandex-disk.js";
+import { buildGenerationYandexDiskFolder } from "../src/state/yandex-disk-paths.js";
 import { renderProjectManagementSettings } from "../src/ui/project.js";
 
 test("yandex folder API lists nested folders from video root", async () => {
@@ -139,6 +140,39 @@ test("yandex upload API publishes file and returns public url", async () => {
     if (previousToken === undefined) delete process.env.YANDEX_DISK_TOKEN;
     else process.env.YANDEX_DISK_TOKEN = previousToken;
   }
+});
+
+test("generation yandex folder uses brand avatar product hierarchy", () => {
+  const folder = buildGenerationYandexDiskFolder("disk:/ВИДЕО/5сек/BBHERB", {
+    projectName: "BBHERB",
+    brandName: "Power Pro",
+    avatarName: "Антон",
+    productName: "Шиммер"
+  });
+
+  assert.equal(folder, "disk:/ВИДЕО/5сек/Power Pro/Антон/Шиммер");
+});
+
+test("generation yandex folder does not duplicate brand segment", () => {
+  const folder = buildGenerationYandexDiskFolder("disk:/ВИДЕО/5сек/Power Pro", {
+    projectName: "BBHERB",
+    brandName: "Power Pro",
+    avatarName: "Антон",
+    productName: "Шиммер"
+  });
+
+  assert.equal(folder, "disk:/ВИДЕО/5сек/Power Pro/Антон/Шиммер");
+});
+
+test("generation yandex folder sanitizes segments and keeps fallbacks", () => {
+  const folder = buildGenerationYandexDiskFolder("disk:/ВИДЕО/5сек", {
+    projectName: "Проект",
+    brandName: "Бренд: тест?",
+    avatarName: "",
+    productName: "Крем/сыворотка"
+  });
+
+  assert.equal(folder, "disk:/ВИДЕО/5сек/Бренд тест/Без аватара/Крем сыворотка");
 });
 
 test("yandex folder client requests the video root by default", async () => {

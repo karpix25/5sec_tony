@@ -94,6 +94,7 @@ const files = [
   "src/services/yandex-disk.js",
   "src/services/auth-client.js",
   "src/state/factories.js",
+  "src/state/yandex-disk-paths.js",
   "src/state/global-assets.js",
   "src/state/job-batch.js",
   "src/state/reference-libraries.js",
