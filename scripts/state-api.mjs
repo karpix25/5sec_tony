@@ -106,11 +106,11 @@ async function handleSaveState(request, response, url, deps) {
           error: productDeletionConflict
         };
       }
-      await deps.saveNormalized(tx.query, appStateKey, nextState);
-      const legacyResult = await deps.saveLegacy(tx.query, appStateKey, nextState);
+      const savedState = await deps.saveNormalized(tx.query, appStateKey, nextState) || nextState;
+      const legacyResult = await deps.saveLegacy(tx.query, appStateKey, savedState);
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
-      if (!statesEqual(rebuiltState, nextState)) {
-        throw new Error(formatParityError("Relational state parity check failed", rebuiltState, nextState));
+      if (!statesEqual(rebuiltState, savedState)) {
+        throw new Error(formatParityError("Relational state parity check failed", rebuiltState, savedState));
       }
       return {
         updatedAt: legacyResult.rows[0]?.updated_at || null,

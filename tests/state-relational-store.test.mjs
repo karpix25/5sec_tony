@@ -130,6 +130,79 @@ test("save and load normalized state preserves queue product filter", async () =
   assert.deepEqual(loadedState.products.map((product) => product.id), ["product-1"]);
 });
 
+test("save normalized state preserves server job lifecycle fields from stale client snapshots", async () => {
+  const db = createFakeRelationalStateDb();
+  const baseState = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: [{
+      id: "job-protected",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "queued",
+      stage: "image",
+      progress: 18,
+      queueName: "generation",
+      queueStatus: "queued",
+      queueIdempotencyKey: "generation:job-protected",
+      serverJobAcceptedAt: "2026-07-21T06:11:45.000Z",
+      imageTaskId: "image-task-protected",
+      imageProvider: "gpt-image-2",
+      serverJobContext: { project: { id: "project-1" } }
+    }]
+  };
+  await saveNormalizedState(db.query, "workspace-protected-jobs", baseState);
+
+  await saveNormalizedState(db.query, "workspace-protected-jobs", {
+    ...baseState,
+    jobs: [{
+      id: "job-protected",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "running",
+      stage: "brief",
+      progress: 6,
+      title: "Client title"
+    }]
+  });
+
+  const loadedState = await loadNormalizedState(db.query, "workspace-protected-jobs");
+  assert.equal(loadedState.jobs[0].title, "Client title");
+  assert.equal(loadedState.jobs[0].status, "queued");
+  assert.equal(loadedState.jobs[0].stage, "image");
+  assert.equal(loadedState.jobs[0].progress, 18);
+  assert.equal(loadedState.jobs[0].queueStatus, "queued");
+  assert.equal(loadedState.jobs[0].queueIdempotencyKey, "generation:job-protected");
+  assert.equal(loadedState.jobs[0].serverJobAcceptedAt, "2026-07-21T06:11:45.000Z");
+  assert.equal(loadedState.jobs[0].imageTaskId, "image-task-protected");
+  assert.equal(loadedState.jobs[0].imageProvider, "gpt-image-2");
+  assert.deepEqual(loadedState.jobs[0].serverJobContext, { project: { id: "project-1" } });
+});
+
+test("save normalized state keeps ordinary queued draft edits editable", async () => {
+  const db = createFakeRelationalStateDb();
+  const baseState = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: [{ id: "job-draft", projectId: "project-1", productId: "product-1", status: "queued", stage: "idea", progress: 0 }]
+  };
+  await saveNormalizedState(db.query, "workspace-draft-jobs", baseState);
+
+  await saveNormalizedState(db.query, "workspace-draft-jobs", {
+    ...baseState,
+    jobs: [{ id: "job-draft", projectId: "project-1", productId: "product-1", status: "queued", stage: "brief", progress: 8, title: "Updated" }]
+  });
+
+  const loadedState = await loadNormalizedState(db.query, "workspace-draft-jobs");
+  assert.equal(loadedState.jobs[0].title, "Updated");
+  assert.equal(loadedState.jobs[0].stage, "brief");
+  assert.equal(loadedState.jobs[0].progress, 8);
+});
+
 test("load normalized state queries one postgres client sequentially", async () => {
   let active = false;
   const state = await loadNormalizedState(async (text) => {

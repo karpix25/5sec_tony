@@ -1,4 +1,6 @@
 # Lessons
+- Default boolean false job columns such as finalVideoHasAudio must not count as meaningful server lifecycle markers.
+- Queue-managed job detection must not treat every default queueName=generation queued row as active; require active queueStatus, lifecycle marker, or running/retrying state.
 - Remote node -e ESM import checks must quote module specifiers inside the evaluated JavaScript, not rely on shell quoting.
 - Production DB diagnostics must select compact fields only; never dump large JSON payloads such as job extra unless explicitly needed.
 - Yandex export paths must respect the UI-selected folder as the brand root and only append avatar/product segments.

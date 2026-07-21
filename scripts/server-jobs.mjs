@@ -1,5 +1,6 @@
 import { dispatchJobToQueue, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
 import { enqueueJobLedgerRecord, patchJobLedgerRecord } from "./job-ledger-store.mjs";
+import { isQueueManagedServerJob } from "./job-state-merge-policy.mjs";
 import { loadPersistedServerJob, loadPersistedServerJobContext, persistServerJobSnapshot } from "./server-job-state.mjs";
 import {
   createResumedServerJobRecord,
@@ -185,7 +186,7 @@ async function sendPersistedServerJobStatus(response, jobId, deps) {
     return sendJson(response, 404, { error: "server job not found" });
   }
   logger.log("status:persisted-hit", { job: summarizeJobForLog(job) });
-  if (isTerminalServerJob(job) || (deps.shouldUseQueueWorker() && isActiveQueuedServerJob(job))) {
+  if (isTerminalServerJob(job) || (deps.shouldUseQueueWorker() && isQueueManagedServerJob(job))) {
     return sendJson(response, 200, { job: toPublicServerJob(job), avatarUsage: null });
   }
   const record = createResumedServerJobRecord(job, deps.persistJob, await deps.loadJobContext(job), deps.patchLedger);
@@ -212,11 +213,6 @@ function createLegacyBullMqDispatch(deps) {
     await deps.enqueueBullMqServerJob(job.id);
     return { mode: "bullmq", enqueued: true };
   };
-}
-
-function isActiveQueuedServerJob(job) {
-  if (["queued", "running", "retrying"].includes(job?.queueStatus)) return true;
-  return Boolean(job?.serverJobAcceptedAt && job?.status === "running" && !job?.imageTaskId && !job?.imageUrl);
 }
 
 async function enqueueServerJobLedger(record) {
