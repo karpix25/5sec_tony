@@ -41,3 +41,13 @@ test("flat bundle includes sync fetch helper before sync clients", () => {
   assert.ok(files.indexOf("src/services/sync-fetch.js") < files.indexOf("src/services/products-sync.js"));
   assert.ok(files.indexOf("src/services/sync-fetch.js") < files.indexOf("src/services/state-sync.js"));
 });
+
+test("flat bundle includes design reference actions before store", () => {
+  const buildSource = readFileSync(new URL("../scripts/build-bundle.mjs", import.meta.url), "utf8");
+  const files = [...buildSource.matchAll(/"([^"]+\.js)"/g)].map((match) => match[1]);
+
+  assert.ok(files.includes("src/services/design-references-sync.js"));
+  assert.ok(files.includes("src/state/design-reference-actions.js"));
+  assert.ok(files.indexOf("src/services/design-references-sync.js") < files.indexOf("src/state/design-reference-actions.js"));
+  assert.ok(files.indexOf("src/state/design-reference-actions.js") < files.indexOf("src/state/store.js"));
+});
