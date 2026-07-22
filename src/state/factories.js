@@ -17,22 +17,6 @@ export const defaultGenerationBrief = {
   notes: ""
 };
 
-const ppmViralReference = {
-  id: "viral-pink-symptoms",
-  type: "design",
-  title: "Viral symptoms poster",
-  promptComment: "Использовать только дизайн: вертикальная композиция, иерархия, glow-хук, плотность, палитра и safe zone.",
-  takeaways: "Вертикальный 9:16. Весь текст и ключевые объекты внутри safe zone. Верхний хук в яркой розовой glow-плашке: белые жирные буквы с черной обводкой. Ниже крупный serif-тезис с большой цифрой или сильным словом. Слева плотная колонка коротких пунктов с 3D-иконками. Справа крупный 3D-объект по теме. Нижнюю часть не перегружать: аватар будет наложен отдельно в видео.",
-  avoidCopy: "Не копировать текст, смысл, симптомы, чужого человека, чужой продукт, логотипы и обещания. Не встраивать аватара в картинку.",
-  layoutType: "symptoms",
-  palette: "нежный розово-персиковый фон, яркий hot-pink glow под верхним хуком, темный контур текста, оливково-зеленые или teal-акценты под финтех-иконки",
-  fontStyle: "верхний заголовок: крупный белый bold sans с черной обводкой, сильной тенью и розовым свечением; второй тезис: крупный контрастный serif как журнальный заголовок",
-  headlineStyle: "верхний заголовок: крупный белый bold sans, черная обводка, сильная тень и розовое свечение; второй тезис: крупный контрастный serif, как журнальный заголовок",
-  avatarPlacement: "",
-  textDensity: "high",
-  visualObject: "крупный 3D-объект оплаты: карта, глобус, терминал, экран подписки или связка сервисов"
-};
-
 const yandexVideoRoot = "disk:/ВИДЕО/5сек";
 const yandexExportLabelRoot = "Yandex Disk / 5сек";
 
@@ -96,8 +80,7 @@ export function createProductEntity(projectId, name, payload = {}) {
 export function ensureProjectAssets(project) {
   const dailyProject = normalizeProjectDailyUsage(project);
   const legacyAudios = (dailyProject.references || []).filter((item) => item.type === "audio");
-  const projectReferences = ensureProjectReferenceDefaults(dailyProject);
-  const references = projectReferences
+  const references = (dailyProject.references || [])
     .filter(isDesignReference)
     .map(createReferenceEntity);
   return {
@@ -214,17 +197,6 @@ function normalizeFactoryRoundRobinIndex(value) {
   return Math.max(0, Math.round(number));
 }
 
-function ensureProjectReferenceDefaults(project) {
-  const references = project.references || [];
-  if (!references.length) return references;
-  if (!isPpmLikeProject(project) || references.some((item) => item.id === ppmViralReference.id)) return references;
-  return [ppmViralReference, ...references];
-}
-
-function isPpmLikeProject(project) {
-  const source = `${project.id || ""} ${project.name || ""} ${project.projectTheme || ""} ${project.companyInfo || ""}`.toLowerCase();
-  return /(^|\s)ppm(\s|$)|ппм|плати по миру|оплат[аы] зарубеж/.test(source);
-}
 
 export function ensureProductAssets(product) {
   return {

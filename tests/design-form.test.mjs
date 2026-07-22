@@ -41,6 +41,29 @@ test("design reference submit keeps title-only flow for generated templates", as
   }
 });
 
+test("design reference submit awaits backend-first reference creation", async () => {
+  const restore = installFormAndFileFakes({ uploadUrl: "/api/reference-assets/ref-preview" });
+  const calls = [];
+  const form = createDesignForm({ fileName: "style.png" });
+  const store = {
+    async createReference(payload) {
+      calls.push(["start", payload.imageData]);
+      await wait(10);
+      calls.push(["done", payload.title]);
+    }
+  };
+
+  try {
+    await submitDesignReferenceForm(form, store);
+    assert.deepEqual(calls, [
+      ["start", "/api/reference-assets/ref-preview"],
+      ["done", "Столбы"]
+    ]);
+  } finally {
+    restore();
+  }
+});
+
 function createDesignForm({ fileName }) {
   return {
     resetCount: 0,
@@ -81,4 +104,8 @@ function installFormAndFileFakes({ uploadUrl = "" } = {}) {
     globalThis.FormData = originalFormData;
     globalThis.FileReader = originalFileReader;
   };
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

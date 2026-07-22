@@ -45,7 +45,7 @@ test("brief service sends hook library and active design reference context", asy
     await generateAiBrief({
       project: {},
       product: {},
-      reference: { id: "viral-pink-symptoms", title: "Viral symptoms poster", textDensity: "high" },
+      reference: { id: "viral-pink-symptoms", title: "Вирусная инфографика с glow-хуком", textDensity: "high" },
       existingJobs: [{ title: "Старый", contentLayerId: "life-pain", diversitySlot: { contentLayer: { subject: "сон" } } }],
       hookLibrary: {
         activeVersionId: "v1",
@@ -54,7 +54,7 @@ test("brief service sends hook library and active design reference context", asy
     });
 
     assert.equal(requestBody.hookLibrary.hooks[0].text, "Оказалось, я делал это неправильно");
-    assert.equal(requestBody.activeDesignReference.title, "Viral symptoms poster");
+    assert.equal(requestBody.activeDesignReference.title, "Вирусная инфографика с glow-хуком");
     assert.equal(requestBody.layoutContentPlan.layoutType, "symptoms-poster");
     assert.equal(requestBody.existingJobs[0].contentLayerId, "life-pain");
     assert.equal(requestBody.existingJobs[0].contentLayerSubject, "сон");

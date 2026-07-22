@@ -104,7 +104,7 @@ test("image prompt includes hook intelligence and active design layout guidance"
   assert.match(prompt, /ВНУТРЕННЕЕ ПРАВИЛО ХУКА/);
   assert.match(prompt, /ВНУТРЕННЯЯ СТРУКТУРА ДИЗАЙНА/);
   assert.match(prompt, /Curiosity score target: 8\/10/);
-  assert.match(prompt, /Активный дизайн-референс: Viral symptoms poster/);
+  assert.match(prompt, /Активный дизайн-референс: Вирусная инфографика с glow-хуком/);
   assert.match(prompt, /Не превращай все дизайны в одинаковый список из 4 пунктов/);
 });
 

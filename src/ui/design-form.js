@@ -16,7 +16,7 @@ export async function submitDesignReferenceForm(form, store) {
       store.createDesignReferenceTemplate(payload);
       return;
     }
-    store.createReference({ ...payload, promptComment: "", takeaways: "" });
+    await store.createReference({ ...payload, promptComment: "", takeaways: "" });
     await refreshSavedDesignAnalysis(store);
   } catch (error) {
     console.warn("[design-reference:save:error]", error.message || error);
@@ -31,7 +31,7 @@ async function refreshSavedDesignAnalysis(store) {
     project: context.project,
     reference: context.reference
   });
-  store.updateSelectedDesignReference({ designAnalysis: { ...designAnalysis, analyzedAt: new Date().toISOString() } });
+  await store.updateSelectedDesignReference({ designAnalysis: { ...designAnalysis, analyzedAt: new Date().toISOString() } });
 }
 
 export async function getDesignReferencePayload(form) {

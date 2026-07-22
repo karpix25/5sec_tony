@@ -25,7 +25,7 @@ async function runDesignAnalysisRefresh(root, store) {
     if (status) status.textContent = "Анализируем дизайн-референс на сервере...";
     const context = getContext(store.getState());
     const designAnalysis = await refreshDesignAnalysis({ project: context.project, reference: context.reference });
-    store.updateSelectedDesignReference({ designAnalysis: { ...designAnalysis, analyzedAt: new Date().toISOString() } });
+    await store.updateSelectedDesignReference({ designAnalysis: { ...designAnalysis, analyzedAt: new Date().toISOString() } });
     if (status) status.textContent = "Анализ дизайна сохранен.";
   } catch (error) {
     if (status) status.textContent = error.message || "Не удалось обновить анализ дизайна.";

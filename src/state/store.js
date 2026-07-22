@@ -8,6 +8,7 @@ import { createRemoteProject, deleteRemoteProject, updateRemoteProject } from ".
 import { isTransientFetchError } from "../services/sync-fetch.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
+import { createDesignReferenceActions } from "./design-reference-actions.js";
 import { createProjectCtaWorkflow } from "./project-cta-workflow.js";
 import {
   addGlobalAudioFiles,
@@ -25,14 +26,12 @@ import {
   getSelectionContext
 } from "./store-context.js";
 import { createJobActions } from "./job-actions.js";
-import { createAiMemoryActions } from "./ai-memory-actions.js";
 import { createProductActions } from "./product-actions.js";
 import { rescueStaleBriefJobs } from "./brief-job-rescue.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
   createAudioEntity,
   createId,
-  createReferenceEntity,
   ensureGenerationBrief,
   ensureProductAssets,
   ensureProjectAssets
@@ -97,10 +96,6 @@ export function createStore() {
     setState,
     getProject
   });
-  const aiMemoryActions = createAiMemoryActions({
-    getState: () => state,
-    setState
-  });
   const productActions = createProductActions({
     getState: () => state,
     setState,
@@ -108,6 +103,17 @@ export function createStore() {
     getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
     hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false
+  });
+  const designReferenceActions = createDesignReferenceActions({
+    getState: () => state,
+    setState,
+    getProject,
+    recordRemoteSave: (nextState, updatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt),
+    getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
+    handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
+    hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
+    isRemoteReady: () => hydrationSettled && persistenceStatus.status !== "local",
+    scheduleFallbackSave: () => statePersistence?.scheduleSave?.()
   });
   statePersistence = createStatePersistence({
     getState: () => state,
@@ -369,36 +375,8 @@ export function createStore() {
       return result;
     },
     ...productActions,
-    createReference(payload) {
-      const projectsNext = state.projects.map((project) => {
-        if (project.id !== state.selectedProjectId) return project;
-        const reference = createReferenceEntity(payload);
-        return { ...project, references: [reference, ...project.references] };
-      });
-      const project = projectsNext.find((item) => item.id === state.selectedProjectId);
-      setState({
-        projects: projectsNext,
-        selectedReferenceId: project.references[0].id
-      });
-    },
     createDesignReferenceTemplate: designReferenceWorkflow.createDesignReferenceTemplate,
-    approveDesignReference: designReferenceWorkflow.approveDesignReference,
-    rejectDesignReference: designReferenceWorkflow.rejectDesignReference,
-    deleteReference(referenceId) {
-      const project = getProject(state, state.selectedProjectId);
-      const references = project.references.filter((reference) => reference.id !== referenceId);
-      if (project.references.length <= 1 || references.length === project.references.length) return;
-      setState({
-        projects: state.projects.map((item) =>
-          item.id === project.id
-            ? { ...item, references }
-            : item
-        ),
-        selectedReferenceId: references.some((reference) => reference.id === state.selectedReferenceId)
-          ? state.selectedReferenceId
-          : references[0]?.id
-      });
-    },
+    ...designReferenceActions,
     createCharacter: avatarWorkflow.createCharacter,
     uploadCharacter: avatarWorkflow.uploadCharacter,
     approveAvatar: avatarWorkflow.approveAvatar,
@@ -427,7 +405,6 @@ export function createStore() {
     createAvatarVideoCtaCandidate: avatarWorkflow.createAvatarVideoCtaCandidate,
     approveAvatarVideoCtaCandidate: avatarWorkflow.approveAvatarVideoCtaCandidate,
     resetAvatarVideoCtaOverlay: avatarWorkflow.resetAvatarVideoCtaOverlay,
-    ...aiMemoryActions,
     ...jobActions
   };
 }
