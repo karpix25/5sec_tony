@@ -1,5 +1,6 @@
 import { ensureStateSchema } from "./state-schema.mjs";
 import { isServerProtectedJob, mergeClientJobWithServerJob } from "./job-state-merge-policy.mjs";
+import { syncAudioLibraryRefreshReminder } from "./audio-refresh-reminders.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 
 const uiKeys = [
@@ -89,6 +90,7 @@ export async function saveNormalizedState(query, appStateKey, state) {
   await saveProducts(query, appStateKey, normalizedState.products || []);
   await saveJobs(query, appStateKey, normalizedState.jobs || [], existingJobsById);
   await saveGlobalAudio(query, appStateKey, normalizedState.audioLibrary || []);
+  await syncAudioLibraryRefreshReminder(normalizedState.audioLibrary || [], { query, appStateKey });
   await saveHookLibrary(query, appStateKey, normalizedState.hookLibrary || { activeVersionId: "", versions: [] });
   await saveReelsResearch(query, appStateKey, normalizedState.reelsResearch);
   return normalizedState;

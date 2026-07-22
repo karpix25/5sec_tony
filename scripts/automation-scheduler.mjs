@@ -67,6 +67,7 @@ function summarizeSchedulerResult(result = {}) {
     ok: results.filter((item) => item.ok).length,
     failed: results.filter((item) => !item.ok).length,
     queueError: result.queueError || "",
+    audioReminder: summarizeAudioReminder(result.audioLibraryReminder),
     projects: results.map((item) => ({
       projectId: item.projectId || "",
       ok: item.ok === true,
@@ -74,6 +75,15 @@ function summarizeSchedulerResult(result = {}) {
       batchId: item.batchId || "",
       error: item.error || ""
     }))
+  };
+}
+
+function summarizeAudioReminder(reminder = {}) {
+  return {
+    processed: Number(reminder.processed || 0),
+    skipped: reminder.skipped === true,
+    reason: reminder.reason || "",
+    error: reminder.error || ""
   };
 }
 

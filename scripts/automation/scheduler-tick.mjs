@@ -2,6 +2,7 @@ import { assertBullMqConfig } from "../job-queue-dispatcher.mjs";
 import { normalizeProjectAutomation } from "../../src/domain/project-automation.js";
 import { updateGenerationState } from "../generation-state.mjs";
 import { createGenerationBatch } from "../generation-batch-runner.mjs";
+import { processAudioLibraryRefreshReminder } from "../audio-refresh-reminders.mjs";
 import { claimAutomationDispatches } from "./scheduler-planner.mjs";
 import { getAutomationErrorMessage, markAutomationStatus } from "./scheduler-status.mjs";
 import { withAutomationSchedulerLock } from "./scheduler-lock.mjs";
@@ -15,15 +16,25 @@ export async function runLockedAutomationSchedulerOnce(options = {}) {
 export async function runAutomationSchedulerOnce(options = {}) {
   const deps = options.deps || {};
   const env = options.env || process.env;
+  const audioLibraryReminder = await processAudioReminder(options, deps);
   const queueReady = ensureStrictQueue(env, deps);
-  if (!queueReady.ok) return markEnabledProjectsQueueError(queueReady.error, deps);
+  if (!queueReady.ok) return { ...await markEnabledProjectsQueueError(queueReady.error, deps), audioLibraryReminder };
 
   const claim = await claimDispatches(options, deps);
   const results = [];
   for (const dispatch of claim.dispatches) {
     results.push(await runDispatch(dispatch, options, deps));
   }
-  return { ...claim, results };
+  return { ...claim, results, audioLibraryReminder };
+}
+
+async function processAudioReminder(options, deps) {
+  const processReminder = deps.processAudioLibraryRefreshReminder || processAudioLibraryRefreshReminder;
+  try {
+    return await processReminder({ ...(deps.audioLibraryReminderDeps || {}), now: options.now });
+  } catch (error) {
+    return { processed: 0, skipped: false, error: error.message || String(error) };
+  }
 }
 
 function ensureStrictQueue(env, deps) {

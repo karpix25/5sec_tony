@@ -58,7 +58,8 @@ export function createJobActions({ getState, setState, getProject }) {
       const existingJobs = state.jobs.filter((job) => job.id !== jobId && job.projectId === context.project.id);
       const job = {
         ...createGenerationJob({ ...context, product, existingJobs }),
-        id: jobId
+        id: jobId,
+        createdAt: pendingJob.createdAt || new Date().toISOString()
       };
       setState({ jobs: state.jobs.map((item) => (item.id === jobId ? job : item)) });
       return job;

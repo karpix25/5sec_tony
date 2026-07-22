@@ -97,6 +97,7 @@ async function prepareServerJob(jobId, origin, deps) {
   const job = {
     ...createGenerationJob({ ...context, generationBrief: brief, existingJobs, hookLibrary: preparedState.hookLibrary }),
     id: jobId,
+    createdAt: placeholder.createdAt || new Date().toISOString(),
     serverBatchId: placeholder.serverBatchId,
     serverOwned: true
   };

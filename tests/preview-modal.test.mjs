@@ -43,6 +43,7 @@ test("queue previews open both generated images and final videos", () => {
       outputType: "image",
       imageUrl: "https://cdn.example.com/image.png",
       title: "Картинка",
+      createdAt: "2026-07-22T14:32:00",
       topic: "тема",
       music: "аудио",
       inputUrls: []
@@ -68,6 +69,7 @@ test("queue previews open both generated images and final videos", () => {
   assert.match(html, /data-preview-media="\/generated\/avatar-videos\/final\.mp4"/);
   assert.match(html, /data-preview-type="video"/);
   assert.match(html, /Продукт: Магний вечерний/);
+  assert.match(html, /Создано: 22\.07\.2026, 14:32/);
 });
 
 test("queue uses final video preview when the video url is local generated media", () => {

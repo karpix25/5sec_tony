@@ -1,5 +1,4 @@
 import { deleteS3AssetByUrl, isS3AssetStorageConfigured, uploadDataUrlToS3 } from "./s3-assets.mjs";
-import { registerAudioRefreshReminder } from "./audio-refresh-reminders.mjs";
 import { appendAudioAssetToState } from "./media-state-store.mjs";
 
 const audioDataUrlPattern = /^data:(audio\/[^;]+);base64,([a-z0-9+/=\s]+)$/i;
@@ -34,7 +33,6 @@ async function saveAudioAsset(request, response) {
       fileData: url,
       createdAt: body.createdAt || ""
     });
-    await registerReminderSafely({ url, fileName: audio.fileName, title: audio.title });
     return sendJson(response, 200, {
       audio,
       url,
@@ -43,14 +41,6 @@ async function saveAudioAsset(request, response) {
     });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "Не удалось сохранить audio asset" });
-  }
-}
-
-async function registerReminderSafely(audio) {
-  try {
-    await registerAudioRefreshReminder(audio);
-  } catch (error) {
-    console.warn(`[audio-reminder:register:error] ${error.message || error}`);
   }
 }
 

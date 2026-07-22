@@ -7,6 +7,19 @@ test("uploaded audio is appended to canonical and legacy state", async () => {
   const query = async (text, params = []) => {
     queries.push({ text, params });
     if (/select data from app_state/i.test(text)) return { rows: [{ data: { audioLibrary: [] } }] };
+    if (/from studio_global_audio_assets\s+where app_state_key/i.test(text)) {
+      return { rows: [{
+        id: "audio-s3",
+        title: "Beat",
+        mood: "файл аудио",
+        duration: "5 sec",
+        file_name: "beat.wav",
+        file_type: "audio/wav",
+        file_size: 123,
+        file_data: "https://s3.example.com/audio/beat.wav",
+        created_at: "2026-06-29T00:00:00.000Z"
+      }] };
+    }
     return { rows: [] };
   };
 
@@ -22,6 +35,7 @@ test("uploaded audio is appended to canonical and legacy state", async () => {
 
   assert.equal(audio.id, "audio-s3");
   assert.ok(queries.some(({ text }) => /insert into studio_global_audio_assets/i.test(text)));
+  assert.ok(queries.some(({ text }) => /insert into studio_audio_library_refresh_reminders/i.test(text)));
   assert.ok(queries.some(({ text }) => /insert into studio_app_ui_state/i.test(text)));
   assert.ok(queries.some(({ text, params }) => /insert into app_state/i.test(text) && String(params[1]).includes("audio-s3")));
 });

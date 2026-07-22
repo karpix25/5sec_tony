@@ -156,7 +156,6 @@ export function buildImagePrompt({ project, product, reference, character, gener
     extra
   ].filter(Boolean).join(" "));
 }
-
 function formatProductInsightPrompt(profile) {
   if (!profile.insightMap?.id) return "";
   const zones = profile.insightMap.benefitZones
@@ -188,6 +187,7 @@ export function createGenerationJob({ project, product, reference, character, au
   const prompt = buildImagePrompt({ project, product, reference, character: selectedCharacter, generationBrief: { ...brief, promptContract }, freePrompt, existingJobs, hookLibrary });
   return {
     id: createUniqueJobId(existingJobs),
+    createdAt: new Date().toISOString(),
     projectId: project.id,
     productId: product.id,
     productName: product.name,

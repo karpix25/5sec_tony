@@ -407,6 +407,42 @@ test("state api save fails when relational round-trip loses data", async () => {
   assert.match(response.payload.error, /parity/i);
 });
 
+test("state api marks audio library freshness when persisted audio library changes", async () => {
+  const currentState = {
+    projects: [],
+    products: [],
+    jobs: [],
+    audioLibrary: [{ id: "audio-1", fileData: "https://cdn.example.com/old.mp3" }]
+  };
+  const nextState = {
+    ...currentState,
+    audioLibrary: [{ id: "audio-1", fileData: "https://cdn.example.com/new.mp3" }]
+  };
+  const marked = [];
+  let savedState = currentState;
+  const response = createJsonResponse();
+  const handleStateApi = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    loadNormalizedState: async () => savedState,
+    saveNormalizedState: async (_query, _key, state) => {
+      savedState = state;
+      return state;
+    },
+    saveLegacyState: async () => ({ rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] }),
+    markAudioLibraryUpdated: async (payload) => marked.push(payload.appStateKey),
+    withPostgresTransaction: async (callback) => callback({ query: async () => ({ rows: [] }) })
+  });
+
+  await handleStateApi(
+    createJsonRequest("POST", { state: nextState }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(marked, ["default"]);
+});
+
 test("state api rejects non-object root state payload", async () => {
   const handleStateApi = createStateApiHandler({
     isPostgresConfigured: () => true,

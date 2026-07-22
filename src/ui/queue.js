@@ -114,6 +114,7 @@ function renderQueueJob(job, productName = "") {
         </div>
         <div class="queue-meta">
           <span>${escapeHtml(queueStageLabels[job.stage] || job.stage)}</span>
+          ${renderJobCreatedAt(job)}
           <span>Продукт: ${escapeHtml(productName || "не указан")}</span>
           ${renderProductVisualTag(job)}
           <span>${escapeHtml(job.topic || job.title)}</span>
@@ -130,6 +131,24 @@ function renderQueueJob(job, productName = "") {
       ${renderQueuePreviewColumn(job, ready, failed, preview)}
     </article>
   `;
+}
+
+function renderJobCreatedAt(job) {
+  const createdAt = formatJobCreatedAt(job.createdAt);
+  return createdAt ? `<span>Создано: ${escapeHtml(createdAt)}</span>` : "";
+}
+
+function formatJobCreatedAt(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function renderDiskStatus(job) {

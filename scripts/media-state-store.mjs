@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { defaultAppStateKey } from "./app-state-lock.mjs";
 import { isPostgresConfigured, queryPostgres } from "./postgres-client.mjs";
 import { ensureStateSchema } from "./state-schema.mjs";
+import { syncAudioLibraryRefreshReminder } from "./audio-refresh-reminders.mjs";
 
 export async function appendAudioAssetToState(audio, deps = {}) {
   if (!isDbConfigured(deps)) return normalizeAudioAsset(audio);
@@ -34,6 +35,12 @@ export async function appendAudioAssetToState(audio, deps = {}) {
     selectedAudioId: asset.id,
     audioLibrary: prependById(state.audioLibrary || [], asset)
   }));
+  await syncAudioLibraryRefreshReminder(await loadAudioLibrary(query, appStateKey), {
+    query,
+    appStateKey,
+    changedAt: asset.createdAt,
+    isPostgresConfigured: deps.isPostgresConfigured
+  });
   return asset;
 }
 
@@ -81,6 +88,32 @@ function normalizeProductReference(reference = {}) {
     imageName: reference.imageName || "",
     imageData: reference.imageData || reference.url || "",
     createdAt: reference.createdAt || new Date().toISOString()
+  };
+}
+
+async function loadAudioLibrary(query, appStateKey) {
+  const result = await query(
+    `select id, title, mood, duration, file_name, file_type, file_size, file_data, created_at, updated_at
+       from studio_global_audio_assets
+      where app_state_key = $1
+      order by sort_order asc`,
+    [appStateKey]
+  );
+  return result.rows.map(audioFromRow);
+}
+
+function audioFromRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    mood: row.mood,
+    duration: row.duration,
+    fileName: row.file_name,
+    fileType: row.file_type,
+    fileSize: row.file_size,
+    fileData: row.file_data,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   };
 }
 

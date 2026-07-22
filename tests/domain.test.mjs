@@ -13,7 +13,6 @@ import {
 } from "../src/domain/generation.js";
 import { ensureProjectAssets } from "../src/state/factories.js";
 import { createStore } from "../src/state/store.js";
-
 test("products are scoped by project", () => {
   const scoped = getProductsForProject(products, "supplements");
   assert.deepEqual(scoped.map((product) => product.id), ["magnesium", "collagen"]);
@@ -76,6 +75,7 @@ test("generation job starts as queued and advances through pipeline", () => {
   const next = advanceJob(job);
 
   assert.equal(job.status, "queued");
+  assert.equal(Number.isFinite(Date.parse(job.createdAt)), true);
   assert.equal(job.characterId, project.characters[0].id);
   assert.deepEqual(job.inputUrls, ["data:image/png;base64,style"]);
   assert.deepEqual(job.inputRefs, [{ role: "design", title: project.references[0].title, isLocalData: true }]);

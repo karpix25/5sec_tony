@@ -121,6 +121,26 @@ test("server automation scheduler marks queue config errors without creating bat
   assert.equal(automation.status, "error");
 });
 
+test("server automation scheduler runs backend audio library reminder check", async () => {
+  const stateStore = createStateStore({ projects: [] });
+  const reminderCalls = [];
+
+  const result = await runAutomationSchedulerOnce({
+    env: strictQueueEnv,
+    now: Date.parse("2026-07-21T10:00:00.000Z"),
+    deps: {
+      updateGenerationState: stateStore.updateGenerationState,
+      processAudioLibraryRefreshReminder: async (payload) => {
+        reminderCalls.push(payload.now);
+        return { processed: 1, skipped: false };
+      }
+    }
+  });
+
+  assert.deepEqual(reminderCalls, [Date.parse("2026-07-21T10:00:00.000Z")]);
+  assert.deepEqual(result.audioLibraryReminder, { processed: 1, skipped: false });
+});
+
 test("automation dispatch claim prevents duplicate concurrent scheduler ticks", () => {
   const state = createBaseState({
     projects: [createProject("no-dupes", { automation: { enabled: true, batchSize: 3, concurrency: 3 } })]

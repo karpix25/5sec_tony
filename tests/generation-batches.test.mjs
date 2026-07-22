@@ -242,7 +242,7 @@ test("backend generation worker prepares brief and hands job to server pipeline"
       };
     },
     postServerJob: async ({ job, context }) => {
-      calls.push(["serverJob", job.id, job.title, job.status, job.stage, context.project.id]);
+      calls.push(["serverJob", job.id, job.title, job.status, job.stage, context.project.id, job.createdAt]);
       return { job: { ...job, status: "running", stage: "image" } };
     }
   });
@@ -265,10 +265,11 @@ test("backend generation worker prepares brief and hands job to server pipeline"
   assert.equal(job.isBriefPlaceholder, undefined);
   assert.equal(job.serverOwned, true);
   assert.equal(job.title, "Серверный хук");
+  assert.equal(job.createdAt, result.jobs[0].createdAt);
   assert.deepEqual(deps.getState().generationBrief, {});
   assert.deepEqual(calls, [
     ["brief", deps.getState().selectedProductId, 0],
-    ["serverJob", job.id, "Серверный хук", "queued", "brief", deps.getState().selectedProjectId]
+    ["serverJob", job.id, "Серверный хук", "queued", "brief", deps.getState().selectedProjectId, result.jobs[0].createdAt]
   ]);
 });
 

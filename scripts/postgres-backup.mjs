@@ -10,6 +10,7 @@ const defaultTables = [
   "studio_products",
   "studio_jobs",
   "studio_global_audio_assets",
+  "studio_audio_library_refresh_reminders",
   "studio_hook_library_state",
   "studio_hook_versions",
   "studio_hook_items",

@@ -1,6 +1,7 @@
 import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
 import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
 import { getStateDifference, statesEqual } from "./state-compare.mjs";
+import { hasAudioLibraryChanged, markAudioLibraryUpdated } from "./audio-refresh-reminders.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
 import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.mjs";
@@ -18,13 +19,14 @@ export function createStateApiHandler(deps = {}) {
   const loadLegacy = deps.loadLegacyState || loadLegacyState;
   const saveNormalized = deps.saveNormalizedState || saveNormalizedState;
   const saveLegacy = deps.saveLegacyState || saveLegacyState;
+  const markAudioUpdated = deps.markAudioLibraryUpdated || markAudioLibraryUpdated;
 
   return async function handleStateApi(request, response, url) {
     if (request.method === "GET" && url.pathname === "/api/state") {
       return handleLoadState(response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
-      return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized });
+      return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized, markAudioUpdated });
     }
     return false;
   };
@@ -106,8 +108,11 @@ async function handleSaveState(request, response, url, deps) {
           error: productDeletionConflict
         };
       }
-      const savedState = await deps.saveNormalized(tx.query, appStateKey, nextState) || nextState;
+      const audioLibraryChanged = hasAudioLibraryChanged(currentState, nextState);
+      const normalizedResult = await deps.saveNormalized(tx.query, appStateKey, nextState);
+      const savedState = isPlainStateObject(normalizedResult) ? normalizedResult : nextState;
       const legacyResult = await deps.saveLegacy(tx.query, appStateKey, savedState);
+      if (audioLibraryChanged) await deps.markAudioUpdated({ query: tx.query, appStateKey });
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
       if (!statesEqual(rebuiltState, savedState)) {
         throw new Error(formatParityError("Relational state parity check failed", rebuiltState, savedState));

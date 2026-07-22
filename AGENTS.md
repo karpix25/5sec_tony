@@ -1,4 +1,7 @@
 # Lessons
+- Do not call the audio library project-specific; it is a global format-level library independent of projects.
+- Verify final behavior from the current diff after subagent edits before reporting scheduler cooldown semantics.
+- Global audio-library freshness reminders should use a 14-day post-notification cooldown unless the user explicitly asks for daily nudges.
 - Default boolean false job columns such as finalVideoHasAudio must not count as meaningful server lifecycle markers.
 - Queue-managed job detection must not treat every default queueName=generation queued row as active; require active queueStatus, lifecycle marker, or running/retrying state.
 - Remote node -e ESM import checks must quote module specifiers inside the evaluated JavaScript, not rely on shell quoting.
