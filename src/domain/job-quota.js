@@ -4,10 +4,12 @@ const activeQuotaStatuses = ["queued", "running"];
 
 export function patchJobWithQuotaAccounting(state, jobId, payload, createTimestamp = createIsoTimestamp) {
   let quotaProjectId = "";
+  const projectsById = new Map((state.projects || []).map((project) => [project.id, project]));
   const jobs = state.jobs.map((job) => {
     if (job.id !== jobId) return job;
     const nextJob = { ...job, ...payload };
-    if (shouldAccountJobQuota(job, nextJob)) {
+    const project = projectsById.get(nextJob.projectId);
+    if (shouldAccountJobQuota(job, nextJob, project)) {
       quotaProjectId = nextJob.projectId;
       return {
         ...nextJob,
@@ -47,21 +49,31 @@ function incrementProjectUsage(project) {
   };
 }
 
-function shouldAccountJobQuota(previousJob, nextJob) {
+function shouldAccountJobQuota(previousJob, nextJob, project) {
   if (previousJob?.quotaCountedAt || nextJob?.quotaCountedAt) return false;
-  return isSuccessfulGenerationJob(nextJob);
+  return isSuccessfulGenerationJob(nextJob, project);
 }
 
-function isSuccessfulGenerationJob(job) {
+function isSuccessfulGenerationJob(job, project) {
   if (!job || job.status === "failed") return false;
   if (isImageOnlyJob(job)) {
     return ["review", "done"].includes(job.status) && Boolean(job.imageData || job.imageUrl);
+  }
+  if (requiresVerifiedYandexUpload(job, project)) {
+    return job.status === "done"
+      && Boolean(job.finalVideoUrl)
+      && job.diskStatus === "done"
+      && Boolean(job.diskVerifiedAt);
   }
   return job.status === "done" && Boolean(job.finalVideoUrl);
 }
 
 function isImageOnlyJob(job) {
   return job.outputType === "image" || job.requiresFinalVideo === false;
+}
+
+function requiresVerifiedYandexUpload(job, project) {
+  return Boolean(job.yandexDiskRequired || project?.yandexDiskFolder);
 }
 
 function createIsoTimestamp() {

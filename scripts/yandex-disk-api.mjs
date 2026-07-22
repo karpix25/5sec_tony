@@ -10,6 +10,8 @@ const defaultFolderCount = 120;
 const folderPageSize = 200;
 const folderRequestTimeoutMs = 20000;
 const folderFields = "_embedded.items.name,_embedded.items.path,_embedded.items.type,_embedded.limit,_embedded.offset,_embedded.total,path,name,type";
+const publishedResourceFields = "path,public_url,name,type";
+const uploadedResourceFields = "path,name,type,size,public_url";
 
 export async function handleYandexDiskApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/yandex-disk/folders") {
@@ -27,25 +29,50 @@ export async function handleYandexDiskApi(request, response, url) {
     const fileName = normalizeDiskFileName(body.fileName || basename(fileUrl.split("?")[0]) || "anton-video.mp4");
     if (!fileUrl) return sendJson(response, 400, { error: "fileUrl is required" });
 
-    const diskPath = `${targetFolder}/${fileName}`;
-    const bytes = await readSourceBytes(fileUrl);
-    const publicUrl = await withYandexDiskMutationLock(() => uploadYandexDiskBytes({
+    const uploadResult = await uploadYandexDiskFile({
       token,
       targetFolder,
-      diskPath,
-      bytes
-    }));
+      fileName,
+      fileUrl
+    });
 
-    return sendJson(response, 200, { diskPath, diskUrl: publicUrl, publicUrl, fileName });
+    return sendJson(response, 200, {
+      diskPath: uploadResult.diskPath,
+      diskUrl: uploadResult.publicUrl,
+      publicUrl: uploadResult.publicUrl,
+      fileName,
+      diskVerifiedAt: uploadResult.verifiedAt,
+      diskSize: uploadResult.size,
+      diskVerification: uploadResult.verification
+    });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "Не удалось сохранить файл на Яндекс.Диск" });
   }
 }
 
+export async function uploadYandexDiskFile({ token, targetFolder, fileName, fileUrl, bytes }) {
+  const normalizedFolder = normalizeDiskFolder(targetFolder);
+  const normalizedName = normalizeDiskFileName(fileName || basename(String(fileUrl || "").split("?")[0]) || "anton-video.mp4");
+  const diskPath = `${normalizedFolder}/${normalizedName}`;
+  const sourceBytes = bytes || await readSourceBytes(fileUrl);
+  return withYandexDiskMutationLock(() => uploadYandexDiskBytes({
+    token,
+    targetFolder: normalizedFolder,
+    diskPath,
+    bytes: sourceBytes
+  }));
+}
+
 async function uploadYandexDiskBytes({ token, targetFolder, diskPath, bytes }) {
   await ensureYandexFolder(token, targetFolder);
   await uploadYandexDiskResource(token, diskPath, bytes);
-  return await publishYandexResource(token, diskPath);
+  const publicUrl = await publishYandexResource(token, diskPath);
+  const verified = await verifyYandexUploadedResource(token, diskPath, { requirePublicUrl: true });
+  return {
+    diskPath,
+    publicUrl: publicUrl || verified.publicUrl,
+    ...verified
+  };
 }
 
 async function handleYandexFoldersApi(request, response, url) {
@@ -92,7 +119,7 @@ async function getYandexFolderChildren(token, path) {
   let offset = 0;
   let total = Infinity;
   while (offset < total) {
-    const resource = await getYandexResource(token, path, offset);
+    const resource = await getYandexResource(token, path, { offset });
     const embedded = resource._embedded || {};
     const items = embedded.items || [];
     const totalCount = Number(embedded.total);
@@ -122,19 +149,19 @@ async function ensureYandexFolder(token, folder) {
   }
 }
 
-async function getYandexResource(token, path, offset = 0) {
+async function getYandexResource(token, path, options = {}) {
   const params = new URLSearchParams({
     path,
     limit: String(folderPageSize),
-    offset: String(offset),
-    fields: folderFields
+    offset: String(options.offset || 0),
+    fields: options.fields || folderFields
   });
   const result = await fetch(`${yandexApiUrl}?${params}`, {
     headers: { Authorization: getYandexAuthHeader(token) },
     signal: AbortSignal.timeout(folderRequestTimeoutMs)
   });
   const payload = await result.json().catch(() => ({}));
-  if (!result.ok) throw new Error(payload.message || `Не удалось прочитать папку Яндекс.Диска: ${path}`);
+  if (!result.ok) throw createYandexHttpError(result.status, payload, `Не удалось прочитать ресурс Яндекс.Диска: ${path}`);
   return payload;
 }
 
@@ -156,6 +183,46 @@ async function uploadYandexDiskResource(token, path, bytes) {
     const upload = await fetch(uploadUrl, { method: "PUT", body: bytes });
     if (!upload.ok) throw createYandexDiskError(`Яндекс.Диск не принял файл: ${upload.status}`, { status: upload.status });
   });
+}
+
+export async function verifyYandexUploadedResource(token, path, options = {}) {
+  const resource = await withYandexDiskRetry(async () => {
+    try {
+      const uploaded = await getYandexResource(token, path, { fields: uploadedResourceFields });
+      if (uploaded.type !== "file") {
+        throw createYandexDiskError(`Яндекс.Диск вернул не файл после загрузки: ${path}`, { retryable: true });
+      }
+      if (Number(uploaded.size || 0) <= 0) {
+        throw createYandexDiskError(`Яндекс.Диск вернул пустой файл после загрузки: ${path}`, { retryable: true });
+      }
+      if (options.requirePublicUrl && !uploaded.public_url) {
+        throw createYandexDiskError(`Яндекс.Диск ещё не вернул публичную ссылку: ${path}`, { retryable: true });
+      }
+      return uploaded;
+    } catch (error) {
+      if (Number(error?.status) === 404) {
+        throw createYandexDiskError(`Яндекс.Диск ещё не видит загруженный файл: ${path}`, { status: 404, retryable: true });
+      }
+      throw error;
+    }
+  }, options.retryOptions || { attempts: 8, baseDelayMs: 1000, maxDelayMs: 60000 });
+
+  const verifiedAt = new Date().toISOString();
+  return {
+    path: resource.path || path,
+    name: resource.name || basename(path),
+    type: resource.type || "file",
+    size: Number(resource.size || 0),
+    publicUrl: resource.public_url || "",
+    verifiedAt,
+    verification: {
+      path: resource.path || path,
+      type: resource.type || "file",
+      size: Number(resource.size || 0),
+      publicUrl: resource.public_url || "",
+      verifiedAt
+    }
+  };
 }
 
 async function publishYandexResource(token, path) {
@@ -183,7 +250,7 @@ async function publishYandexResource(token, path) {
 async function getYandexPublishedResource(token, path) {
   const params = new URLSearchParams({
     path,
-    fields: "path,public_url,name,type"
+    fields: publishedResourceFields
   });
   const result = await fetch(`${yandexApiUrl}?${params}`, {
     headers: { Authorization: getYandexAuthHeader(token) }

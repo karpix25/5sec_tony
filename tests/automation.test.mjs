@@ -298,12 +298,16 @@ test("store counts daily usage only when a job succeeds once", () => {
   store.patchJob(job.id, { status: "done", finalVideoUrl: "/generated/final.mp4" });
   updated = store.getState().projects.find((item) => item.id === project.id);
   const countedJob = store.getState().jobs.find((item) => item.id === job.id);
-  assert.equal(updated.usedToday, 1);
-  assert.equal(updated.usedTotal, 49);
+  assert.equal(updated.usedToday, 0);
+  assert.equal(updated.usedTotal, 48);
   assert.equal(updated.dailyUsageDate, getTodayDateString());
-  assert.ok(countedJob.quotaCountedAt);
+  assert.equal(countedJob.quotaCountedAt, undefined);
 
-  store.patchJob(job.id, { progress: 100, diskStatus: "done" });
+  store.patchJob(job.id, {
+    progress: 100,
+    diskStatus: "done",
+    diskVerifiedAt: "2026-07-22T10:00:00.000Z"
+  });
   updated = store.getState().projects.find((item) => item.id === project.id);
   assert.equal(updated.usedToday, 1);
   assert.equal(updated.usedTotal, 49);

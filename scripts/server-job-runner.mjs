@@ -13,12 +13,19 @@ const successStates = ["success", "succeeded", "completed", "complete"];
 const failStates = ["fail", "failed", "error"];
 const primaryProvider = "gpt-image-2";
 const fallbackProvider = "nano-banana-2";
+const defaultYandexUploadRetryDelaysMs = [2000, 5000, 15000, 30000, 60000];
 const logger = createOperationLogger("server-job");
 
 export { logger as serverJobLogger };
 
 export async function runServerJob(record) {
   logger.log("pipeline:start", { job: summarizeJobForLog(record.job) });
+  if (shouldResumeYandexDiskUpload(record)) {
+    logger.log("pipeline:resume-disk-upload", { job: summarizeJobForLog(record.job) });
+    await uploadServerJobToYandexDisk(record, record.job.finalVideoUrl);
+    logger.log("pipeline:done", { job: summarizeJobForLog(record.job) });
+    return;
+  }
   const image = await runServerImageGeneration(record, primaryProvider);
   await runServerFinalAssembly(record, image.imageUrl);
   logger.log("pipeline:done", { job: summarizeJobForLog(record.job) });
@@ -219,15 +226,19 @@ async function runServerFinalAssembly(record, backgroundImageUrl) {
     logger.log("avatar-usage:reserved", { job: summarizeJobForLog(record.job), avatarUsage: record.avatarUsage });
   }
 
+  const requiresDiskUpload = Boolean(project.yandexDiskFolder);
   await patchServerJob(record, {
-    status: "done",
+    status: requiresDiskUpload ? "running" : "done",
     stage: "export",
-    progress: 100,
+    progress: requiresDiskUpload ? 96 : 100,
     finalVideoUrl: result.videoUrl,
     finalVideoHasAudio: Boolean(result.hasAudio),
-    failMsg: ""
+    yandexDiskRequired: requiresDiskUpload,
+    diskStatus: requiresDiskUpload ? "uploading" : record.job.diskStatus,
+    diskMessage: requiresDiskUpload ? "Сервер сохраняет в Яндекс.Диск..." : record.job.diskMessage,
+    failMsg: requiresDiskUpload ? "Видео готово, сервер сохраняет файл в Яндекс.Диск..." : ""
   });
-  await uploadServerJobToYandexDisk(record, result.videoUrl);
+  if (requiresDiskUpload) await uploadServerJobToYandexDisk(record, result.videoUrl);
 }
 
 async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
@@ -237,25 +248,40 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
     return;
   }
   const targetFolder = buildServerJobYandexDiskFolder(record);
+  const fileName = buildServerExportFileName(project, record.job);
   try {
     logger.log("disk:start", {
       job: summarizeJobForLog(record.job),
       targetFolder,
-      fileName: buildServerExportFileName(project, record.job)
+      fileName
     });
-    await patchServerJob(record, { diskStatus: "uploading", diskMessage: "Сервер сохраняет в Яндекс.Диск..." });
-    const result = await postServerJson(record.origin, "/api/yandex-disk/upload", {
+    await patchServerJob(record, {
+      status: "running",
+      stage: "export",
+      progress: Math.max(96, Number(record.job.progress || 0)),
+      yandexDiskRequired: true,
+      diskStatus: "uploading",
+      diskMessage: "Сервер сохраняет в Яндекс.Диск..."
+    });
+    const result = await postServerJsonWithRetry(record.origin, "/api/yandex-disk/upload", {
       fileUrl: finalVideoUrl,
       targetFolder,
-      fileName: buildServerExportFileName(project, record.job)
-    });
+      fileName
+    }, { label: "disk:upload", delaysMs: getYandexUploadRetryDelaysMs() });
     const diskUrl = result.diskUrl || result.publicUrl || "";
     await patchServerJob(record, {
+      status: "done",
+      stage: "export",
+      progress: 100,
       diskStatus: "done",
       diskPath: result.diskPath,
       diskUrl,
+      diskVerifiedAt: result.diskVerifiedAt || new Date().toISOString(),
+      diskSize: result.diskSize || record.job.diskSize || 0,
+      diskVerification: result.diskVerification || null,
       finalVideoUrl: diskUrl || record.job.finalVideoUrl,
-      diskMessage: "Сохранено в Яндекс.Диск"
+      diskMessage: "Сохранено и проверено в Яндекс.Диск",
+      failMsg: ""
     });
     await cleanupLocalGeneratedVideo(finalVideoUrl);
     logger.log("disk:done", {
@@ -265,11 +291,26 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
     });
   } catch (error) {
     await patchServerJob(record, {
+      status: "running",
+      stage: "export",
+      progress: Math.max(96, Number(record.job.progress || 0)),
+      yandexDiskRequired: true,
       diskStatus: "failed",
-      diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск"
+      diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск",
+      failMsg: error.message || "Не удалось сохранить в Яндекс.Диск"
     });
     logger.log("disk:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
+    throw error;
   }
+}
+
+function shouldResumeYandexDiskUpload(record) {
+  const project = record.context.project || {};
+  if (!project.yandexDiskFolder || !record.job?.finalVideoUrl) return false;
+  if (record.job.diskStatus === "done" && record.job.diskVerifiedAt) return false;
+  return record.job.yandexDiskRequired
+    || record.job.stage === "export"
+    || ["uploading", "failed", "retrying"].includes(record.job.diskStatus);
 }
 
 function buildServerJobYandexDiskFolder(record) {
@@ -332,13 +373,22 @@ function resolveServerJobAvatarName(project, job, fallbackCharacterId = "") {
   return project.characters?.find((item) => item.id === (job.characterId || fallbackCharacterId))?.name || "Без аватара";
 }
 
-function buildServerExportFileName(project, job) {
-  const title = `${project.name || "project"}-${job.title || job.id}`
+export function buildServerExportFileName(project, job) {
+  const uniqueId = getShortJobId(job);
+  const title = `${project.name || "project"}-${job.productName || ""}-${job.title || job.id}`
     .toLowerCase()
     .replace(/[^a-zа-я0-9ё]+/gi, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-  return `${title || job.id}.mp4`;
+    .slice(0, 90);
+  return `${title || "video"}-${uniqueId}.mp4`;
+}
+
+function getShortJobId(job) {
+  const normalized = String(job?.id || Date.now().toString(36))
+    .toLowerCase()
+    .replace(/^job[-_]?/i, "")
+    .replace(/[^a-z0-9]+/g, "");
+  return normalized.slice(0, 8) || "job";
 }
 
 function requiresFinalVideo(job) {
@@ -370,6 +420,28 @@ async function postServerJson(origin, path, body) {
   }
 }
 
+async function postServerJsonWithRetry(origin, path, body, options = {}) {
+  const delaysMs = Array.isArray(options.delaysMs) ? options.delaysMs : [];
+  let lastError;
+  for (let attempt = 0; attempt <= delaysMs.length; attempt += 1) {
+    try {
+      return await postServerJson(origin, path, body);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= delaysMs.length) throw error;
+      logger.log("http:retry", {
+        path,
+        label: options.label || "",
+        attempt: attempt + 1,
+        nextDelayMs: delaysMs[attempt],
+        error: error.message || error
+      });
+      await delayServerJobPoll(delaysMs[attempt]);
+    }
+  }
+  throw lastError;
+}
+
 async function getServerJson(origin, path) {
   const timer = logger.time("http:get", { path });
   const response = await fetch(`${origin}${path}`);
@@ -381,6 +453,15 @@ async function getServerJson(origin, path) {
     timer.fail(error, { status: response.status });
     throw error;
   }
+}
+
+function getYandexUploadRetryDelaysMs() {
+  const configured = String(process.env.YANDEX_UPLOAD_RETRY_DELAYS_MS || "").trim();
+  if (!configured) return defaultYandexUploadRetryDelaysMs;
+  return configured
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item) && item >= 0);
 }
 
 async function readServerJson(response) {

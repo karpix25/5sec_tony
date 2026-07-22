@@ -26,6 +26,15 @@ test("yandex upload retries locked folders and delayed public links", async () =
     }
     if (href.includes("/upload?")) return jsonResponse({ href: "https://upload.example.com/file" });
     if (href.includes("/publish?")) return jsonResponse({});
+    if (href.includes("fields=path%2Cname%2Ctype%2Csize%2Cpublic_url")) {
+      return jsonResponse({
+        path: "disk:/ВИДЕО/5сек/final.mp4",
+        name: "final.mp4",
+        type: "file",
+        size: 5,
+        public_url: "https://disk.yandex.ru/i/final-public"
+      });
+    }
     if (href.includes("fields=path%2Cpublic_url%2Cname%2Ctype")) {
       publicReads += 1;
       return jsonResponse(publicReads === 1 ? { path: "disk:/ВИДЕО/5сек/final.mp4" } : {
@@ -63,6 +72,99 @@ test("yandex upload retries locked folders and delayed public links", async () =
   }
 });
 
+test("yandex upload retries until uploaded file is visible by disk path", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousToken = process.env.YANDEX_DISK_TOKEN;
+  const previousRetryBase = process.env.YANDEX_DISK_RETRY_BASE_MS;
+  let verificationReads = 0;
+  process.env.YANDEX_DISK_TOKEN = "token";
+  process.env.YANDEX_DISK_RETRY_BASE_MS = "1";
+
+  globalThis.fetch = async (url, options = {}) => {
+    const href = String(url);
+    const method = options.method || "GET";
+
+    if (href.startsWith("https://upload.example.com/")) return jsonResponse({});
+    if (href.includes("/upload?")) return jsonResponse({ href: "https://upload.example.com/file" });
+    if (href.includes("/publish?")) return jsonResponse({});
+    if (href.includes("fields=path%2Cname%2Ctype%2Csize%2Cpublic_url")) {
+      verificationReads += 1;
+      return verificationReads === 1
+        ? jsonResponse({ message: "Не удалось найти запрошенный ресурс." }, false, 404)
+        : jsonResponse({ path: "disk:/ВИДЕО/5сек/final.mp4", name: "final.mp4", type: "file", size: 5, public_url: "https://disk.yandex.ru/i/final-public" });
+    }
+    if (href.includes("fields=path%2Cpublic_url%2Cname%2Ctype")) {
+      return jsonResponse({ public_url: "https://disk.yandex.ru/i/final-public" });
+    }
+    if (href.startsWith("https://cloud-api.yandex.net/v1/disk/resources?") && method === "PUT") {
+      return jsonResponse({});
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  try {
+    const response = await callYandexDiskApi("POST", "/api/yandex-disk/upload", {
+      fileUrl: "data:video/mp4;base64,dmA=",
+      targetFolder: "disk:/ВИДЕО/5сек",
+      fileName: "final.mp4"
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.payload.publicUrl, "https://disk.yandex.ru/i/final-public");
+    assert.equal(response.payload.diskSize, 5);
+    assert.equal(verificationReads, 2);
+  } finally {
+    globalThis.fetch = previousFetch;
+    restoreEnv("YANDEX_DISK_TOKEN", previousToken);
+    restoreEnv("YANDEX_DISK_RETRY_BASE_MS", previousRetryBase);
+  }
+});
+
+test("yandex upload fails when disk path is still missing after retries", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousToken = process.env.YANDEX_DISK_TOKEN;
+  const previousRetryBase = process.env.YANDEX_DISK_RETRY_BASE_MS;
+  let verificationReads = 0;
+  process.env.YANDEX_DISK_TOKEN = "token";
+  process.env.YANDEX_DISK_RETRY_BASE_MS = "1";
+
+  globalThis.fetch = async (url, options = {}) => {
+    const href = String(url);
+    const method = options.method || "GET";
+
+    if (href.startsWith("https://upload.example.com/")) return jsonResponse({});
+    if (href.includes("/upload?")) return jsonResponse({ href: "https://upload.example.com/file" });
+    if (href.includes("/publish?")) return jsonResponse({});
+    if (href.includes("fields=path%2Cpublic_url%2Cname%2Ctype")) {
+      return jsonResponse({ public_url: "https://disk.yandex.ru/i/final-public" });
+    }
+    if (href.includes("fields=path%2Cname%2Ctype%2Csize%2Cpublic_url")) {
+      verificationReads += 1;
+      return jsonResponse({ message: "Не удалось найти запрошенный ресурс." }, false, 404);
+    }
+    if (href.startsWith("https://cloud-api.yandex.net/v1/disk/resources?") && method === "PUT") {
+      return jsonResponse({});
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  try {
+    const response = await callYandexDiskApi("POST", "/api/yandex-disk/upload", {
+      fileUrl: "data:video/mp4;base64,dmA=",
+      targetFolder: "disk:/ВИДЕО/5сек",
+      fileName: "final.mp4"
+    });
+
+    assert.equal(response.status, 502);
+    assert.match(response.payload.error, /ещё не видит загруженный файл/);
+    assert.equal(verificationReads, 8);
+  } finally {
+    globalThis.fetch = previousFetch;
+    restoreEnv("YANDEX_DISK_TOKEN", previousToken);
+    restoreEnv("YANDEX_DISK_RETRY_BASE_MS", previousRetryBase);
+  }
+});
+
 test("yandex upload serializes concurrent disk mutations", async () => {
   const previousFetch = globalThis.fetch;
   const previousToken = process.env.YANDEX_DISK_TOKEN;
@@ -78,6 +180,9 @@ test("yandex upload serializes concurrent disk mutations", async () => {
     if (href.startsWith("https://upload.example.com/")) return trackMutation(() => jsonResponse({}));
     if (href.includes("/upload?")) return trackMutation(() => jsonResponse({ href: `https://upload.example.com/${encodeURIComponent(href)}` }));
     if (href.includes("/publish?")) return trackMutation(() => jsonResponse({}));
+    if (href.includes("fields=path%2Cname%2Ctype%2Csize%2Cpublic_url")) {
+      return trackMutation(() => jsonResponse({ path: "disk:/ok.mp4", name: "ok.mp4", type: "file", size: 2, public_url: "https://disk.yandex.ru/i/public" }));
+    }
     if (href.includes("fields=path%2Cpublic_url%2Cname%2Ctype")) {
       return trackMutation(() => jsonResponse({ public_url: "https://disk.yandex.ru/i/public" }));
     }

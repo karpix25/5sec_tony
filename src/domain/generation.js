@@ -212,6 +212,7 @@ export function createGenerationJob({ project, product, reference, character, au
     outputType: "final-video",
     finalVideoUrl: "",
     finalVideoHasAudio: false,
+    yandexDiskRequired: Boolean(project.yandexDiskFolder),
     topic: brief.topic,
     semanticKey: brief.semanticKey,
     meaningPatternId: brief.meaningPatternId,
@@ -239,7 +240,6 @@ export function createGenerationJob({ project, product, reference, character, au
 export function getGenerationInputUrls({ reference, character, product }) {
   return getGenerationInputReferences({ reference, character, product }).map((item) => item.url);
 }
-
 export function getGenerationInputReferences({ reference, product, productVisualMode = "exact-product", productVisibilityDecision = null }) {
   const shouldPassProductRefs = productVisibilityDecision
     ? productVisibilityDecision.shouldPassProductRefs === true

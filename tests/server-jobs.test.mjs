@@ -33,9 +33,11 @@ test("server job runs image generation, final assembly, avatar usage and disk up
     if (String(url).includes("/api/yandex-disk/upload")) {
       assert.equal(body.fileUrl, "/generated/avatar-videos/final-server.mp4");
       assert.equal(body.targetFolder, "disk:/ВИДЕО/5сек/BBHERB/Test Avatar/Шиммер");
+      assert.match(body.fileName, /serverjo\.mp4$/);
       return jsonResponse({
         diskPath: "disk:/ВИДЕО/5сек/BBHERB/Test Avatar/Шиммер/final-server.mp4",
-        diskUrl: "https://disk.yandex.ru/i/final-server"
+        diskUrl: "https://disk.yandex.ru/i/final-server",
+        diskVerifiedAt: "2026-07-22T10:00:00.000Z"
       });
     }
     throw new Error(`unexpected fetch ${url}`);
@@ -106,6 +108,7 @@ test("server job runs image generation, final assembly, avatar usage and disk up
     assert.equal(finalPayload.job.finalVideoHasAudio, true);
     assert.equal(finalPayload.job.diskPath, "disk:/ВИДЕО/5сек/BBHERB/Test Avatar/Шиммер/final-server.mp4");
     assert.equal(finalPayload.job.diskUrl, "https://disk.yandex.ru/i/final-server");
+    assert.equal(finalPayload.job.diskVerifiedAt, "2026-07-22T10:00:00.000Z");
     assert.deepEqual(finalPayload.avatarUsage, {
       characterId: "char-1",
       videoId: "avatar-video-warning",
@@ -432,7 +435,7 @@ test("resumed final-video job restores project context for avatar and cta overla
 });
 
 async function waitForServerJob(jobId, predicate, handle = handleServerJobsApi) {
-  for (let index = 0; index < 30; index += 1) {
+  for (let index = 0; index < 120; index += 1) {
     const { payload } = await callServerJobsApi("GET", `/api/jobs/status?jobId=${jobId}`, null, handle);
     if (predicate(payload)) return payload;
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -451,7 +454,7 @@ async function callServerJobsApi(method, path, body, handle = handleServerJobsAp
 }
 
 async function waitFor(predicate) {
-  for (let index = 0; index < 30; index += 1) {
+  for (let index = 0; index < 120; index += 1) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 0));
   }

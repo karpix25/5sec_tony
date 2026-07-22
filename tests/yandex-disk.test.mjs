@@ -86,8 +86,10 @@ test("yandex folder API uses pages and narrow fields for large folders", async (
 test("yandex upload API publishes file and returns public url", async () => {
   const previousFetch = globalThis.fetch;
   const previousToken = process.env.YANDEX_DISK_TOKEN;
+  const previousRetryBase = process.env.YANDEX_DISK_RETRY_BASE_MS;
   const calls = [];
   process.env.YANDEX_DISK_TOKEN = "token";
+  process.env.YANDEX_DISK_RETRY_BASE_MS = "1";
   globalThis.fetch = async (url, options = {}) => {
     const href = String(url);
     const method = options.method || "GET";
@@ -109,6 +111,15 @@ test("yandex upload API publishes file and returns public url", async () => {
     if (href.includes("/publish?")) {
       assert.equal(method, "PUT");
       return jsonResponse({});
+    }
+    if (href.includes("fields=path%2Cname%2Ctype%2Csize%2Cpublic_url")) {
+      return jsonResponse({
+        path: "disk:/ВИДЕО/5сек/final.mp4",
+        name: "final.mp4",
+        type: "file",
+        size: 5,
+        public_url: "https://disk.yandex.ru/i/final-public"
+      });
     }
     if (href.includes("fields=path%2Cpublic_url%2Cname%2Ctype")) {
       return jsonResponse({
@@ -134,11 +145,15 @@ test("yandex upload API publishes file and returns public url", async () => {
     assert.equal(response.payload.diskPath, "disk:/ВИДЕО/5сек/final.mp4");
     assert.equal(response.payload.diskUrl, "https://disk.yandex.ru/i/final-public");
     assert.equal(response.payload.publicUrl, "https://disk.yandex.ru/i/final-public");
+    assert.match(response.payload.diskVerifiedAt, /^\d{4}-\d{2}-\d{2}T/);
+    assert.equal(response.payload.diskSize, 5);
     assert.ok(calls.some((call) => call.href.includes("/publish?")));
   } finally {
     globalThis.fetch = previousFetch;
     if (previousToken === undefined) delete process.env.YANDEX_DISK_TOKEN;
     else process.env.YANDEX_DISK_TOKEN = previousToken;
+    if (previousRetryBase === undefined) delete process.env.YANDEX_DISK_RETRY_BASE_MS;
+    else process.env.YANDEX_DISK_RETRY_BASE_MS = previousRetryBase;
   }
 });
 

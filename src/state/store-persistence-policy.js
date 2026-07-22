@@ -51,7 +51,11 @@ function hasPersistedJobDelta(previous, next) {
     "diskStatus",
     "diskPath",
     "diskUrl",
-    "diskMessage"
+    "diskVerifiedAt",
+    "diskSize",
+    "diskVerification",
+    "diskMessage",
+    "yandexDiskRequired"
   ];
   return fields.some((field) => (previous[field] || "") !== (next[field] || ""));
 }

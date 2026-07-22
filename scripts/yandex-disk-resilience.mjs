@@ -1,6 +1,7 @@
 const defaultAttempts = 6;
-const defaultBaseDelayMs = 750;
-const defaultMaxDelayMs = 7000;
+const defaultBaseDelayMs = 2000;
+const defaultMaxDelayMs = 60000;
+const defaultDelayMs = [2000, 5000, 15000, 30000, 60000];
 
 let mutationTail = Promise.resolve();
 
@@ -58,6 +59,9 @@ function isRetryableMessage(message) {
 }
 
 function getRetryDelayMs(attempt, baseDelayMs, maxDelayMs) {
+  if (baseDelayMs === defaultBaseDelayMs) {
+    return Math.min(maxDelayMs, defaultDelayMs[Math.max(0, attempt - 1)] || defaultDelayMs.at(-1));
+  }
   return Math.min(maxDelayMs, baseDelayMs * 2 ** Math.max(0, attempt - 1));
 }
 

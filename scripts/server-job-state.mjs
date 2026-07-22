@@ -175,6 +175,7 @@ async function applyQuotaAccounting(query, currentJob, mergedJob) {
   if (!projectRow) return { job: mergedJob, project: null };
   const project = {
     id: projectRow.id,
+    yandexDiskFolder: projectRow.yandex_disk_folder,
     dailyLimit: projectRow.daily_limit,
     usedToday: projectRow.used_today,
     dailyUsageDate: projectRow.daily_usage_date || "",
