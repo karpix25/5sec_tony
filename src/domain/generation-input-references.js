@@ -21,13 +21,13 @@ export function getGenerationInputReferences({ reference, product, productVisual
       url: item.imageData
     })) : [])
   ]
-    .filter((item) => isImageReferenceUrl(item.url))
-    .map((item) => ({ ...item, isLocalData: isDataImageUrl(item.url) }))
+    .filter((item) => isGenerationImageReferenceUrl(item.url))
+    .map((item) => ({ ...item, isLocalData: isGenerationDataImageUrl(item.url) }))
     .slice(0, 16);
 }
 
-function isRemoteImageUrl(value) { return /^https?:\/\//.test(String(value || "")); }
-function isDataImageUrl(value) { return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || "")); }
-function isImageReferenceUrl(value) {
-  return isRemoteImageUrl(value) || isDataImageUrl(value) || /^\/api\/reference-assets\/[^/?#]+/.test(String(value || ""));
+function isGenerationRemoteImageUrl(value) { return /^https?:\/\//.test(String(value || "")); }
+function isGenerationDataImageUrl(value) { return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || "")); }
+function isGenerationImageReferenceUrl(value) {
+  return isGenerationRemoteImageUrl(value) || isGenerationDataImageUrl(value) || /^\/api\/reference-assets\/[^/?#]+/.test(String(value || ""));
 }

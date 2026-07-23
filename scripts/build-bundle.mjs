@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, normalize } from "node:path";
 
 const root = process.cwd();
 const files = [
@@ -33,6 +33,7 @@ const files = [
   "src/domain/ai-brief-freshness.js",
   "src/domain/curiosity-content.js",
   "src/domain/generation-format-contract.js",
+  "src/domain/safe-zone-reference.js",
   "src/domain/image-prompt-budget.js",
   "src/domain/current-date-context.js",
   "src/domain/language-policy.js",
@@ -66,6 +67,7 @@ const files = [
   "src/domain/payment-plan.js",
   "src/domain/ai-department-brief.js",
   "src/domain/image-prompt-rules.js",
+  "src/domain/generation-input-references.js",
   "src/domain/generation.js",
   "src/domain/generation-strategy.js",
   "src/domain/content-card-plan.js",
@@ -120,6 +122,7 @@ const files = [
   "src/state/ui-cache-state.js",
   "src/state/pending-remote-save-state.js",
   "src/state/pending-remote-save-cache.js",
+  "src/domain/navigation.js",
   "src/state/store-cache.js",
   "src/state/store.js",
   "src/ui/infographic.js",
@@ -163,9 +166,12 @@ const files = [
   "src/ui/research.js",
   "src/ui/queue.js",
   "src/ui/yandex-folder-picker.js",
+  "src/ui/url-navigation.js",
   "src/ui/render.js",
   "src/main.js"
 ];
+
+validateBundledLocalImports(files);
 
 const bundle = files
   .map((file) => {
@@ -180,3 +186,30 @@ const output = join(root, "dist/app.bundle.js");
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, bundle, "utf8");
 console.log(`Built ${output}`);
+
+function validateBundledLocalImports(bundleFiles) {
+  const fileSet = new Set(bundleFiles);
+  const missing = [];
+  for (const file of bundleFiles) {
+    const source = readFileSync(join(root, file), "utf8");
+    const imports = extractLocalImports(source, file);
+    for (const dependency of imports) {
+      if (!fileSet.has(dependency)) missing.push(`${file} -> ${dependency}`);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`Bundle file list is missing local imports:\n${missing.join("\n")}`);
+  }
+}
+
+function extractLocalImports(source, importer) {
+  return [...source.matchAll(/^import\s+(?:[\s\S]*?\s+from\s+)?["']([^"']+)["'];/gm)]
+    .map((match) => resolveLocalJsImport(match[1], importer))
+    .filter(Boolean);
+}
+
+function resolveLocalJsImport(specifier, importer) {
+  if (!specifier.startsWith(".")) return null;
+  const localPath = specifier.endsWith(".js") ? specifier : `${specifier}.js`;
+  return normalize(join(dirname(importer), localPath));
+}
