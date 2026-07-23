@@ -3,7 +3,6 @@ import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.
 import { formatLayoutPlanPrompt } from "./layout-content-planner.js";
 import { getProductVisualPromptPolicy } from "./product-visual-policy.js";
 import { russianImageTextRules, socialSafeZoneRules } from "./image-prompt-rules.js";
-import { safeZoneReferenceRules } from "./safe-zone-reference.js";
 
 import { stringifyPromptContract } from "./prompt-contract.js";
 
@@ -43,8 +42,7 @@ function getFinalRenderContract() {
     "ФИНАЛЬНЫЙ РЕНДЕР-КОНТРАКТ: дизайн-референс дает только композицию, палитру, типографический характер и ритм; видимый редакционный текст всегда берется из русского текстового контракта ниже.",
     ...russianImageTextRules,
     "АНГЛИЙСКИЙ ТЕКСТ ИЗ DESIGN REFERENCE: не копировать как пиксели и не переносить в финальную картинку; заменить естественными русскими заголовками, подписью, карточками и служебными ярлыками.",
-    ...socialSafeZoneRules,
-    ...safeZoneReferenceRules
+    ...socialSafeZoneRules
   ];
 }
 
