@@ -2,6 +2,7 @@ import { createDailyUsageDate } from "../domain/daily-usage.js";
 import { getProductsForProject } from "../domain/generation.js";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { globalAudioLibrary } from "../domain/entities.js";
+import { normalizeNavigationTab } from "../domain/navigation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
 import { createRemoteProject, deleteRemoteProject, updateRemoteProject } from "../services/projects-sync.js";
@@ -155,12 +156,13 @@ export function createStore() {
     },
     selectProject(projectId) {
       const projectProducts = getProductsForProject(state.products, projectId);
+      const project = getProject(state, projectId);
       setState({
         selectedProjectId: projectId,
         selectedProductId: projectProducts[0]?.id,
-        selectedReferenceId: getProject(state, projectId).references[0]?.id,
+        selectedReferenceId: project.references[0]?.id,
         selectedCharacterId: noAvatarCharacterId,
-        selectedProjectTab: "project",
+        selectedProjectTab: normalizeNavigationTab(state.selectedProjectTab),
         generationBrief: ensureGenerationBrief({})
       });
     },
@@ -188,7 +190,29 @@ export function createStore() {
       setState({ selectedAudioId: audioId });
     },
     selectProjectTab(tab) {
-      setState({ selectedProjectTab: tab });
+      setState({ selectedProjectTab: normalizeNavigationTab(tab, state.selectedProjectTab) });
+    },
+    applyNavigationSelection(selection = {}) {
+      const projectId = state.projects.some((project) => project.id === selection.projectId)
+        ? selection.projectId
+        : state.selectedProjectId;
+      const project = getProject(state, projectId);
+      const projectProducts = getProductsForProject(state.products, project.id);
+      const productId = projectProducts.some((product) => product.id === selection.productId)
+        ? selection.productId
+        : projectProducts.some((product) => product.id === state.selectedProductId)
+          ? state.selectedProductId
+          : projectProducts[0]?.id;
+      const referenceId = project.references.some((reference) => reference.id === state.selectedReferenceId)
+        ? state.selectedReferenceId
+        : project.references[0]?.id;
+      setState({
+        selectedProjectId: project.id,
+        selectedProductId: productId,
+        selectedReferenceId: referenceId,
+        selectedCharacterId: project.characters.some((char) => char.id === state.selectedCharacterId) ? state.selectedCharacterId : noAvatarCharacterId,
+        selectedProjectTab: normalizeNavigationTab(selection.tab, state.selectedProjectTab)
+      });
     },
     selectQueueProductFilter(filter) {
       setState({ queueProductFilter: filter === "all" ? "all" : "current" });
@@ -450,9 +474,7 @@ function normalize(nextState) {
         ? nextState.selectedCharacterId
         : noAvatarCharacterId,
     selectedAudioId: getSelectedGlobalAudioId(audioLibrary, nextState.selectedAudioId),
-    selectedProjectTab: ["project", "product", "audio", "design", "avatars", "generation", "queue", "hooks"].includes(nextState.selectedProjectTab)
-      ? nextState.selectedProjectTab
-      : "project",
+    selectedProjectTab: normalizeNavigationTab(nextState.selectedProjectTab),
     queueProductFilter: nextState.queueProductFilter === "all" ? "all" : "current",
     generationBrief: ensureGenerationBrief(nextState.generationBrief)
   };

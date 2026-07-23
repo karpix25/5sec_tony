@@ -72,6 +72,31 @@ test("project and product switches default generation to no avatar until explici
   }
 });
 
+test("store applies url navigation without resetting to the project tab", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: createInitialState(), updatedAt: "t0" });
+    }
+    return jsonResponse({ disabled: true }, 503);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+
+    store.applyNavigationSelection({ projectId: "beauty", productId: "serum", tab: "queue" });
+    const state = store.getState();
+
+    assert.equal(state.selectedProjectId, "beauty");
+    assert.equal(state.selectedProductId, "serum");
+    assert.equal(state.selectedProjectTab, "queue");
+    assert.equal(state.selectedCharacterId, noAvatarCharacterId);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("selection context ignores a product from another project", () => {
   const state = {
     projects: [

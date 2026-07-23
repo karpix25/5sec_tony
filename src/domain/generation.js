@@ -29,6 +29,8 @@ import { getProductReferenceTransferInstruction } from "./product-reference-tran
 import { createProductVisibilityDecision } from "./product-visibility-decision.js";
 import { createPromptContract } from "./prompt-contract.js";
 import { createGenerationAiTrace } from "./generation-ai-trace.js";
+import { getGenerationInputReferences, getGenerationInputUrls } from "./generation-input-references.js";
+import { safeZoneReferenceRules } from "./safe-zone-reference.js";
 import {
   getAiDepartmentContent,
   getAiDepartmentFormat,
@@ -46,6 +48,7 @@ import {
   russianImageTextRules,
   socialSafeZoneRules
 } from "./image-prompt-rules.js";
+export { getGenerationInputReferences, getGenerationInputUrls };
 export function getProductsForProject(products, projectId) {
   return products.filter((product) => product.projectId === projectId);
 }
@@ -90,6 +93,7 @@ export function buildImagePrompt({ project, product, reference, character, gener
     ...designReferenceRules,
     ...buildDesignReferenceConsistencyInstructions(reference),
     ...socialSafeZoneRules,
+    ...safeZoneReferenceRules,
     currentDatePrompt,
     avatarReservedZonePrompt,
     cornerCompositionPolicy,
@@ -237,35 +241,7 @@ export function createGenerationJob({ project, product, reference, character, au
   };
 }
 
-export function getGenerationInputUrls({ reference, character, product }) {
-  return getGenerationInputReferences({ reference, character, product }).map((item) => item.url);
-}
-export function getGenerationInputReferences({ reference, product, productVisualMode = "exact-product", productVisibilityDecision = null }) {
-  const shouldPassProductRefs = productVisibilityDecision
-    ? productVisibilityDecision.shouldPassProductRefs === true
-    : productVisualMode === "exact-product";
-  return [
-    ...(shouldPassProductRefs ? (product.references || []).map((item) => ({
-      role: "product",
-      title: item.title || item.imageName || "Product reference",
-      url: item.imageData
-    })) : []),
-    {
-      role: "design",
-      title: reference?.title || "Design reference",
-      url: reference?.imageData
-    }
-  ]
-    .filter((item) => isImageReferenceUrl(item.url))
-    .map((item) => ({ ...item, isLocalData: isDataImageUrl(item.url) }))
-    .slice(0, 16);
-}
-
 function isRemoteImageUrl(value) { return /^https?:\/\//.test(String(value || "")); }
-function isDataImageUrl(value) { return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || "")); }
-function isImageReferenceUrl(value) {
-  return isRemoteImageUrl(value) || isDataImageUrl(value) || /^\/api\/reference-assets\/[^/?#]+/.test(String(value || ""));
-}
 
 function cleanDesignReferenceText(value) {
   return String(value || "")

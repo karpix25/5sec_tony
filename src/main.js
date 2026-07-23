@@ -12,6 +12,7 @@ import { captureTransientUiState, restoreTransientUiState } from "./ui/transient
 import { createAuthController } from "./ui/auth.js";
 import { renderStudioLoading } from "./ui/studio-loading.js";
 import { capturePagePosition, restorePagePosition, startPagePositionPersistence } from "./ui/page-position-state.js";
+import { applyUrlNavigationToStore, startUrlNavigationSync } from "./ui/url-navigation.js";
 
 const root = document.querySelector("#app");
 let store = null;
@@ -20,6 +21,7 @@ let needsFullRender = false;
 let pendingState = null;
 let firstRenderReady = false;
 let initialPagePositionRestored = false;
+let stopUrlNavigationSync = null;
 
 const auth = createAuthController({
   root: null,
@@ -47,6 +49,9 @@ function startStudio() {
     .catch(() => null)
     .finally(() => {
       firstRenderReady = true;
+      applyUrlNavigationToStore(store, window.location);
+      stopUrlNavigationSync?.();
+      stopUrlNavigationSync = startUrlNavigationSync(store, window);
       renderAppSafely();
       resumeRunningImageJobs(store);
       startQueueStatusSync(store);

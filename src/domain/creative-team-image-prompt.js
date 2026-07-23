@@ -2,6 +2,8 @@ import { limitImagePrompt } from "./image-prompt-budget.js";
 import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.js";
 import { formatLayoutPlanPrompt } from "./layout-content-planner.js";
 import { getProductVisualPromptPolicy } from "./product-visual-policy.js";
+import { russianImageTextRules, socialSafeZoneRules } from "./image-prompt-rules.js";
+import { safeZoneReferenceRules } from "./safe-zone-reference.js";
 
 import { stringifyPromptContract } from "./prompt-contract.js";
 
@@ -20,6 +22,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const productVisualContract = getProductVisualPromptPolicy(productVisualMode);
   const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({ productVisualMode });
   return limitImagePrompt([
+    ...getFinalRenderContract(),
     safePackagePrompt,
     safePromptContract ? `JSON-КОНТРАКТ ПРОМПТА:\n${stringifyPromptContract(safePromptContract)}` : "",
     "ТЕХНИЧЕСКИЕ ПРАВИЛА РЕНДЕРА:",
@@ -33,6 +36,16 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
     Array.isArray(content.points) && content.points.length ? `Блоки: ${content.points.map(formatContentPoint).join(" | ")}.` : "",
     freePrompt ? `Дополнительная задача оператора: ${String(freePrompt).trim().slice(0, 600)}.` : ""
   ].filter(Boolean).join(" "));
+}
+
+function getFinalRenderContract() {
+  return [
+    "ФИНАЛЬНЫЙ РЕНДЕР-КОНТРАКТ: дизайн-референс дает только композицию, палитру, типографический характер и ритм; видимый редакционный текст всегда берется из русского текстового контракта ниже.",
+    ...russianImageTextRules,
+    "АНГЛИЙСКИЙ ТЕКСТ ИЗ DESIGN REFERENCE: не копировать как пиксели и не переносить в финальную картинку; заменить естественными русскими заголовками, подписью, карточками и служебными ярлыками.",
+    ...socialSafeZoneRules,
+    ...safeZoneReferenceRules
+  ];
 }
 
 function sanitizePromptContract(contract, content) {

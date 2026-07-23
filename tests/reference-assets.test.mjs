@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
 import { projects, products } from "../src/domain/entities.js";
-import { createGenerationJob } from "../src/domain/generation.js";
+import { createGenerationJob, getGenerationInputReferences } from "../src/domain/generation.js";
+import { getSafeZoneInputReference, safeZoneReferenceRole } from "../src/domain/safe-zone-reference.js";
 import { handleReferenceAssetsApi, resolveImageInputUrls, summarizeInputRefs } from "../scripts/reference-assets.mjs";
 
 const tinyPng = "data:image/png;base64,iVBORw0KGgo=";
@@ -29,8 +30,12 @@ test("generation job keeps local product references for image-to-image handoff",
     }
   });
 
-  assert.deepEqual(job.inputUrls, [tinyPng]);
-  assert.deepEqual(job.inputRefs, [{ role: "product", title: "Реальная упаковка", isLocalData: true }]);
+  assert.equal(job.inputRefs[0].role, safeZoneReferenceRole);
+  assert.equal(job.inputUrls[0], getSafeZoneInputReference().url);
+  assert.equal(job.promptContract.inputRefs[0].role, safeZoneReferenceRole);
+  assert.deepEqual(job.inputRefs.find((item) => item.role === "product"), { role: "product", title: "Реальная упаковка", isLocalData: true });
+  assert.equal(job.inputUrls.includes(tinyPng), true);
+  assert.match(job.prompt, /SAFE ZONE REFERENCE/);
   assert.match(job.prompt, /Референсы продукта: Реальная упаковка: белая бутылка с зеленой этикеткой/);
   assert.match(job.prompt, /PRODUCT REFERENCE PLAN: product-present/);
   assert.doesNotMatch(job.prompt, /он не передан в image-to-image/);
@@ -98,6 +103,8 @@ test("generation job keeps saved design reference asset paths for image handoff"
     character: project.characters[0]
   });
 
+  assert.equal(job.inputRefs[0].role, safeZoneReferenceRole);
+  assert.equal(job.inputUrls[0], getSafeZoneInputReference().url);
   assert.equal(job.inputUrls.includes("/api/reference-assets/design-1"), true);
   assert.deepEqual(job.inputRefs.find((item) => item.role === "design"), {
     role: "design",
@@ -106,12 +113,31 @@ test("generation job keeps saved design reference asset paths for image handoff"
   });
 });
 
+test("generation input references keep safe-zone first when input refs hit provider limit", () => {
+  const reference = { ...projects[0].references[0], imageData: "/api/reference-assets/design-1" };
+  const product = {
+    ...products[0],
+    references: Array.from({ length: 20 }, (_, index) => ({
+      title: `Product ${index + 1}`,
+      imageData: `https://cdn.example.com/product-${index + 1}.png`
+    }))
+  };
+
+  const refs = getGenerationInputReferences({ reference, product });
+
+  assert.equal(refs.length, 16);
+  assert.equal(refs[0].role, safeZoneReferenceRole);
+  assert.equal(refs[1].role, "design");
+  assert.equal(refs.filter((item) => item.role === "product").length, 14);
+});
+
 test("reference asset logs distinguish product references", () => {
   const summary = summarizeInputRefs({
     rawInputUrls: [tinyPng, "https://cdn.example.com/style.png"],
     resolvedInputUrls: ["https://studio.example.com/api/reference-assets/1", "https://cdn.example.com/style.png"],
     inputRefs: [
       { role: "product", title: "Реальная упаковка", isLocalData: true },
+      { role: safeZoneReferenceRole, title: "Safe zone placement mask", isLocalData: true },
       { role: "design", title: "Стиль", isLocalData: false }
     ]
   });
@@ -121,6 +147,7 @@ test("reference asset logs distinguish product references", () => {
     resolvedInputUrls: 2,
     localInputUrls: 1,
     remoteInputUrls: 1,
+    safeZoneRefs: 1,
     productRefs: 1,
     localProductRefs: 1,
     designRefs: 1
@@ -150,8 +177,9 @@ test("generation job skips product image inputs in no-package mode", () => {
   });
 
   assert.equal(job.productVisualMode, "no-package");
-  assert.deepEqual(job.inputRefs, []);
-  assert.deepEqual(job.inputUrls, []);
+  assert.deepEqual(job.inputRefs.map((item) => item.role), [safeZoneReferenceRole]);
+  assert.deepEqual(job.inputUrls, [getSafeZoneInputReference().url]);
+  assert.equal(job.inputRefs.some((item) => item.role === "product"), false);
   assert.match(job.prompt, /PRODUCT REFERENCE PLAN: product-absent/);
   assert.match(job.prompt, /retention visual/);
 });

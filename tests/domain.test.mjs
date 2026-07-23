@@ -77,8 +77,8 @@ test("generation job starts as queued and advances through pipeline", () => {
   assert.equal(job.status, "queued");
   assert.equal(Number.isFinite(Date.parse(job.createdAt)), true);
   assert.equal(job.characterId, project.characters[0].id);
-  assert.deepEqual(job.inputUrls, ["data:image/png;base64,style"]);
-  assert.deepEqual(job.inputRefs, [{ role: "design", title: project.references[0].title, isLocalData: true }]);
+  assert.deepEqual(job.inputRefs.map((item) => item.role), ["safe_zone", "design"]);
+  assert.equal(job.inputUrls.includes("data:image/png;base64,style"), true);
   assert.equal(next.status, "running");
   assert.equal(next.stage, "prompt");
 });

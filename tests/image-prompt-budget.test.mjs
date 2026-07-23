@@ -18,6 +18,8 @@ test("image prompt budget keeps essential generation instructions under provider
 
   assert.ok(job.prompt.length <= IMAGE_PROMPT_MAX_CHARS);
   assert.match(job.prompt, /ЯЗЫК НА ИЗОБРАЖЕНИИ/);
+  assert.match(job.prompt, /SAFE ZONE REFERENCE/);
+  assert.match(job.prompt, /Белая область safe-zone/);
   assert.match(job.prompt, /КОМПОЗИЦИЯ И ОТСТУПЫ/);
   assert.match(job.prompt, /Reels\/TikTok\/Shorts/);
   assert.match(job.prompt, /CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН/);

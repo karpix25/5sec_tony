@@ -80,6 +80,7 @@ export function summarizeInputRefs({ rawInputUrls, inputRefs, resolvedInputUrls 
     resolvedInputUrls: resolvedInputUrls.length,
     localInputUrls: rawInputUrls.filter(isDataImageUrl).length,
     remoteInputUrls: rawInputUrls.filter(isRemoteUrl).length,
+    safeZoneRefs: refs.filter((item) => item.role === "safe_zone").length,
     productRefs: refs.filter((item) => item.role === "product").length,
     localProductRefs: refs.filter((item) => item.role === "product" && item.isLocalData).length,
     designRefs: refs.filter((item) => item.role === "design").length
