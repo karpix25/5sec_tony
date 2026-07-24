@@ -14,6 +14,11 @@ export function createPromptContract({ brief = {}, reference = {}, inputReferenc
       adaptationRules: design.adaptationRules || [],
       doNotCopy: design.doNotCopy || reference.avoidCopy || []
     }),
+    referencePriority: {
+      design: "primary_style_and_layout_source",
+      product: "exact_product_appearance_source",
+      safe_zone: "placement_mask_only_last_reference"
+    },
     productVisibilityDecision: compact(productDecision),
     avatarSafeZone: avatarSafeZone || null,
     textContract: compact({

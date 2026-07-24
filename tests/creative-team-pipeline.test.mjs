@@ -49,7 +49,7 @@ test("creative team image prompt package and script are authoritative", () => {
   assert.match(prompt, /SAFE ZONE REFERENCE/);
   assert.match(prompt, /Белая область safe-zone маски/);
   assert.match(prompt, /Фиолетовая область safe-zone маски/);
-  assert.match(prompt, /не дизайн-референс, не палитра и не фон/);
+  assert.match(prompt, /не дизайн-референс, не палитра, не фон/);
   assert.match(prompt, /центральных 76-80% ширины/);
   assert.match(prompt, /нижние 22-28% кадра/);
   assert.match(prompt, /Запрещено касание краев/);
@@ -370,6 +370,8 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.match(imagePromptInstruction.rules.join(" "), /все заголовки, карточки, подписи, легенды и служебные ярлыки замени русским текстом/);
   assert.match(imagePromptInstruction.rules.join(" "), /role=safe_zone/);
   assert.match(imagePromptInstruction.rules.join(" "), /служебная 9:16 маска размещения/);
+  assert.match(imagePromptInstruction.rules.join(" "), /RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE/);
+  assert.doesNotMatch(imagePromptInstruction.rules.join(" "), /safe_zone важнее|приоритет всегда у safe-zone/i);
   assert.match(imagePromptInstruction.rules.join(" "), /Отступы обязательны/);
   assert.equal(Object.hasOwn(passportPrompt, "project"), false);
   assert.equal(Object.hasOwn(passportPrompt, "reference"), false);

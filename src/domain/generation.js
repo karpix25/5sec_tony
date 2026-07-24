@@ -30,7 +30,6 @@ import { createProductVisibilityDecision } from "./product-visibility-decision.j
 import { createPromptContract } from "./prompt-contract.js";
 import { createGenerationAiTrace } from "./generation-ai-trace.js";
 import { getGenerationInputReferences, getGenerationInputUrls } from "./generation-input-references.js";
-import { safeZoneReferenceRules } from "./safe-zone-reference.js";
 import {
   getAiDepartmentContent,
   getAiDepartmentFormat,
@@ -93,7 +92,6 @@ export function buildImagePrompt({ project, product, reference, character, gener
     ...designReferenceRules,
     ...buildDesignReferenceConsistencyInstructions(reference),
     ...socialSafeZoneRules,
-    ...safeZoneReferenceRules,
     currentDatePrompt,
     avatarReservedZonePrompt,
     cornerCompositionPolicy,

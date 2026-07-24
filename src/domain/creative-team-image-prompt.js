@@ -40,6 +40,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
 function getFinalRenderContract() {
   return [
     "ФИНАЛЬНЫЙ РЕНДЕР-КОНТРАКТ: дизайн-референс дает только композицию, палитру, типографический характер и ритм; видимый редакционный текст всегда берется из русского текстового контракта ниже.",
+    "RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE: не заменяй референс generic centered checklist; перенеси его визуальную грамматику внутрь безопасной рабочей области.",
     ...russianImageTextRules,
     "АНГЛИЙСКИЙ ТЕКСТ ИЗ DESIGN REFERENCE: не копировать как пиксели и не переносить в финальную картинку; заменить естественными русскими заголовками, подписью, карточками и служебными ярлыками.",
     ...socialSafeZoneRules
