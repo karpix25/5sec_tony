@@ -16,6 +16,7 @@ function createGenerationDom(count = "1") {
 }
 
 function createGenerationStoreDouble({ project, product, calls = [] }) {
+  let batchIndex = 0;
   const state = {
     projects: [project],
     products: [product],
@@ -32,6 +33,39 @@ function createGenerationStoreDouble({ project, product, calls = [] }) {
     state,
     store: {
       getState: () => state,
+      createPendingServerGenerationBatch({ count, distributeProducts, selection }) {
+        batchIndex += 1;
+        const batchId = `batch-test-${batchIndex}`;
+        const jobs = Array.from({ length: count }, (_, index) => ({
+          id: `job-reserved-${batchIndex}-${index + 1}`,
+          projectId: project.id,
+          productId: product.id,
+          productName: product.name,
+          referenceId: selection.referenceId,
+          referenceTitle: project.references[0].title,
+          status: "running",
+          stage: "brief",
+          progress: 3,
+          title: count > 1 ? `Готовим AI-бриф ${index + 1}/${count}` : "Готовим AI-бриф",
+          topic: "AI-команда собирает сценарий и промпт",
+          isBriefPlaceholder: true,
+          serverOwned: true,
+          serverBatchId: batchId,
+          serverReservationStatus: "requested"
+        }));
+        calls.push(["createPendingServerGenerationBatch", count, distributeProducts, batchId, jobs.map((job) => job.id)]);
+        state.jobs = [...jobs, ...state.jobs];
+        return { batchId, jobs };
+      },
+      failPendingGenerationBatch(batchId, message) {
+        calls.push(["failPendingGenerationBatch", batchId, message]);
+        state.jobs = state.jobs.map((job) => job.serverBatchId === batchId ? {
+          ...job,
+          status: "failed",
+          progress: 100,
+          failMsg: message
+        } : job);
+      },
       mergeServerJobs(jobs = []) {
         calls.push(["mergeServerJobs", jobs.map((job) => job.id)]);
         state.jobs = [...jobs, ...state.jobs.filter((job) => !jobs.some((item) => item.id === job.id))];
@@ -58,28 +92,41 @@ test("generation start sends a clamped backend batch request and switches to que
   const calls = [];
   const requests = [];
   globalThis.fetch = async (url, options = {}) => {
-    requests.push([url, JSON.parse(options.body || "{}")]);
+    const body = JSON.parse(options.body || "{}");
+    requests.push([url, body]);
     return {
       ok: true,
       json: async () => ({
         batchId: "batch-1",
-        jobs: [
-          { id: "job-1", projectId: project.id, productId: product.id, status: "running", stage: "brief" },
-          { id: "job-2", projectId: project.id, productId: product.id, status: "running", stage: "brief" }
-        ]
+        jobs: body.reservation.jobIds.slice(0, 2).map((id) => ({
+          id,
+          projectId: project.id,
+          productId: product.id,
+          status: "running",
+          stage: "brief",
+          serverBatchId: body.reservation.batchId
+        }))
       })
     };
   };
-  const { store } = createGenerationStoreDouble({ project, product, calls });
+  const { state, store } = createGenerationStoreDouble({ project, product, calls });
 
   try {
     bindGenerationPanelEvents(root, store);
     createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+    assert.equal(state.jobs.length, 10);
+    assert.equal(state.jobs[0].status, "running");
+    assert.equal(state.jobs[0].stage, "brief");
+    assert.equal(status.textContent, "Задача добавлена в очередь. Сервер подтверждает запуск...");
     await waitForGenerationTicks();
 
     assert.equal(requests[0][0], "/api/generation/batches");
     assert.equal(requests[0][1].count, 10);
     assert.equal(requests[0][1].distributeProducts, false);
+    assert.deepEqual(requests[0][1].reservation, {
+      batchId: "batch-test-1",
+      jobIds: state.jobs.slice(0, 10).map((job) => job.id)
+    });
     assert.deepEqual(requests[0][1].selection, {
       projectId: project.id,
       productId: product.id,
@@ -89,7 +136,19 @@ test("generation start sends a clamped backend batch request and switches to que
       freePrompt: ""
     });
     assert.deepEqual(calls, [
-      ["mergeServerJobs", ["job-1", "job-2"]],
+      ["createPendingServerGenerationBatch", 10, false, "batch-test-1", [
+        "job-reserved-1-1",
+        "job-reserved-1-2",
+        "job-reserved-1-3",
+        "job-reserved-1-4",
+        "job-reserved-1-5",
+        "job-reserved-1-6",
+        "job-reserved-1-7",
+        "job-reserved-1-8",
+        "job-reserved-1-9",
+        "job-reserved-1-10"
+      ]],
+      ["mergeServerJobs", ["job-reserved-1-1", "job-reserved-1-2"]],
       ["selectProjectTab", "queue"]
     ]);
     assert.equal(status.textContent, "Серверная очередь приняла 2 из 10.");
@@ -105,12 +164,13 @@ test("generation project distribution mode is explicit", async () => {
   const product = products.find((item) => item.projectId === project.id);
   const requests = [];
   globalThis.fetch = async (url, options = {}) => {
-    requests.push([url, JSON.parse(options.body || "{}")]);
+    const body = JSON.parse(options.body || "{}");
+    requests.push([url, body]);
     return {
       ok: true,
       json: async () => ({
         batchId: "batch-1",
-        jobs: [{ id: "job-1", projectId: project.id, productId: product.id, status: "running", stage: "brief" }]
+        jobs: [{ id: body.reservation.jobIds[0], projectId: project.id, productId: product.id, status: "running", stage: "brief" }]
       })
     };
   };
@@ -128,33 +188,37 @@ test("generation project distribution mode is explicit", async () => {
   }
 });
 
-test("generation start does not create browser placeholders or call legacy job endpoints", async () => {
+test("generation start reserves visible queue jobs and does not call legacy job endpoints", async () => {
   const previousFetch = globalThis.fetch;
   const { root, createJobButton, status } = createGenerationDom("1");
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
   const calls = [];
   const urls = [];
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, options = {}) => {
+    const body = JSON.parse(options.body || "{}");
     urls.push(url);
     return {
       ok: true,
       json: async () => ({
-        batchId: "batch-1",
-        jobs: [{ id: "job-1", projectId: project.id, productId: product.id, status: "running", stage: "brief" }]
+        batchId: body.reservation.batchId,
+        jobs: [{ id: body.reservation.jobIds[0], projectId: project.id, productId: product.id, status: "running", stage: "brief" }]
       })
     };
   };
-  const { store } = createGenerationStoreDouble({ project, product, calls });
+  const { state, store } = createGenerationStoreDouble({ project, product, calls });
 
   try {
     bindGenerationPanelEvents(root, store);
     createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+    assert.equal(state.jobs.length, 1);
+    assert.equal(state.jobs[0].isBriefPlaceholder, true);
     await waitForGenerationTicks();
 
     assert.deepEqual(urls, ["/api/generation/batches"]);
     assert.deepEqual(calls, [
-      ["mergeServerJobs", ["job-1"]],
+      ["createPendingServerGenerationBatch", 1, false, "batch-test-1", ["job-reserved-1-1"]],
+      ["mergeServerJobs", ["job-reserved-1-1"]],
       ["selectProjectTab", "queue"]
     ]);
     assert.equal(status.textContent, "Серверная очередь приняла 1 из 1.");
@@ -163,7 +227,7 @@ test("generation start does not create browser placeholders or call legacy job e
   }
 });
 
-test("generation start shows backend enqueue errors without local placeholder jobs", async () => {
+test("generation start marks visible queue reservation failed when backend enqueue fails", async () => {
   const previousFetch = globalThis.fetch;
   const { root, createJobButton, status } = createGenerationDom("1");
   const project = projects[0];
@@ -180,8 +244,14 @@ test("generation start shows backend enqueue errors without local placeholder jo
     createJobButton.dispatchEvent({ type: "click", target: createJobButton });
     await waitForGenerationTicks();
 
-    assert.equal(state.jobs.length, 0);
-    assert.deepEqual(calls, []);
+    assert.equal(state.jobs.length, 1);
+    assert.equal(state.jobs[0].status, "failed");
+    assert.equal(state.jobs[0].failMsg, "OpenRouter upstream 502");
+    assert.deepEqual(calls, [
+      ["createPendingServerGenerationBatch", 1, false, "batch-test-1", ["job-reserved-1-1"]],
+      ["failPendingGenerationBatch", "batch-test-1", "OpenRouter upstream 502"],
+      ["selectProjectTab", "queue"]
+    ]);
     assert.equal(status.textContent, "OpenRouter upstream 502. Генерация не запущена.");
   } finally {
     globalThis.fetch = previousFetch;

@@ -19,6 +19,7 @@ async function createBatch(request, response) {
       count: body.count,
       distributeProducts: body.distributeProducts === true,
       selection: body.selection || {},
+      reservation: body.reservation || {},
       origin: getInternalServerOrigin()
     });
     return sendJson(response, 202, payload);

@@ -85,6 +85,31 @@ test("backend generation batch creates server-owned brief jobs in state", async 
   assert.deepEqual(result.jobs.map((job) => job.productName), [selectedProduct.name, selectedProduct.name]);
 });
 
+test("backend generation batch adopts client reservation ids", async () => {
+  const state = createState();
+  const deps = createStateDeps(state, { autoStart: false });
+  const result = await createGenerationBatch({
+    count: 2,
+    origin: "http://127.0.0.1:4173",
+    reservation: {
+      batchId: "batch-reserved-1",
+      jobIds: ["job-reserved-a", "job-reserved-b"]
+    },
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: state.selectedProductId,
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  });
+
+  assert.equal(result.batchId, "batch-reserved-1");
+  assert.deepEqual(result.jobs.map((job) => job.id), ["job-reserved-a", "job-reserved-b"]);
+  assert.equal(result.jobs.every((job) => job.serverOwned && job.serverBatchId === "batch-reserved-1"), true);
+});
+
 test("backend generation batch distributes products only when explicitly requested", async () => {
   const state = createState();
   const firstProduct = state.products[0];

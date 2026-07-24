@@ -1,4 +1,5 @@
 import { advanceJob, createGenerationJob, getProductsForProject } from "../domain/generation.js";
+import { createGenerationBatchId, normalizeGenerationCount, normalizeGenerationSelection } from "../domain/generation-batch-reservation.js";
 import { createPendingGenerationJob } from "../domain/generation-placeholder.js";
 import { patchJobWithQuotaAccounting } from "../domain/job-quota.js";
 import { createBriefJobStartedAt } from "./brief-job-rescue.js";
@@ -39,6 +40,42 @@ export function createJobActions({ getState, setState, getProject }) {
         .map((job, index) => createPendingGenerationJobWithStartedAt(job, index, count));
       setState(withCreatedJobs(state, reservedJobs, context.project.id));
       return reservedJobs;
+    },
+    createPendingServerGenerationBatch({ count, distributeProducts = false, selection = {}, batchId = "" } = {}) {
+      const state = getState();
+      const context = getSelectionContext(state, getProject);
+      const safeCount = normalizeGenerationCount(count);
+      const serverBatchId = batchId || createGenerationBatchId();
+      const selectionSnapshot = normalizeGenerationSelection(selection);
+      const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts })
+        .map((job, index) => createPendingGenerationJobWithStartedAt(job, index, safeCount, {
+          serverBatchId,
+          selectionSnapshot,
+          serverOwned: true,
+          serverReservationStatus: "requested"
+        }));
+      setState({
+        selectedProjectTab: "queue",
+        jobs: [...reservedJobs, ...state.jobs]
+      });
+      return { batchId: serverBatchId, jobs: reservedJobs };
+    },
+    failPendingGenerationBatch(batchId, message) {
+      const state = getState();
+      setState({
+        jobs: state.jobs.map((job) => (
+          job.serverBatchId === batchId && job.isBriefPlaceholder
+            ? {
+                ...job,
+                status: "failed",
+                stage: "brief",
+                progress: 100,
+                serverReservationStatus: "failed",
+                failMsg: message || "Серверная очередь не приняла задачу. Запустите генерацию заново."
+              }
+            : job
+        ))
+      });
     },
     mergeServerJobs(jobs = []) {
       const state = getState();
@@ -84,6 +121,9 @@ export function createJobActions({ getState, setState, getProject }) {
   };
 }
 
-function createPendingGenerationJobWithStartedAt(job, index, count) {
-  return createPendingGenerationJob(job, index, count, { briefStartedAt: createBriefJobStartedAt() });
+function createPendingGenerationJobWithStartedAt(job, index, count, extra = {}) {
+  return createPendingGenerationJob(job, index, count, {
+    ...extra,
+    briefStartedAt: extra.briefStartedAt || createBriefJobStartedAt()
+  });
 }

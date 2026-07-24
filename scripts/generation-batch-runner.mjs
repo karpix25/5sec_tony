@@ -1,7 +1,12 @@
 import { normalizeStateDailyUsage } from "../src/domain/daily-usage.js";
 import { createGenerationJob } from "../src/domain/generation.js";
+import {
+  createGenerationBatchId,
+  normalizeGenerationBatchReservation,
+  normalizeGenerationCount,
+  normalizeGenerationSelection
+} from "../src/domain/generation-batch-reservation.js";
 import { createPendingGenerationJob } from "../src/domain/generation-placeholder.js";
-import { noAvatarCharacterId } from "../src/domain/avatar-selection.js";
 import { createSelectionJobBatch } from "../src/state/store-context.js";
 import { generateServerAiBrief } from "./generation-brief-service.mjs";
 import { loadGenerationState, updateGenerationState } from "./generation-state.mjs";
@@ -10,16 +15,18 @@ import { createServerSelectionContext } from "./generation-selection-context.mjs
 
 const runningBatches = new Map();
 
-export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, origin, deps = {} }) {
-  const batchId = `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, reservation = {}, origin, deps = {} }) {
+  const safeCount = normalizeGenerationCount(count);
+  const normalizedReservation = normalizeGenerationBatchReservation(reservation, safeCount);
+  const batchId = normalizedReservation.batchId || createGenerationBatchId();
   const result = await updateState(deps, (state) => {
     const dailyState = normalizeStateDailyUsage(state);
     const context = createServerSelectionContext(dailyState, selection);
-    const safeCount = Math.max(1, Math.min(10, Number(count || 1)));
     const reservedJobs = createSelectionJobBatch(dailyState, context, safeCount, { distributeProducts })
       .map((job, index) => createPendingGenerationJob(job, index, safeCount, {
+        id: normalizedReservation.jobIds[index],
         serverBatchId: batchId,
-        selectionSnapshot: normalizeSelection(selection),
+        selectionSnapshot: normalizeGenerationSelection(selection),
         serverOwned: true
       }));
     if (!reservedJobs.length) throw new Error("Не удалось создать задачи. Проверьте лимиты проекта.");
@@ -144,17 +151,6 @@ async function failBriefJob(jobId, error, deps) {
       failMsg: error.message || "AI-бриф не подготовился"
     } : job)
   }), deps);
-}
-
-function normalizeSelection(selection = {}) {
-  return {
-    projectId: selection.projectId || "",
-    productId: selection.productId || "",
-    referenceId: selection.referenceId || "",
-    characterId: selection.characterId || noAvatarCharacterId,
-    audioId: selection.audioId || "",
-    freePrompt: selection.freePrompt || ""
-  };
 }
 
 async function postJson(origin, path, body) {

@@ -5,7 +5,7 @@ export function createPendingGenerationJob(job, index = 0, count = 1, extra = {}
   return {
     ...job,
     ...extra,
-    id: job.id || createUniqueJobId([]),
+    id: extra.id || job.id || createUniqueJobId([]),
     status: "running",
     stage: "brief",
     isBriefPlaceholder: true,

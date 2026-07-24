@@ -41,14 +41,27 @@ export function bindGenerationPanelEvents(root, store) {
     const status = root.querySelector("#creative-team-status");
     setLaunchBusy(button, status, true);
     let jobs = [];
+    let reservation = null;
     try {
       if (!canRunCreativeTeamPreflight(store)) {
         throw new Error("Серверная очередь генерации недоступна");
       }
+      const distributeProducts = shouldDistributeProducts(root);
+      const selection = createGenerationSelection(store);
+      reservation = store.createPendingServerGenerationBatch({
+        count,
+        distributeProducts,
+        selection
+      });
+      if (status) status.textContent = "Задача добавлена в очередь. Сервер подтверждает запуск...";
       const payload = await createServerGenerationBatch({
         count,
-        distributeProducts: shouldDistributeProducts(root),
-        selection: createGenerationSelection(store)
+        distributeProducts,
+        selection,
+        reservation: {
+          batchId: reservation.batchId,
+          jobIds: reservation.jobs.map((job) => job.id)
+        }
       });
       jobs = store.mergeServerJobs(payload.jobs || []);
       if (!jobs.length) throw new Error("Сервер не вернул созданные задачи");
@@ -57,6 +70,10 @@ export function bindGenerationPanelEvents(root, store) {
         ? `Серверная очередь приняла ${jobs.length} из ${count}.`
         : "Очередь не создала задачи. Проверьте лимиты проекта.";
     } catch (error) {
+      if (reservation?.batchId) {
+        store.failPendingGenerationBatch(reservation.batchId, error.message || "Серверная очередь недоступна");
+        store.selectProjectTab("queue");
+      }
       if (status) status.textContent = `${error.message || "Серверная очередь недоступна"}. Генерация не запущена.`;
     } finally {
       setLaunchBusy(button, status, false);
@@ -75,6 +92,8 @@ function setLaunchBusy(button, status, busy) {
 
 function canRunCreativeTeamPreflight(store) {
   return typeof store.getState === "function"
+    && typeof store.createPendingServerGenerationBatch === "function"
+    && typeof store.failPendingGenerationBatch === "function"
     && typeof store.mergeServerJobs === "function"
     && typeof store.selectProjectTab === "function";
 }
