@@ -35,6 +35,18 @@ const protectedLifecycleKeys = [
 ];
 
 const protectedRuntimeKeys = ["status", "stage", "progress", "failMsg"];
+const protectedGenerationContentKeys = [
+  "referenceId",
+  "referenceTitle",
+  "prompt",
+  "promptContract",
+  "imagePromptContract",
+  "inputUrls",
+  "inputRefs",
+  "layoutContentPlan",
+  "imagePromptPackage",
+  "productVisibilityDecision"
+];
 
 export function mergeClientJobWithServerJob(clientJob, serverJob) {
   const client = asObject(clientJob);
@@ -43,6 +55,7 @@ export function mergeClientJobWithServerJob(clientJob, serverJob) {
 
   const merged = { ...client };
   preserveAuthoritativeKeys(merged, server, [...protectedQueueKeys, ...protectedLifecycleKeys]);
+  preserveMeaningfulAuthoritativeKeys(merged, server, protectedGenerationContentKeys);
 
   if (shouldPreserveServerRuntime(server, client)) {
     preserveAuthoritativeKeys(merged, server, protectedRuntimeKeys);
@@ -106,6 +119,14 @@ function isAcceptedBackendJobWithoutProviderTask(job) {
 function preserveAuthoritativeKeys(target, source, keys) {
   for (const key of keys) {
     if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+    target[key] = source[key];
+  }
+}
+
+function preserveMeaningfulAuthoritativeKeys(target, source, keys) {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+    if (!hasMeaningfulValue(source[key])) continue;
     target[key] = source[key];
   }
 }

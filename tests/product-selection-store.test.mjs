@@ -13,3 +13,16 @@ test("selecting a product from another project switches project context", () => 
   assert.equal(store.getState().selectedProjectId, firstProjectId);
   assert.equal(store.getState().selectedProductId, firstProductId);
 });
+
+test("selecting another product in the same project keeps selected design reference", async () => {
+  const store = createStore();
+  const firstProductId = store.getState().selectedProductId;
+  store.createProduct({ name: "Другой продукт" });
+  await store.createReference({ title: "Воронка", type: "design", imageData: "https://example.com/funnel.png" });
+  const selectedReferenceId = store.getState().selectedReferenceId;
+
+  store.selectProduct(firstProductId);
+
+  assert.equal(store.getState().selectedProductId, firstProductId);
+  assert.equal(store.getState().selectedReferenceId, selectedReferenceId);
+});

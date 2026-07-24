@@ -191,10 +191,13 @@ export function createStore() {
         return;
       }
       const project = getProject(state, product.projectId);
+      const selectedReferenceId = product.projectId === state.selectedProjectId
+        ? getExistingProjectReferenceId(project, state.selectedReferenceId)
+        : getExistingProjectReferenceId(project, "");
       setState({
         selectedProjectId: product.projectId,
         selectedProductId: product.id,
-        selectedReferenceId: project.references[0]?.id,
+        selectedReferenceId,
         selectedCharacterId: noAvatarCharacterId
       });
     },
@@ -329,6 +332,13 @@ function normalize(nextState) {
     queueProductFilter: nextState.queueProductFilter === "all" ? "all" : "current",
     generationBrief: ensureGenerationBrief(nextState.generationBrief)
   };
+}
+
+function getExistingProjectReferenceId(project, referenceId = "") {
+  const references = getDesignReferences(project);
+  return references.some((reference) => reference.id === referenceId)
+    ? referenceId
+    : references[0]?.id;
 }
 
 function preservePreHydrationKeys(remoteState, localState, protectedKeys) {

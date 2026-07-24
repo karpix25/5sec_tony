@@ -48,6 +48,40 @@ test("merge policy preserves image task and context needed to resume server jobs
   assert.deepEqual(merged.serverJobContext, { project: { id: "project-1" } });
 });
 
+test("merge policy preserves prepared generation reference content from stale client snapshots", () => {
+  const merged = mergeClientJobWithServerJob(
+    {
+      id: "job-reference",
+      status: "running",
+      stage: "brief",
+      progress: 6,
+      referenceId: "",
+      referenceTitle: "",
+      inputUrls: [],
+      inputRefs: []
+    },
+    {
+      id: "job-reference",
+      status: "running",
+      stage: "image",
+      progress: 48,
+      queueName: "generation",
+      queueStatus: "running",
+      referenceId: "ref-funnel",
+      referenceTitle: "Воронка",
+      prompt: "prompt with funnel layout",
+      inputUrls: ["https://example.com/funnel.png"],
+      inputRefs: [{ role: "design", title: "Воронка" }]
+    }
+  );
+
+  assert.equal(merged.referenceId, "ref-funnel");
+  assert.equal(merged.referenceTitle, "Воронка");
+  assert.equal(merged.prompt, "prompt with funnel layout");
+  assert.deepEqual(merged.inputUrls, ["https://example.com/funnel.png"]);
+  assert.deepEqual(merged.inputRefs, [{ role: "design", title: "Воронка" }]);
+});
+
 test("merge policy does not freeze ordinary draft job edits", () => {
   const merged = mergeClientJobWithServerJob(
     { id: "job-3", status: "queued", stage: "brief", progress: 8, title: "new" },
