@@ -128,7 +128,7 @@ function runServerJobInline(record) {
 }
 
 async function patchFailedInlineJob(record, failMsg) {
-  record.job = { ...record.job, status: "failed", stage: "image", progress: 100, queueStatus: "failed", failMsg };
+  record.job = { ...record.job, status: "failed", stage: "image", progress: 100, queueStatus: "failed", serverJobFailedAt: new Date().toISOString(), failMsg };
   await persistServerJobRecord(record);
 }
 
@@ -145,7 +145,7 @@ async function dispatchServerJob(record, deps) {
     if (deps.isQueueStrict()) {
       const strictError = new Error("Очередь воркеров недоступна. Задача не запущена, чтобы не перегружать web-сервер.");
       strictError.statusCode = 503;
-      record.job = { ...record.job, status: "failed", progress: 100, queueStatus: "failed", failMsg: strictError.message };
+      record.job = { ...record.job, status: "failed", progress: 100, queueStatus: "failed", serverJobFailedAt: new Date().toISOString(), failMsg: strictError.message };
       await persistServerJobRecord(record);
       deps.jobs?.delete(record.job.id);
       throw strictError;

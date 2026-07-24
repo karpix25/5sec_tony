@@ -168,6 +168,36 @@ test("queue partial update refreshes product filter counters", () => {
   assert.match(filterWrap.innerHTML, /Все продукты проекта \(1\)/);
 });
 
+test("queue shows generation start time and duration", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  root.append(panel);
+  panel.append(list);
+
+  updateQueuePanel(root, {
+    jobs: [{
+      id: "job-timed",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "done",
+      queueStatus: "completed",
+      stage: "export",
+      outputType: "final-video",
+      finalVideoUrl: "/generated/final.mp4",
+      serverJobAcceptedAt: "2026-07-24T15:00:00.000Z",
+      serverJobCompletedAt: "2026-07-24T15:03:12.000Z",
+      title: "Задача со временем"
+    }],
+    products: [{ id: "product-1", name: "Продукт" }]
+  }, {
+    project: { id: "project-1" }
+  }, { deleteJob() {} });
+
+  assert.match(list.innerHTML, /Создано:/);
+  assert.match(list.innerHTML, /Время генерации: 3 мин 12 сек/);
+});
+
 test("queue final video waiting state keeps preview disabled until video is ready", () => {
   const root = new FakeElement();
   const panel = new FakeElement({ className: "queue-panel" });

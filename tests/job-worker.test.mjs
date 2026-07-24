@@ -62,6 +62,57 @@ test("BullMQ worker persists failed terminal job when provider pipeline throws",
   }
 });
 
+test("BullMQ worker does not retry missing local disk upload source", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const persisted = [];
+  let markFailureCalled = false;
+  globalThis.setTimeout = (callback) => originalSetTimeout(callback, 0);
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/api/yandex-disk/upload")) {
+      return {
+        ok: false,
+        json: async () => ({ error: "ENOENT: no such file or directory, open 'generated/avatar-videos/missing.mp4'" })
+      };
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  try {
+    await assert.rejects(() => runPersistedJobById("job-worker-missing-local", {
+      claimQueuedJobById: async () => ({ id: "job-worker-missing-local" }),
+      loadPersistedServerJob: async () => ({
+        id: "job-worker-missing-local",
+        projectId: "project-1",
+        outputType: "final-video",
+        finalVideoUrl: "/generated/avatar-videos/missing.mp4",
+        yandexDiskRequired: true,
+        diskStatus: "failed",
+        queueName: "generation",
+        queueStatus: "running"
+      }),
+      loadPersistedServerJobContext: async () => ({ project: { id: "project-1", yandexDiskFolder: "disk:/out" } }),
+      persistServerJobSnapshot: async (job) => {
+        persisted.push({ ...job });
+        return true;
+      },
+      markJobWorkerFailure: async () => {
+        markFailureCalled = true;
+        return { queueStatus: "retrying", retryable: true };
+      },
+      appendJobQueueEvent: async () => {}
+    }), /ENOENT/);
+
+    assert.equal(markFailureCalled, false);
+    assert.equal(persisted.at(-1).status, "failed");
+    assert.equal(persisted.at(-1).queueStatus, "failed");
+    assert.match(persisted.at(-1).serverJobFailedAt, /^\d{4}-\d{2}-\d{2}T/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
 test("job lock reaper periodically requeues expired worker locks", async () => {
   const originalSetInterval = globalThis.setInterval;
   const originalClearInterval = globalThis.clearInterval;

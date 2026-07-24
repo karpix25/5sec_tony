@@ -31,18 +31,22 @@ export async function runPersistedJobById(jobId, deps = {}) {
   await appendWorkerEvent(jobId, "worker_started", "running", { workerId }, deps);
   try {
     await runServerJob(record);
-    await persistJob({ ...record.job, queueStatus: "completed", queueLockOwner: "", queueLockedAt: null });
+    await persistJob({ ...record.job, queueStatus: "completed", queueLockOwner: "", queueLockedAt: null, serverJobCompletedAt: record.job.serverJobCompletedAt || new Date().toISOString() });
     await appendWorkerEvent(jobId, "worker_completed", "completed", { workerId }, deps);
     return record.job;
   } catch (error) {
     const failMsg = error.message || "Серверная генерация завершилась ошибкой";
-    const failure = await (deps.markJobWorkerFailure || markJobWorkerFailure)(jobId, error, deps);
+    const terminalFailure = Boolean(error?.nonRetryable || record.job.status === "failed" || record.job.serverJobFailedAt);
+    const failure = terminalFailure
+      ? { queueStatus: "failed", retryable: false }
+      : await (deps.markJobWorkerFailure || markJobWorkerFailure)(jobId, error, deps);
     const failedJob = {
       ...record.job,
       status: failure?.retryable ? "running" : "failed",
       progress: failure?.retryable ? record.job.progress || 0 : 100,
       queueStatus: failure?.queueStatus || "failed",
       queueLastError: failMsg,
+      ...(failure?.retryable ? {} : { serverJobFailedAt: new Date().toISOString() }),
       failMsg
     };
     await persistJob(failedJob);

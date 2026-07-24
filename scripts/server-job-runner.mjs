@@ -267,7 +267,11 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
       fileUrl: finalVideoUrl,
       targetFolder,
       fileName
-    }, { label: "disk:upload", delaysMs: getYandexUploadRetryDelaysMs() });
+    }, {
+      label: "disk:upload",
+      delaysMs: getYandexUploadRetryDelaysMs(),
+      shouldRetry: (error) => !isMissingLocalUploadSource(error, finalVideoUrl)
+    });
     const diskUrl = result.diskUrl || result.publicUrl || "";
     await patchServerJob(record, {
       status: "done",
@@ -290,11 +294,18 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
       diskUrl
     });
   } catch (error) {
+    const terminalFailure = isMissingLocalUploadSource(error, finalVideoUrl);
+    if (terminalFailure) error.nonRetryable = true;
     await patchServerJob(record, {
-      status: "running",
+      status: terminalFailure ? "failed" : "running",
       stage: "export",
-      progress: Math.max(96, Number(record.job.progress || 0)),
+      progress: terminalFailure ? 100 : Math.max(96, Number(record.job.progress || 0)),
       yandexDiskRequired: true,
+      ...(terminalFailure ? {
+        queueStatus: "failed",
+        queueLastError: error.message || "Файл финального видео отсутствует на сервере",
+        serverJobFailedAt: new Date().toISOString()
+      } : {}),
       diskStatus: "failed",
       diskMessage: error.message || "Не удалось сохранить в Яндекс.Диск",
       failMsg: error.message || "Не удалось сохранить в Яндекс.Диск"
@@ -302,6 +313,12 @@ async function uploadServerJobToYandexDisk(record, finalVideoUrl) {
     logger.log("disk:failed", { job: summarizeJobForLog(record.job), error: error.message || error });
     throw error;
   }
+}
+
+function isMissingLocalUploadSource(error, finalVideoUrl) {
+  const source = String(finalVideoUrl || "");
+  const missing = error?.code === "ENOENT" || /ENOENT|no such file or directory/i.test(String(error?.message || error || ""));
+  return missing && !/^https?:\/\//i.test(source) && !source.startsWith("data:");
 }
 
 function shouldResumeYandexDiskUpload(record) {
@@ -396,10 +413,20 @@ function requiresFinalVideo(job) {
 }
 
 function normalizeQueuePatch(job, payload) {
-  if (!job?.queueName || !payload.status || payload.queueStatus) return payload;
-  if (payload.status === "failed") return { ...payload, queueStatus: "failed" };
-  if (payload.status === "done" || payload.status === "review") return { ...payload, queueStatus: "completed" };
+  if (!job?.queueName || !payload.status || payload.queueStatus) return addTerminalTimestamp(payload);
+  if (payload.status === "failed") return addTerminalTimestamp({ ...payload, queueStatus: "failed" });
+  if (payload.status === "done" || payload.status === "review") return addTerminalTimestamp({ ...payload, queueStatus: "completed" });
   if (payload.status === "running") return { ...payload, queueStatus: "running" };
+  return payload;
+}
+
+function addTerminalTimestamp(payload) {
+  if (payload.status === "failed" && !payload.serverJobFailedAt) {
+    return { ...payload, serverJobFailedAt: new Date().toISOString() };
+  }
+  if ((payload.status === "done" || payload.status === "review") && !payload.serverJobCompletedAt) {
+    return { ...payload, serverJobCompletedAt: new Date().toISOString() };
+  }
   return payload;
 }
 
@@ -428,7 +455,7 @@ async function postServerJsonWithRetry(origin, path, body, options = {}) {
       return await postServerJson(origin, path, body);
     } catch (error) {
       lastError = error;
-      if (attempt >= delaysMs.length) throw error;
+      if (attempt >= delaysMs.length || options.shouldRetry?.(error) === false) throw error;
       logger.log("http:retry", {
         path,
         label: options.label || "",
@@ -458,10 +485,7 @@ async function getServerJson(origin, path) {
 function getYandexUploadRetryDelaysMs() {
   const configured = String(process.env.YANDEX_UPLOAD_RETRY_DELAYS_MS || "").trim();
   if (!configured) return defaultYandexUploadRetryDelaysMs;
-  return configured
-    .split(",")
-    .map((item) => Number(item.trim()))
-    .filter((item) => Number.isFinite(item) && item >= 0);
+  return configured.split(",").map((item) => Number(item.trim())).filter((item) => Number.isFinite(item) && item >= 0);
 }
 
 async function readServerJson(response) {

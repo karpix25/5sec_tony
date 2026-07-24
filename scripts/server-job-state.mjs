@@ -124,7 +124,8 @@ async function loadRelationalJobRow(query, jobId) {
     queueLastError: row.queue_last_error || "",
     queueIdempotencyKey: row.queue_idempotency_key || "",
     queueProviderTaskId: row.queue_provider_task_id || "",
-    queueMetadata: asObject(row.queue_metadata)
+    queueMetadata: asObject(row.queue_metadata),
+    ...(row.updated_at ? { updatedAt: row.updated_at } : {})
   };
 }
 

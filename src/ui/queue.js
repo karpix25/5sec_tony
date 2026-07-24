@@ -114,7 +114,7 @@ function renderQueueJob(job, productName = "") {
         </div>
         <div class="queue-meta">
           <span>${escapeHtml(queueStageLabels[job.stage] || job.stage)}</span>
-          ${renderJobCreatedAt(job)}
+          ${renderJobTiming(job)}
           <span>Продукт: ${escapeHtml(productName || "не указан")}</span>
           ${renderProductVisualTag(job)}
           <span>${escapeHtml(job.topic || job.title)}</span>
@@ -133,12 +133,45 @@ function renderQueueJob(job, productName = "") {
   `;
 }
 
-function renderJobCreatedAt(job) {
-  const createdAt = formatJobCreatedAt(job.createdAt);
-  return createdAt ? `<span>Создано: ${escapeHtml(createdAt)}</span>` : "";
+function renderJobTiming(job) {
+  const startedAt = getJobStartedAt(job);
+  const finishedAt = getJobFinishedAt(job);
+  const createdAt = formatJobDate(startedAt || job.createdAt);
+  const duration = formatJobDuration(startedAt, finishedAt || (isQueueJobTerminal(job) ? "" : new Date().toISOString()));
+  return [
+    createdAt ? `<span>Создано: ${escapeHtml(createdAt)}</span>` : "",
+    duration ? `<span>${escapeHtml(isQueueJobTerminal(job) ? "Время генерации" : "В работе")}: ${escapeHtml(duration)}</span>` : ""
+  ].filter(Boolean).join("");
 }
 
-function formatJobCreatedAt(value) {
+function getJobStartedAt(job) {
+  return firstValidDate([
+    job.serverJobAcceptedAt,
+    job.queueScheduledAt,
+    job.createdAt,
+    job.queueLockedAt
+  ]);
+}
+
+function getJobFinishedAt(job) {
+  return firstValidDate([
+    job.serverJobCompletedAt,
+    job.serverJobFailedAt,
+    job.completedAt,
+    job.finishedAt,
+    job.updatedAt
+  ]);
+}
+
+function firstValidDate(values = []) {
+  return values.find((value) => Number.isFinite(new Date(value || "").getTime())) || "";
+}
+
+function isQueueJobTerminal(job) {
+  return ["done", "review", "failed"].includes(job?.status) || ["completed", "failed"].includes(job?.queueStatus);
+}
+
+function formatJobDate(value) {
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
@@ -149,6 +182,22 @@ function formatJobCreatedAt(value) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(date);
+}
+
+function formatJobDuration(startValue, endValue) {
+  const start = new Date(startValue || "").getTime();
+  const end = new Date(endValue || "").getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return "";
+  const totalSeconds = Math.max(1, Math.round((end - start) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    return `${hours} ч ${restMinutes} мин`;
+  }
+  if (minutes > 0) return `${minutes} мин ${seconds} сек`;
+  return `${seconds} сек`;
 }
 
 function renderDiskStatus(job) {
