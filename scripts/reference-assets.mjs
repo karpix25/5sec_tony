@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isMultipartRequest, readMultipartForm } from "./multipart-form.mjs";
 import { isS3AssetStorageConfigured, uploadDataUrlToS3 } from "./s3-assets.mjs";
 
 const dataUrlPattern = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([a-z0-9+/=\s]+)$/i;
@@ -28,7 +29,7 @@ export async function handleReferenceAssetsApi(request, response, url) {
 
 async function saveReferenceAsset(request, response) {
   try {
-    const body = await readJson(request);
+    const body = await readReferenceAssetBody(request);
     if (!isDataImageUrl(body.imageData)) {
       return sendJson(response, 400, { error: "imageData must be a png, jpeg or webp data URL" });
     }
@@ -39,6 +40,17 @@ async function saveReferenceAsset(request, response) {
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "Не удалось сохранить reference image" });
   }
+}
+
+async function readReferenceAssetBody(request) {
+  if (!isMultipartRequest(request.headers)) return readJson(request);
+  const form = await readMultipartForm(request, request.headers["content-type"], 15 * 1024 * 1024);
+  const file = form.files.image || form.files.imageData;
+  if (!file) return { imageData: "", imageName: form.fields.imageName || "" };
+  return {
+    imageData: createDataImageUrl(file.mimeType, file.buffer),
+    imageName: form.fields.imageName || file.filename || ""
+  };
 }
 
 export async function resolveImageInputUrls(inputUrls, request) {
@@ -89,8 +101,12 @@ export function summarizeInputRefs({ rawInputUrls, inputRefs, resolvedInputUrls 
 
 function storeReferenceAsset(dataUrl, publicBaseUrl) {
   const parsed = parseDataImageUrl(dataUrl);
+  return storeReferenceAssetBuffer(parsed.buffer, parsed.mimeType, publicBaseUrl);
+}
+
+function storeReferenceAssetBuffer(buffer, mimeType, publicBaseUrl) {
   const id = randomUUID();
-  assets.set(id, parsed);
+  assets.set(id, { mimeType, buffer, createdAt: Date.now() });
   const path = `/api/reference-assets/${encodeURIComponent(id)}`;
   return publicBaseUrl ? `${publicBaseUrl.replace(/\/$/, "")}${path}` : path;
 }
@@ -152,6 +168,13 @@ function isDataImageUrl(value) {
 
 function isSameOriginAssetUrl(value) {
   return /^\/api\/reference-assets\/[^/?#]+/.test(String(value || ""));
+}
+
+function createDataImageUrl(mimeType, buffer) {
+  const normalized = String(mimeType || "").toLowerCase().replace("image/jpg", "image/jpeg");
+  if (!/^image\/(?:png|jpeg|webp)$/.test(normalized)) throw new Error("Неподдерживаемый формат reference image");
+  if (!buffer.length || buffer.length > 12 * 1024 * 1024) throw new Error("Reference image слишком большой, максимум 12 MB");
+  return `data:${normalized};base64,${buffer.toString("base64")}`;
 }
 
 function isLocalHost(host) {

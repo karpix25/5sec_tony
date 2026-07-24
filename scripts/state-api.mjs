@@ -3,8 +3,13 @@ import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedSt
 import { getStateDifference, statesEqual } from "./state-compare.mjs";
 import { hasAudioLibraryChanged, markAudioLibraryUpdated } from "./audio-refresh-reminders.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
-import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
-import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.mjs";
+import { defaultAppStateKey } from "./app-state-lock.mjs";
+import {
+  loadCurrentState,
+  readJsonBody,
+  sendJson,
+  writeWithConflictCheck
+} from "./app-state-api-helpers.mjs";
 import { getStateTransportMeta, prepareStateForTransport, shouldUseFullStateTransport } from "./state-transport.mjs";
 
 const appStateKey = defaultAppStateKey;
@@ -75,20 +80,12 @@ async function handleSaveState(request, response, url, deps) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, { limitBytes: 20 * 1024 * 1024 });
     if (!isPlainStateObject(body.state)) {
       return sendJson(response, 400, { error: "state object is required" });
     }
-    const result = await withAppStateRetry(() => deps.withTransaction(async (tx) => {
+    const result = await writeWithConflictCheck(body, deps, async (tx, { currentUpdatedAt }) => {
       const nextState = normalizeStateJobIds(body.state);
-      const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
-      if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
-        return {
-          conflict: true,
-          updatedAt: currentUpdatedAt,
-          state: await loadCurrentState(tx.query, deps, appStateKey)
-        };
-      }
       const currentState = await loadCurrentState(tx.query, deps, appStateKey);
       const projectDeletionConflict = getUnexpectedProjectDeletionConflict(currentState, nextState);
       if (projectDeletionConflict) {
@@ -121,7 +118,7 @@ async function handleSaveState(request, response, url, deps) {
         updatedAt: legacyResult.rows[0]?.updated_at || null,
         parityOk: true
       };
-    }));
+    });
     if (result.conflict) {
       const fullTransport = shouldUseFullStateTransport(url);
       const transportState = prepareStateForTransport(result.state, { full: fullTransport });
@@ -141,36 +138,6 @@ async function handleSaveState(request, response, url, deps) {
   }
 }
 
-function readJsonBody(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > 20 * 1024 * 1024) {
-        reject(new Error("Request body is too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
-}
-
-function sendJson(response, status, payload) {
-  response.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
-  });
-  response.end(JSON.stringify(payload));
-  return true;
-}
-
 function isPlainStateObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -179,11 +146,6 @@ function formatParityError(message, rebuiltState, nextState) {
   const diff = getStateDifference(rebuiltState, nextState);
   if (!diff) return message;
   return `${message}: ${diff.path}`;
-}
-
-async function loadCurrentState(query, deps, key) {
-  const normalizedState = await deps.loadNormalized(query, key);
-  return normalizedState || await deps.loadLegacy(query, key);
 }
 
 function getUnexpectedProductDeletionConflict(currentState, nextState) {

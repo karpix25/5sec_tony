@@ -43,10 +43,62 @@ test("product reference asset API uploads product photos to S3", async () => {
   }
 });
 
+test("product reference asset API accepts multipart product photos", async () => {
+  const env = snapshotS3Env();
+  const dbEnv = snapshotDbEnv();
+  const originalFetch = globalThis.fetch;
+  const uploads = [];
+  configureS3Env();
+  clearDbEnv();
+  globalThis.fetch = async (url, options = {}) => {
+    uploads.push({ url: String(url), options });
+    return { ok: true, text: async () => "" };
+  };
+
+  try {
+    const response = createJsonCaptureResponse();
+    const request = createMultipartImageRequest({
+      fields: { productId: "product-1", imageName: "front.png", title: "Фото упаковки" },
+      fileName: "front.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("product-image")
+    });
+    const handled = await handleProductReferenceAssetsApi(request, response, new URL("http://127.0.0.1:4173/api/product-reference-assets"));
+    const { status, payload } = response.readJson();
+
+    assert.equal(handled, true);
+    assert.equal(status, 200);
+    assert.equal(payload.reference.title, "Фото упаковки");
+    assert.equal(payload.reference.imageName, "front.png");
+    assert.match(payload.reference.imageData, /^https:\/\/s3\.ru1\.storage\.beget\.cloud\/anton-assets\/anton-5-sec\/product-references\//);
+    assert.equal(uploads[0].options.headers["content-type"], "image/png");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreS3Env(env);
+    restoreDbEnv(dbEnv);
+  }
+});
+
 function createJsonRequest(payload) {
   const request = Readable.from([JSON.stringify(payload)]);
   request.method = "POST";
   request.headers = { host: "127.0.0.1:4173" };
+  return request;
+}
+
+function createMultipartImageRequest({ fields = {}, fileName, mimeType, buffer }) {
+  const boundary = "----anton-test-boundary";
+  const parts = Object.entries(fields).map(([name, value]) =>
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`)
+  );
+  parts.push(Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    buffer,
+    Buffer.from(`\r\n--${boundary}--\r\n`)
+  ]));
+  const request = Readable.from(parts);
+  request.method = "POST";
+  request.headers = { host: "127.0.0.1:4173", "content-type": `multipart/form-data; boundary=${boundary}` };
   return request;
 }
 

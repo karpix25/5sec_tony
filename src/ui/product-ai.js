@@ -1,10 +1,12 @@
+import { readFileAsDataUrl } from "./form-data.js";
+
 const productAnalysisTimeoutMs = 210000;
 
 export async function getProductPhotoPayloads(form) {
   const files = [...(form.querySelector("input[type='file']")?.files || [])];
   const images = await Promise.all(files.map(async (file) => ({
     name: file.name,
-    dataUrl: await readProductPhotoFile(file)
+    dataUrl: await readFileAsDataUrl(file)
   })));
   return images;
 }
@@ -92,13 +94,4 @@ function setValue(form, name, value) {
 
 function listText(value) {
   return Array.isArray(value) ? value.join("\n") : value;
-}
-
-function readProductPhotoFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }

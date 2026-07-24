@@ -2,23 +2,34 @@ import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 import { renderDesignReferenceAnalysis } from "./design-reference-analysis.js";
+import { getOperationForTarget, getOperationsForScope } from "../state/operation-status.js";
+import { getOperationLabel, isUiOperationBusy, renderOperationStatus } from "./operation-status-view.js";
 
-export function renderDesignSettings({ project, reference }) {
+export function renderDesignSettings({ project, reference, operations = {} }) {
   const references = getDesignReferences(project);
+  const scope = getDesignReferenceScope(project.id);
+  const uploadScope = getDesignReferenceUploadScope(project.id);
+  const scopeOperations = [
+    ...getOperationsForScope(operations, scope),
+    ...getOperationsForScope(operations, uploadScope)
+  ];
+  const busyOperation = scopeOperations.find(isUiOperationBusy);
+  const isBusy = Boolean(busyOperation);
   return `
     <div class="design-workspace">
       <section class="reference-browser">
         <div class="panel-head compact">
           <div><span class="eyebrow">Референсы</span><h2>Библиотека стиля</h2></div>
         </div>
-        ${renderDesignReferenceCandidate(project.designReferenceCandidates?.[0])}
+        ${busyOperation ? renderOperationStatus(busyOperation) : ""}
+        ${renderDesignReferenceCandidate(project.designReferenceCandidates?.[0], operations, scope, isBusy)}
         <div class="reference-grid">
-          ${references.map((item) => renderReferenceCard(item, reference?.id)).join("")}
+          ${references.map((item) => renderReferenceCard(item, reference?.id, operations, scope, isBusy)).join("")}
         </div>
       </section>
       <div class="reference-editor">
         ${renderSelectedReferenceAnalysis(reference)}
-        ${renderReferenceForm(reference)}
+        ${renderReferenceForm(reference, busyOperation)}
       </div>
     </div>
   `;
@@ -39,8 +50,10 @@ function renderSelectedReferenceAnalysis(reference) {
   `;
 }
 
-function renderDesignReferenceCandidate(candidate) {
+function renderDesignReferenceCandidate(candidate, operations, scope, isScopeBusy) {
   if (!candidate) return "";
+  const operation = getOperationForTarget(operations, { scope, targetId: candidate.id });
+  const isBusy = isScopeBusy || isUiOperationBusy(operation) || isDesignCandidateLoading(candidate);
   return `
     <article class="avatar-review">
       ${candidate.imageData ? renderPreviewTrigger({
@@ -55,15 +68,17 @@ function renderDesignReferenceCandidate(candidate) {
         <small>${escapeHtml(candidate.failMsg || candidate.takeaways || "дизайн-шаблон")}</small>
       </div>
       <div class="avatar-review-actions">
-        ${candidate.status === "review" ? `<button class="secondary-btn" data-approve-design-reference="${candidate.id}" type="button">Одобрить</button>` : ""}
+        ${candidate.status === "review" ? `<button class="secondary-btn" data-approve-design-reference="${candidate.id}" type="button" ${isBusy ? "disabled" : ""}>Одобрить</button>` : ""}
         ${isDesignCandidateLoading(candidate) ? "<div class=\"avatar-loader\" aria-label=\"Ожидание результата\"><span></span><span></span><span></span></div>" : ""}
-        ${!isDesignCandidateLoading(candidate) ? `<button class="ghost-btn" data-reject-design-reference="${candidate.id}" type="button">${candidate.status === "failed" ? "Убрать ошибку" : "Отклонить"}</button>` : ""}
+        ${!isDesignCandidateLoading(candidate) ? `<button class="ghost-btn" data-reject-design-reference="${candidate.id}" type="button" ${isBusy ? "disabled" : ""}>${candidate.status === "failed" ? "Убрать ошибку" : "Отклонить"}</button>` : ""}
       </div>
     </article>
   `;
 }
 
-function renderReferenceForm(reference) {
+function renderReferenceForm(reference, busyOperation) {
+  const isBusy = isUiOperationBusy(busyOperation);
+  const disabled = isBusy ? "disabled" : "";
   return `
     <form id="reference-form" class="ops-form text-editor-form">
       <div class="panel-head compact">
@@ -72,9 +87,11 @@ function renderReferenceForm(reference) {
       ${designField("Название", "title", "Например: розовый glow, строгая сетка, карточки с иконками", "input", "", true)}
       ${designFileField("Файл референса", "imageFile")}
       <div class="form-actions">
-        <button class="secondary-btn" type="submit">Сохранить стиль</button>
-        <button class="ghost-btn" data-delete-reference="${reference?.id || ""}" type="button">Удалить выбранный</button>
+        <button class="secondary-btn" type="submit" ${disabled}>Сохранить стиль</button>
+        ${reference?.id ? `<button class="secondary-btn" data-replace-reference="${escapeHtml(reference.id)}" type="submit" ${disabled}>Заменить выбранный</button>` : ""}
+        <button class="ghost-btn" data-delete-reference="${reference?.id || ""}" type="button" ${disabled}>Удалить выбранный</button>
       </div>
+      <small id="reference-form-status">${escapeHtml(getOperationLabel(busyOperation) || "Можно добавлять или заменять референсы.")}</small>
     </form>
   `;
 }
@@ -94,15 +111,17 @@ function isDesignCandidateLoading(candidate) {
   return ["submitting", "waiting", "generating"].includes(candidate.status);
 }
 
-function renderReferenceCard(reference, selectedId) {
+function renderReferenceCard(reference, selectedId, operations, scope, isScopeBusy) {
+  const operation = getOperationForTarget(operations, { scope, targetId: reference.id });
+  const isBusy = isScopeBusy || isUiOperationBusy(operation);
   return `
-    <article class="reference-card ${reference.id === selectedId ? "active" : ""}">
-      <button class="reference-select" data-select-reference="${reference.id}" type="button">
+    <article class="reference-card ${reference.id === selectedId ? "active" : ""} ${isUiOperationBusy(operation) ? "busy" : ""}">
+      <button class="reference-select" data-select-reference="${reference.id}" type="button" ${isBusy ? "disabled" : ""}>
         ${reference.imageData ? `<img src="${escapeHtml(reference.imageData)}" alt="">` : `<span class="asset-thumb">D</span>`}
         <span>
           <strong>${escapeHtml(reference.title)}</strong>
           <small>${escapeHtml(reference.fontStyle || reference.takeaways || "референс дизайна")}</small>
-          <small>${escapeHtml(reference.designAnalysis ? "AI-анализ сохранен" : "AI-анализ не рассчитан")}</small>
+          <small>${escapeHtml(getOperationLabel(operation) || (reference.designAnalysis ? "AI-анализ сохранен" : "AI-анализ не рассчитан"))}</small>
           <small>${formatDesignReferenceDate(reference.createdAt)}</small>
         </span>
       </button>
@@ -113,7 +132,7 @@ function renderReferenceCard(reference, selectedId) {
         label: "Открыть референс крупно",
         content: "Открыть"
       }) : ""}
-      <button class="ghost-btn" data-delete-reference="${escapeHtml(reference.id)}" type="button">Удалить</button>
+      <button class="ghost-btn" data-delete-reference="${escapeHtml(reference.id)}" type="button" ${isBusy ? "disabled" : ""}>Удалить</button>
       <dl>
         <div><dt>Формат</dt><dd>9:16</dd></div>
         <div><dt>Шрифт</dt><dd>${escapeHtml(reference.fontStyle || reference.headlineStyle || "по референсу")}</dd></div>
@@ -121,6 +140,14 @@ function renderReferenceCard(reference, selectedId) {
       </dl>
     </article>
   `;
+}
+
+function getDesignReferenceScope(projectId) {
+  return `design-references:${projectId}`;
+}
+
+function getDesignReferenceUploadScope(projectId) {
+  return `design-reference-upload:${projectId}`;
 }
 
 function designField(label, name, placeholder, type = "input", value = "", required = false) {

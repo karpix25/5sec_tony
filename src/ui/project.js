@@ -2,10 +2,14 @@ import { escapeHtml } from "./infographic.js";
 import { projectBriefFields } from "./brief-field-labels.js";
 import { renderProjectAutomationControls } from "./project-automation-controls.js";
 import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
+import { getOperationsForScope } from "../state/operation-status.js";
+import { isUiOperationBusy, renderOperationStatus } from "./operation-status-view.js";
 
 const yandexDiskRoot = "disk:/ВИДЕО";
 
-export function renderProjectManagementSettings({ project, automationState }) {
+export function renderProjectManagementSettings({ project, automationState, operations = {} }) {
+  const busyOperation = getOperationsForScope(operations, `project:${project.id}`).find(isUiOperationBusy);
+  const isBusy = Boolean(busyOperation);
   const safeAutomationState = automationState || {
     automation: { enabled: false, batchSize: 1, concurrency: 1, lastMessage: "" },
     activeJobs: 0,
@@ -32,8 +36,9 @@ export function renderProjectManagementSettings({ project, automationState }) {
         </aside>
       </div>
       <div class="project-actions">
-        <button id="save-project-settings" class="primary-btn" type="submit">Сохранить проект</button>
+        <button id="save-project-settings" class="primary-btn" type="submit" ${isBusy ? "disabled" : ""}>Сохранить проект</button>
         <small id="audience-expert-status" class="ai-field-status">После сохранения AI сам обновит память проекта.</small>
+        ${busyOperation ? renderOperationStatus(busyOperation) : ""}
       </div>
     </form>
   `;

@@ -1,5 +1,11 @@
-import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
-import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.mjs";
+import { defaultAppStateKey } from "./app-state-lock.mjs";
+import {
+  buildConflictPayload,
+  isPlainObject,
+  readJsonBody,
+  sendJson,
+  writeWithConflictCheck
+} from "./app-state-api-helpers.mjs";
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
 import {
   ProjectPersistenceError,
@@ -8,9 +14,9 @@ import {
   saveProjectForState
 } from "./project-state-store.mjs";
 import { loadLegacyState, loadNormalizedState } from "./state-relational-store.mjs";
-import { getStateTransportMeta, prepareStateForTransport, shouldUseFullStateTransport } from "./state-transport.mjs";
 
 const appStateKey = defaultAppStateKey;
+const projectsJsonBodyLimitBytes = 256 * 1024;
 
 export const handleProjectsApi = createProjectsApiHandler();
 
@@ -52,7 +58,7 @@ async function handleCreateProject(request, response, url, deps) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, { limitBytes: projectsJsonBodyLimitBytes });
     const result = await writeWithConflictCheck(body, deps, (tx) =>
       deps.createProject(tx.query, appStateKey, { project: body.project, product: body.product })
     );
@@ -74,7 +80,7 @@ async function handlePatchProject(request, response, url, deps) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, { limitBytes: projectsJsonBodyLimitBytes });
     const patch = getProjectPatch(body);
     if (!isPlainObject(patch)) return sendJson(response, 400, { error: "project object is required" });
     if (patch.id && patch.id !== deps.projectId) return sendJson(response, 400, { error: "project id does not match request path" });
@@ -98,7 +104,7 @@ async function handleDeleteProject(request, response, url, deps) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, { limitBytes: projectsJsonBodyLimitBytes });
     const result = await writeWithConflictCheck(body, deps, (tx) =>
       deps.deleteProject(tx.query, appStateKey, deps.projectId)
     );
@@ -114,32 +120,12 @@ async function handleDeleteProject(request, response, url, deps) {
   }
 }
 
-async function writeWithConflictCheck(body, deps, write) {
-  return withAppStateRetry(() => deps.withTransaction(async (tx) => {
-    const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
-    if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
-      return {
-        conflict: true,
-        updatedAt: currentUpdatedAt,
-        state: await loadCurrentState(tx.query, deps, appStateKey)
-      };
-    }
-    return write(tx);
-  }));
-}
-
 function sendConflict(response, url, result) {
-  const fullTransport = shouldUseFullStateTransport(url);
-  const state = prepareStateForTransport(result.state, { full: fullTransport });
-  return sendJson(response, 409, {
-    saved: false,
-    conflict: true,
+  return sendJson(response, 409, buildConflictPayload(result, {
     error: "БД обновлена другим оператором. Данные обновлены, повторите сохранение проекта.",
     key: appStateKey,
-    updatedAt: result.updatedAt,
-    state,
-    transport: getStateTransportMeta(result.state, state, { full: fullTransport })
-  });
+    url
+  }));
 }
 
 function getProjectId(pathname) {
@@ -156,42 +142,4 @@ function getProjectPatch(body) {
 function sendProjectError(response, error, fallback) {
   const status = error instanceof ProjectPersistenceError ? error.status : 500;
   return sendJson(response, status, { error: error.message || fallback });
-}
-
-async function loadCurrentState(query, deps, key) {
-  return await deps.loadNormalized(query, key) || await deps.loadLegacy(query, key);
-}
-
-function readJsonBody(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > 256 * 1024) {
-        reject(new Error("Request body is too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
-}
-
-function sendJson(response, status, payload) {
-  response.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
-  });
-  response.end(JSON.stringify(payload));
-  return true;
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

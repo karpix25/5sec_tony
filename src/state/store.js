@@ -1,12 +1,8 @@
-import { createDailyUsageDate } from "../domain/daily-usage.js";
 import { getProductsForProject } from "../domain/generation.js";
 import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { globalAudioLibrary } from "../domain/entities.js";
 import { normalizeNavigationTab } from "../domain/navigation.js";
-import { generateProjectStrategyField } from "../domain/project-strategy.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
-import { createRemoteProject, deleteRemoteProject, updateRemoteProject } from "../services/projects-sync.js";
-import { isTransientFetchError } from "../services/sync-fetch.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import { createDesignReferenceActions } from "./design-reference-actions.js";
@@ -19,20 +15,19 @@ import {
 } from "./global-assets.js";
 import { createStoreCache } from "./store-cache.js";
 import { shouldScheduleRemoteSave } from "./store-persistence-policy.js";
-import { createProjectBundle } from "./project-creation.js";
-import { updateProjectEntity } from "./store-projects.js";
 import { mergeHydratedReferenceState, normalizePersistedReferenceState } from "./reference-libraries.js";
 import { createStatePersistence } from "./state-persistence.js";
 import {
   getSelectionContext
 } from "./store-context.js";
 import { createJobActions } from "./job-actions.js";
+import { createProjectActions } from "./project-actions.js";
 import { createProductActions } from "./product-actions.js";
+import { createOperationController } from "./operation-controller.js";
 import { rescueStaleBriefJobs } from "./brief-job-rescue.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
 import {
   createAudioEntity,
-  createId,
   ensureGenerationBrief,
   ensureProductAssets,
   ensureProjectAssets
@@ -77,6 +72,10 @@ export function createStore() {
     persistenceSubscribers.forEach((subscriber) => subscriber(persistenceStatus));
   }
 
+  const operationController = createOperationController((operations) => {
+    subscribers.forEach((subscriber) => subscriber(state, { operations }));
+  });
+
   const avatarWorkflow = createAvatarWorkflow({
     getState: () => state,
     setState,
@@ -103,7 +102,18 @@ export function createStore() {
     recordRemoteSave: (nextState, updatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt),
     getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
-    hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false
+    hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
+    runScopedOperation: operationController.runScopedOperation
+  });
+  const projectActions = createProjectActions({
+    getState: () => state,
+    setState,
+    getProject,
+    recordRemoteSave: (nextState, updatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt),
+    getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
+    handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
+    hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
+    runScopedOperation: operationController.runScopedOperation
   });
   const designReferenceActions = createDesignReferenceActions({
     getState: () => state,
@@ -114,7 +124,8 @@ export function createStore() {
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
     hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
     isRemoteReady: () => hydrationSettled && persistenceStatus.status !== "local",
-    scheduleFallbackSave: () => statePersistence?.scheduleSave?.()
+    scheduleFallbackSave: () => statePersistence?.scheduleSave?.(),
+    runScopedOperation: operationController.runScopedOperation
   });
   statePersistence = createStatePersistence({
     getState: () => state,
@@ -144,6 +155,8 @@ export function createStore() {
 
   return {
     getState: () => state,
+    getOperations: operationController.getOperations,
+    runScopedOperation: operationController.runScopedOperation,
     getPersistenceStatus: () => persistenceStatus,
     whenHydrated: () => hydrationPromise,
     subscribe(callback) {
@@ -229,175 +242,11 @@ export function createStore() {
     updateReelsResearch(reelsResearch) {
       setState({ reelsResearch });
     },
-    updateProjectSettings(payload) {
-      setState({
-        projects: state.projects.map((project) =>
-          project.id === state.selectedProjectId
-            ? updateProjectEntity(project, payload)
-            : project
-        )
-      });
-    },
-    async updateProjectSettingsRemote(payload) {
-      const project = updateProjectEntity(getProject(state, state.selectedProjectId), payload);
-      if (statePersistence?.hasPendingSave?.()) {
-        this.updateProjectSettings(payload);
-        return project;
-      }
-      try {
-        const result = await updateRemoteProject(project.id, project, statePersistence?.getRemoteUpdatedAt?.() || "");
-        if (result.disabled) {
-          this.updateProjectSettings(payload);
-          return project;
-        }
-        setState({
-          projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
-        }, { skipRemoteSave: true });
-        statePersistence?.recordRemoteSave?.(state, result.updatedAt);
-        return result.project || project;
-      } catch (error) {
-        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
-        if (!error?.conflict && isTransientFetchError(error)) {
-          this.updateProjectSettings(payload);
-          return project;
-        }
-        throw error;
-      }
-    },
-    updateProjectAutomation(projectId, payload) {
-      setState({
-        projects: state.projects.map((project) =>
-          project.id === projectId
-            ? { ...project, automation: normalizeProjectAutomation({ ...(project.automation || {}), ...payload }) }
-            : project
-        )
-      });
-    },
+    ...projectActions,
     updateProjectCtaOverlay: projectCtaWorkflow.updateProjectCtaOverlay,
     createProjectCtaCandidate: projectCtaWorkflow.createProjectCtaCandidate,
     approveProjectCtaCandidate: projectCtaWorkflow.approveProjectCtaCandidate,
     resetProjectCtaOverlay: projectCtaWorkflow.resetProjectCtaOverlay,
-    resetProjectDailyUsage(projectId = state.selectedProjectId) {
-      setState({
-        projects: state.projects.map((project) =>
-          project.id === projectId ? { ...project, usedToday: 0, dailyUsageDate: createDailyUsageDate() } : project
-        )
-      });
-    },
-    resetProjectTotalUsage(projectId = state.selectedProjectId) {
-      setState({
-        projects: state.projects.map((project) =>
-          project.id === projectId ? { ...project, usedTotal: 0 } : project
-        )
-      });
-    },
-    generateProjectField(fieldName, formPayload) {
-      const project = updateProjectEntity(getProject(state, state.selectedProjectId), formPayload);
-      const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
-      const value = generateProjectStrategyField(project, projectProducts, fieldName);
-      setState({
-        projects: state.projects.map((item) =>
-          item.id === state.selectedProjectId ? updateProjectEntity(item, { ...formPayload, [fieldName]: value }) : item
-        )
-      });
-    },
-    createProject(payload) {
-      const { project, product } = createProjectBundle(payload);
-      setState({
-        projects: [project, ...state.projects],
-        products: [product, ...state.products],
-        selectedProjectId: project.id,
-        selectedProductId: product.id,
-        selectedReferenceId: project.references[0]?.id || "",
-        selectedCharacterId: noAvatarCharacterId,
-        selectedAudioId: state.audioLibrary[0]?.id,
-        selectedProjectTab: "project",
-        generationBrief: ensureGenerationBrief({})
-      });
-    },
-    async createProjectRemote(payload) {
-      if (statePersistence?.hasPendingSave?.()) {
-        this.createProject(payload);
-        return null;
-      }
-      const bundle = createProjectBundle(payload);
-      let result;
-      try {
-        result = await createRemoteProject(bundle, statePersistence?.getRemoteUpdatedAt?.() || "");
-      } catch (error) {
-        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
-        throw error;
-      }
-      if (result.disabled) {
-        this.createProject(payload);
-        return null;
-      }
-      const project = result.project || bundle.project;
-      const product = result.product || bundle.product;
-      setState({
-        projects: [project, ...state.projects],
-        products: [product, ...state.products],
-        selectedProjectId: project.id,
-        selectedProductId: product.id,
-        selectedReferenceId: project.references[0]?.id,
-        selectedCharacterId: noAvatarCharacterId,
-        selectedAudioId: state.audioLibrary[0]?.id,
-        selectedProjectTab: "project",
-        generationBrief: ensureGenerationBrief({})
-      }, { skipRemoteSave: true });
-      statePersistence?.recordRemoteSave?.(state, result.updatedAt);
-      return project;
-    },
-    deleteProject(projectId) {
-      if (state.projects.length <= 1) return;
-      const projectsNext = state.projects.filter((project) => project.id !== projectId);
-      const selectedProject = projectsNext[0];
-      const deletedProductIds = state.products
-        .filter((product) => product.projectId === projectId)
-        .map((product) => product.id);
-      setState({
-        projects: projectsNext,
-        products: state.products.filter((product) => product.projectId !== projectId),
-        jobs: state.jobs.filter((job) => job.projectId !== projectId),
-        deletedProjectIds: appendUniqueIds(state.deletedProjectIds, [projectId]),
-        deletedProductIds: appendUniqueIds(state.deletedProductIds, deletedProductIds),
-        selectedProjectId: selectedProject.id,
-        selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
-        selectedCharacterId: noAvatarCharacterId,
-        generationBrief: ensureGenerationBrief({})
-      });
-    },
-    async deleteProjectRemote(projectId) {
-      if (state.projects.length <= 1) return null;
-      if (statePersistence?.hasPendingSave?.()) {
-        this.deleteProject(projectId);
-        return null;
-      }
-      let result;
-      try {
-        result = await deleteRemoteProject(projectId, statePersistence?.getRemoteUpdatedAt?.() || "");
-      } catch (error) {
-        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
-        throw error;
-      }
-      if (result.disabled) {
-        this.deleteProject(projectId);
-        return null;
-      }
-      const projectsNext = state.projects.filter((project) => project.id !== projectId);
-      const selectedProject = projectsNext[0];
-      setState({
-        projects: projectsNext,
-        products: state.products.filter((product) => product.projectId !== projectId),
-        jobs: state.jobs.filter((job) => job.projectId !== projectId),
-        selectedProjectId: selectedProject.id,
-        selectedProductId: getProductsForProject(state.products, selectedProject.id)[0]?.id,
-        selectedCharacterId: noAvatarCharacterId,
-        generationBrief: ensureGenerationBrief({})
-      }, { skipRemoteSave: true });
-      statePersistence?.recordRemoteSave?.(state, result.updatedAt);
-      return result;
-    },
     ...productActions,
     createDesignReferenceTemplate: designReferenceWorkflow.createDesignReferenceTemplate,
     ...designReferenceActions,
@@ -436,9 +285,6 @@ export function createStore() {
 export function getContext(state) { return getSelectionContext(state, getProject); }
 
 function getProject(state, projectId) { return state.projects.find((project) => project.id === projectId) || state.projects[0]; }
-function appendUniqueIds(current = [], next = []) {
-  return [...new Set([...(Array.isArray(current) ? current : []), ...next.filter(Boolean)])];
-}
 
 function normalize(nextState) {
   const hydratedProjects = nextState.projects.map(ensureProjectAssets);

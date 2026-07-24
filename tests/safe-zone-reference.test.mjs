@@ -5,16 +5,16 @@ import { createGenerationJob, getGenerationInputReferences } from "../src/domain
 
 const tinyPng = "data:image/png;base64,iVBORw0KGgo=";
 
-test("generation input references keep design primary and safe-zone last", () => {
+test("generation input references keep safe-zone first and design primary", () => {
   const refs = getGenerationInputReferences({
     reference: { title: "Стиль", imageData: tinyPng },
     product: { references: [{ title: "Упаковка", imageData: tinyPng }] }
   });
 
-  assert.equal(refs.at(-1).role, "safe_zone");
-  assert.equal(refs.at(-1).title, "Safe zone placement mask");
-  assert.match(refs.at(-1).url, /^data:image\/png;base64,/);
-  assert.deepEqual(refs.map((item) => item.role), ["design", "product", "safe_zone"]);
+  assert.equal(refs[0].role, "safe_zone");
+  assert.equal(refs[0].title, "Safe zone placement mask");
+  assert.match(refs[0].url, /^data:image\/png;base64,/);
+  assert.deepEqual(refs.map((item) => item.role), ["safe_zone", "design", "product"]);
 });
 
 test("molekular product generation sends safe-zone mask and prompt contract", () => {
@@ -46,13 +46,13 @@ test("molekular product generation sends safe-zone mask and prompt contract", ()
     }
   });
 
-  assert.deepEqual(job.inputRefs.map((item) => item.role), ["design", "product", "safe_zone"]);
+  assert.deepEqual(job.inputRefs.map((item) => item.role), ["safe_zone", "design", "product"]);
   assert.equal(job.inputUrls.length, 3);
   assert.match(job.prompt, /SAFE ZONE REFERENCE/);
   assert.match(job.prompt, /Белая область safe-zone маски/);
   assert.match(job.prompt, /RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE/);
   assert.doesNotMatch(job.prompt, /safe_zone важнее|приоритет всегда у safe-zone/i);
-  assert.equal(job.promptContract.referencePriority.safe_zone, "placement_mask_only_last_reference");
-  assert.equal(job.promptContract.inputRefs.some((item) => item.role === "safe_zone"), true);
+  assert.equal(job.promptContract.referencePriority.safe_zone, "placement_mask_only_first_reference");
+  assert.equal(job.promptContract.inputRefs[0].role, "safe_zone");
   assert.equal(job.inputRefs.find((item) => item.role === "product")?.title, "Molekular упаковка");
 });

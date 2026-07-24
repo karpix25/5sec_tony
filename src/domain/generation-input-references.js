@@ -10,6 +10,7 @@ export function getGenerationInputReferences({ reference, product, productVisual
     : productVisualMode === "exact-product";
   const safeZoneReference = getSafeZoneInputReference();
   const references = [
+    safeZoneReference,
     {
       role: "design",
       title: reference?.title || "Design reference",
@@ -20,13 +21,12 @@ export function getGenerationInputReferences({ reference, product, productVisual
       title: item.title || item.imageName || "Product reference",
       url: item.imageData
     })) : []),
-    safeZoneReference
   ]
     .filter((item) => isGenerationImageReferenceUrl(item.url))
     .map((item) => ({ ...item, isLocalData: isGenerationDataImageUrl(item.url) }));
   const safeZone = references.find((item) => item.role === "safe_zone");
   const visualReferences = references.filter((item) => item.role !== "safe_zone").slice(0, safeZone ? 15 : 16);
-  return safeZone ? [...visualReferences, safeZone] : visualReferences;
+  return safeZone ? [safeZone, ...visualReferences] : visualReferences;
 }
 
 function isGenerationRemoteImageUrl(value) { return /^https?:\/\//.test(String(value || "")); }

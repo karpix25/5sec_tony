@@ -64,6 +64,42 @@ test("design reference submit awaits backend-first reference creation", async ()
   }
 });
 
+test("design reference submit replaces selected reference from replace button", async () => {
+  const restore = installFormAndFileFakes({ uploadUrl: "/api/reference-assets/replaced-ref" });
+  const calls = [];
+  const form = createDesignForm({ fileName: "replace.png" });
+  const submitter = { dataset: { replaceReference: "ref-selected" } };
+  const store = {
+    getState() {
+      return {
+        selectedProjectId: "project-1",
+        selectedReferenceId: "ref-selected",
+        projects: [{ id: "project-1", references: [{ id: "ref-selected", imageData: "/old.png" }] }]
+      };
+    },
+    runScopedOperation(config, task) {
+      calls.push(["operation", config.scope, config.activeStatus, config.targetId]);
+      return task();
+    },
+    async replaceDesignReference(referenceId, payload) {
+      calls.push(["replace", referenceId, payload.imageData]);
+    },
+    async createReference() {
+      calls.push(["create"]);
+    }
+  };
+
+  try {
+    await submitDesignReferenceForm(form, store, { submitter });
+    assert.deepEqual(calls, [
+      ["operation", "design-reference-upload:project-1", "uploading", "ref-selected"],
+      ["replace", "ref-selected", "/api/reference-assets/replaced-ref"]
+    ]);
+  } finally {
+    restore();
+  }
+});
+
 function createDesignForm({ fileName }) {
   return {
     resetCount: 0,

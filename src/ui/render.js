@@ -31,13 +31,14 @@ export function renderApp(root, store, options = {}) {
   const context = getContext(state);
   const projectProducts = getProductsForProject(state.products, context.project.id);
   const persistenceStatus = store.getPersistenceStatus?.() || {};
+  const operations = store.getOperations?.() || {};
 
   root.innerHTML = `
     <main class="shell">
-      ${renderSidebar(state, context, projectProducts)}
+        ${renderSidebar(state, context, projectProducts)}
       <section class="workspace">
         ${renderHeader(context, persistenceStatus, options.auth)}
-        ${renderOperationsPanel(state, context)}
+        ${renderOperationsPanel(state, context, operations)}
         ${renderWorkspaceAuthAdmin(options.auth)}
       </section>
     </main>
@@ -111,14 +112,14 @@ function renderHeader({ project }, persistenceStatus, auth) {
   `;
 }
 
-function renderOperationsPanel(state, context) {
+function renderOperationsPanel(state, context, operations = {}) {
   return `
     <section class="panel ops-panel">
       <div class="ops-column assets-column">
         <div class="panel-head compact">
           <div><span class="eyebrow">${isGlobalReferenceTab(state) ? "Общая библиотека" : "Настройки"}</span><h2>${isGlobalReferenceTab(state) ? "Глобальные референсы" : "Настройки проекта"}</h2></div>
         </div>
-        ${isGlobalReferenceTab(state) ? renderGlobalReferencePanel(state, context) : renderProjectSettingsTabs(state, context)}
+        ${isGlobalReferenceTab(state) ? renderGlobalReferencePanel(state, context, operations) : renderProjectSettingsTabs(state, context, operations)}
         <small class="asset-summary">${context.project.references.length} рефов · ${context.project.characters.length} персонажей · ${context.audioLibrary.length} глобальных аудио</small>
       </div>
     </section>
@@ -129,7 +130,7 @@ function isGlobalReferenceTab(state) {
   return ["audio", "hooks"].includes(state.selectedProjectTab);
 }
 
-export function renderProjectSettingsTabs(state, context) {
+export function renderProjectSettingsTabs(state, context, operations = {}) {
   const active = state.selectedProjectTab || "project";
   const automationState = getProjectAutomationState({ project: context.project, jobs: state.jobs });
   return `
@@ -142,9 +143,9 @@ export function renderProjectSettingsTabs(state, context) {
       ${tabButton("queue", "Очередь", active)}
     </div>
     <div class="settings-tab-panel">
-      ${active === "project" ? renderProjectManagementSettings({ ...context, automationState }) : ""}
-      ${active === "product" ? renderProductSettings({ ...context, product: { ...context.product, projectProductCount: getProductsForProject(state.products, context.project.id).length } }) : ""}
-      ${active === "design" ? renderDesignSettings(context) : ""}
+      ${active === "project" ? renderProjectManagementSettings({ ...context, automationState, operations }) : ""}
+      ${active === "product" ? renderProductSettings({ ...context, operations, product: { ...context.product, projectProductCount: getProductsForProject(state.products, context.project.id).length } }) : ""}
+      ${active === "design" ? renderDesignSettings({ ...context, operations }) : ""}
       ${active === "avatars" ? renderAvatarSettings(context) : ""}
       ${active === "generation" ? renderStudioPanel(state, context) : ""}
       ${active === "queue" ? renderQueuePanel(state, context) : ""}
@@ -152,7 +153,7 @@ export function renderProjectSettingsTabs(state, context) {
   `;
 }
 
-function renderGlobalReferencePanel(state, context) {
+function renderGlobalReferencePanel(state, context, operations = {}) {
   const active = state.selectedProjectTab || "project";
   return `
     <div class="settings-tabs" role="tablist" aria-label="Глобальные референсы">
@@ -160,7 +161,7 @@ function renderGlobalReferencePanel(state, context) {
       ${tabButton("hooks", "Хуки", active)}
     </div>
     <div class="settings-tab-panel">
-      ${active === "audio" ? renderAudioSettings(context) : ""}
+      ${active === "audio" ? renderAudioSettings({ ...context, operations }) : ""}
       ${active === "hooks" ? renderHooksPanel(state.hookLibrary) : ""}
     </div>
   `;
@@ -275,8 +276,18 @@ function bindEvents(root, store, options = {}) {
   });
   root.querySelector("#audio-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    getAudioPayloads(event.currentTarget)
-      .then((payloads) => store.createAudioFiles(payloads))
+    const form = event.currentTarget;
+    runStoreOperation(store, {
+      scope: "global-audio",
+      key: "global-audio:upload",
+      kind: "upload",
+      targetId: "library",
+      label: "Загружаем аудио",
+      activeStatus: "uploading"
+    }, async () => {
+      const payloads = await getAudioPayloads(form);
+      store.createAudioFiles(payloads);
+    })
       .catch((error) => window.alert?.(error.message || "Не удалось загрузить аудио"));
   });
   root.querySelectorAll("[data-advance]").forEach((button) => {
@@ -296,6 +307,11 @@ function bindEvents(root, store, options = {}) {
   });
   root.querySelectorAll("[data-delete-reference]").forEach((button) => {
     button.addEventListener("click", () => store.deleteReference(button.dataset.deleteReference));
+  });
+  root.querySelectorAll("[data-replace-reference]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.currentTarget.closest("form")?.setAttribute("data-submit-mode", "replace");
+    });
   });
   root.querySelectorAll("[data-approve-design-reference]").forEach((button) => {
     button.addEventListener("click", () => store.approveDesignReference(button.dataset.approveDesignReference));
@@ -325,13 +341,27 @@ function bindEvents(root, store, options = {}) {
   root.querySelectorAll("[data-delete-audio]").forEach((button) => {
     button.addEventListener("click", () => {
       const audio = store.getState().audioLibrary.find((item) => item.id === button.dataset.deleteAudio);
-      deleteAudioAsset(audio)
-        .then(() => store.deleteAudio(button.dataset.deleteAudio))
+      runStoreOperation(store, {
+        scope: "global-audio",
+        key: `global-audio:delete:${button.dataset.deleteAudio}`,
+        kind: "delete",
+        targetId: button.dataset.deleteAudio,
+        label: "Удаляем аудио",
+        activeStatus: "deleting"
+      }, async () => {
+        await deleteAudioAsset(audio);
+        store.deleteAudio(button.dataset.deleteAudio);
+      })
         .catch((error) => window.alert?.(error.message || "Не удалось удалить аудио"));
     });
   });
   bindAvatarOverlayComposerEvents(root, store);
   bindHooksEvents(root, { getLibrary: () => store.getState().hookLibrary, saveLibrary: (hookLibrary) => store.updateHookLibrary(hookLibrary), refresh: options.rerender || (() => renderApp(root, store, options)) });
+}
+
+function runStoreOperation(store, config, task) {
+  if (typeof store.runScopedOperation === "function") return store.runScopedOperation(config, task);
+  return task();
 }
 
 function getAvatarUploadPayload(form) {

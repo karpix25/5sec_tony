@@ -1,10 +1,17 @@
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
-import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
-import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.mjs";
+import { defaultAppStateKey } from "./app-state-lock.mjs";
+import {
+  buildConflictPayload,
+  isPlainObject,
+  readJsonBody,
+  sendJson,
+  writeWithConflictCheck
+} from "./app-state-api-helpers.mjs";
 import { ProductPersistenceError, saveProductForState } from "./product-state-store.mjs";
 import { loadLegacyState, loadNormalizedState } from "./state-relational-store.mjs";
 
 const appStateKey = defaultAppStateKey;
+const productsJsonBodyLimitBytes = 8 * 1024 * 1024;
 
 export const handleProductsApi = createProductsApiHandler();
 
@@ -32,35 +39,23 @@ async function handleSaveProduct(request, response, deps) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, { limitBytes: productsJsonBodyLimitBytes });
     const product = getProductPayload(body);
     if (!isPlainObject(product)) return sendJson(response, 400, { error: "product object is required" });
     if (deps.productId && product.id && product.id !== deps.productId) {
       return sendJson(response, 400, { error: "product id does not match request path" });
     }
-    const result = await withAppStateRetry(() => deps.withTransaction(async (tx) => {
-      const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
-      if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
-        return {
-          conflict: true,
-          updatedAt: currentUpdatedAt,
-          state: await loadCurrentState(tx.query, deps, appStateKey)
-        };
-      }
-      return deps.saveProduct(tx.query, appStateKey, { ...product, id: deps.productId || product.id }, {
+    const result = await writeWithConflictCheck(body, deps, (tx) =>
+      deps.saveProduct(tx.query, appStateKey, { ...product, id: deps.productId || product.id }, {
         mode: deps.mode,
         selectProduct: deps.mode === "create"
-      });
-    }));
+      })
+    );
     if (result.conflict) {
-      return sendJson(response, 409, {
-        saved: false,
-        conflict: true,
+      return sendJson(response, 409, buildConflictPayload(result, {
         error: "БД обновлена другим оператором. Данные обновлены, повторите сохранение продукта.",
-        key: appStateKey,
-        updatedAt: result.updatedAt,
-        state: result.state || null
-      });
+        key: appStateKey
+      }));
     }
     return sendJson(response, 200, {
       saved: true,
@@ -83,43 +78,4 @@ function getProductPayload(body) {
   if (isPlainObject(body?.product)) return body.product;
   if (isPlainObject(body?.payload)) return body.payload;
   return body;
-}
-
-async function loadCurrentState(query, deps, key) {
-  const normalizedState = await deps.loadNormalized(query, key);
-  return normalizedState || await deps.loadLegacy(query, key);
-}
-
-function readJsonBody(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > 8 * 1024 * 1024) {
-        reject(new Error("Request body is too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
-}
-
-function sendJson(response, status, payload) {
-  response.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
-  });
-  response.end(JSON.stringify(payload));
-  return true;
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

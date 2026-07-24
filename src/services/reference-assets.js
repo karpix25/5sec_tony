@@ -1,8 +1,10 @@
+import { createImageUploadBody } from "./image-upload-body.js";
+
 export async function uploadReferenceAsset({ imageData, imageName = "" }) {
+  const upload = await createImageUploadBody({ imageName }, imageData, imageName);
   const response = await fetch("/api/reference-assets", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageData, imageName })
+    ...upload
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Не удалось сохранить референс");

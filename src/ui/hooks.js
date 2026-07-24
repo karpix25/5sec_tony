@@ -4,6 +4,7 @@ import {
   normalizeHookLibrary
 } from "../domain/hook-library.js";
 import { extractHooksFromImage, extractHooksFromPdf } from "../services/hook-ai.js";
+import { readFileAsDataUrl } from "./form-data.js";
 import { escapeHtml } from "./infographic.js";
 
 let hooksDraft = null;
@@ -83,7 +84,7 @@ async function runHookPdfExtract(root, refresh) {
     hooksDraft = await extractHooksFromPdf({
       title: root.querySelector("#hook-version-title")?.value || "",
       fileName: file.name,
-      pdfData: await readHookFile(file)
+      pdfData: await readFileAsDataUrl(file)
     });
     refresh();
   } catch (error) {
@@ -105,7 +106,7 @@ async function runHookImageExtract(root, refresh) {
     hooksImportError = "";
     hooksDraft = await extractHooksFromImage({
       title: root.querySelector("#hook-version-title")?.value || "",
-      imageData: await readHookFile(file)
+      imageData: await readFileAsDataUrl(file)
     });
     refresh();
   } catch (error) {
@@ -161,13 +162,4 @@ function defaultHookTitle() {
 
 function formatHookDate(value) {
   return value ? new Date(value).toLocaleDateString("ru-RU") : "дата не указана";
-}
-
-function readHookFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }

@@ -3,18 +3,30 @@ import { productBriefFields } from "./brief-field-labels.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 import { renderProductAiPassport } from "./product-ai-passport.js";
 import { uploadProductReferenceAsset } from "../services/product-reference-assets.js";
+import { getOperationForTarget, getOperationsForScope } from "../state/operation-status.js";
+import { getOperationLabel, isUiOperationBusy, renderOperationStatus } from "./operation-status-view.js";
+import { readImageFileAsOptimizedDataUrl } from "./form-data.js";
 
-export function renderProductSettings({ product }) {
+export function renderProductSettings({ product, operations = {} }) {
   const productCount = Number(product?.projectProductCount || 1);
-  const canDeleteProduct = productCount > 1;
+  const productScope = `product:${product.id}`;
+  const listScope = `products:${product.projectId}`;
+  const busyOperation = [
+    ...getOperationsForScope(operations, productScope),
+    ...getOperationsForScope(operations, listScope)
+  ].find(isUiOperationBusy);
+  const isBusy = Boolean(busyOperation);
+  const hasMultipleProducts = productCount > 1;
+  const canDeleteProduct = hasMultipleProducts && !isBusy;
   return `
     <section class="product-screen">
       <div class="product-action-bar">
         <div><span class="eyebrow">Текущий продукт</span><h2>${escapeHtml(product.name)}</h2></div>
         <div class="form-actions">
-          <button class="secondary-btn" form="product-settings-form" type="submit">Сохранить изменения</button>
+          <button class="secondary-btn" form="product-settings-form" type="submit" ${isBusy ? "disabled" : ""}>Сохранить изменения</button>
         </div>
       </div>
+      ${busyOperation ? renderOperationStatus(busyOperation) : ""}
       <div class="product-stage-grid">
         <form id="product-settings-form" class="ops-form text-editor-form product-editor" data-transient-context="product:${escapeHtml(product.id || "")}">
           <section class="product-card">
@@ -25,23 +37,23 @@ export function renderProductSettings({ product }) {
           </section>
           ${renderProductBriefFields(product)}
           <div class="form-actions">
-            <button class="danger-btn" id="open-delete-product-modal" type="button" ${canDeleteProduct ? "" : "disabled title=\"Нельзя удалить единственный продукт в проекте\""}>Удалить продукт</button>
+            <button class="danger-btn" id="open-delete-product-modal" type="button" ${canDeleteProduct ? "" : `disabled title="${escapeHtml(isBusy ? "Дождитесь завершения операции" : "Нельзя удалить единственный продукт в проекте")}"`}>Удалить продукт</button>
           </div>
-          ${canDeleteProduct ? "" : `<small class="locked-note">В проекте должен оставаться минимум один продукт.</small>`}
+          ${hasMultipleProducts ? "" : `<small class="locked-note">В проекте должен оставаться минимум один продукт.</small>`}
         </form>
         <aside class="product-side">
           ${renderProductAiPassport(product)}
           ${renderPhotoAnalysis()}
         </aside>
       </div>
-      ${renderProductReferences(product)}
+      ${renderProductReferences(product, operations, productScope, isBusy)}
       ${renderCreateProductModal()}
-      ${renderDeleteProductModal(product, canDeleteProduct)}
+      ${renderDeleteProductModal(product, canDeleteProduct, hasMultipleProducts)}
     </section>
   `;
 }
 
-function renderDeleteProductModal(product, canDeleteProduct) {
+function renderDeleteProductModal(product, canDeleteProduct, hasMultipleProducts) {
   return `
     <div id="delete-product-modal" class="modal-shell" hidden>
       <div class="modal-backdrop" data-close-delete-product-modal></div>
@@ -55,7 +67,7 @@ function renderDeleteProductModal(product, canDeleteProduct) {
           <small>Будут удалены карточка продукта, его фото-референсы и задачи генерации, связанные с этим продуктом.</small>
           ${canDeleteProduct
             ? `<button class="danger-btn" data-delete-product="${product.id}" type="button">Удалить продукт навсегда</button>`
-            : `<small class="locked-note">Нельзя удалить последний продукт в проекте.</small>`}
+            : `<small class="locked-note">${hasMultipleProducts ? "Дождитесь завершения операции." : "Нельзя удалить последний продукт в проекте."}</small>`}
         </div>
       </section>
     </div>
@@ -134,26 +146,26 @@ export async function getProductReferencePayload(form, productId = "") {
   form.reset();
   if (!file) return payload;
   payload.imageName = file.name;
-  payload.imageData = await readProductReferenceFile(file);
+  payload.imageData = await readImageFileAsOptimizedDataUrl(file);
   return uploadProductReferenceAsset(payload, productId);
 }
 
-function renderProductReferences(product) {
+function renderProductReferences(product, operations, productScope, isScopeBusy) {
   return `
     <section class="product-reference-box">
       <div class="panel-head compact">
         <div><span class="eyebrow">Фото</span><h2>Референсы продукта</h2></div>
-        <button id="open-product-reference-modal" class="secondary-btn" type="button">+ Добавить фото</button>
+        <button id="open-product-reference-modal" class="secondary-btn" type="button" ${isScopeBusy ? "disabled" : ""}>+ Добавить фото</button>
       </div>
       <div class="product-reference-list">
-        ${(product.references || []).map(renderProductReference).join("") || "<p class='empty'>Пока нет референсов продукта.</p>"}
+        ${(product.references || []).map((reference) => renderProductReference(reference, operations, productScope, isScopeBusy)).join("") || "<p class='empty'>Пока нет референсов продукта.</p>"}
       </div>
-      ${renderProductReferenceModal()}
+      ${renderProductReferenceModal(isScopeBusy)}
     </section>
   `;
 }
 
-function renderProductReferenceModal() {
+function renderProductReferenceModal(isBusy) {
   return `
     <div id="product-reference-modal" class="modal-shell" hidden>
       <div class="modal-backdrop" data-close-product-reference-modal></div>
@@ -166,7 +178,7 @@ function renderProductReferenceModal() {
           ${productField("Название референса", "title", "Например: упаковка крупно, продукт в руке", "input", "", true)}
           ${productFileField("Картинка продукта", "imageFile")}
           ${productField("Как использовать фото", "promptComment", "Что важно сохранить: форму упаковки, фактуру, ракурс, цвет, обязательные детали.", "textarea")}
-          <button class="secondary-btn" type="submit">Добавить фото</button>
+          <button class="secondary-btn" type="submit" ${isBusy ? "disabled" : ""}>Добавить фото</button>
         </form>
       </section>
     </div>
@@ -178,9 +190,11 @@ function productBriefField(name, type = "input", value = "", required = false, f
   return productField(field.label, name, field.placeholder, type, value, required, formId);
 }
 
-function renderProductReference(reference) {
+function renderProductReference(reference, operations, productScope, isScopeBusy) {
+  const operation = getOperationForTarget(operations, { scope: productScope, targetId: reference.id });
+  const isBusy = isScopeBusy || isUiOperationBusy(operation);
   return `
-    <article class="product-reference-item">
+    <article class="product-reference-item ${isBusy ? "busy" : ""}">
       ${reference.imageData ? renderPreviewTrigger({
         src: reference.imageData,
         title: reference.title,
@@ -188,10 +202,10 @@ function renderProductReference(reference) {
       }) : `<span class="asset-thumb">P</span>`}
       <div>
         <strong>${escapeHtml(reference.title)}</strong>
-        <small>${escapeHtml(reference.promptComment || reference.imageName || "референс продукта")}</small>
+        <small>${escapeHtml(getOperationLabel(operation) || reference.promptComment || reference.imageName || "референс продукта")}</small>
         <small>${formatProductReferenceDate(reference.createdAt)}</small>
       </div>
-      <button class="danger-icon" data-delete-product-reference="${reference.id}" type="button" aria-label="Удалить референс продукта">×</button>
+      <button class="danger-icon" data-delete-product-reference="${reference.id}" type="button" ${isBusy ? "disabled" : ""} aria-label="Удалить референс продукта">×</button>
     </article>
   `;
 }
@@ -223,13 +237,4 @@ function productFileField(label, name) {
       <input name="${escapeHtml(name)}" class="file-input" type="file" accept="image/*" />
     </label>
   `;
-}
-
-function readProductReferenceFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }

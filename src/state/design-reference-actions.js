@@ -18,7 +18,8 @@ export function createDesignReferenceActions({
   handleRemoteConflict,
   hasPendingRemoteSave,
   isRemoteReady,
-  scheduleFallbackSave
+  scheduleFallbackSave,
+  runScopedOperation
 }) {
   function createReference(payload) {
     const project = getSelectedProject();
@@ -26,27 +27,64 @@ export function createDesignReferenceActions({
     const remote = shouldUseRemote();
     applyCreatedReference(project.id, reference, remote ? { skipRemoteSave: true } : {});
     if (!remote) return Promise.resolve(reference);
-    return syncAfterOptimistic(
+    return runReferenceOperation(project.id, {
+      kind: "create",
+      targetId: reference.id,
+      label: "Сохраняем референс",
+      activeStatus: "saving"
+    }, () => syncAfterOptimistic(
       () => createRemoteDesignReference(project.id, reference, getRemoteUpdatedAt?.() || ""),
-      { optimisticValue: reference, optimisticReferenceId: reference.id }
-    );
+      { projectId: project.id, optimisticValue: reference, optimisticReferenceId: reference.id }
+    ));
   }
 
   function updateSelectedDesignReference(payload = {}) {
     const { project, reference } = getSelectedReferenceContext();
     if (!project || !reference) return Promise.resolve(null);
+    const analysisOnly = payload.designAnalysis && Object.keys(payload).length === 1;
+    return updateReferenceById(project.id, reference.id, payload, {
+      kind: analysisOnly ? "analysis" : "update",
+      label: analysisOnly ? "Анализируем референс" : "Сохраняем изменения",
+      activeStatus: analysisOnly ? "analyzing" : "saving"
+    });
+  }
+
+  function replaceDesignReference(referenceId, payload = {}) {
+    const project = getSelectedProject();
+    const reference = (project.references || []).find((item) => item.id === referenceId);
+    if (!reference) return Promise.resolve(null);
+    return updateReferenceById(project.id, reference.id, {
+      ...payload,
+      designAnalysis: null
+    }, {
+      kind: "replace",
+      label: "Заменяем референс",
+      activeStatus: "saving"
+    });
+  }
+
+  function updateReferenceById(projectId, referenceId, payload = {}, operation = {}) {
+    const project = getProject(getState(), projectId);
+    const reference = (project.references || []).find((item) => item.id === referenceId);
+    if (!project || !reference) return Promise.resolve(null);
     const updated = createReferenceEntity({ ...reference, ...payload, id: reference.id, type: reference.type });
     const remote = shouldUseRemote();
-    applyUpdatedReference(project.id, updated, remote ? { skipRemoteSave: true } : {});
+    applyUpdatedReference(projectId, updated, remote ? { skipRemoteSave: true } : {});
     if (!remote) return Promise.resolve(updated);
-    return syncAfterOptimistic(
-      () => updateRemoteDesignReference(project.id, updated.id, payload, getRemoteUpdatedAt?.() || ""),
-      { optimisticValue: updated, optimisticReferenceId: updated.id }
-    );
+    return runReferenceOperation(projectId, {
+      kind: operation.kind || "update",
+      targetId: referenceId,
+      label: operation.label || "Сохраняем изменения",
+      activeStatus: operation.activeStatus || "saving"
+    }, () => syncAfterOptimistic(
+      () => updateRemoteDesignReference(projectId, updated.id, payload, getRemoteUpdatedAt?.() || ""),
+      { projectId, optimisticValue: updated, optimisticReferenceId: updated.id }
+    ));
   }
 
   function deleteReference(referenceId) {
-    const deletion = buildReferenceDeletion(referenceId);
+    const project = getSelectedProject();
+    const deletion = buildReferenceDeletion(project.id, referenceId);
     if (!deletion) return Promise.resolve(null);
     const remote = shouldUseRemote();
     applyProjectDesignState(deletion.project.id, {
@@ -54,14 +92,20 @@ export function createDesignReferenceActions({
       selectedReferenceId: deletion.selectedReferenceId
     }, remote ? { skipRemoteSave: true } : {});
     if (!remote) return Promise.resolve(deletion);
-    return syncAfterOptimistic(
+    return runReferenceOperation(project.id, {
+      kind: "delete",
+      targetId: referenceId,
+      label: "Удаляем референс",
+      activeStatus: "deleting"
+    }, () => syncAfterOptimistic(
       () => deleteRemoteDesignReference(deletion.project.id, referenceId, getRemoteUpdatedAt?.() || ""),
-      { optimisticValue: deletion, optimisticReferenceId: referenceId }
-    );
+      { projectId: deletion.project.id, optimisticValue: deletion, optimisticReferenceId: referenceId }
+    ));
   }
 
   function approveDesignReference(candidateId) {
-    const approval = buildCandidateApproval(candidateId);
+    const project = getSelectedProject();
+    const approval = buildCandidateApproval(project.id, candidateId);
     if (!approval) return Promise.resolve(null);
     const remote = shouldUseRemote();
     applyProjectDesignState(approval.project.id, {
@@ -70,26 +114,39 @@ export function createDesignReferenceActions({
       selectedReferenceId: approval.reference.id
     }, remote ? { skipRemoteSave: true } : {});
     if (!remote) return Promise.resolve(approval.reference);
-    return syncAfterOptimistic(
+    return runReferenceOperation(project.id, {
+      kind: "approve",
+      targetId: candidateId,
+      label: "Одобряем дизайн-шаблон",
+      activeStatus: "saving"
+    }, () => syncAfterOptimistic(
       () => approveRemoteDesignReferenceCandidate(approval.project.id, candidateId, getRemoteUpdatedAt?.() || ""),
-      { optimisticValue: approval.reference, optimisticReferenceId: approval.reference.id }
-    );
+      { projectId: approval.project.id, optimisticValue: approval.reference, optimisticReferenceId: approval.reference.id }
+    ));
   }
 
   function rejectDesignReference(candidateId) {
-    const rejection = buildCandidateRejection(candidateId);
+    const project = getSelectedProject();
+    const rejection = buildCandidateRejection(project.id, candidateId);
     if (!rejection) return Promise.resolve(null);
     const remote = shouldUseRemote();
     applyProjectDesignState(rejection.project.id, { designReferenceCandidates: rejection.candidates }, remote ? { skipRemoteSave: true } : {});
     if (!remote) return Promise.resolve(rejection);
-    return syncAfterOptimistic(
+    return runReferenceOperation(project.id, {
+      kind: "reject",
+      targetId: candidateId,
+      label: "Отклоняем дизайн-шаблон",
+      activeStatus: "saving"
+    }, () => syncAfterOptimistic(
       () => rejectRemoteDesignReferenceCandidate(rejection.project.id, candidateId, getRemoteUpdatedAt?.() || ""),
-      { optimisticValue: rejection, optimisticReferenceId: "" }
-    );
+      { projectId: rejection.project.id, optimisticValue: rejection, optimisticReferenceId: "" }
+    ));
   }
 
   return {
     createReference,
+    replaceDesignReference,
+    updateDesignReference: updateReferenceById,
     updateSelectedDesignReference,
     deleteReference,
     approveDesignReference,
@@ -100,11 +157,11 @@ export function createDesignReferenceActions({
     return Boolean(isRemoteReady?.()) && !hasPendingRemoteSave?.();
   }
 
-  async function syncAfterOptimistic(request, { optimisticValue, optimisticReferenceId }) {
+  async function syncAfterOptimistic(request, { projectId, optimisticValue, optimisticReferenceId }) {
     try {
       const result = await request();
       if (result.disabled) return fallbackToFullState(optimisticValue);
-      applyRemoteResult(result, optimisticReferenceId);
+      applyRemoteResult(projectId, result, optimisticReferenceId);
       recordRemoteSave?.(getState(), result.updatedAt);
       return result.reference || result.project || optimisticValue;
     } catch (error) {
@@ -124,21 +181,20 @@ export function createDesignReferenceActions({
     return value;
   }
 
-  function applyRemoteResult(result, optimisticReferenceId) {
+  function applyRemoteResult(projectId, result, optimisticReferenceId) {
     if (result.project) {
       applyRemoteProject(result.project, result.reference?.id || optimisticReferenceId);
       return;
     }
-    const project = getSelectedProject();
     if (result.references) {
-      applyProjectDesignState(project.id, {
+      applyProjectDesignState(projectId, {
         references: result.references,
         selectedReferenceId: getNextSelectedReferenceId(result.references, result.reference?.id || getState().selectedReferenceId)
       }, { skipRemoteSave: true });
       return;
     }
-    if (result.reference) replaceReference(project.id, optimisticReferenceId, result.reference);
-    if (result.candidates) applyProjectDesignState(project.id, { designReferenceCandidates: result.candidates }, { skipRemoteSave: true });
+    if (result.reference) applyReferenceReplacement(projectId, optimisticReferenceId, result.reference);
+    if (result.candidates) applyProjectDesignState(projectId, { designReferenceCandidates: result.candidates }, { skipRemoteSave: true });
   }
 
   function applyRemoteProject(project, preferredReferenceId) {
@@ -162,7 +218,7 @@ export function createDesignReferenceActions({
     }, options);
   }
 
-  function replaceReference(projectId, oldReferenceId, reference) {
+  function applyReferenceReplacement(projectId, oldReferenceId, reference) {
     const selectedReferenceId = getState().selectedReferenceId === oldReferenceId ? reference.id : getState().selectedReferenceId;
     applyProjectDesignState(projectId, {
       references: (getProject(getState(), projectId).references || []).map((item) => item.id === oldReferenceId ? reference : item),
@@ -179,8 +235,8 @@ export function createDesignReferenceActions({
     }, options);
   }
 
-  function buildReferenceDeletion(referenceId) {
-    const project = getSelectedProject();
+  function buildReferenceDeletion(projectId, referenceId) {
+    const project = getProject(getState(), projectId);
     const references = (project.references || []).filter((reference) => reference.id !== referenceId);
     if ((project.references || []).length <= 1 || references.length === (project.references || []).length) return null;
     return {
@@ -192,15 +248,15 @@ export function createDesignReferenceActions({
     };
   }
 
-  function buildCandidateApproval(candidateId) {
-    const project = getSelectedProject();
+  function buildCandidateApproval(projectId, candidateId) {
+    const project = getProject(getState(), projectId);
     const candidate = (project.designReferenceCandidates || []).find((item) => item.id === candidateId);
     if (!candidate?.imageData) return null;
     return { project, reference: approveDesignReferenceCandidate(candidate) };
   }
 
-  function buildCandidateRejection(candidateId) {
-    const project = getSelectedProject();
+  function buildCandidateRejection(projectId, candidateId) {
+    const project = getProject(getState(), projectId);
     const candidates = (project.designReferenceCandidates || []).filter((candidate) => candidate.id !== candidateId);
     return candidates.length === (project.designReferenceCandidates || []).length ? null : { project, candidates };
   }
@@ -216,6 +272,15 @@ export function createDesignReferenceActions({
   function getSelectedProject() {
     const state = getState();
     return getProject(state, state.selectedProjectId);
+  }
+
+  function runReferenceOperation(projectId, operation, task) {
+    if (!runScopedOperation) return task();
+    return runScopedOperation({
+      scope: `design-references:${projectId}`,
+      key: `design-reference:${projectId}:${operation.kind}:${operation.targetId}`,
+      ...operation
+    }, task);
   }
 }
 

@@ -1,15 +1,22 @@
 import { escapeHtml } from "./infographic.js";
 import { uploadAudioAsset } from "../services/audio-assets.js";
+import { getOperationForTarget, getOperationsForScope } from "../state/operation-status.js";
+import { getOperationLabel, isUiOperationBusy, renderOperationStatus } from "./operation-status-view.js";
+import { readFileAsDataUrl } from "./form-data.js";
 
-export function renderAudioSettings({ audioLibrary }) {
+export function renderAudioSettings({ audioLibrary, operations = {} }) {
+  const scope = "global-audio";
+  const busyOperation = getOperationsForScope(operations, scope).find(isUiOperationBusy);
+  const isBusy = Boolean(busyOperation);
   return `
-    ${renderAudioList(audioLibrary)}
+    ${busyOperation ? renderOperationStatus(busyOperation) : ""}
+    ${renderAudioList(audioLibrary, operations, scope, isBusy)}
     <form id="audio-form" class="ops-form audio-upload-form">
       <label class="stacked-field">
         <span>Глобальные аудио файлы</span>
-        <input name="audioFiles" class="file-input" type="file" accept="audio/*" multiple />
+        <input name="audioFiles" class="file-input" type="file" accept="audio/*" multiple ${isBusy ? "disabled" : ""} />
       </label>
-      <button class="secondary-btn" type="submit">Загрузить</button>
+      <button class="secondary-btn" type="submit" ${isBusy ? "disabled" : ""}>Загрузить</button>
     </form>
   `;
 }
@@ -25,23 +32,25 @@ async function readAudioFileAndUpload(file) {
   return uploadAudioAsset(await readAudioFile(file));
 }
 
-function renderAudioList(items) {
+function renderAudioList(items, operations, scope, isScopeBusy) {
   return `
     <div class="audio-list">
-      ${items.map(renderAudioItem).join("")}
+      ${items.map((audio) => renderAudioItem(audio, operations, scope, isScopeBusy)).join("")}
     </div>
   `;
 }
 
-function renderAudioItem(audio) {
+function renderAudioItem(audio, operations, scope, isScopeBusy) {
+  const operation = getOperationForTarget(operations, { scope, targetId: audio.id });
+  const isBusy = isScopeBusy || isUiOperationBusy(operation);
   return `
-    <article class="audio-item">
+    <article class="audio-item ${isBusy ? "busy" : ""}">
       <div class="audio-icon">♪</div>
       <div>
         <strong>${escapeHtml(audio.title || audio.fileName || "Аудио файл")}</strong>
-        <small>Добавлено: ${escapeHtml(formatDate(audio.createdAt))}</small>
+        <small>${escapeHtml(getOperationLabel(operation) || `Добавлено: ${formatDate(audio.createdAt)}`)}</small>
       </div>
-      <button class="danger-icon" data-delete-audio="${audio.id}" type="button" aria-label="Удалить аудио">×</button>
+      <button class="danger-icon" data-delete-audio="${audio.id}" type="button" ${isBusy ? "disabled" : ""} aria-label="Удалить аудио">×</button>
     </article>
   `;
 }
@@ -52,18 +61,9 @@ async function readAudioFile(file) {
     fileName: file.name,
     fileType: file.type || "audio",
     fileSize: file.size,
-    fileData: await readAudioAsDataUrl(file),
+    fileData: await readFileAsDataUrl(file),
     createdAt: new Date().toISOString()
   };
-}
-
-function readAudioAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 function formatDate(value) {

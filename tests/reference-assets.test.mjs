@@ -71,6 +71,25 @@ test("reference asset API stores uploaded data url and returns a small preview U
   assert.equal(payload.url.includes("base64"), false);
 });
 
+test("reference asset API accepts multipart image uploads", async () => {
+  const response = createJsonCaptureResponse();
+  const request = createMultipartImageRequest({
+    url: "http://127.0.0.1:4173/api/reference-assets",
+    fields: { imageName: "style.png" },
+    fileName: "style.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("tiny-image")
+  });
+
+  const handled = await handleReferenceAssetsApi(request, response, new URL("http://127.0.0.1:4173/api/reference-assets"));
+  const { status, payload } = response.readJson();
+
+  assert.equal(handled, true);
+  assert.equal(status, 200);
+  assert.match(payload.url, /^\/api\/reference-assets\//);
+  assert.equal(payload.imageName, "style.png");
+});
+
 test("reference asset resolver expands saved same-origin asset paths for providers", async () => {
   const previousPublicBase = process.env.PUBLIC_BASE_URL;
   process.env.PUBLIC_BASE_URL = "https://studio.example.com";
@@ -198,4 +217,20 @@ function createJsonCaptureResponse() {
       return { status: this.status, payload: this.data ? JSON.parse(this.data) : {} };
     }
   };
+}
+
+function createMultipartImageRequest({ fields = {}, fileName, mimeType, buffer }) {
+  const boundary = "----anton-test-boundary";
+  const parts = Object.entries(fields).map(([name, value]) =>
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`)
+  );
+  parts.push(Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    buffer,
+    Buffer.from(`\r\n--${boundary}--\r\n`)
+  ]));
+  const request = Readable.from(parts);
+  request.method = "POST";
+  request.headers = { host: "127.0.0.1:4173", "content-type": `multipart/form-data; boundary=${boundary}` };
+  return request;
 }
