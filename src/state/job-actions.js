@@ -8,6 +8,7 @@ import {
   createSelectionJobBatch,
   getSelectionJobBatchAvailability,
   getProjectSelectionContext,
+  getSelectionSnapshotContext,
   getSelectionContext
 } from "./store-context.js";
 
@@ -44,12 +45,12 @@ export function createJobActions({ getState, setState, getProject }) {
     },
     createPendingServerGenerationBatch({ count, distributeProducts = false, selection = {}, batchId = "" } = {}) {
       const state = getState();
-      const context = getSelectionContext(state, getProject);
       const safeCount = normalizeGenerationCount(count);
       const serverBatchId = batchId || createGenerationBatchId();
       const selectionSnapshot = normalizeGenerationSelection(selection);
+      const context = getSelectionSnapshotContext(state, selectionSnapshot, getProject);
       const availability = getSelectionJobBatchAvailability(state, context, safeCount);
-      const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts })
+      const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts, rotateReferences: false })
         .map((job, index) => createPendingGenerationJobWithStartedAt(job, index, safeCount, {
           serverBatchId,
           selectionSnapshot,

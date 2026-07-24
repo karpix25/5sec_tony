@@ -47,7 +47,7 @@ export function bindGenerationPanelEvents(root, store) {
         throw new Error("Серверная очередь генерации недоступна");
       }
       const distributeProducts = shouldDistributeProducts(root);
-      const selection = createGenerationSelection(store);
+      const selection = createGenerationSelection(store, root);
       reservation = store.createPendingServerGenerationBatch({
         count,
         distributeProducts,
@@ -107,16 +107,20 @@ function shouldDistributeProducts(root) {
   return Boolean(root.querySelector("#generation-distribute-products")?.checked);
 }
 
-function createGenerationSelection(store) {
+function createGenerationSelection(store, root) {
   const state = store.getState();
   return {
     projectId: state.selectedProjectId || "",
     productId: state.selectedProductId || "",
-    referenceId: state.selectedReferenceId || "",
-    characterId: state.selectedCharacterId || noAvatarCharacterId,
-    audioId: state.selectedAudioId || "",
+    referenceId: readVisibleControlValue(root, "#reference-select", state.selectedReferenceId),
+    characterId: readVisibleControlValue(root, "#character-select", state.selectedCharacterId || noAvatarCharacterId),
+    audioId: readVisibleControlValue(root, "#audio-select", state.selectedAudioId),
     freePrompt: state.freePrompt || ""
   };
+}
+
+function readVisibleControlValue(root, selector, fallback = "") {
+  return root.querySelector(selector)?.value || fallback || "";
 }
 
 function renderReferenceSelect({ project, reference }) {

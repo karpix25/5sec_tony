@@ -5,13 +5,16 @@ import { bindProjectAutomationControls, renderProjectAutomationControls } from "
 import { projects, products } from "../src/domain/entities.js";
 import { FakeElement } from "./helpers/fake-ui-dom.mjs";
 
-function createGenerationDom(count = "1") {
+function createGenerationDom(count = "1", controls = {}) {
   const root = new FakeElement();
   const createJobButton = new FakeElement({ id: "create-job", tagName: "button" });
   const countInput = new FakeElement({ id: "generation-count", value: count });
   const distributeProducts = new FakeElement({ id: "generation-distribute-products", type: "checkbox" });
+  const referenceSelect = new FakeElement({ id: "reference-select", tagName: "select", value: controls.referenceId || "" });
+  const characterSelect = new FakeElement({ id: "character-select", tagName: "select", value: controls.characterId || "" });
+  const audioSelect = new FakeElement({ id: "audio-select", tagName: "select", value: controls.audioId || "" });
   const status = new FakeElement({ id: "creative-team-status" });
-  root.append(createJobButton, countInput, distributeProducts, status);
+  root.append(createJobButton, countInput, distributeProducts, referenceSelect, characterSelect, audioSelect, status);
   return { root, createJobButton, distributeProducts, status };
 }
 

@@ -26,6 +26,26 @@ export function getSelectionContext(state, getProject) {
   };
 }
 
+export function getSelectionSnapshotContext(state, selection = {}, getProject) {
+  const project = getProject(state, selection.projectId || state.selectedProjectId);
+  const projectProducts = getProductsForProject(state.products, project.id);
+  const product = projectProducts.find((item) => item.id === selection.productId) || projectProducts[0];
+  const references = getDesignReferences(project);
+  const selectedCharacterId = isNoAvatarCharacterId(selection.characterId) ? noAvatarCharacterId : (selection.characterId || state.selectedCharacterId);
+  return {
+    project,
+    product,
+    reference: references.find((item) => item.id === selection.referenceId) || references[0],
+    character: isNoAvatarCharacterId(selectedCharacterId) ? null : project.characters.find((item) => item.id === selectedCharacterId),
+    audio: state.audioLibrary.find((item) => item.id === selection.audioId) || state.audioLibrary.find((item) => item.id === state.selectedAudioId),
+    audioLibrary: state.audioLibrary,
+    hookLibrary: state.hookLibrary,
+    reelsResearch: state.reelsResearch,
+    generationBrief: ensureGenerationBrief(state.generationBrief),
+    freePrompt: selection.freePrompt ?? state.freePrompt
+  };
+}
+
 export function getProjectSelectionContext(state, projectId, getProject) {
   const fallback = getSelectionContext(state, getProject);
   const project = getProject(state, projectId);
@@ -46,7 +66,8 @@ export function createSelectionJobBatch(state, context, count, options = {}) {
     context: { ...context, project: availability.project },
     count: availability.safeCount,
     products: options.distributeProducts ? getProductsForProject(state.products, availability.project.id) : [],
-    existingJobs: availability.projectJobs
+    existingJobs: availability.projectJobs,
+    rotateReferences: options.rotateReferences !== false
   });
 }
 

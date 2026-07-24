@@ -298,7 +298,7 @@ test("backend generation worker prepares brief and hands job to server pipeline"
   ]);
 });
 
-test("backend generation worker keeps rotated placeholder design reference", async () => {
+test("backend generation worker keeps selected placeholder design reference", async () => {
   const state = createState();
   state.projects = [{
     ...state.projects[0],
@@ -331,8 +331,8 @@ test("backend generation worker keeps rotated placeholder design reference", asy
   });
   await waitFor(() => referencesSeen.length === result.jobs.length);
 
-  assert.deepEqual(result.jobs.map((job) => job.referenceId), ["ref-a", "ref-b"]);
-  assert.deepEqual(referencesSeen, ["ref-a", "ref-b"]);
+  assert.deepEqual(result.jobs.map((job) => job.referenceId), ["ref-a", "ref-a"]);
+  assert.deepEqual(referencesSeen, ["ref-a", "ref-a"]);
 });
 
 test("server brief generation accepts fallback after stale retry budget", async () => {
