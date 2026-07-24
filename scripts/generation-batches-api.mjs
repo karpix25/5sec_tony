@@ -23,12 +23,38 @@ async function createBatch(request, response) {
     });
     return sendJson(response, 202, payload);
   } catch (error) {
-    const status = error.code === "JOB_QUEUE_NOT_CONFIGURED" ? 503 : 502;
-    return sendJson(response, status, {
-      error: error.message || "Не удалось запустить очередь генерации",
-      code: error.code || "GENERATION_BATCH_ERROR"
+    const batchError = normalizeBatchError(error);
+    return sendJson(response, batchError.status, {
+      error: batchError.message,
+      code: batchError.code
     });
   }
+}
+
+function normalizeBatchError(error) {
+  if (error.code === "JOB_QUEUE_NOT_CONFIGURED") {
+    return {
+      status: 503,
+      code: error.code,
+      message: error.message || "Серверная очередь не настроена. Генерация не запущена."
+    };
+  }
+  if (isStateBackendConfigError(error)) {
+    return {
+      status: 503,
+      code: "STATE_BACKEND_NOT_CONFIGURED",
+      message: `Серверное состояние не настроено. Генерация не запущена: ${error.message}`
+    };
+  }
+  return {
+    status: error.statusCode || 502,
+    code: error.code || "GENERATION_BATCH_ERROR",
+    message: error.message || "Не удалось запустить очередь генерации"
+  };
+}
+
+function isStateBackendConfigError(error) {
+  return /Postgres is not configured/i.test(String(error?.message || ""));
 }
 
 function ensureRequiredQueue(body = {}) {

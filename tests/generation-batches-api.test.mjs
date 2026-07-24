@@ -29,6 +29,31 @@ test("generation batches API rejects automation when BullMQ env is missing", asy
   }
 });
 
+test("generation batches API reports missing state backend as a launch blocker", async () => {
+  const envSnapshot = snapshotQueueEnv();
+  const postgresSnapshot = snapshotPostgresEnv();
+  delete process.env.DATABASE_URL;
+  delete process.env.DB_HOST;
+  delete process.env.DB_USER;
+  delete process.env.DB_NAME;
+
+  try {
+    const response = await callGenerationBatchesApi("POST", "/api/generation/batches", {
+      count: 1,
+      selection: { projectId: "project-1" }
+    });
+
+    assert.equal(response.handled, true);
+    assert.equal(response.status, 503);
+    assert.equal(response.payload.code, "STATE_BACKEND_NOT_CONFIGURED");
+    assert.match(response.payload.error, /Серверное состояние не настроено/);
+    assert.match(response.payload.error, /Postgres is not configured/);
+  } finally {
+    restoreQueueEnv(envSnapshot);
+    restoreEnv(postgresSnapshot);
+  }
+});
+
 test("generation batches API requires strict queue mode for automation", async () => {
   const envSnapshot = snapshotQueueEnv();
   process.env.JOB_QUEUE_MODE = "bullmq";
@@ -60,7 +85,20 @@ function snapshotQueueEnv() {
   };
 }
 
+function snapshotPostgresEnv() {
+  return {
+    DATABASE_URL: process.env.DATABASE_URL,
+    DB_HOST: process.env.DB_HOST,
+    DB_USER: process.env.DB_USER,
+    DB_NAME: process.env.DB_NAME
+  };
+}
+
 function restoreQueueEnv(snapshot) {
+  restoreEnv(snapshot);
+}
+
+function restoreEnv(snapshot) {
   Object.entries(snapshot).forEach(([key, value]) => {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;

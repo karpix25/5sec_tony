@@ -54,6 +54,24 @@ test("url navigation sync writes state to address bar and reacts to back forward
   stop();
 });
 
+test("url navigation sync ignores full-state replacement notifications", () => {
+  const browser = createFakeBrowser("https://app.test/studio");
+  const store = createFakeStore({
+    selectedProjectId: "supplements",
+    selectedProductId: "magnesium",
+    selectedProjectTab: "project"
+  });
+
+  startUrlNavigationSync(store, browser);
+  store.replaceState({
+    selectedProjectId: "remote-project",
+    selectedProductId: "remote-product",
+    selectedProjectTab: "queue"
+  });
+
+  assert.equal(browser.historyCalls.filter((call) => call.method === "pushState").length, 0);
+});
+
 test("url navigation applies initial url to store", () => {
   const store = createFakeStore({
     selectedProjectId: "supplements",
@@ -93,6 +111,10 @@ function createFakeStore(initialState) {
     setNavigationPatch(patch) {
       state = { ...state, ...patch };
       subscribers.forEach((callback) => callback(state, patch));
+    },
+    replaceState(nextState) {
+      state = { ...nextState };
+      subscribers.forEach((callback) => callback(state, null));
     }
   };
 }

@@ -61,6 +61,7 @@ function writeUrl(browserWindow, state, method) {
 }
 
 function isNavigationPatch(patch = {}) {
+  if (!patch || typeof patch !== "object") return false;
   return ["selectedProjectId", "selectedProductId", "selectedProjectTab"].some((key) => Object.hasOwn(patch, key));
 }
 
