@@ -205,6 +205,23 @@ test("save normalized state preserves project limit from stale client snapshots"
   assert.equal(loadedState.projects[0].projectLimit, 538);
 });
 
+test("save normalized state repairs already corrupted project limit floor", async () => {
+  const db = createFakeRelationalStateDb();
+  const state = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project", dailyLimit: 100, usedToday: 26, projectLimit: 0, usedTotal: 454 }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: []
+  };
+
+  await saveNormalizedState(db.query, "workspace-repair-project-limit", state);
+
+  const loadedState = await loadNormalizedState(db.query, "workspace-repair-project-limit");
+  assert.equal(loadedState.projects[0].usedTotal, 454);
+  assert.equal(loadedState.projects[0].projectLimit, 454);
+});
+
 test("save normalized state keeps ordinary queued draft edits editable", async () => {
   const db = createFakeRelationalStateDb();
   const baseState = {

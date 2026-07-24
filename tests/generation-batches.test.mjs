@@ -132,6 +132,33 @@ test("backend generation batch marks automation source", async () => {
   assert.equal(result.jobs[0].generationSource, "automation");
 });
 
+test("backend generation batch reports exact project limit exhaustion", async () => {
+  const state = createState();
+  state.projects = state.projects.map((project) => ({
+    ...project,
+    projectLimit: 1,
+    usedTotal: 1
+  }));
+  const deps = createStateDeps(state, { autoStart: false });
+
+  await assert.rejects(() => createGenerationBatch({
+    count: 1,
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: state.selectedProductId,
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  }), (error) => {
+    assert.equal(error.statusCode, 409);
+    assert.match(error.message, /Лимит проекта исчерпан/);
+    return true;
+  });
+});
+
 test("backend generation batch distributes products only when explicitly requested", async () => {
   const state = createState();
   const firstProduct = state.products[0];

@@ -7,7 +7,7 @@ import {
   normalizeGenerationSelection
 } from "../src/domain/generation-batch-reservation.js";
 import { createPendingGenerationJob } from "../src/domain/generation-placeholder.js";
-import { createSelectionJobBatch } from "../src/state/store-context.js";
+import { createSelectionJobBatch, getSelectionJobBatchAvailability } from "../src/state/store-context.js";
 import { generateServerAiBrief } from "./generation-brief-service.mjs";
 import { loadGenerationState, updateGenerationState } from "./generation-state.mjs";
 import { ensureGenerationPreflight } from "./generation-preflight.mjs";
@@ -22,6 +22,7 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
   const result = await updateState(deps, (state) => {
     const dailyState = normalizeStateDailyUsage(state);
     const context = createServerSelectionContext(dailyState, selection);
+    const availability = getSelectionJobBatchAvailability(dailyState, context, safeCount);
     const reservedJobs = createSelectionJobBatch(dailyState, context, safeCount, { distributeProducts, rotateReferences: false })
       .map((job, index) => createPendingGenerationJob(job, index, safeCount, {
         id: normalizedReservation.jobIds[index],
@@ -30,7 +31,7 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
         serverOwned: true,
         generationSource: normalizeGenerationSource(source)
       }));
-    if (!reservedJobs.length) throw new Error("Не удалось создать задачи. Проверьте лимиты проекта.");
+    if (!reservedJobs.length) throw createBatchUnavailableError(availability.reason);
     return {
       ...dailyState,
       selectedProjectTab: "queue",
@@ -180,4 +181,10 @@ function postServerJob(deps, origin, body) {
 
 function normalizeGenerationSource(value) {
   return value === "automation" ? "automation" : "manual";
+}
+
+function createBatchUnavailableError(reason) {
+  const error = new Error(reason || "Не удалось создать задачи. Проверьте лимиты проекта.");
+  error.statusCode = 409;
+  return error;
 }

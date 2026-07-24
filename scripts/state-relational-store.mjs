@@ -2,6 +2,7 @@ import { ensureStateSchema } from "./state-schema.mjs";
 import { isServerProtectedJob, mergeClientJobWithServerJob } from "./job-state-merge-policy.mjs";
 import { syncAudioLibraryRefreshReminder } from "./audio-refresh-reminders.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
+import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 
 const uiKeys = [
   "selectedProjectId",
@@ -264,14 +265,7 @@ function mergeProjectsForRelationalSave(state, existingProjectsById) {
 }
 
 function preserveServerProjectLimit(project, existingProject) {
-  if (!project || !existingProject) return project;
-  const incomingLimit = asInteger(project.projectLimit, 500);
-  const serverLimit = asInteger(existingProject.projectLimit, 500);
-  const serverUsedTotal = asInteger(existingProject.usedTotal, 0);
-  if (serverUsedTotal > 0 && serverLimit >= serverUsedTotal && incomingLimit < serverUsedTotal) {
-    return { ...project, projectLimit: serverLimit };
-  }
-  return project;
+  return protectProjectLimitFloor(project, existingProject);
 }
 
 function mergeJobsForRelationalSave(state, existingJobsById) {

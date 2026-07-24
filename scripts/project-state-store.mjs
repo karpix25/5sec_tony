@@ -1,6 +1,7 @@
 import { updateProjectEntity } from "../src/state/store-projects.js";
 import { ensureStateSchema } from "./state-schema.mjs";
 import { loadLegacyState, loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
+import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 
 const projectKeys = [
   "id", "name", "client", "exportFolder", "yandexDiskFolder", "dailyLimit", "usedToday", "dailyUsageDate", "projectLimit",
@@ -22,11 +23,11 @@ export async function saveProjectForState(query, appStateKey, projectId, patch) 
   await ensureStateSchema(query);
   const existing = await loadProject(query, appStateKey, projectId);
   if (!existing) throw new ProjectPersistenceError("Project not found", 404);
-  const project = {
+  const project = protectProjectLimitFloor({
     ...updateProjectEntity(existing, patch),
     ...pickExtraFields(existing, projectKeys),
     ...pickExtraFields(patch, projectKeys)
-  };
+  }, existing);
   await updateProjectRow(query, appStateKey, projectId, project);
   const updatedAt = await rebuildLegacyMirror(query, appStateKey);
   return { project, updatedAt };
