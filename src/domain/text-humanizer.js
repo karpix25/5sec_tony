@@ -1,5 +1,5 @@
 export function normalizeHumanizedPlan(draft, fallbackPlan, options = {}) {
-  const points = normalizePoints(draft?.points, fallbackPlan.points);
+  const points = normalizeHumanizerPoints(draft?.points, fallbackPlan.points);
   const lockedHeadline = cleanText(options.lockedHeadline);
   const headline = lockedHeadline || normalizeHeadline(draft?.headline, fallbackPlan.headline, points);
   const subhead = normalizeSubhead(draft?.subhead, fallbackPlan.subhead, headline, points);
@@ -12,6 +12,10 @@ export function normalizeHumanizedPlan(draft, fallbackPlan, options = {}) {
   };
 }
 
+export function normalizeHumanizedLine(value) {
+  return simplifyLine(stripTechnicalLabels(cleanText(value)));
+}
+
 export function humanizePlanFallback({ plan }) {
   return normalizeHumanizedPlan({
     headline: simplifyLine(plan.headline),
@@ -22,7 +26,7 @@ export function humanizePlanFallback({ plan }) {
   }, plan, { lockedHeadline: plan.headline });
 }
 
-function normalizePoints(points, fallbackPoints = []) {
+function normalizeHumanizerPoints(points, fallbackPoints = []) {
   const source = Array.isArray(points) && points.length ? points : fallbackPoints;
   const seen = new Set();
   return source
@@ -67,6 +71,15 @@ function normalizeSubhead(value, fallback, headline = "", points = []) {
 
 function simplifyLine(value) {
   return cleanText(value)
+    .replace(/твоя\s+маска\s+крад[её]т\s+объ[её]м\?\s*ошибка\s+в\s+нанесении/gi, "Почему волосы теряют объем после маски")
+    .replace(/почему\s+маска\s+[«"]?съедает[»"]?\s+объ[её]м:?\s*ошибка\s+в\s+распределении/gi, "Маска утяжеляет волосы, если нанести ее не туда")
+    .replace(/маска\s+[«"]?съедает[»"]?\s+объ[её]м:?\s*ошибка\s+в\s+распределении/gi, "Маска утяжеляет волосы, если нанести ее не туда")
+    .replace(/почему\s+[«"]?скрип[»"]?\s+кожи\s+[—-]\s+это\s+сигнал\s+SOS,\s+а\s+не\s+чистота/gi, "Скрип кожи — не чистота")
+    .replace(/сигнал\s+SOS/gi, "тревожный знак")
+    .replace(/ошибка\s+в\s+распределении/gi, "нанесли не туда")
+    .replace(/ошибка\s+в\s+нанесении/gi, "нанесли не туда")
+    .replace(/съедает\s+объ[её]м/gi, "утяжеляет волосы")
+    .replace(/крад[её]т\s+объ[её]м/gi, "убирает объем")
     .replace(/популярное объяснение часто сбивает с толку:?\s*/gi, "")
     .replace(/этот факт объясняет знакомое ощущение:?\s*/gi, "")
     .replace(/один простой шаг часто меняет больше, чем кажется:?\s*/gi, "")
@@ -179,7 +192,7 @@ function normalizeMeaningKey(value) {
     .toLowerCase()
     .replace(/[^а-яa-z0-9ё]+/gi, " ")
     .split(" ")
-    .filter((word) => word.length > 3)
+    .filter((word) => word.length > 2)
     .slice(0, 6)
     .join(" ");
 }

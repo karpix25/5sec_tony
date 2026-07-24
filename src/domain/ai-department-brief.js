@@ -1,3 +1,5 @@
+import { normalizeHumanizedLine, normalizeHumanizedPlan } from "./text-humanizer.js";
+
 export function hasAiDepartmentBrief(brief = {}) {
   return Boolean(
     brief.imagePromptPackage?.prompt
@@ -10,20 +12,21 @@ export function hasAiDepartmentBrief(brief = {}) {
 
 export function getAiDepartmentContent(brief = {}) {
   const content = brief.contentScript || brief.plan || brief.aiPlan || {};
-  return {
+  const plan = normalizeHumanizedPlan({
     headline: cleanAiText(content.headline || brief.hook || brief.recommendedHook),
     subhead: cleanAiText(content.subhead),
     points: Array.isArray(content.points) ? content.points.map(formatAiPoint).filter(Boolean) : [],
     disclaimer: ""
-  };
+  }, { headline: "", subhead: "", points: [], disclaimer: "" });
+  return plan;
 }
 
 export function getAiDepartmentTopic(brief = {}) {
-  return cleanAiText(brief.topic || brief.creativeBrief?.topic || brief.contentScript?.headline || brief.hook || brief.recommendedHook);
+  return normalizeHumanizedLine(brief.topic || brief.creativeBrief?.topic || brief.contentScript?.headline || brief.hook || brief.recommendedHook);
 }
 
 export function getAiDepartmentHook(brief = {}) {
-  return cleanAiText(brief.hook || brief.recommendedHook || brief.sourceHook || brief.hookSet?.[0]?.hook || brief.contentScript?.headline);
+  return normalizeHumanizedLine(brief.hook || brief.recommendedHook || brief.sourceHook || brief.hookSet?.[0]?.hook || brief.contentScript?.headline);
 }
 
 export function getAiDepartmentFormat(brief = {}, fallback = "") {

@@ -12,21 +12,21 @@ export async function humanizeGenerationPlan({ project, product, brief, plan }) 
   });
   const payload = await readHumanizerPayload(response);
   if (!response.ok) throw new Error(payload.error || "OpenRouter text humanizer failed");
-  return normalizeHumanizedPlan(payload.draft || {}, plan, { lockedHeadline: brief?.hook || plan.headline });
+  return normalizeServiceHumanizedPlan(payload.draft || {}, plan, { lockedHeadline: brief?.hook || plan.headline });
 }
 
-function normalizeHumanizedPlan(draft, fallbackPlan) {
-  const points = Array.isArray(draft.points) ? draft.points.map(cleanLine).filter(Boolean) : [];
+function normalizeServiceHumanizedPlan(draft, fallbackPlan) {
+  const points = Array.isArray(draft.points) ? draft.points.map(cleanServiceHumanizerLine).filter(Boolean) : [];
   return {
-    headline: cleanLine(draft.headline) || fallbackPlan.headline || "",
-    subhead: cleanLine(draft.subhead) || fallbackPlan.subhead || "",
+    headline: cleanServiceHumanizerLine(draft.headline) || fallbackPlan.headline || "",
+    subhead: cleanServiceHumanizerLine(draft.subhead) || fallbackPlan.subhead || "",
     points: points.length ? points : fallbackPlan.points || [],
-    cta: cleanLine(draft.cta) || fallbackPlan.cta || "",
-    disclaimer: cleanLine(draft.disclaimer) || fallbackPlan.disclaimer || ""
+    cta: cleanServiceHumanizerLine(draft.cta) || fallbackPlan.cta || "",
+    disclaimer: cleanServiceHumanizerLine(draft.disclaimer) || fallbackPlan.disclaimer || ""
   };
 }
 
-function cleanLine(value) {
+function cleanServiceHumanizerLine(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 

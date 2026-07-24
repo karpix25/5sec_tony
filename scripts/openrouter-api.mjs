@@ -1,5 +1,6 @@
 import { getOpenRouterErrorMessage, parseJsonDraft, readOpenRouterPayload } from "./openrouter-response.mjs";
 import { humanizeTextInstruction, runCreativeTeamBrief } from "./creative-team-prompts.mjs";
+import { humanizeCreativeTeamDraft } from "./creative-team-humanizer.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
@@ -83,7 +84,15 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    return sendJson(response, 200, { model: writingModel, draft });
+    const humanizedDraft = await humanizeCreativeTeamDraft({
+      token,
+      body: bodyWithReferenceImages,
+      draft,
+      model: writingModel,
+      callOpenRouter: callBriefOpenRouter,
+      parseJsonDraft
+    });
+    return sendJson(response, 200, { model: writingModel, draft: humanizedDraft });
   } catch (error) {
     console.error("[openrouter:brief:error]", JSON.stringify({
       message: error.message || "OpenRouter request failed",

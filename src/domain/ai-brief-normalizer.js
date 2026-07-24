@@ -1,17 +1,21 @@
 import { buildProductInsightMap } from "./product-insights.js";
+import { normalizeHumanizedLine, normalizeHumanizedPlan } from "./text-humanizer.js";
 
 export function normalizeAiBrief(draft = {}, diversitySlot = {}) {
   const creativeBrief = draft.creativeBrief || {};
   const contentScript = draft.contentScript || draft.plan || {};
-  const topic = diversitySlot.lockTopic
+  const rawTopic = diversitySlot.lockTopic
     ? diversitySlot.topic
     : draft.topic || creativeBrief.topic || diversitySlot.topic || "";
-  const hook = draft.hook || draft.recommendedHook || diversitySlot.hook || "";
-  const plan = draft.plan || {
-    headline: contentScript.headline || hook,
+  const rawHook = draft.hook || draft.recommendedHook || diversitySlot.hook || "";
+  const rawPlan = draft.plan || {
+    headline: contentScript.headline || rawHook,
     subhead: contentScript.subhead || "",
     points: Array.isArray(contentScript.points) ? contentScript.points : []
   };
+  const plan = normalizeHumanizedPlan(rawPlan, rawPlan);
+  const topic = normalizeHumanizedLine(rawTopic) || plan.headline;
+  const hook = normalizeHumanizedLine(rawHook) || plan.headline;
   return {
     ...draft,
     topic,

@@ -44,6 +44,7 @@ const files = [
   "src/domain/product-visibility-decision.js",
   "src/domain/prompt-contract.js",
   "src/domain/generation-ai-trace.js",
+  "src/domain/text-humanizer.js",
   "src/domain/ai-brief-normalizer.js",
   "src/domain/generation-batch-reservation.js",
   "src/domain/generation-placeholder.js",
