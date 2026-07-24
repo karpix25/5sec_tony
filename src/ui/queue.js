@@ -73,7 +73,7 @@ export function bindQueuePanelEvents(root, store) {
 }
 
 function getVisibleQueueJobs(state, context) {
-  const projectJobs = getProjectQueueJobs(state, context);
+  const projectJobs = getSortedQueueJobs(getProjectQueueJobs(state, context));
   if (!context.product?.id) return projectJobs;
   if (getQueueProductFilter(state) === "all") return projectJobs;
   return projectJobs.filter((job) => job.productId === context.product?.id);
@@ -81,6 +81,23 @@ function getVisibleQueueJobs(state, context) {
 
 function getProjectQueueJobs(state, context) {
   return (state.jobs || []).filter((job) => job.projectId === context.project.id);
+}
+
+function getSortedQueueJobs(jobs = []) {
+  return [...jobs].sort((left, right) => getQueueSortTime(right) - getQueueSortTime(left));
+}
+
+function getQueueSortTime(job) {
+  const value = firstValidDate([
+    job?.createdAt,
+    job?.serverJobAcceptedAt,
+    job?.queueScheduledAt,
+    job?.briefStartedAt,
+    job?.queueLockedAt,
+    job?.updatedAt
+  ]);
+  const time = new Date(value || "").getTime();
+  return Number.isFinite(time) ? time : 0;
 }
 
 function getQueueProductFilter(state) {

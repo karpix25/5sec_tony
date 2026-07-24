@@ -168,6 +168,28 @@ test("queue partial update refreshes product filter counters", () => {
   assert.match(filterWrap.innerHTML, /Все продукты проекта \(1\)/);
 });
 
+test("queue renders newest generations first", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  root.append(panel);
+  panel.append(list);
+
+  updateQueuePanel(root, {
+    queueProductFilter: "current",
+    jobs: [
+      { id: "old-job", projectId: "project-1", productId: "product-1", status: "done", stage: "export", title: "Старая генерация", createdAt: "2026-07-24T10:00:00.000Z" },
+      { id: "new-job", projectId: "project-1", productId: "product-1", status: "running", stage: "image", title: "Новая генерация", createdAt: "2026-07-24T12:00:00.000Z" }
+    ],
+    products: [{ id: "product-1", name: "Продукт" }]
+  }, {
+    project: { id: "project-1" },
+    product: { id: "product-1", name: "Продукт" }
+  }, { deleteJob() {} });
+
+  assert.ok(list.innerHTML.indexOf("Новая генерация") < list.innerHTML.indexOf("Старая генерация"));
+});
+
 test("queue shows generation start time and duration", () => {
   const root = new FakeElement();
   const panel = new FakeElement({ className: "queue-panel" });

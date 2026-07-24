@@ -24,6 +24,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
     ...getFinalRenderContract(),
     safePackagePrompt,
     safePromptContract ? `JSON-КОНТРАКТ ПРОМПТА:\n${stringifyPromptContract(safePromptContract)}` : "",
+    formatDesignReferenceLockPrompt(safePromptContract),
     "ТЕХНИЧЕСКИЕ ПРАВИЛА РЕНДЕРА:",
     currentDatePrompt,
     productVisualContract,
@@ -41,10 +42,39 @@ function getFinalRenderContract() {
   return [
     "ФИНАЛЬНЫЙ РЕНДЕР-КОНТРАКТ: дизайн-референс дает только композицию, палитру, типографический характер и ритм; видимый редакционный текст всегда берется из русского текстового контракта ниже.",
     "RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE: не заменяй референс generic centered checklist; перенеси его визуальную грамматику внутрь безопасной рабочей области.",
+    "DESIGN REFERENCE FIDELITY GATE: перед финальным рендером сравни макет с design reference. Если не узнается тот же skeleton, palette, typography hierarchy, card rhythm and object geometry, пересобери кадр ближе к референсу.",
+    "Нельзя подменять выбранный референс привычным шаблоном инфографики: не превращать funnel, chart, poster, comparison или карточную сетку в обычный centered checklist, если этого нет в референсе.",
+    "Сохраняй macro-layout: крупные зоны, направление чтения, повторяемые формы, пропорции блоков, тип декоративных элементов и визуальный вес должны совпадать с приложенным design reference.",
     ...russianImageTextRules,
     "АНГЛИЙСКИЙ ТЕКСТ ИЗ DESIGN REFERENCE: не копировать как пиксели и не переносить в финальную картинку; заменить естественными русскими заголовками, подписью, карточками и служебными ярлыками.",
     ...socialSafeZoneRules
   ];
+}
+
+function formatDesignReferenceLockPrompt(contract) {
+  const reference = contract?.designReference || {};
+  const parts = [
+    reference.title ? `выбранный дизайн-референс: ${reference.title}` : "",
+    reference.structureName ? `структура: ${reference.structureName}` : "",
+    reference.formatType ? `формат: ${reference.formatType}` : "",
+    formatVisualGrammar(reference.visualGrammar),
+    Array.isArray(reference.adaptationRules) && reference.adaptationRules.length
+      ? `правила адаптации: ${reference.adaptationRules.join("; ")}`
+      : ""
+  ].filter(Boolean);
+  if (!parts.length) return "";
+  return [
+    `STYLE LOCK ВЫБРАННОГО РЕФЕРЕНСА: ${parts.join(". ")}.`,
+    "Итоговая картинка должна выглядеть как новая русская карточка в этой же дизайн-системе, а не как самостоятельный новый дизайн."
+  ].join(" ");
+}
+
+function formatVisualGrammar(grammar = {}) {
+  if (!grammar || typeof grammar !== "object") return "";
+  const lines = Object.entries(grammar)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`);
+  return lines.length ? `визуальная грамматика: ${lines.join("; ")}` : "";
 }
 
 function sanitizePromptContract(contract, content) {

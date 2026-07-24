@@ -371,6 +371,8 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.match(imagePromptInstruction.rules.join(" "), /role=safe_zone/);
   assert.match(imagePromptInstruction.rules.join(" "), /служебная 9:16 маска размещения/);
   assert.match(imagePromptInstruction.rules.join(" "), /RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE/);
+  assert.match(imagePromptInstruction.rules.join(" "), /DESIGN REFERENCE FIDELITY GATE/);
+  assert.match(imagePromptInstruction.rules.join(" "), /Сохраняй macro-layout дизайн-референса/);
   assert.doesNotMatch(imagePromptInstruction.rules.join(" "), /safe_zone важнее|приоритет всегда у safe-zone/i);
   assert.match(imagePromptInstruction.rules.join(" "), /Отступы обязательны/);
   assert.equal(Object.hasOwn(passportPrompt, "project"), false);
