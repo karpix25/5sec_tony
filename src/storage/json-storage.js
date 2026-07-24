@@ -31,6 +31,7 @@ export function writeJsonStorage(key, value, options = {}) {
       : null;
     if (compactValue && compactValue !== value) {
       try {
+        storage.removeItem(key);
         writePayload(storage, key, compactValue, options);
         return { ok: true, compacted: true };
       } catch (compactError) {

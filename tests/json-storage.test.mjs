@@ -88,6 +88,48 @@ test("json storage retries with compact payload when quota is exceeded", () => {
   }
 });
 
+test("json storage frees the previous key before compact quota retry", () => {
+  const events = [];
+  const items = new Map([["quota-key", "old-large-pending-save"]]);
+  const storage = {
+    getItem: (key) => items.get(key) ?? null,
+    setItem(key, value) {
+      events.push(["set", key, items.has(key)]);
+      if (events.length === 1) {
+        const error = new Error("quota exceeded");
+        error.name = "QuotaExceededError";
+        throw error;
+      }
+      items.set(key, String(value));
+    },
+    removeItem(key) {
+      events.push(["remove", key, items.has(key)]);
+      items.delete(key);
+    }
+  };
+  const restore = installStorage(storage);
+
+  try {
+    const result = writeJsonStorage(
+      "quota-key",
+      { huge: true },
+      { version: 1, compactValue: () => ({ slim: true }) }
+    );
+    const stored = JSON.parse(items.get("quota-key"));
+
+    assert.equal(result.ok, true);
+    assert.equal(result.compacted, true);
+    assert.deepEqual(events, [
+      ["set", "quota-key", true],
+      ["remove", "quota-key", true],
+      ["set", "quota-key", false]
+    ]);
+    assert.deepEqual(stored.data, { slim: true });
+  } finally {
+    restore();
+  }
+});
+
 function installStorage(storage) {
   const previousWindow = globalThis.window;
   globalThis.window = { localStorage: storage };
