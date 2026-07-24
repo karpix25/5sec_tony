@@ -40,18 +40,52 @@ export function getProjectSelectionContext(state, projectId, getProject) {
 }
 
 export function createSelectionJobBatch(state, context, count, options = {}) {
-  if (!context.reference) return [];
+  const availability = getSelectionJobBatchAvailability(state, context, count);
+  if (!availability.safeCount) return [];
+  return createGenerationJobBatch({
+    context: { ...context, project: availability.project },
+    count: availability.safeCount,
+    products: options.distributeProducts ? getProductsForProject(state.products, availability.project.id) : [],
+    existingJobs: availability.projectJobs
+  });
+}
+
+export function getSelectionJobBatchAvailability(state, context, count) {
+  if (!context.reference) {
+    return createUnavailableBatch(context, "Выберите дизайн-референс перед запуском генерации.");
+  }
   const project = normalizeProjectDailyUsage(context.project);
   const projectJobs = state.jobs.filter((item) => item.projectId === project.id);
   const reserved = countActiveQuotaReservations(projectJobs);
   const dailyLeft = Math.max(0, Number(project.dailyLimit || 0) - Number(project.usedToday || 0) - reserved);
   const totalLeft = Math.max(0, Number(project.projectLimit || 0) - Number(project.usedTotal || 0) - reserved);
-  const safeCount = Math.max(0, Math.min(Number(count || 1), dailyLeft, totalLeft));
-  if (!safeCount) return [];
-  return createGenerationJobBatch({
-    context: { ...context, project },
-    count: safeCount,
-    products: options.distributeProducts ? getProductsForProject(state.products, project.id) : [],
-    existingJobs: projectJobs
-  });
+  const requested = Math.max(1, Number(count || 1));
+  const safeCount = Math.max(0, Math.min(requested, dailyLeft, totalLeft));
+  return {
+    project,
+    projectJobs,
+    requested,
+    safeCount,
+    dailyLeft,
+    totalLeft,
+    reason: getUnavailableReason({ dailyLeft, totalLeft })
+  };
+}
+
+function createUnavailableBatch(context, reason) {
+  return {
+    project: normalizeProjectDailyUsage(context.project || {}),
+    projectJobs: [],
+    requested: 0,
+    safeCount: 0,
+    dailyLeft: 0,
+    totalLeft: 0,
+    reason
+  };
+}
+
+function getUnavailableReason({ dailyLeft, totalLeft }) {
+  if (dailyLeft <= 0) return "Дневной лимит проекта исчерпан. Увеличьте лимит или дождитесь нового дня.";
+  if (totalLeft <= 0) return "Лимит проекта исчерпан. Увеличьте общий лимит проекта, чтобы запускать новые задачи.";
+  return "";
 }

@@ -6,6 +6,7 @@ import { createBriefJobStartedAt } from "./brief-job-rescue.js";
 import { withCreatedJobs } from "./store-projects.js";
 import {
   createSelectionJobBatch,
+  getSelectionJobBatchAvailability,
   getProjectSelectionContext,
   getSelectionContext
 } from "./store-context.js";
@@ -47,6 +48,7 @@ export function createJobActions({ getState, setState, getProject }) {
       const safeCount = normalizeGenerationCount(count);
       const serverBatchId = batchId || createGenerationBatchId();
       const selectionSnapshot = normalizeGenerationSelection(selection);
+      const availability = getSelectionJobBatchAvailability(state, context, safeCount);
       const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts })
         .map((job, index) => createPendingGenerationJobWithStartedAt(job, index, safeCount, {
           serverBatchId,
@@ -54,11 +56,24 @@ export function createJobActions({ getState, setState, getProject }) {
           serverOwned: true,
           serverReservationStatus: "requested"
         }));
+      if (!reservedJobs.length) {
+        const failedJob = createRejectedGenerationReservationJob({
+          context,
+          batchId: serverBatchId,
+          selectionSnapshot,
+          reason: availability.reason || "Серверная очередь не создала задачу. Проверьте лимиты проекта."
+        });
+        setState({
+          selectedProjectTab: "queue",
+          jobs: [failedJob, ...state.jobs]
+        });
+        return { batchId: serverBatchId, jobs: [failedJob], accepted: false, reason: failedJob.failMsg };
+      }
       setState({
         selectedProjectTab: "queue",
         jobs: [...reservedJobs, ...state.jobs]
       });
-      return { batchId: serverBatchId, jobs: reservedJobs };
+      return { batchId: serverBatchId, jobs: reservedJobs, accepted: true, reason: "" };
     },
     failPendingGenerationBatch(batchId, message) {
       const state = getState();
@@ -126,4 +141,34 @@ function createPendingGenerationJobWithStartedAt(job, index, count, extra = {}) 
     ...extra,
     briefStartedAt: extra.briefStartedAt || createBriefJobStartedAt()
   });
+}
+
+function createRejectedGenerationReservationJob({ context, batchId, selectionSnapshot, reason }) {
+  return {
+    id: `job-launch-${createBriefJobStartedAt().replace(/[^0-9]/g, "")}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    projectId: context.project?.id || "",
+    productId: context.product?.id || "",
+    productName: context.product?.name || "",
+    characterId: context.character?.id || "__no_avatar__",
+    referenceId: context.reference?.id || "",
+    referenceTitle: context.reference?.title || "",
+    music: context.audio?.title || "аудио проекта",
+    status: "failed",
+    stage: "brief",
+    progress: 100,
+    title: "Запуск не принят",
+    topic: "Очередь не создала новую задачу",
+    prompt: "",
+    inputUrls: [],
+    inputRefs: [],
+    outputType: "final-video",
+    finalVideoUrl: "",
+    finalVideoHasAudio: false,
+    serverBatchId: batchId,
+    serverOwned: true,
+    serverReservationStatus: "failed",
+    selectionSnapshot,
+    failMsg: reason
+  };
 }

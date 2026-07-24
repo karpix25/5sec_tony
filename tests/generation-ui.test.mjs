@@ -15,7 +15,7 @@ function createGenerationDom(count = "1") {
   return { root, createJobButton, distributeProducts, status };
 }
 
-function createGenerationStoreDouble({ project, product, calls = [] }) {
+function createGenerationStoreDouble({ project, product, calls = [], rejectReservation = false }) {
   let batchIndex = 0;
   const state = {
     projects: [project],
@@ -36,6 +36,24 @@ function createGenerationStoreDouble({ project, product, calls = [] }) {
       createPendingServerGenerationBatch({ count, distributeProducts, selection }) {
         batchIndex += 1;
         const batchId = `batch-test-${batchIndex}`;
+        if (rejectReservation) {
+          const job = {
+            id: `job-launch-failed-${batchIndex}`,
+            projectId: project.id,
+            productId: product.id,
+            productName: product.name,
+            referenceId: selection.referenceId,
+            referenceTitle: project.references[0].title,
+            status: "failed",
+            stage: "brief",
+            progress: 100,
+            title: "Запуск не принят",
+            failMsg: "Лимит проекта исчерпан"
+          };
+          calls.push(["createPendingServerGenerationBatch", count, distributeProducts, batchId, [job.id], false]);
+          state.jobs = [job, ...state.jobs];
+          return { batchId, jobs: [job], accepted: false, reason: job.failMsg };
+        }
         const jobs = Array.from({ length: count }, (_, index) => ({
           id: `job-reserved-${batchIndex}-${index + 1}`,
           projectId: project.id,
@@ -253,6 +271,38 @@ test("generation start marks visible queue reservation failed when backend enque
       ["selectProjectTab", "queue"]
     ]);
     assert.equal(status.textContent, "OpenRouter upstream 502. Генерация не запущена.");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("generation start keeps visible rejected reservation when local quota is exhausted", async () => {
+  const previousFetch = globalThis.fetch;
+  const { root, createJobButton, status } = createGenerationDom("1");
+  const project = projects[0];
+  const product = products.find((item) => item.projectId === project.id);
+  const calls = [];
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    throw new Error("server should not be called");
+  };
+  const { state, store } = createGenerationStoreDouble({ project, product, calls, rejectReservation: true });
+
+  try {
+    bindGenerationPanelEvents(root, store);
+    createJobButton.dispatchEvent({ type: "click", target: createJobButton });
+    await waitForGenerationTicks();
+
+    assert.deepEqual(urls, []);
+    assert.equal(state.jobs.length, 1);
+    assert.equal(state.jobs[0].status, "failed");
+    assert.equal(state.jobs[0].title, "Запуск не принят");
+    assert.deepEqual(calls, [
+      ["createPendingServerGenerationBatch", 1, false, "batch-test-1", ["job-launch-failed-1"], false],
+      ["selectProjectTab", "queue"]
+    ]);
+    assert.equal(status.textContent, "Лимит проекта исчерпан. Генерация не запущена.");
   } finally {
     globalThis.fetch = previousFetch;
   }

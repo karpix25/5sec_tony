@@ -53,6 +53,11 @@ export function bindGenerationPanelEvents(root, store) {
         distributeProducts,
         selection
       });
+      if (reservation.accepted === false) {
+        store.selectProjectTab("queue");
+        if (status) status.textContent = `${reservation.reason || "Очередь не создала задачи"}. Генерация не запущена.`;
+        return;
+      }
       if (status) status.textContent = "Задача добавлена в очередь. Сервер подтверждает запуск...";
       const payload = await createServerGenerationBatch({
         count,
