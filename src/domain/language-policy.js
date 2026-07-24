@@ -1,4 +1,5 @@
 export const requiredRussianImageTextRule = "ЯЗЫК ФИНАЛЬНЫХ КАРТИНОК: весь редакционный текст инфографики должен быть строго на русском языке; английские заголовки, служебные интерфейсные ярлыки, псевдолатинский текст и случайная латиница запрещены. Исключение: текст, логотипы, SKU и названия, напечатанные на реальной упаковке из product reference, не переводить и не перерисовывать.";
+export const requiredRussianAvatarVideoRule = "ЯЗЫК ФИНАЛЬНОГО РОЛИКА: не добавлять английскую речь, английские субтитры, английские надписи, интерфейсные ярлыки или псевдолатинский текст. Если нужен видимый или озвученный текст, он должен быть только на русском языке. Для хромакей-аватара вообще не добавлять речь, субтитры и надписи.";
 export const russianImagePromptGuard = [
   "ЖЕСТКИЙ ЯЗЫКОВОЙ КОНТРАКТ ДЛЯ ФИНАЛЬНОЙ КАРТИНКИ: весь редакционный текст, заголовки, подписи, карточки и служебные элементы инфографики должны быть только на русском языке.",
   "Запрещены английские заголовки, английские подписи, служебные интерфейсные ярлыки на английском, псевдолатинский текст, случайная латиница и англоязычные заглушки.",
@@ -25,12 +26,22 @@ export function ensureRussianImagePromptGuard(value = "") {
   return [russianImagePromptGuard, source].filter(Boolean).join(" ");
 }
 
+export function ensureRussianAvatarVideoPromptGuard(value = "") {
+  const source = textValue(value).trim();
+  if (hasRussianAvatarVideoPromptGuard(source)) return source;
+  return [requiredRussianAvatarVideoRule, source].filter(Boolean).join(" ");
+}
+
 function hasRussianImageTextRestriction(value) {
   return /видим(?:ый|ого)\s+текст.*строго\s+на\s+русском|язык\s+финальн(?:ых|ой)\s+картин/i.test(value || "");
 }
 
 function hasRussianImagePromptGuard(value) {
   return /жестк(?:ий|ого)\s+языков(?:ой|ого)\s+контракт/i.test(value || "");
+}
+
+function hasRussianAvatarVideoPromptGuard(value) {
+  return /язык\s+финальн(?:ого|ых)\s+ролик/i.test(value || "");
 }
 
 function hasProductPackageTextException(value) {

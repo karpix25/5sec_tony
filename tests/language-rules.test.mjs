@@ -5,7 +5,12 @@ import { projects, products } from "../src/domain/entities.js";
 import { buildImagePrompt } from "../src/domain/generation.js";
 import { buildImageRenderPrompt } from "../src/domain/image-render-prompt.js";
 import { getProductReferenceTransferInstruction } from "../src/domain/product-reference-transfer.js";
-import { ensureRussianImagePromptGuard, ensureRussianImageTextRestriction, requiredRussianImageTextRule } from "../src/domain/language-policy.js";
+import {
+  ensureRussianAvatarVideoPromptGuard,
+  ensureRussianImagePromptGuard,
+  ensureRussianImageTextRestriction,
+  requiredRussianImageTextRule
+} from "../src/domain/language-policy.js";
 import { createProjectBundle } from "../src/state/project-creation.js";
 import { createReferenceEntity, ensureProjectAssets } from "../src/state/factories.js";
 import { createStore } from "../src/state/store.js";
@@ -28,6 +33,16 @@ test("image prompt requires Russian visible text", () => {
   assert.match(prompt, /весь редакционный текст инфографики строго на русском языке/);
   assert.match(prompt, /английский интерфейсный или служебный текст запрещен/);
   assert.match(prompt, /Официальные названия брендов и сервисов/);
+});
+
+test("avatar video prompt guard prevents English speech and captions", () => {
+  const prompt = ensureRussianAvatarVideoPromptGuard("Animate avatar with subtle movement.");
+
+  assert.match(prompt, /ЯЗЫК ФИНАЛЬНОГО РОЛИКА/);
+  assert.match(prompt, /английскую речь/);
+  assert.match(prompt, /английские субтитры/);
+  assert.match(prompt, /только на русском языке/);
+  assert.equal(prompt.match(/ЯЗЫК ФИНАЛЬНОГО РОЛИКА/g).length, 1);
 });
 
 test("Russian image guard preserves original product package labels", () => {

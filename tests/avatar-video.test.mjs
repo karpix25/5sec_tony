@@ -243,7 +243,7 @@ test("store saves transparent avatar video after chroma video is ready", async (
         ? { ...item, characters: [{ ...item.characters[0], imageData: "https://cdn.example.com/avatar-source.png" }] }
         : item
     );
-    await store.createAvatarVideo({ motionPrompt: "small hand wave" });
+    await store.createAvatarVideo({ motionPrompt: "небольшой жест рукой" });
     await waitFor(() => getProjectAvatarVideos(store)[0]?.alphaStatus === "ready");
 
     const video = getProjectAvatarVideos(store)[0];
@@ -269,7 +269,7 @@ test("store creates chroma key video task for active approved avatar", async () 
     if (String(url).includes("/api/avatar-videos/generate")) {
       const body = JSON.parse(options.body);
       assert.equal(body.imageUrl, "https://cdn.example.com/avatar-chroma.png");
-      assert.match(body.prompt, /waist up only/);
+      assert.match(body.prompt, /только по пояс/);
       assert.match(body.prompt, /#00FF00/);
       return { ok: true, json: async () => ({ taskId: "task_kling_video_test" }) };
     }
@@ -282,7 +282,7 @@ test("store creates chroma key video task for active approved avatar", async () 
     if (String(url).includes("/api/images/generate")) {
       const body = JSON.parse(options.body);
       assert.deepEqual(body.inputUrls, ["https://cdn.example.com/avatar.png"]);
-      assert.match(body.prompt, /chroma key still image/);
+      assert.match(body.prompt, /хромакей-кадр/);
       return { ok: true, json: async () => ({ taskId: "task_chroma_image_test" }) };
     }
     return { ok: true, json: async () => ({ taskId: "task_gptimage_video_avatar" }) };
@@ -300,7 +300,7 @@ test("store creates chroma key video task for active approved avatar", async () 
     });
     store.approveAvatar(candidate.id);
 
-    await store.createAvatarVideo({ motionPrompt: "calm hand movement" });
+    await store.createAvatarVideo({ motionPrompt: "спокойное движение рукой" });
     await waitFor(() => {
       const project = getSelectedProject(store);
       const character = project.characters.find((item) => item.name === "Video Avatar");

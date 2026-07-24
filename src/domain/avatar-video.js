@@ -1,28 +1,29 @@
 import { normalizeCtaOverlay } from "./cta-overlay.js";
+import { ensureRussianAvatarVideoPromptGuard } from "./language-policy.js";
 
 const CHROMA_KEY_CONTRACT = [
-  "Create a vertical 9:16 chroma key video.",
-  "The same avatar from the reference image is shown from the waist up only, medium shot, centered in frame.",
-  "Top of head has small margin, waist visible near the lower third of the frame.",
-  "The avatar occupies about 65% of frame height.",
-  "Pure solid chroma key green background (#00FF00), evenly lit, no gradients, no shadows, no floor, no wall texture, no props, no furniture, no text.",
-  "Static camera, no zoom, no crop changes, no camera movement.",
-  "Keep identity, face, hairstyle, outfit, age, body proportions and style consistent with the reference image."
+  "Создай вертикальное 9:16 хромакей-видео.",
+  "Тот же аватар с референсного изображения показан только по пояс, средний план, по центру кадра.",
+  "Над головой небольшой отступ, талия видна около нижней трети кадра.",
+  "Аватар занимает примерно 65% высоты кадра.",
+  "Фон чистый однотонный chroma key green #00FF00, ровно освещенный, без градиентов, теней, пола, стены, фактуры, реквизита, мебели и текста.",
+  "Камера статична: без приближения, без смены кадрирования, без движения камеры.",
+  "Сохрани идентичность, лицо, волосы, одежду, возраст, пропорции тела и общий стиль как на референсе."
 ];
 
 const NEGATIVE_CONTRACT = [
-  "Do not show full body.",
-  "Do not show close-up face.",
-  "Do not change framing.",
-  "Do not move camera.",
-  "No background scene.",
-  "No shadows on green screen.",
-  "No additional objects.",
-  "No text."
+  "Не показывать полный рост.",
+  "Не делать крупный план лица.",
+  "Не менять кадрирование.",
+  "Не двигать камеру.",
+  "Не добавлять фоновые сцены.",
+  "Не добавлять тени на зеленом фоне.",
+  "Не добавлять дополнительные объекты.",
+  "Не добавлять текст, субтитры, речь или английские слова."
 ];
 
 export function createAvatarVideoRecord(character, payload = {}) {
-  const motionPrompt = payload.motionPrompt || "Subtle natural idle movements and small hand gestures.";
+  const motionPrompt = payload.motionPrompt || "Спокойные естественные микродвижения и небольшие жесты руками.";
   const name = normalizeAvatarVideoRecordName(payload.name || payload.emotionName || `${character.name || "Аватар"} · спокойная экспертность`);
   return {
     id: createAvatarVideoId(),
@@ -121,26 +122,26 @@ export function attachAvatarAlphaVideo(video, alphaVideoUrl) {
 }
 
 export function buildAvatarVideoPrompt(character, motionPrompt = "") {
-  return [
+  return ensureRussianAvatarVideoPromptGuard([
     ...CHROMA_KEY_CONTRACT,
-    "Animate the provided chroma key still image. Keep the exact green background and framing from the input image.",
-    `Avatar name: ${character.name || "project avatar"}.`,
-    `Motion instruction: ${motionPrompt || "Subtle natural idle movements and small hand gestures."}`,
+    "Анимируй предоставленное хромакей-изображение. Сохрани точный зеленый фон и кадрирование из входного изображения.",
+    `Имя аватара: ${character.name || "аватар проекта"}.`,
+    `Инструкция по движению: ${motionPrompt || "Спокойные естественные микродвижения и небольшие жесты руками."}`,
     ...NEGATIVE_CONTRACT
-  ].join(" ");
+  ].join(" "));
 }
 
 export function buildAvatarChromaImagePrompt(character, motionPrompt = "") {
-  return [
-    "GPT Image 2 image-to-image: create one clean vertical 9:16 chroma key still image from the provided avatar reference.",
-    "Use the same avatar identity from the reference image: same face, hair, age, outfit, body proportions and general look.",
-    "Frame waist-up only, medium shot, centered. Top of head has small margin, waist visible near lower third.",
-    "Avatar occupies about 65% of frame height.",
-    "Background must be pure solid chroma key green #00FF00, evenly lit, no gradients, no shadows, no floor, no wall texture, no props, no furniture, no text.",
-    "Static camera composition for later video animation. No full body, no close-up face, no crop changes.",
-    `Avatar name: ${character.name || "project avatar"}.`,
-    `Future motion to support: ${motionPrompt || "Subtle natural idle movements and small hand gestures."}`
-  ].join(" ");
+  return ensureRussianAvatarVideoPromptGuard([
+    "GPT Image 2 image-to-image: создай один чистый вертикальный 9:16 хромакей-кадр по предоставленному референсу аватара.",
+    "Используй ту же идентичность аватара из референса: то же лицо, волосы, возраст, одежда, пропорции тела и общий образ.",
+    "Кадр только по пояс, средний план, по центру. Над головой небольшой отступ, талия видна около нижней трети.",
+    "Аватар занимает примерно 65% высоты кадра.",
+    "Фон должен быть чистым однотонным chroma key green #00FF00, ровно освещенным, без градиентов, теней, пола, стены, фактуры, реквизита, мебели и текста.",
+    "Статичная композиция камеры для будущей видео-анимации. Без полного роста, без крупного плана лица, без изменения кадрирования.",
+    `Имя аватара: ${character.name || "аватар проекта"}.`,
+    `Будущее движение: ${motionPrompt || "Спокойные естественные микродвижения и небольшие жесты руками."}`
+  ].join(" "));
 }
 
 function normalizeAvatarVideoKieState(state) {

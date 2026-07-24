@@ -4,25 +4,38 @@ import { buildAvatarChromaImagePrompt, buildAvatarVideoPrompt, createAvatarVideo
 import { buildAvatarAlphaFfmpegArgs } from "../scripts/avatar-alpha-video.mjs";
 
 test("avatar video prompt locks chroma key framing contract", () => {
-  const prompt = buildAvatarVideoPrompt({ name: "Anton" }, "small hand gesture");
+  const prompt = buildAvatarVideoPrompt({ name: "Антон" }, "небольшой жест рукой");
 
-  assert.match(prompt, /vertical 9:16 chroma key video/);
-  assert.match(prompt, /waist up only/);
-  assert.match(prompt, /occupies about 65% of frame height/);
+  assert.match(prompt, /ЯЗЫК ФИНАЛЬНОГО РОЛИКА/);
+  assert.match(prompt, /вертикальное 9:16 хромакей-видео/);
+  assert.match(prompt, /только по пояс/);
+  assert.match(prompt, /примерно 65% высоты кадра/);
   assert.match(prompt, /#00FF00/);
-  assert.match(prompt, /Static camera, no zoom/);
-  assert.match(prompt, /Do not show full body/);
-  assert.match(prompt, /small hand gesture/);
+  assert.match(prompt, /Камера статична/);
+  assert.match(prompt, /Не показывать полный рост/);
+  assert.match(prompt, /небольшой жест рукой/);
+  assert.doesNotMatch(prompt, /Motion instruction|Do not show full body|Static camera/);
 });
 
 test("avatar chroma image prompt prepares the green-screen still first", () => {
-  const prompt = buildAvatarChromaImagePrompt({ name: "Anton" }, "small hand gesture");
+  const prompt = buildAvatarChromaImagePrompt({ name: "Антон" }, "небольшой жест рукой");
 
   assert.match(prompt, /image-to-image/);
-  assert.match(prompt, /same avatar identity/);
+  assert.match(prompt, /ту же идентичность аватара/);
   assert.match(prompt, /#00FF00/);
-  assert.match(prompt, /Frame waist-up only/);
-  assert.match(prompt, /Future motion to support: small hand gesture/);
+  assert.match(prompt, /Кадр только по пояс/);
+  assert.match(prompt, /Будущее движение: небольшой жест рукой/);
+  assert.doesNotMatch(prompt, /same avatar identity|Frame waist-up only|Future motion to support/);
+});
+
+test("avatar video record defaults do not introduce English motion prompt", () => {
+  const video = createAvatarVideoRecord({ name: "Антон" });
+
+  assert.match(video.motionPrompt, /Спокойные естественные микродвижения/);
+  assert.match(video.finalPrompt, /ЯЗЫК ФИНАЛЬНОГО РОЛИКА/);
+  assert.match(video.imagePrompt, /ЯЗЫК ФИНАЛЬНОГО РОЛИКА/);
+  assert.doesNotMatch(video.finalPrompt, /Subtle natural idle movements|small hand gestures/);
+  assert.doesNotMatch(video.imagePrompt, /Subtle natural idle movements|small hand gestures/);
 });
 
 test("avatar alpha ffmpeg args keep webm transparency", () => {

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { ensureRussianAvatarVideoPromptGuard, ensureRussianImagePromptGuard } from "../src/domain/language-policy.js";
 import { resolveImageInputUrls, summarizeInputRefs } from "./reference-assets.mjs";
 import { isS3AssetStorageConfigured, uploadRemoteAssetToS3 } from "./s3-assets.mjs";
 
@@ -12,7 +13,7 @@ export async function handleKieApi(request, response, url) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/images/generate") {
-    return createAvatarTask(request, response);
+    return createAvatarTask(request, response, { applyRussianImageGuard: true });
   }
 
   if (request.method === "GET" && url.pathname === "/api/images/status") {
@@ -42,12 +43,12 @@ export function loadEnvFile() {
   }
 }
 
-async function createAvatarTask(request, response) {
+async function createAvatarTask(request, response, options = {}) {
   const token = process.env.KIE_API_KEY;
   if (!token) return sendJson(response, 500, { error: "KIE_API_KEY is not configured" });
 
   const body = await readJson(request);
-  const prompt = body.prompt;
+  const prompt = options.applyRussianImageGuard ? ensureRussianImagePromptGuard(body.prompt) : body.prompt;
   if (!prompt) return sendJson(response, 400, { error: "prompt is required" });
   const rawInputUrls = Array.isArray(body.inputUrls) ? body.inputUrls.slice(0, 16) : [];
   let inputUrls = [];
@@ -97,10 +98,11 @@ async function createAvatarVideoTask(request, response) {
   }
   if (!imageUrls.length) return sendJson(response, 400, { error: "avatar imageUrl is required" });
   if (!body.prompt) return sendJson(response, 400, { error: "prompt is required" });
+  const prompt = ensureRussianAvatarVideoPromptGuard(body.prompt);
   console.log("[kie:avatar-video:create]", JSON.stringify({
     inputUrls: imageUrls.length,
     localAvatarRef: /^data:image\//i.test(String(body.imageUrl || "")),
-    promptChars: String(body.prompt).length
+    promptChars: String(prompt).length
   }));
 
   const result = await fetch(`${getBaseUrl()}/api/v1/jobs/createTask`, {
@@ -112,7 +114,7 @@ async function createAvatarVideoTask(request, response) {
     body: JSON.stringify({
       model: "kling-3.0/video",
       input: {
-        prompt: body.prompt,
+        prompt,
         image_urls: imageUrls,
         sound: false,
         duration: "5",
