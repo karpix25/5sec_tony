@@ -117,6 +117,53 @@ test("save sends the hydrated db version as baseUpdatedAt", async () => {
   }
 });
 
+test("transient save abort retries without surfacing raw browser error", async () => {
+  const originalFetch = globalThis.fetch;
+  const saveBodies = [];
+  const statusUpdates = [];
+  let postAttempts = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/api/state") && (!options.method || options.method === "GET")) {
+      return {
+        ok: true,
+        json: async () => ({
+          state: { selectedProjectId: "db-project", jobs: [], projects: [], products: [] },
+          updatedAt: "2026-06-16T12:00:00.000Z"
+        })
+      };
+    }
+    postAttempts += 1;
+    if (postAttempts <= 3) {
+      const error = new Error("signal is aborted without reason");
+      error.name = "AbortError";
+      throw error;
+    }
+    saveBodies.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ saved: true, updatedAt: "2026-06-16T12:05:00.000Z" }) };
+  };
+
+  const persistence = createStatePersistence({
+    getState: () => ({ selectedProjectId: "local-project", jobs: [] }),
+    replaceState: () => {},
+    notifyStatus: (status) => statusUpdates.push(status),
+    refreshIntervalMs: 0,
+    transientSaveRetryDelayMs: 5
+  });
+
+  try {
+    await persistence.hydrate();
+    persistence.scheduleSave();
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+
+    assert.equal(saveBodies.length, 1);
+    assert.equal(saveBodies[0].state.selectedProjectId, "local-project");
+    assert.equal(statusUpdates.some((status) => status.message === "БД отвечает медленно, повторяем сохранение"), true);
+    assert.equal(statusUpdates.at(-1).status, "saved");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("scheduleSave stores a pending db save before the debounce timer fires", async () => {
   const originalFetch = globalThis.fetch;
   const pendingWrites = [];

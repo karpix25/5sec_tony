@@ -1,8 +1,10 @@
 import { StateSyncConflictError, loadRemoteState, saveRemoteState } from "../services/state-sync.js";
+import { isTransientFetchError } from "../services/sync-fetch.js";
 import { mergeAvatarVideoNameConflict } from "./state-conflict-merge.js";
 
 const saveDelayMs = 250;
 const defaultRefreshIntervalMs = 10000;
+const defaultTransientSaveRetryDelayMs = 5000;
 
 export function createStatePersistence({
   getState,
@@ -13,7 +15,8 @@ export function createStatePersistence({
   savePendingRemoteSave,
   clearPendingRemoteSave,
   onRemoteModeChange,
-  refreshIntervalMs = defaultRefreshIntervalMs
+  refreshIntervalMs = defaultRefreshIntervalMs,
+  transientSaveRetryDelayMs = defaultTransientSaveRetryDelayMs
 }) {
   let timer = null;
   let refreshTimer = null;
@@ -80,6 +83,7 @@ export function createStatePersistence({
     const stateToSave = getState();
     const baseUpdatedAt = remoteUpdatedAt;
     const baseState = remoteStateSnapshot;
+    let deferPendingSaveFlush = false;
     try {
       savePendingRemoteSave?.(stateToSave, baseUpdatedAt);
       const result = await saveRemoteState(stateToSave, baseUpdatedAt);
@@ -98,10 +102,15 @@ export function createStatePersistence({
         await acceptRemoteConflict(error, { attemptedState: stateToSave, baseState });
         return;
       }
+      if (isTransientFetchError(error)) {
+        scheduleTransientSaveRetry(stateToSave, baseUpdatedAt);
+        deferPendingSaveFlush = true;
+        return;
+      }
       notifyStatus({ status: "error", message: error.message || "Ошибка сохранения в БД" });
     } finally {
       saveInFlight = false;
-      if (pendingSave) flushSave();
+      if (pendingSave && !deferPendingSaveFlush) flushSave();
     }
   }
 
@@ -125,6 +134,18 @@ export function createStatePersistence({
     timer = null;
     clearPendingRemoteSave?.();
     notifyStatus({ status: "saved", message: "Сохранено в БД", updatedAt: remoteUpdatedAt });
+  }
+
+  function scheduleTransientSaveRetry(stateToSave, baseUpdatedAt) {
+    pendingSave = true;
+    savePendingRemoteSave?.(stateToSave, baseUpdatedAt);
+    clearTimeout(timer);
+    timer = setTimeout(flushSave, transientSaveRetryDelayMs);
+    notifyStatus({
+      status: "saving",
+      message: "БД отвечает медленно, повторяем сохранение",
+      updatedAt: remoteUpdatedAt
+    });
   }
 
   return {
