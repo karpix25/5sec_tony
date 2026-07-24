@@ -77,6 +77,7 @@ test("backend generation batch creates server-owned brief jobs in state", async 
   assert.equal(result.jobs.length, 2);
   assert.equal(result.state.selectedProjectTab, "queue");
   assert.equal(result.jobs.every((job) => job.serverOwned && job.serverBatchId === result.batchId), true);
+  assert.equal(result.jobs.every((job) => job.generationSource === "manual"), true);
   assert.deepEqual(result.jobs.map((job) => [job.status, job.stage, job.isBriefPlaceholder]), [
     ["running", "brief", true],
     ["running", "brief", true]
@@ -108,6 +109,27 @@ test("backend generation batch adopts client reservation ids", async () => {
   assert.equal(result.batchId, "batch-reserved-1");
   assert.deepEqual(result.jobs.map((job) => job.id), ["job-reserved-a", "job-reserved-b"]);
   assert.equal(result.jobs.every((job) => job.serverOwned && job.serverBatchId === "batch-reserved-1"), true);
+  assert.equal(result.jobs.every((job) => job.generationSource === "manual"), true);
+});
+
+test("backend generation batch marks automation source", async () => {
+  const state = createState();
+  const deps = createStateDeps(state, { autoStart: false });
+  const result = await createGenerationBatch({
+    count: 1,
+    source: "automation",
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: state.selectedProjectId,
+      productId: "",
+      referenceId: state.selectedReferenceId,
+      characterId: state.selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  });
+
+  assert.equal(result.jobs[0].generationSource, "automation");
 });
 
 test("backend generation batch distributes products only when explicitly requested", async () => {

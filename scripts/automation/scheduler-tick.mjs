@@ -70,6 +70,7 @@ async function runDispatch(dispatch, options, deps) {
     const payload = await createBatch({
       count: dispatch.count,
       distributeProducts: true,
+      source: "automation",
       origin: getAutomationOrigin(options.env || process.env),
       selection: dispatch.selection,
       deps: deps.generationBatchDeps || {}

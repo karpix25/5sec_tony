@@ -144,6 +144,7 @@ test("generation start sends a clamped backend batch request and switches to que
     assert.equal(requests[0][0], "/api/generation/batches");
     assert.equal(requests[0][1].count, 10);
     assert.equal(requests[0][1].distributeProducts, false);
+    assert.equal(requests[0][1].source, "manual");
     assert.deepEqual(requests[0][1].reservation, {
       batchId: "batch-test-1",
       jobIds: state.jobs.slice(0, 10).map((job) => job.id)

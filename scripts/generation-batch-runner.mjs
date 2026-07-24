@@ -15,7 +15,7 @@ import { createServerSelectionContext } from "./generation-selection-context.mjs
 
 const runningBatches = new Map();
 
-export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, reservation = {}, origin, deps = {} }) {
+export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, reservation = {}, origin, source = "manual", deps = {} }) {
   const safeCount = normalizeGenerationCount(count);
   const normalizedReservation = normalizeGenerationBatchReservation(reservation, safeCount);
   const batchId = normalizedReservation.batchId || createGenerationBatchId();
@@ -27,7 +27,8 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
         id: normalizedReservation.jobIds[index],
         serverBatchId: batchId,
         selectionSnapshot: normalizeGenerationSelection(selection),
-        serverOwned: true
+        serverOwned: true,
+        generationSource: normalizeGenerationSource(source)
       }));
     if (!reservedJobs.length) throw new Error("Не удалось создать задачи. Проверьте лимиты проекта.");
     return {
@@ -106,7 +107,8 @@ async function prepareServerJob(jobId, origin, deps) {
     id: jobId,
     createdAt: placeholder.createdAt || new Date().toISOString(),
     serverBatchId: placeholder.serverBatchId,
-    serverOwned: true
+    serverOwned: true,
+    generationSource: placeholder.generationSource || "manual"
   };
   const payload = {
     job,
@@ -174,4 +176,8 @@ function updateState(deps, updater) {
 
 function postServerJob(deps, origin, body) {
   return deps.postServerJob ? deps.postServerJob(body) : postJson(origin, "/api/jobs/run", body);
+}
+
+function normalizeGenerationSource(value) {
+  return value === "automation" ? "automation" : "manual";
 }

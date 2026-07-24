@@ -54,10 +54,10 @@ function getNextAutomationPatch(automationState, canClaimMore, nowIso) {
       dispatchStartedAt: nowIso
     };
   }
-  if (activeJobs > 0) return { status: "running", lastMessage: "Авторежим ждёт завершения активных задач.", dispatchStartedAt: "" };
   if (!remainingProject) {
     return { enabled: false, status: "done", lastMessage: "Лимит проекта исчерпан. Авторежим выключен.", dispatchStartedAt: "" };
   }
+  if (activeJobs > 0) return { status: "running", lastMessage: "Авторежим ждёт завершения активных задач.", dispatchStartedAt: "" };
   if (!remainingDaily) {
     return {
       status: "waiting",

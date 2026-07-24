@@ -43,6 +43,7 @@ test("server automation scheduler creates a strict queued batch for enabled proj
   assert.equal(calls.length, 1);
   assert.equal(calls[0].count, 3);
   assert.equal(calls[0].distributeProducts, true);
+  assert.equal(calls[0].source, "automation");
   assert.equal(calls[0].origin, "http://web:4173");
   assert.equal(calls[0].selection.projectId, "auto-project");
   assert.notEqual(calls[0].selection.projectId, "selected-project");
@@ -84,6 +85,32 @@ test("server automation scheduler disables autorun when project limit is reached
       usedTotal: 12,
       automation: { enabled: true, batchSize: 5, concurrency: 5 }
     })]
+  });
+
+  await runAutomationSchedulerOnce({
+    env: strictQueueEnv,
+    deps: {
+      updateGenerationState: stateStore.updateGenerationState,
+      createGenerationBatch: async () => assert.fail("batch should not be created")
+    }
+  });
+
+  const automation = stateStore.state.projects[0].automation;
+  assert.equal(automation.enabled, false);
+  assert.equal(automation.status, "done");
+  assert.match(automation.lastMessage, /Лимит проекта исчерпан/);
+});
+
+test("server automation scheduler disables exhausted autorun even with active jobs", async () => {
+  const stateStore = createStateStore({
+    projects: [createProject("auto-project", {
+      projectLimit: 1,
+      usedTotal: 5,
+      automation: { enabled: true, batchSize: 5, concurrency: 5 }
+    })],
+    jobs: [
+      { id: "active-old", projectId: "auto-project", status: "running", stage: "image" }
+    ]
   });
 
   await runAutomationSchedulerOnce({

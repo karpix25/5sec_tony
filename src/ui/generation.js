@@ -62,6 +62,7 @@ export function bindGenerationPanelEvents(root, store) {
       const payload = await createServerGenerationBatch({
         count,
         distributeProducts,
+        source: "manual",
         selection,
         reservation: {
           batchId: reservation.batchId,

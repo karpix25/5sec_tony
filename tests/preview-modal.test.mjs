@@ -129,6 +129,34 @@ test("queue shows clickable yandex disk url under final video preview", () => {
   assert.doesNotMatch(html, />disk:\/ВИДЕО\/5сек\/Маша\/final\.mp4</);
 });
 
+test("queue labels manual automation and legacy generation sources", () => {
+  const project = projects[0];
+  const baseJob = {
+    projectId: project.id,
+    productId: "magnesium",
+    status: "running",
+    stage: "image",
+    progress: 20,
+    outputType: "final-video",
+    title: "Источник",
+    topic: "тема",
+    music: "аудио",
+    inputUrls: []
+  };
+  const html = renderQueuePanel({
+    products,
+    jobs: [
+      { ...baseJob, id: "job-auto", generationSource: "automation", createdAt: "2026-07-24T12:03:00Z" },
+      { ...baseJob, id: "job-manual", generationSource: "manual", createdAt: "2026-07-24T12:02:00Z" },
+      { ...baseJob, id: "job-legacy", createdAt: "2026-07-24T12:01:00Z" }
+    ]
+  }, { project });
+
+  assert.match(html, />Авто</);
+  assert.match(html, />Ручная</);
+  assert.match(html, />Источник: старый запуск</);
+});
+
 test("preview video modal offers full video in a new tab", () => {
   const previewSource = readFileSync(new URL("../src/ui/preview-modal.js", import.meta.url), "utf8");
 

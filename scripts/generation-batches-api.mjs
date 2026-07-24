@@ -18,6 +18,7 @@ async function createBatch(request, response) {
     const payload = await createGenerationBatch({
       count: body.count,
       distributeProducts: body.distributeProducts === true,
+      source: body.source,
       selection: body.selection || {},
       reservation: body.reservation || {},
       origin: getInternalServerOrigin()

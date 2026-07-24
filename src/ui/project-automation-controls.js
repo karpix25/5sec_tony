@@ -63,8 +63,8 @@ function getAutomationStatusView(automationState) {
   const { automation, activeJobs, remainingDaily, remainingProject, canRun } = automationState;
   if (automation?.status === "error") return { label: "Ошибка очереди", tone: "paused" };
   if (automation?.status === "dispatching") return { label: "Подготовка", tone: "running" };
-  if (automation?.enabled && activeJobs > 0) return { label: "В работе", tone: "running" };
   if (automation?.enabled && !remainingProject) return { label: "Лимит проекта", tone: "paused" };
+  if (automation?.enabled && activeJobs > 0) return { label: "В работе", tone: "running" };
   if (automation?.enabled && !remainingDaily) return { label: "Лимит дня", tone: "idle" };
   if (automation?.enabled && canRun) return { label: "Включен", tone: "running" };
   if (automation?.enabled) return { label: "Ждет", tone: "idle" };

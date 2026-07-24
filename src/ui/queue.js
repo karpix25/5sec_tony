@@ -131,6 +131,7 @@ function renderQueueJob(job, productName = "") {
         </div>
         <div class="queue-meta">
           <span>${escapeHtml(queueStageLabels[job.stage] || job.stage)}</span>
+          ${renderGenerationSourceTag(job)}
           ${renderJobTiming(job)}
           <span>Продукт: ${escapeHtml(productName || "не указан")}</span>
           ${renderProductVisualTag(job)}
@@ -237,6 +238,22 @@ function renderProductVisualTag(job) {
     return "<span>Без продукта в кадре</span>";
   }
   return "<span>Продукт: не выводился отдельно</span>";
+}
+
+function renderGenerationSourceTag(job) {
+  const source = getGenerationSource(job);
+  if (source === "automation") return "<span>Авто</span>";
+  if (source === "manual") return "<span>Ручная</span>";
+  return "<span>Источник: старый запуск</span>";
+}
+
+function getGenerationSource(job) {
+  if (job?.generationSource === "automation" || job?.source === "automation") return "automation";
+  if (job?.generationSource === "manual" || job?.source === "manual") return "manual";
+  if (job?.serverBatchSource === "automation") return "automation";
+  if (job?.selectionSnapshot && !job.selectionSnapshot.productId) return "automation";
+  if (job?.selectionSnapshot?.productId) return "manual";
+  return "";
 }
 
 function renderQueueAction(job, ready, failed) {

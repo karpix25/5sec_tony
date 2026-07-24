@@ -55,6 +55,7 @@ export function createJobActions({ getState, setState, getProject }) {
           serverBatchId,
           selectionSnapshot,
           serverOwned: true,
+          generationSource: "manual",
           serverReservationStatus: "requested"
         }));
       if (!reservedJobs.length) {
@@ -168,6 +169,7 @@ function createRejectedGenerationReservationJob({ context, batchId, selectionSna
     finalVideoHasAudio: false,
     serverBatchId: batchId,
     serverOwned: true,
+    generationSource: "manual",
     serverReservationStatus: "failed",
     selectionSnapshot,
     failMsg: reason
