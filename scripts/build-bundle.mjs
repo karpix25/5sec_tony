@@ -125,6 +125,7 @@ const files = [
   "src/state/product-actions.js",
   "src/state/design-reference-actions.js",
   "src/state/ui-cache-state.js",
+  "src/state/pending-generation-reservations.js",
   "src/state/pending-remote-save-state.js",
   "src/state/pending-remote-save-cache.js",
   "src/domain/navigation.js",

@@ -26,6 +26,7 @@ import { createProductActions } from "./product-actions.js";
 import { createOperationController } from "./operation-controller.js";
 import { rescueStaleBriefJobs } from "./brief-job-rescue.js";
 import { mergeHydratedStateWithUiState } from "./ui-cache-state.js";
+import { mergePendingGenerationReservations } from "./pending-generation-reservations.js";
 import {
   createAudioEntity,
   ensureGenerationBrief,
@@ -57,13 +58,17 @@ export function createStore() {
   }
 
   function replaceState(nextState) {
-    const hydratedState = mergeHydratedStateWithUiState(mergeHydratedReferenceState(nextState, state), state);
+    const { state: stateWithPendingReservations, preservedCount } = mergePendingGenerationReservations(
+      mergeHydratedReferenceState(nextState, state),
+      state
+    );
+    const hydratedState = mergeHydratedStateWithUiState(stateWithPendingReservations, state);
     const normalizedState = normalize(hydrationSettled ? hydratedState : preservePreHydrationKeys(hydratedState, state, preHydrationLocalKeys));
     const rescuedJobs = rescueStaleBriefJobs(normalizedState.jobs || []);
     const rescued = rescuedJobs !== normalizedState.jobs;
     state = rescued ? { ...normalizedState, jobs: rescuedJobs } : normalizedState;
     storeCache.persist(state);
-    if (rescued) statePersistence?.scheduleSave();
+    if (rescued || preservedCount) statePersistence?.scheduleSave();
     subscribers.forEach((subscriber) => subscriber(state, null));
   }
 
