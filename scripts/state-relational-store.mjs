@@ -81,8 +81,9 @@ export async function loadNormalizedState(query, appStateKey) {
 
 export async function saveNormalizedState(query, appStateKey, state) {
   await ensureStateSchema(query);
+  const existingProjectsById = await loadExistingProjectsById(query, appStateKey);
   const existingJobsById = await loadExistingJobsById(query, appStateKey);
-  const normalizedState = prepareStateForRelationalSave(state, existingJobsById);
+  const normalizedState = prepareStateForRelationalSave(state, existingJobsById, existingProjectsById);
   await clearNormalizedState(query, appStateKey);
 
   await saveUiState(query, appStateKey, normalizedState);
@@ -202,6 +203,11 @@ async function loadExistingJobsById(query, appStateKey) {
   return new Map(jobs.filter((job) => job.id).map((job) => [job.id, job]));
 }
 
+async function loadExistingProjectsById(query, appStateKey) {
+  const projects = await loadProjects(query, appStateKey);
+  return new Map(projects.filter((project) => project.id).map((project) => [project.id, project]));
+}
+
 function mapJobRow(row) {
   return {
     ...asObject(row.extra),
@@ -244,10 +250,28 @@ function mapJobRow(row) {
   };
 }
 
-function prepareStateForRelationalSave(state, existingJobsById) {
+function prepareStateForRelationalSave(state, existingJobsById, existingProjectsById) {
   const normalizedState = normalizeStateJobIds(state);
+  const projects = mergeProjectsForRelationalSave(normalizedState, existingProjectsById);
   const jobs = mergeJobsForRelationalSave(normalizedState, existingJobsById);
-  return { ...normalizedState, jobs };
+  return { ...normalizedState, projects, jobs };
+}
+
+function mergeProjectsForRelationalSave(state, existingProjectsById) {
+  return asArray(state.projects).map((project) =>
+    preserveServerProjectLimit(project, existingProjectsById.get(project?.id))
+  );
+}
+
+function preserveServerProjectLimit(project, existingProject) {
+  if (!project || !existingProject) return project;
+  const incomingLimit = asInteger(project.projectLimit, 500);
+  const serverLimit = asInteger(existingProject.projectLimit, 500);
+  const serverUsedTotal = asInteger(existingProject.usedTotal, 0);
+  if (serverUsedTotal > 0 && serverLimit >= serverUsedTotal && incomingLimit < serverUsedTotal) {
+    return { ...project, projectLimit: serverLimit };
+  }
+  return project;
 }
 
 function mergeJobsForRelationalSave(state, existingJobsById) {

@@ -184,6 +184,27 @@ test("save normalized state preserves server job lifecycle fields from stale cli
   assert.deepEqual(loadedState.jobs[0].serverJobContext, { project: { id: "project-1" } });
 });
 
+test("save normalized state preserves project limit from stale client snapshots", async () => {
+  const db = createFakeRelationalStateDb();
+  const baseState = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project", dailyLimit: 100, usedToday: 14, projectLimit: 538, usedTotal: 442 }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: []
+  };
+  await saveNormalizedState(db.query, "workspace-protected-project-limit", baseState);
+
+  await saveNormalizedState(db.query, "workspace-protected-project-limit", {
+    ...baseState,
+    projects: [{ ...baseState.projects[0], projectLimit: 1 }]
+  });
+
+  const loadedState = await loadNormalizedState(db.query, "workspace-protected-project-limit");
+  assert.equal(loadedState.projects[0].usedTotal, 442);
+  assert.equal(loadedState.projects[0].projectLimit, 538);
+});
+
 test("save normalized state keeps ordinary queued draft edits editable", async () => {
   const db = createFakeRelationalStateDb();
   const baseState = {
