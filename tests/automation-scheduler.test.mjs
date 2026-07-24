@@ -216,7 +216,7 @@ test("scheduler rescues stale server-owned brief placeholders before planning", 
 
 test("scheduler does not rescue fresh server-owned brief placeholders", () => {
   const state = createBaseState({
-    projects: [createProject("fresh-project", { automation: { enabled: true, batchSize: 1, concurrency: 1 } })],
+    projects: [createProject("fresh-project", { dailyLimit: 20, automation: { enabled: true, batchSize: 1, concurrency: 1 } })],
     jobs: [{
       id: "fresh-brief",
       serverBatchId: "batch-fresh",

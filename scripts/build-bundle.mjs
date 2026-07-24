@@ -60,6 +60,7 @@ const files = [
   "src/domain/job-identity.js",
   "src/domain/daily-usage.js",
   "src/domain/job-quota.js",
+  "src/domain/automation-pacing.js",
   "src/domain/project-automation.js",
   "src/domain/topic-candidates.js",
   "src/domain/topic-clusters.js",

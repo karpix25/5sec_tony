@@ -49,14 +49,14 @@ test("automation state caps next batch by daily limit, project limit and active 
     { projectId: project.id, status: "done", finalVideoUrl: "/generated/two.mp4" }
   ];
 
-  const state = getProjectAutomationState({ project, jobs });
+  const state = getProjectAutomationState({ project, jobs, now: Date.parse("2026-07-24T23:00:00.000Z") });
 
   assert.equal(state.activeJobs, 1);
   assert.equal(state.completedJobs, 2);
   assert.equal(state.remainingDaily, 2);
   assert.equal(state.remainingProject, 3);
-  assert.equal(state.nextCount, 1);
-  assert.equal(state.canRun, true);
+  assert.equal(state.nextCount, 0);
+  assert.equal(state.canRun, false);
 });
 
 test("automation state caps next batch by total project limit", () => {
@@ -87,11 +87,11 @@ test("automation state resets stale daily usage without changing total usage", (
     automation: { enabled: true, targetCount: 10, batchSize: 5, concurrency: 3 }
   };
 
-  const state = getProjectAutomationState({ project, jobs: [] });
+  const state = getProjectAutomationState({ project, jobs: [], now: Date.parse("2026-07-24T12:00:00.000Z") });
 
   assert.equal(state.remainingDaily, 100);
   assert.equal(state.remainingProject, 86);
-  assert.equal(state.nextCount, 3);
+  assert.equal(state.nextCount, 5);
   assert.equal(state.canRun, true);
   assert.equal(state.automation.enabled, true);
 });
@@ -180,12 +180,12 @@ test("automation state ignores legacy target count when project limits have room
     finalVideoUrl: `/generated/${index}.mp4`
   }));
 
-  const state = getProjectAutomationState({ project, jobs });
+  const state = getProjectAutomationState({ project, jobs, now: Date.parse("2026-07-24T12:00:00.000Z") });
 
   assert.equal(state.completedJobs, 90);
   assert.equal(state.remainingDaily, 90);
   assert.equal(state.remainingProject, 110);
-  assert.equal(state.nextCount, 2);
+  assert.equal(state.nextCount, 5);
   assert.equal(state.canRun, true);
 });
 

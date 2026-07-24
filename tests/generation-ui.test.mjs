@@ -361,8 +361,6 @@ test("project automation change ignores blank total limit instead of saving it a
   const projectId = new FakeElement({ name: "projectId", value: "project-1" });
   const dailyLimit = new FakeElement({ name: "dailyLimit", value: "18" });
   const projectLimit = new FakeElement({ name: "projectLimit", value: "" });
-  const batchSize = new FakeElement({ name: "batchSize", value: "2" });
-  const concurrency = new FakeElement({ name: "concurrency", value: "1" });
   const settingsCalls = [];
   const automationCalls = [];
   const store = {
@@ -374,13 +372,13 @@ test("project automation change ignores blank total limit instead of saving it a
     }
   };
 
-  panel.append(projectId, dailyLimit, projectLimit, batchSize, concurrency);
+  panel.append(projectId, dailyLimit, projectLimit);
   root.append(panel);
   bindProjectAutomationControls(root, store);
   panel.dispatchEvent({ type: "change", target: projectLimit, currentTarget: panel });
 
   assert.deepEqual(settingsCalls, [{ dailyLimit: 18 }]);
-  assert.deepEqual(automationCalls, [["project-1", { batchSize: 2, concurrency: 1 }]]);
+  assert.deepEqual(automationCalls, []);
 });
 
 test("project automation render shows waiting daily-limit state without disabling autorun", () => {
@@ -402,6 +400,9 @@ test("project automation render shows waiting daily-limit state without disablin
 
   assert.match(html, /Лимит дня/);
   assert.match(html, /Остановить авторежим/);
+  assert.doesNotMatch(html, /Запускать за раз/);
+  assert.doesNotMatch(html, /Параллельно в работе/);
+  assert.doesNotMatch(html, /Сегодня:/);
   assert.doesNotMatch(html, /Цель готова/);
   assert.doesNotMatch(html, /До цели/);
 });

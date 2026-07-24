@@ -1,12 +1,12 @@
 import { escapeHtml } from "./infographic.js";
-import { formatAutomationStats } from "./generation-live.js";
 
 export function renderProjectAutomationControls(project, automationState) {
-  const { automation, activeJobs, completedJobs, dailyUsage, remainingDaily, remainingProject } = automationState;
+  const { automation } = automationState;
   const statusView = getAutomationStatusView(automationState);
   const canRetryError = automation.enabled && automation.status === "error";
   const nextEnabled = !automation.enabled || canRetryError;
   const buttonLabel = getAutomationButtonLabel(automation, canRetryError);
+  const note = getAutomationNote(automation);
   return `
     <section class="automation-card project-automation-card">
       <div class="automation-head">
@@ -27,22 +27,8 @@ export function renderProjectAutomationControls(project, automationState) {
             <span>Лимит на весь проект</span>
             <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
           </label>
-          <label class="stacked-field compact-field">
-            <span>Запускать за раз</span>
-            <input name="batchSize" class="text-input" type="number" min="1" max="10" step="1" value="${Number(automation.batchSize || 1)}" required>
-          </label>
-          <label class="stacked-field compact-field">
-            <span>Параллельно в работе</span>
-            <input name="concurrency" class="text-input" type="number" min="1" max="5" step="1" value="${Number(automation.concurrency || 1)}" required>
-          </label>
         </div>
-        <div class="automation-limit-summary">
-          <strong>Сегодня: ${Number(dailyUsage?.used || 0)} / ${Number(dailyUsage?.limit || project.dailyLimit || 0)}</strong>
-          <span>Осталось сегодня: ${Number(remainingDaily || 0)}</span>
-          <span>Проект: ${Number(project.usedTotal || 0)} / ${Number(project.projectLimit || 0)}</span>
-          <span>Осталось по проекту: ${Number(remainingProject || 0)}</span>
-        </div>
-        <small data-automation-stats>${escapeHtml(formatAutomationStats({ automation, activeJobs, completedJobs, dailyUsage, remainingProject }))}</small>
+        ${note ? `<small class="automation-note">${escapeHtml(note)}</small>` : ""}
         <button
           id="toggle-automation-mode"
           class="${automation.enabled ? "ghost-btn" : "secondary-btn"}"
@@ -60,10 +46,6 @@ export function bindProjectAutomationControls(root, store) {
     const projectId = readFieldValue(panel, "projectId");
     const projectSettings = readLimitSettings(panel);
     if (Object.keys(projectSettings).length) store.updateProjectSettings?.(projectSettings);
-    store.updateProjectAutomation(projectId, {
-      batchSize: readNumberField(panel, "batchSize"),
-      concurrency: readNumberField(panel, "concurrency")
-    });
   });
   panel?.querySelector("#toggle-automation-mode")?.addEventListener("click", (event) => {
     const projectId = readFieldValue(panel, "projectId");
@@ -96,12 +78,17 @@ function getAutomationButtonLabel(automation, canRetryError) {
   return automation.enabled ? "Остановить авторежим" : "Включить авторежим";
 }
 
-function readFieldValue(panel, name) {
-  return panel.querySelector(`[name="${name}"]`)?.value || "";
+function getAutomationNote(automation) {
+  const message = String(automation?.lastMessage || "").trim();
+  if (automation?.status === "error") return message;
+  if (automation?.status === "waiting") return "Авторежим продолжит после обновления дневного лимита.";
+  if (automation?.status === "done" && /Лимит проекта исчерпан/i.test(message)) return "Лимит проекта исчерпан.";
+  if (automation?.status === "done" && /Цель авторежима выполнена/i.test(message)) return "";
+  return "";
 }
 
-function readNumberField(panel, name) {
-  return Number(readFieldValue(panel, name) || 0);
+function readFieldValue(panel, name) {
+  return panel.querySelector(`[name="${name}"]`)?.value || "";
 }
 
 function readLimitSettings(panel) {

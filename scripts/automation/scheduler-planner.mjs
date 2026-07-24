@@ -46,11 +46,11 @@ function hasSameAutomationPatch(automation, patch) {
 }
 
 function getNextAutomationPatch(automationState, canClaimMore, nowIso) {
-  const { activeJobs, remainingDaily, remainingProject, canRun } = automationState;
+  const { activeJobs, remainingDaily, remainingProject, canRun, pacing } = automationState;
   if (canRun && canClaimMore) {
     return {
       status: "dispatching",
-      lastMessage: "Серверный авторежим готовит новую пачку задач.",
+      lastMessage: formatDispatchMessage(pacing),
       dispatchStartedAt: nowIso
     };
   }
@@ -66,6 +66,12 @@ function getNextAutomationPatch(automationState, canClaimMore, nowIso) {
     };
   }
   return null;
+}
+
+function formatDispatchMessage(pacing = {}) {
+  const due = Number(pacing.dueCount || 0);
+  const parallel = Number(pacing.maxParallel || 1);
+  return `Авторежим распределяет суточный лимит равномерно. К запуску по графику: ${due}. Рабочих дорожек: ${parallel}.`;
 }
 
 function createDispatch(project, count, state) {
