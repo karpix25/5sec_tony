@@ -352,6 +352,34 @@ test("project automation button toggles autorun without saving project limits", 
   ]);
 });
 
+test("project automation change ignores blank total limit instead of saving it as one", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ id: "automation-form" });
+  const projectId = new FakeElement({ name: "projectId", value: "project-1" });
+  const dailyLimit = new FakeElement({ name: "dailyLimit", value: "18" });
+  const projectLimit = new FakeElement({ name: "projectLimit", value: "" });
+  const batchSize = new FakeElement({ name: "batchSize", value: "2" });
+  const concurrency = new FakeElement({ name: "concurrency", value: "1" });
+  const settingsCalls = [];
+  const automationCalls = [];
+  const store = {
+    updateProjectSettings(payload) {
+      settingsCalls.push(payload);
+    },
+    updateProjectAutomation(projectId, payload) {
+      automationCalls.push([projectId, payload]);
+    }
+  };
+
+  panel.append(projectId, dailyLimit, projectLimit, batchSize, concurrency);
+  root.append(panel);
+  bindProjectAutomationControls(root, store);
+  panel.dispatchEvent({ type: "change", target: projectLimit, currentTarget: panel });
+
+  assert.deepEqual(settingsCalls, [{ dailyLimit: 18 }]);
+  assert.deepEqual(automationCalls, [["project-1", { batchSize: 2, concurrency: 1 }]]);
+});
+
 test("project automation render shows waiting daily-limit state without disabling autorun", () => {
   const html = renderProjectAutomationControls(
     { id: "project-1", dailyLimit: 100, projectLimit: 176 },

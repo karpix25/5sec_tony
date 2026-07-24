@@ -58,10 +58,8 @@ export function bindProjectAutomationControls(root, store) {
   const panel = root.querySelector("#automation-form");
   panel?.addEventListener("change", () => {
     const projectId = readFieldValue(panel, "projectId");
-    store.updateProjectSettings?.({
-      dailyLimit: readNumberField(panel, "dailyLimit"),
-      projectLimit: readNumberField(panel, "projectLimit")
-    });
+    const projectSettings = readLimitSettings(panel);
+    if (Object.keys(projectSettings).length) store.updateProjectSettings?.(projectSettings);
     store.updateProjectAutomation(projectId, {
       batchSize: readNumberField(panel, "batchSize"),
       concurrency: readNumberField(panel, "concurrency")
@@ -104,4 +102,19 @@ function readFieldValue(panel, name) {
 
 function readNumberField(panel, name) {
   return Number(readFieldValue(panel, name) || 0);
+}
+
+function readLimitSettings(panel) {
+  return Object.fromEntries(
+    ["dailyLimit", "projectLimit"]
+      .map((name) => [name, readOptionalNumberField(panel, name)])
+      .filter(([, value]) => value !== null)
+  );
+}
+
+function readOptionalNumberField(panel, name) {
+  const raw = readFieldValue(panel, name).trim();
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
