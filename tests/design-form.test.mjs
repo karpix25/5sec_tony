@@ -64,6 +64,41 @@ test("design reference submit awaits backend-first reference creation", async ()
   }
 });
 
+test("design reference submit waits for remote hydration before upload and create", async () => {
+  const restore = installFormAndFileFakes({ uploadUrl: "/api/reference-assets/ref-preview" });
+  const calls = [];
+  const form = createDesignForm({ fileName: "style.png" });
+  let resolveHydration;
+  const hydration = new Promise((resolve) => {
+    resolveHydration = resolve;
+  });
+  const store = {
+    whenHydrated() {
+      calls.push(["hydrate"]);
+      return hydration;
+    },
+    async createReference(payload) {
+      calls.push(["create", payload.imageData]);
+    }
+  };
+
+  try {
+    const submit = submitDesignReferenceForm(form, store);
+    await wait(10);
+    assert.deepEqual(calls, [["hydrate"]]);
+
+    resolveHydration();
+    await submit;
+
+    assert.deepEqual(calls, [
+      ["hydrate"],
+      ["create", "/api/reference-assets/ref-preview"]
+    ]);
+  } finally {
+    restore();
+  }
+});
+
 test("design reference submit replaces selected reference from replace button", async () => {
   const restore = installFormAndFileFakes({ uploadUrl: "/api/reference-assets/replaced-ref" });
   const calls = [];

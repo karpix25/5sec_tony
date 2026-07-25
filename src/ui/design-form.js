@@ -12,6 +12,7 @@ export function bindDesignReferenceFormEvents(root, store) {
 
 export async function submitDesignReferenceForm(form, store, options = {}) {
   try {
+    await store.whenHydrated?.();
     const mode = getSubmitMode(form, options.submitter);
     const payload = await getDesignReferencePayloadWithStatus(form, store, options.submitter);
     if (!payload.imageData) {
