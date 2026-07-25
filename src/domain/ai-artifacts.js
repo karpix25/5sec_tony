@@ -26,7 +26,8 @@ export function normalizeProductAiPassport(passport = null) {
 
 export function normalizeDesignAnalysis(analysis = null) {
   const source = asObject(analysis);
-  return pruneEmpty({
+  if (!Object.keys(source).length) return null;
+  const normalized = pruneEmpty({
     version: source.version || "design-analysis-v1",
     formatType: source.formatType || "",
     structureName: source.structureName || "",
@@ -44,6 +45,7 @@ export function normalizeDesignAnalysis(analysis = null) {
     sourceHash: source.sourceHash || "",
     analyzedAt: source.analyzedAt || source.updatedAt || ""
   });
+  return hasMeaningfulDesignAnalysis(normalized) ? normalized : null;
 }
 
 export function hasUsefulProductPassport(passport) {
@@ -53,7 +55,23 @@ export function hasUsefulProductPassport(passport) {
 
 export function hasUsefulDesignAnalysis(analysis) {
   const normalized = normalizeDesignAnalysis(analysis);
-  return Boolean(normalized.formatType || normalized.structureName || normalized.visualGrammar || normalized.layoutSlots?.length);
+  return Boolean(normalized && hasMeaningfulDesignAnalysis(normalized));
+}
+
+function hasMeaningfulDesignAnalysis(analysis) {
+  return Boolean(
+    analysis?.formatType
+    || analysis?.structureName
+    || analysis?.layoutSlots?.length
+    || analysis?.textContract
+    || analysis?.visualGrammar
+    || analysis?.background
+    || analysis?.typography
+    || analysis?.composition
+    || analysis?.elements?.length
+    || analysis?.adaptationRules?.length
+    || analysis?.doNotCopy?.length
+  );
 }
 
 function asObject(value) {

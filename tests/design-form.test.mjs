@@ -66,6 +66,44 @@ test("design reference submit awaits backend-first reference creation", async ()
   }
 });
 
+test("design reference submit waits for analysis persistence after save", async () => {
+  const restore = installFormAndFileFakes({
+    uploadUrl: "/api/reference-assets/ref-preview",
+    designAnalysis: { formatType: "comparison_grid", layoutSlots: ["headline"] }
+  });
+  const form = createDesignForm({ fileName: "style.png" });
+  const state = {
+    selectedProjectId: "project-1",
+    selectedReferenceId: "",
+    products: [],
+    audioLibrary: [],
+    jobs: [],
+    projects: [{ id: "project-1", references: [], characters: [] }]
+  };
+  const store = {
+    getState() {
+      return state;
+    },
+    async createReference(payload) {
+      const reference = { id: "ref-created", type: "design", ...payload };
+      state.projects[0].references = [reference];
+      state.selectedReferenceId = reference.id;
+    },
+    async updateSelectedDesignReference(payload) {
+      state.projects[0].references[0] = { ...state.projects[0].references[0], ...payload };
+    }
+  };
+
+  try {
+    await submitDesignReferenceForm(form, store);
+
+    assert.equal(state.projects[0].references[0].designAnalysis.formatType, "comparison_grid");
+    assert.equal(form.status.textContent, "Референс и анализ сохранены");
+  } finally {
+    restore();
+  }
+});
+
 test("design reference submit waits for remote hydration before upload and create", async () => {
   const restore = installFormAndFileFakes({ uploadUrl: "/api/reference-assets/ref-preview" });
   const calls = [];
@@ -173,15 +211,23 @@ function createDesignForm({ fileName }) {
   };
 }
 
-function installFormAndFileFakes({ uploadUrl = "" } = {}) {
+function installFormAndFileFakes({ uploadUrl = "", designAnalysis = null } = {}) {
   const originalFetch = globalThis.fetch;
   const originalFormData = globalThis.FormData;
   const originalFileReader = globalThis.FileReader;
 
-  globalThis.fetch = async () => ({
-    ok: true,
-    json: async () => ({ url: uploadUrl })
-  });
+  globalThis.fetch = async (url) => {
+    if (url === "/api/design-references/analyze") {
+      return {
+        ok: true,
+        json: async () => ({ designAnalysis: designAnalysis || {} })
+      };
+    }
+    return {
+      ok: true,
+      json: async () => ({ url: uploadUrl })
+    };
+  };
   globalThis.FormData = class FakeFormData {
     constructor() {}
     entries() {

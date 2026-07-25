@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
+import {
+  hasUsefulDesignAnalysis,
+  normalizeDesignAnalysis,
+  normalizeProductAiPassport
+} from "../src/domain/ai-artifacts.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { createDesignReferenceAnalysisInput } from "../src/domain/design-reference-analysis-input.js";
 import { createProductPassportInput } from "../src/domain/product-passport-input.js";
@@ -41,6 +45,21 @@ test("product AI passport is semantic and drops visual identity", () => {
   assert.equal(passport.productName, "Хлорофилл");
   assert.deepEqual(passport.safeFacts, ["зеленый напиток"]);
   assert.equal(Object.hasOwn(passport, "visualIdentity"), false);
+});
+
+test("design analysis requires reusable visual grammar fields", () => {
+  assert.equal(normalizeDesignAnalysis(null), null);
+  assert.equal(normalizeDesignAnalysis({ version: "design-analysis-v1", ctaPolicy: "ignore-reference-cta" }), null);
+  assert.equal(hasUsefulDesignAnalysis({ version: "design-analysis-v1", ctaPolicy: "ignore-reference-cta" }), false);
+
+  const analysis = normalizeDesignAnalysis({
+    version: "design-analysis-v1",
+    formatType: "comparison_grid",
+    ctaPolicy: "ignore-reference-cta"
+  });
+
+  assert.equal(analysis.formatType, "comparison_grid");
+  assert.equal(hasUsefulDesignAnalysis(analysis), true);
 });
 
 test("product AI passport input strips heavy media fields", () => {

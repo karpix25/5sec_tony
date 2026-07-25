@@ -31,10 +31,14 @@ export async function submitDesignReferenceForm(form, store, options = {}) {
       await store.createReference({ ...payload, promptComment: "", takeaways: "" });
     }
     form.reset?.();
-    setReferenceFormStatus(form, "Референс сохранен");
-    refreshSavedDesignAnalysis(store).catch((error) => {
+    setReferenceFormStatus(form, "Анализируем дизайн-референс");
+    try {
+      const analyzed = await refreshSavedDesignAnalysis(store);
+      setReferenceFormStatus(form, analyzed ? "Референс и анализ сохранены" : "Референс сохранен");
+    } catch (error) {
+      setReferenceFormStatus(form, `Референс сохранен, но анализ не прошел: ${error.message || "ошибка сервера"}`);
       console.warn("[design-reference:analysis:error]", error.message || error);
-    });
+    }
   } catch (error) {
     setReferenceFormStatus(form, `Ошибка: ${error.message || "не удалось сохранить референс"}`);
     console.warn("[design-reference:save:error]", error.message || error);
@@ -42,14 +46,15 @@ export async function submitDesignReferenceForm(form, store, options = {}) {
 }
 
 async function refreshSavedDesignAnalysis(store) {
-  if (!store.getState || !store.updateSelectedDesignReference) return;
+  if (!store.getState || !store.updateSelectedDesignReference) return false;
   const context = getContext(store.getState());
-  if (!context.reference?.imageData) return;
+  if (!context.reference?.imageData) return false;
   const designAnalysis = await refreshDesignAnalysis({
     project: context.project,
     reference: context.reference
   });
   await store.updateSelectedDesignReference({ designAnalysis: { ...designAnalysis, analyzedAt: new Date().toISOString() } });
+  return true;
 }
 
 export async function getDesignReferencePayload(form, options = {}) {

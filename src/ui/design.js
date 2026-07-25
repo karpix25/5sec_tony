@@ -4,6 +4,7 @@ import { renderPreviewTrigger } from "./preview-modal.js";
 import { renderDesignReferenceAnalysis } from "./design-reference-analysis.js";
 import { getOperationForTarget, getOperationsForScope } from "../state/operation-status.js";
 import { getOperationLabel, isUiOperationBusy, renderOperationStatus } from "./operation-status-view.js";
+import { hasUsefulDesignAnalysis } from "../domain/ai-artifacts.js";
 
 export function renderDesignSettings({ project, reference, operations = {} }) {
   const references = getDesignReferences(project);
@@ -37,7 +38,7 @@ export function renderDesignSettings({ project, reference, operations = {} }) {
 
 function renderSelectedReferenceAnalysis(reference) {
   if (!reference) return "";
-  const hasAnalysis = Boolean(reference.designAnalysis && Object.keys(reference.designAnalysis).length);
+  const hasAnalysis = hasUsefulDesignAnalysis(reference.designAnalysis);
   return `
     <section class="panel reference-analysis-panel">
       <div class="panel-head compact">
@@ -114,6 +115,7 @@ function isDesignCandidateLoading(candidate) {
 function renderReferenceCard(reference, selectedId, operations, scope, isScopeBusy) {
   const operation = getOperationForTarget(operations, { scope, targetId: reference.id });
   const isBusy = isScopeBusy || isUiOperationBusy(operation);
+  const hasAnalysis = hasUsefulDesignAnalysis(reference.designAnalysis);
   return `
     <article class="reference-card ${reference.id === selectedId ? "active" : ""} ${isUiOperationBusy(operation) ? "busy" : ""}">
       <button class="reference-select" data-select-reference="${reference.id}" type="button" ${isBusy ? "disabled" : ""}>
@@ -121,7 +123,7 @@ function renderReferenceCard(reference, selectedId, operations, scope, isScopeBu
         <span>
           <strong>${escapeHtml(reference.title)}</strong>
           <small>${escapeHtml(reference.fontStyle || reference.takeaways || "референс дизайна")}</small>
-          <small>${escapeHtml(getOperationLabel(operation) || (reference.designAnalysis ? "AI-анализ сохранен" : "AI-анализ не рассчитан"))}</small>
+          <small>${escapeHtml(getOperationLabel(operation) || (hasAnalysis ? "AI-анализ сохранен" : "AI-анализ не рассчитан"))}</small>
           <small>${formatDesignReferenceDate(reference.createdAt)}</small>
         </span>
       </button>
