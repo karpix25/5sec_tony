@@ -124,6 +124,32 @@ test("transient form restore keeps project settings drafts for the same project"
   assert.equal(renderedName.value, "Черновик проекта");
 });
 
+test("transient form restore does not overwrite fresh higher numeric limits", () => {
+  const draftLimit = { name: "projectLimit", type: "number", value: "21" };
+  const renderedLimit = { name: "projectLimit", type: "number", value: "25" };
+  const snapshot = captureTransientUiState(createRoot({
+    forms: {
+      "project-settings-form": {
+        id: "project-settings-form",
+        dataset: { transientContext: "project:same" },
+        elements: [draftLimit]
+      }
+    }
+  }));
+
+  restoreTransientUiState(createRoot({
+    forms: {
+      "project-settings-form": {
+        id: "project-settings-form",
+        dataset: { transientContext: "project:same" },
+        elements: [renderedLimit]
+      }
+    }
+  }), snapshot);
+
+  assert.equal(renderedLimit.value, "25");
+});
+
 test("transient form restore keeps drafts for the same product context", () => {
   const draftName = { name: "name", type: "text", value: "Черновик продукта" };
   const renderedName = { name: "name", type: "text", value: "Сохраненное имя" };

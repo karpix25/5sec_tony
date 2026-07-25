@@ -27,7 +27,7 @@ export async function saveProjectForState(query, appStateKey, projectId, patch) 
     ...updateProjectEntity(existing, patch),
     ...pickExtraFields(existing, projectKeys),
     ...pickExtraFields(patch, projectKeys)
-  }, existing, { allowLowerToUsedTotal: true });
+  }, existing);
   await updateProjectRow(query, appStateKey, projectId, project);
   const updatedAt = await rebuildLegacyMirror(query, appStateKey);
   return { project, updatedAt };

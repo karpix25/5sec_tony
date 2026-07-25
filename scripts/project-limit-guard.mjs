@@ -1,10 +1,10 @@
-export function protectProjectLimitFloor(project = {}, existingProject = null, options = {}) {
+export function protectProjectLimitFloor(project = {}, existingProject = null) {
   const incomingLimit = asInteger(project.projectLimit, 500);
   const incomingUsed = asInteger(project.usedTotal, 0);
   const serverLimit = asInteger(existingProject?.projectLimit, 0);
   const serverUsed = asInteger(existingProject?.usedTotal, 0);
   const usedFloor = Math.max(0, incomingUsed, serverUsed);
-  const staleFloorSnapshot = !options.allowLowerToUsedTotal && serverLimit > usedFloor && incomingLimit <= usedFloor;
+  const staleFloorSnapshot = serverLimit > usedFloor && incomingLimit <= usedFloor;
   if (usedFloor > 0 && (incomingLimit < usedFloor || staleFloorSnapshot)) {
     return {
       ...project,

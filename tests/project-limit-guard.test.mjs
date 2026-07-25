@@ -11,12 +11,20 @@ test("project limit guard preserves raised server limit for stale full-state sna
   assert.equal(protectedProject.projectLimit, 25);
 });
 
-test("project limit guard allows explicit project save down to used total", () => {
+test("project limit guard preserves raised server limit for stale project saves", () => {
   const protectedProject = protectProjectLimitFloor(
     { id: "project-1", projectLimit: 21, usedTotal: 21 },
-    { id: "project-1", projectLimit: 25, usedTotal: 21 },
-    { allowLowerToUsedTotal: true }
+    { id: "project-1", projectLimit: 25, usedTotal: 21 }
   );
 
-  assert.equal(protectedProject.projectLimit, 21);
+  assert.equal(protectedProject.projectLimit, 25);
+});
+
+test("project limit guard allows deliberate lowering above used total", () => {
+  const protectedProject = protectProjectLimitFloor(
+    { id: "project-1", projectLimit: 50, usedTotal: 21 },
+    { id: "project-1", projectLimit: 100, usedTotal: 21 }
+  );
+
+  assert.equal(protectedProject.projectLimit, 50);
 });

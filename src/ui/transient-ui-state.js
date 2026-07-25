@@ -106,9 +106,17 @@ function captureFieldValue(field) {
 
 function restoreFieldValue(field, value) {
   if (field.type === "checkbox") field.checked = Boolean(value);
+  else if (isStaleLowerNumberDraft(field, value)) return;
   else if (value !== undefined && value !== null) field.value = value;
 }
 
 function isFileInput(field) {
   return String(field.type || "").toLowerCase() === "file";
+}
+
+function isStaleLowerNumberDraft(field, value) {
+  if (String(field.type || "").toLowerCase() !== "number") return false;
+  const current = Number(field.value);
+  const draft = Number(value);
+  return Number.isFinite(current) && Number.isFinite(draft) && current > draft;
 }
