@@ -88,6 +88,7 @@ const files = [
   "src/services/image-upload-body.js",
   "src/services/reference-assets.js",
   "src/services/audio-assets.js",
+  "src/services/audio-library-sync.js",
   "src/services/product-reference-assets.js",
   "src/services/sync-fetch.js",
   "src/services/projects-sync.js",

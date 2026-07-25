@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendAudioAssetToState, appendProductReferenceToState } from "../scripts/media-state-store.mjs";
+import { appendAudioAssetToState, appendProductReferenceToState, deleteAudioAssetFromState } from "../scripts/media-state-store.mjs";
 
 test("uploaded audio is appended to canonical and legacy state", async () => {
   const queries = [];
@@ -20,6 +20,7 @@ test("uploaded audio is appended to canonical and legacy state", async () => {
         created_at: "2026-06-29T00:00:00.000Z"
       }] };
     }
+    if (/insert into app_state/i.test(text)) return { rows: [{ updated_at: "2026-06-29T00:01:00.000Z" }] };
     return { rows: [] };
   };
 
@@ -34,10 +35,45 @@ test("uploaded audio is appended to canonical and legacy state", async () => {
   }, { query, appStateKey: "default", isPostgresConfigured: () => true });
 
   assert.equal(audio.id, "audio-s3");
+  assert.equal(audio.updatedAt, "2026-06-29T00:01:00.000Z");
   assert.ok(queries.some(({ text }) => /insert into studio_global_audio_assets/i.test(text)));
   assert.ok(queries.some(({ text }) => /insert into studio_audio_library_refresh_reminders/i.test(text)));
   assert.ok(queries.some(({ text }) => /insert into studio_app_ui_state/i.test(text)));
   assert.ok(queries.some(({ text, params }) => /insert into app_state/i.test(text) && String(params[1]).includes("audio-s3")));
+});
+
+test("deleted audio is removed from canonical and legacy state", async () => {
+  const queries = [];
+  const query = async (text, params = []) => {
+    queries.push({ text, params });
+    if (/from studio_global_audio_assets\s+where app_state_key/i.test(text)) {
+      return { rows: [{
+        id: "audio-next",
+        title: "Next",
+        mood: "файл аудио",
+        duration: "5 sec",
+        file_name: "next.wav",
+        file_type: "audio/wav",
+        file_size: 42,
+        file_data: "https://s3.example.com/audio/next.wav",
+        created_at: "2026-06-29T00:00:00.000Z"
+      }] };
+    }
+    if (/select data from app_state/i.test(text)) {
+      return { rows: [{ data: { selectedAudioId: "audio-s3", audioLibrary: [{ id: "audio-s3" }, { id: "audio-next" }] } }] };
+    }
+    if (/insert into app_state/i.test(text)) return { rows: [{ updated_at: "2026-06-29T00:02:00.000Z" }] };
+    return { rows: [] };
+  };
+
+  const result = await deleteAudioAssetFromState("audio-s3", { query, appStateKey: "default", isPostgresConfigured: () => true });
+
+  assert.equal(result.deletedAudioId, "audio-s3");
+  assert.equal(result.selectedAudioId, "audio-next");
+  assert.equal(result.updatedAt, "2026-06-29T00:02:00.000Z");
+  assert.equal(result.audioLibrary[0].id, "audio-next");
+  assert.ok(queries.some(({ text }) => /delete from studio_global_audio_assets/i.test(text)));
+  assert.ok(queries.some(({ text, params }) => /insert into app_state/i.test(text) && !String(params[1]).includes("audio-s3")));
 });
 
 test("uploaded product photo is prepended to product references in DB state", async () => {

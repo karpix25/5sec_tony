@@ -1,6 +1,7 @@
 import { createProductEntity } from "../src/state/factories.js";
 import { ensureStateSchema } from "./state-schema.mjs";
 import { loadLegacyState, loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
+import { appendUiTombstones } from "./ui-state-tombstones.mjs";
 
 const productKeys = [
   "id", "projectId", "name", "description", "offer", "components", "pains", "facts", "forbidden", "aiPassport", "references"
@@ -43,6 +44,22 @@ export async function saveProductForState(query, appStateKey, productPayload, op
   return { product, updatedAt };
 }
 
+export async function deleteProductForState(query, appStateKey, productId) {
+  await ensureStateSchema(query);
+  const existing = await loadProduct(query, appStateKey, productId);
+  if (!existing) throw new ProductPersistenceError("Product not found", 404);
+  const projectProductCount = await countProductsForProject(query, appStateKey, existing.projectId);
+  if (projectProductCount <= 1) {
+    throw new ProductPersistenceError("Cannot delete the last product in project", 409);
+  }
+  await query("delete from studio_jobs where app_state_key = $1 and product_id = $2", [appStateKey, productId]);
+  await query("delete from studio_products where app_state_key = $1 and id = $2", [appStateKey, productId]);
+  await selectFirstProductForProject(query, appStateKey, existing.projectId);
+  await appendUiTombstones(query, appStateKey, { deletedProductIds: [productId] });
+  const updatedAt = await rebuildLegacyMirror(query, appStateKey);
+  return { deletedProductId: productId, updatedAt };
+}
+
 async function assertProjectExists(query, appStateKey, projectId) {
   const result = await query(
     "select id from studio_projects where app_state_key = $1 and id = $2 limit 1",
@@ -65,6 +82,14 @@ async function getNewProductSortOrder(query, appStateKey, projectId) {
     [appStateKey, projectId]
   );
   return Number(result.rows[0]?.next_order ?? 0);
+}
+
+async function countProductsForProject(query, appStateKey, projectId) {
+  const result = await query(
+    "select count(*)::int as count from studio_products where app_state_key = $1 and project_id = $2",
+    [appStateKey, projectId]
+  );
+  return Number(result.rows[0]?.count || 0);
 }
 
 async function upsertProduct(query, appStateKey, product, sortOrder) {
@@ -116,6 +141,27 @@ async function selectProduct(query, appStateKey, product) {
        selected_product_id = excluded.selected_product_id,
        updated_at = now()`,
     [appStateKey, product.projectId, product.id]
+  );
+}
+
+async function selectFirstProductForProject(query, appStateKey, projectId) {
+  const result = await query(
+    `select id from studio_products
+     where app_state_key = $1 and project_id = $2
+     order by sort_order asc
+     limit 1`,
+    [appStateKey, projectId]
+  );
+  const productId = result.rows[0]?.id || "";
+  await query(
+    `insert into studio_app_ui_state (app_state_key, selected_project_id, selected_product_id, updated_at)
+     values ($1, $2, $3, now())
+     on conflict (app_state_key)
+     do update set
+       selected_project_id = excluded.selected_project_id,
+       selected_product_id = excluded.selected_product_id,
+       updated_at = now()`,
+    [appStateKey, projectId, productId]
   );
 }
 

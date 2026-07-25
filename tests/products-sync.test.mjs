@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { StateSyncConflictError } from "../src/services/state-sync.js";
-import { createRemoteProduct, updateRemoteProduct } from "../src/services/products-sync.js";
+import { createRemoteProduct, deleteRemoteProduct, updateRemoteProduct } from "../src/services/products-sync.js";
 
 test("createRemoteProduct sends a small product payload to product endpoint", async () => {
   const originalFetch = globalThis.fetch;
@@ -40,6 +40,27 @@ test("updateRemoteProduct addresses a single product", async () => {
     assert.equal(calls[0].options.method, "PATCH");
     assert.equal(JSON.parse(calls[0].options.body).baseUpdatedAt, "db-v1");
     assert.equal(result.product.name, "Обновлен");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("deleteRemoteProduct sends base version to a single product endpoint", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    return jsonResponse({ saved: true, deletedProductId: "product 1", updatedAt: "db-next" });
+  };
+
+  try {
+    const result = await deleteRemoteProduct("product 1", "db-v1");
+
+    assert.equal(calls[0].url, "/api/products/product%201");
+    assert.equal(calls[0].options.method, "DELETE");
+    assert.deepEqual(JSON.parse(calls[0].options.body), { baseUpdatedAt: "db-v1" });
+    assert.equal(result.deletedProductId, "product 1");
+    assert.equal(result.updatedAt, "db-next");
   } finally {
     globalThis.fetch = originalFetch;
   }

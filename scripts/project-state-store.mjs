@@ -2,12 +2,18 @@ import { updateProjectEntity } from "../src/state/store-projects.js";
 import { ensureStateSchema } from "./state-schema.mjs";
 import { loadLegacyState, loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
 import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
+import { appendUiTombstones } from "./ui-state-tombstones.mjs";
 
 const projectKeys = [
   "id", "name", "client", "exportFolder", "yandexDiskFolder", "dailyLimit", "usedToday", "dailyUsageDate", "projectLimit",
   "usedTotal", "companyInfo", "companyAudience", "projectTheme", "niche", "keyScenarios", "audiencePains",
   "audienceDesires", "audienceObjections", "allowedTriggers", "forbiddenTriggers", "hookAggression",
   "contentRestrictions", "toneOfVoice", "restrictions", "style", "lastReferenceUpdate", "avatarRoundRobinIndex",
+  "automation", "ctaOverlay", "references", "audioLibrary", "avatarCandidates", "designReferenceCandidates", "characters"
+];
+
+const complexPatchKeys = [
+  "usedToday", "dailyUsageDate", "usedTotal", "lastReferenceUpdate", "avatarRoundRobinIndex",
   "automation", "ctaOverlay", "references", "audioLibrary", "avatarCandidates", "designReferenceCandidates", "characters"
 ];
 
@@ -26,6 +32,7 @@ export async function saveProjectForState(query, appStateKey, projectId, patch, 
   const allowProjectLimitDecrease = canDecreaseProjectLimit(existing, options);
   const project = protectProjectLimitFloor({
     ...updateProjectEntity(existing, patch),
+    ...pickPatchFields(patch, complexPatchKeys),
     ...pickExtraFields(existing, projectKeys),
     ...pickExtraFields(patch, projectKeys)
   }, existing, { allowProjectLimitDecrease });
@@ -60,10 +67,20 @@ export async function deleteProjectForState(query, appStateKey, projectId) {
   if (Number(count.rows[0]?.count || 0) <= 1) return { deletedProjectId: "", updatedAt: "" };
   const existing = await loadProject(query, appStateKey, projectId);
   if (!existing) throw new ProjectPersistenceError("Project not found", 404);
+  const productIds = await loadProjectProductIds(query, appStateKey, projectId);
   await query("delete from studio_projects where app_state_key = $1 and id = $2", [appStateKey, projectId]);
   await selectFirstProject(query, appStateKey);
+  await appendUiTombstones(query, appStateKey, { deletedProjectIds: [projectId], deletedProductIds: productIds });
   const updatedAt = await rebuildLegacyMirror(query, appStateKey);
   return { deletedProjectId: projectId, updatedAt };
+}
+
+async function loadProjectProductIds(query, appStateKey, projectId) {
+  const result = await query(
+    "select id from studio_products where app_state_key = $1 and project_id = $2",
+    [appStateKey, projectId]
+  );
+  return result.rows.map((row) => row.id).filter(Boolean);
 }
 
 async function loadProject(query, appStateKey, projectId) {
@@ -312,6 +329,10 @@ function rowToProject(row) {
 
 function pickExtraFields(source, knownKeys) {
   return Object.fromEntries(Object.entries(asObject(source)).filter(([key]) => !knownKeys.includes(key)));
+}
+
+function pickPatchFields(source, allowedKeys) {
+  return Object.fromEntries(allowedKeys.filter((key) => Object.hasOwn(asObject(source), key)).map((key) => [key, source[key]]));
 }
 
 function asArray(value) {

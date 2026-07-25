@@ -59,7 +59,10 @@ export function bindProjectAutomationControls(root, store) {
       status: enabled ? "running" : "paused",
       lastMessage: enabled ? "Авторежим включен." : "Авторежим остановлен."
     };
-    store.updateProjectAutomation(projectId, automationPayload);
+    const saveAutomation = store.updateProjectAutomationRemote || store.updateProjectAutomation;
+    Promise.resolve(saveAutomation?.(projectId, automationPayload)).catch((error) => {
+      console.warn("[project-automation] automation save failed", error);
+    });
   });
 }
 

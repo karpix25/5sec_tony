@@ -42,9 +42,11 @@ test("audio asset API uploads audio data URLs to S3", async () => {
 
 test("audio asset API deletes S3 object by stored public URL", async () => {
   const env = snapshotS3Env();
+  const dbEnv = snapshotDbEnv();
   const originalFetch = globalThis.fetch;
   const calls = [];
   configureS3Env();
+  clearDbEnv();
   globalThis.fetch = async (url, options = {}) => {
     calls.push({ url: String(url), options });
     return { ok: true, status: 204, text: async () => "" };
@@ -60,7 +62,7 @@ test("audio asset API deletes S3 object by stored public URL", async () => {
 
     assert.equal(handled, true);
     assert.equal(status, 200);
-    assert.deepEqual(payload, { deleted: true });
+    assert.deepEqual(payload, { deleted: true, deletedAudioId: "", updatedAt: "" });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].options.method, "DELETE");
     assert.equal(calls[0].url, "https://s3.ru1.storage.beget.cloud/anton-assets/anton-5-sec/audio/2026-06-29/beat.wav");
@@ -68,6 +70,7 @@ test("audio asset API deletes S3 object by stored public URL", async () => {
   } finally {
     globalThis.fetch = originalFetch;
     restoreS3Env(env);
+    restoreDbEnv(dbEnv);
   }
 });
 

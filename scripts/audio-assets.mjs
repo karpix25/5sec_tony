@@ -1,5 +1,4 @@
 import { deleteS3AssetByUrl, isS3AssetStorageConfigured, uploadDataUrlToS3 } from "./s3-assets.mjs";
-import { appendAudioAssetToState } from "./media-state-store.mjs";
 
 const audioDataUrlPattern = /^data:(audio\/[^;]+);base64,([a-z0-9+/=\s]+)$/i;
 const maxAudioPayloadBytes = 20 * 1024 * 1024;
@@ -24,17 +23,20 @@ async function saveAudioAsset(request, response) {
       return sendJson(response, 400, { error: "audioData must be an audio/* data URL" });
     }
     const url = await uploadDataUrlToS3(body.audioData, { prefix: "audio" });
-    const audio = await appendAudioAssetToState({
+    const audio = {
       id: body.id || "",
       title: body.title || body.fileName || "",
+      mood: "файл аудио",
+      duration: "5 sec",
       fileName: body.fileName || "",
       fileType: getAudioMimeType(body.audioData),
       fileSize: body.fileSize || 0,
       fileData: url,
       createdAt: body.createdAt || ""
-    });
+    };
     return sendJson(response, 200, {
       audio,
+      updatedAt: "",
       url,
       fileName: audio.fileName,
       fileType: audio.fileType
@@ -48,7 +50,7 @@ async function deleteAudioAsset(request, response) {
   try {
     const body = await readJson(request, 1024 * 1024);
     const deleted = await deleteS3AssetByUrl(body.url || body.fileData || "");
-    return sendJson(response, 200, { deleted });
+    return sendJson(response, 200, { deleted, deletedAudioId: "", updatedAt: "" });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "Не удалось удалить audio asset" });
   }

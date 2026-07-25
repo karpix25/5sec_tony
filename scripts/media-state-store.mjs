@@ -30,7 +30,7 @@ export async function appendAudioAssetToState(audio, deps = {}) {
      on conflict (app_state_key) do update set selected_audio_id = excluded.selected_audio_id, updated_at = now()`,
     [appStateKey, asset.id]
   );
-  await upsertLegacyState(query, appStateKey, (state) => ({
+  const updatedAt = await upsertLegacyState(query, appStateKey, (state) => ({
     ...state,
     selectedAudioId: asset.id,
     audioLibrary: prependById(state.audioLibrary || [], asset)
@@ -41,7 +41,35 @@ export async function appendAudioAssetToState(audio, deps = {}) {
     changedAt: asset.createdAt,
     isPostgresConfigured: deps.isPostgresConfigured
   });
-  return asset;
+  return { ...asset, updatedAt };
+}
+
+export async function deleteAudioAssetFromState(audioId, deps = {}) {
+  if (!isDbConfigured(deps) || !audioId) return { deletedAudioId: audioId || "", updatedAt: "" };
+  const query = deps.query || queryPostgres;
+  const appStateKey = deps.appStateKey || defaultAppStateKey;
+  await ensureStateSchema(query);
+  await query("delete from studio_global_audio_assets where app_state_key = $1 and id = $2", [appStateKey, audioId]);
+  const audioLibrary = await loadAudioLibrary(query, appStateKey);
+  const selectedAudioId = audioLibrary.some((audio) => audio.id === deps.selectedAudioId) ? deps.selectedAudioId : audioLibrary[0]?.id || "";
+  await query(
+    `insert into studio_app_ui_state (app_state_key, selected_audio_id, updated_at)
+     values ($1, $2, now())
+     on conflict (app_state_key) do update set selected_audio_id = excluded.selected_audio_id, updated_at = now()`,
+    [appStateKey, selectedAudioId]
+  );
+  const updatedAt = await upsertLegacyState(query, appStateKey, (state) => ({
+    ...state,
+    selectedAudioId,
+    audioLibrary: asArray(state.audioLibrary).filter((audio) => audio?.id !== audioId)
+  }));
+  await syncAudioLibraryRefreshReminder(audioLibrary, {
+    query,
+    appStateKey,
+    changedAt: new Date().toISOString(),
+    isPostgresConfigured: deps.isPostgresConfigured
+  });
+  return { deletedAudioId: audioId, selectedAudioId, audioLibrary, updatedAt };
 }
 
 export async function appendProductReferenceToState(productId, reference, deps = {}) {
@@ -121,12 +149,14 @@ async function upsertLegacyState(query, appStateKey, update) {
   const result = await query("select data from app_state where id = $1 limit 1", [appStateKey]);
   const current = result.rows[0]?.data || {};
   const next = update(current);
-  await query(
+  const saved = await query(
     `insert into app_state (id, data, updated_at)
      values ($1, $2::jsonb, now())
-     on conflict (id) do update set data = excluded.data, updated_at = now()`,
+     on conflict (id) do update set data = excluded.data, updated_at = now()
+     returning updated_at`,
     [appStateKey, JSON.stringify(next)]
   );
+  return saved.rows[0]?.updated_at || "";
 }
 
 function prependById(items, item) {

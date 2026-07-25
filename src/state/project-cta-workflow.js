@@ -9,7 +9,7 @@ import {
 } from "../domain/cta-overlay.js";
 import { createImageTask, getImageTaskStatus } from "../services/kie-client.js";
 
-export function createProjectCtaWorkflow({ getState, getProject, setState }) {
+export function createProjectCtaWorkflow({ getState, getProject, setState, saveProjectPatchRemote, isRemoteReady }) {
   return {
     updateProjectCtaOverlay(payload) {
       const state = getState();
@@ -63,6 +63,61 @@ export function createProjectCtaWorkflow({ getState, getProject, setState }) {
         ctaOverlay: resetCtaOverlay()
       }));
     },
+    updateProjectCtaOverlayRemote(payload) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      if (!project) return null;
+      const ctaOverlay = normalizeCtaOverlay({ ...(project.ctaOverlay || {}), ...payload });
+      return commitProjectCtaOverlay(project.id, ctaOverlay, {
+        kind: "project-cta-overlay",
+        resourceName: "cta-overlay",
+        label: "Сохраняем плашку"
+      });
+    },
+    async createProjectCtaCandidateRemote(payload) {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      if (!project) return null;
+      const ctaOverlay = normalizeCtaOverlay({ ...(project.ctaOverlay || {}), ...payload });
+      const candidate = createCtaBadgeCandidate(ctaOverlay);
+      await commitProjectCtaOverlay(project.id, { ...ctaOverlay, mode: "badge", candidate }, {
+        kind: "project-cta-candidate",
+        resourceName: "cta-overlay",
+        label: "Создаем AI-плашку"
+      });
+      try {
+        const result = await createImageTask(candidate.finalPrompt, [], "gpt-image-2", [], {
+          aspectRatio: "1:1",
+          resolution: "1K",
+          outputFormat: "png"
+        });
+        await patchProjectCtaCandidateRemote(project.id, candidate.id, (item) => attachCtaBadgeTask(item, result.taskId));
+        pollProjectCtaCandidate(project.id, candidate.id, result.taskId, 0, true);
+      } catch (error) {
+        await patchProjectCtaCandidateRemote(project.id, candidate.id, (item) => failCtaBadgeCandidate(item, error.message || "Kie.ai badge image request failed"));
+      }
+      return candidate;
+    },
+    approveProjectCtaCandidateRemote() {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      if (!project) return null;
+      return commitProjectCtaOverlay(project.id, approveCtaBadgeCandidate(project.ctaOverlay), {
+        kind: "project-cta-approve",
+        resourceName: "cta-overlay",
+        label: "Апрувим плашку"
+      });
+    },
+    resetProjectCtaOverlayRemote() {
+      const state = getState();
+      const project = getProject(state, state.selectedProjectId);
+      if (!project) return null;
+      return commitProjectCtaOverlay(project.id, resetCtaOverlay(), {
+        kind: "project-cta-reset",
+        resourceName: "cta-overlay",
+        label: "Сбрасываем плашку"
+      });
+    },
     resumeProjectCtaPolling(project) {
       const projects = project ? [project] : getState().projects;
       projects
@@ -85,13 +140,36 @@ export function createProjectCtaWorkflow({ getState, getProject, setState }) {
     });
   }
 
+  function commitProjectCtaOverlay(projectId, ctaOverlay, operation) {
+    if (typeof saveProjectPatchRemote === "function" && isRemoteReady?.()) {
+      return saveProjectPatchRemote(projectId, { ctaOverlay: normalizeCtaOverlay(ctaOverlay) }, operation);
+    }
+    patchProject(projectId, (item) => ({ ...item, ctaOverlay: normalizeCtaOverlay(ctaOverlay) }));
+    return getState().projects.find((item) => item.id === projectId) || null;
+  }
+
+  function patchProjectCtaCandidateRemote(projectId, candidateId, updater) {
+    const project = getState().projects.find((item) => item.id === projectId);
+    if (!project) return null;
+    const ctaOverlay = normalizeCtaOverlay(project.ctaOverlay);
+    if (ctaOverlay.candidate?.id !== candidateId) return project;
+    return commitProjectCtaOverlay(projectId, {
+      ...ctaOverlay,
+      candidate: updater(ctaOverlay.candidate)
+    }, {
+      kind: "project-cta-candidate-status",
+      resourceName: "cta-overlay",
+      label: "Обновляем AI-плашку"
+    });
+  }
+
   function getProjectCtaCandidate(projectId) {
     return getState().projects.find((item) => item.id === projectId)?.ctaOverlay?.candidate || null;
   }
 
-  async function pollProjectCtaCandidate(projectId, candidateId, taskId, attempt = 0) {
+  async function pollProjectCtaCandidate(projectId, candidateId, taskId, attempt = 0, remote = false) {
     if (attempt >= 75) {
-      patchProjectCtaCandidate(projectId, candidateId, (item) => failCtaBadgeCandidate(item, "Kie.ai не вернул плашку за 5 минут. Попробуйте еще раз."));
+      await patchCtaCandidate(projectId, candidateId, remote, (item) => failCtaBadgeCandidate(item, "Kie.ai не вернул плашку за 5 минут. Попробуйте еще раз."));
       return;
     }
 
@@ -103,17 +181,23 @@ export function createProjectCtaWorkflow({ getState, getProject, setState }) {
     try {
       const status = await getImageTaskStatus(taskId);
       if (["success", "succeeded", "completed", "complete"].includes(status.state) && status.imageUrl) {
-        patchProjectCtaCandidate(projectId, candidateId, (item) => attachCtaBadgeImage(item, status.imageUrl));
+        await patchCtaCandidate(projectId, candidateId, remote, (item) => attachCtaBadgeImage(item, status.imageUrl));
         return;
       }
       if (["fail", "failed", "error"].includes(status.state)) {
-        patchProjectCtaCandidate(projectId, candidateId, (item) => failCtaBadgeCandidate(item, status.failMsg || "Kie.ai badge image generation failed"));
+        await patchCtaCandidate(projectId, candidateId, remote, (item) => failCtaBadgeCandidate(item, status.failMsg || "Kie.ai badge image generation failed"));
         return;
       }
-      pollProjectCtaCandidate(projectId, candidateId, taskId, attempt + 1);
+      pollProjectCtaCandidate(projectId, candidateId, taskId, attempt + 1, remote);
     } catch (error) {
-      patchProjectCtaCandidate(projectId, candidateId, (item) => failCtaBadgeCandidate(item, error.message || "Kie.ai badge image status request failed"));
+      await patchCtaCandidate(projectId, candidateId, remote, (item) => failCtaBadgeCandidate(item, error.message || "Kie.ai badge image status request failed"));
     }
+  }
+
+  function patchCtaCandidate(projectId, candidateId, remote, updater) {
+    return remote
+      ? patchProjectCtaCandidateRemote(projectId, candidateId, updater)
+      : patchProjectCtaCandidate(projectId, candidateId, updater);
   }
 }
 

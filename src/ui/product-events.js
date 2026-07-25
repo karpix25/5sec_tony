@@ -138,15 +138,21 @@ async function createProductReference(store, payload) {
 }
 
 function deleteProduct(root, store, button) {
-  const result = store.deleteProduct(button.dataset.deleteProduct);
-  if (result?.ok === false) {
-    warnButtonBlocked(result.reason || "delete-product-blocked", {
-      buttonId: button.id || null,
-      targetProductId: button.dataset.deleteProduct || null
-    });
-    return;
-  }
-  closeDeleteProductModal(root);
+  const request = store.deleteProductRemote
+    ? store.deleteProductRemote(button.dataset.deleteProduct)
+    : store.deleteProduct(button.dataset.deleteProduct);
+  Promise.resolve(request).then((result) => {
+    if (result?.ok === false) {
+      warnButtonBlocked(result.reason || "delete-product-blocked", {
+        buttonId: button.id || null,
+        targetProductId: button.dataset.deleteProduct || null
+      });
+      return;
+    }
+    closeDeleteProductModal(root);
+  }).catch((error) => {
+    window.alert?.(error.message || "Не удалось удалить продукт");
+  });
 }
 
 function deleteProductReference(store, referenceId) {

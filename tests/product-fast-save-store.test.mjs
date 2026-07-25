@@ -87,6 +87,50 @@ test("remote product update joins an already pending full-state save", async () 
   }
 });
 
+test("remote product delete skips full state save and refreshes next baseUpdatedAt", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (String(url).startsWith("/api/products/") && options.method === "DELETE") {
+      return jsonResponse({ saved: true, deletedProductId: decodeURIComponent(String(url).split("/").pop()), updatedAt: "t1" });
+    }
+    if (String(url).startsWith("/api/projects/")) {
+      return jsonResponse({ saved: true, project: JSON.parse(options.body).project, updatedAt: "t2" });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for product delete" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    const deletedId = store.getState().selectedProductId;
+    calls.length = 0;
+
+    await store.deleteProductRemote(deletedId);
+    await wait(320);
+
+    assert.equal(store.getState().products.some((product) => product.id === deletedId), false);
+    assert.equal(store.getState().deletedProductIds.includes(deletedId), true);
+    assert.equal(calls.some((call) => call.url === `/api/products/${encodeURIComponent(deletedId)}` && call.options.method === "DELETE"), true);
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+
+    await store.updateProjectSettingsRemote({ name: "Проект после удаления" });
+    await wait(320);
+    const projectSave = calls.find((call) => String(call.url).startsWith("/api/projects/"));
+    assert.equal(JSON.parse(projectSave.options.body).baseUpdatedAt, "t1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("stale remote product update refreshes state instead of overwriting", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
@@ -127,6 +171,49 @@ test("stale remote product update refreshes state instead of overwriting", async
     const product = store.getState().products.find((item) => item.id === remoteState.selectedProductId);
     assert.equal(product.name, "Свежий продукт из БД");
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("remote product delete uses product endpoint and skips full state save", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = {
+    ...createInitialState(),
+    products: [
+      { id: "product-1", projectId: "supplements", name: "Первый" },
+      { id: "product-2", projectId: "supplements", name: "Второй" }
+    ],
+    selectedProjectId: "supplements",
+    selectedProductId: "product-1"
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (url === "/api/products/product-1" && options.method === "DELETE") {
+      return jsonResponse({ saved: true, deletedProductId: "product-1", updatedAt: "t1" });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for product delete" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await store.deleteProductRemote("product-1");
+    await wait(320);
+
+    assert.equal(store.getState().products.some((product) => product.id === "product-1"), false);
+    assert.equal(store.getState().selectedProductId, "product-2");
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+    assert.equal(JSON.parse(calls.find((call) => call.url === "/api/products/product-1").options.body).baseUpdatedAt, "t0");
   } finally {
     globalThis.fetch = originalFetch;
   }

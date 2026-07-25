@@ -124,6 +124,95 @@ test("products api accepts product writes on the current base version", async ()
   assert.deepEqual(calls[0], { name: "Fresh save", id: "product-1" });
 });
 
+test("products api deletes the product from path inside app-state transaction", async () => {
+  const calls = [];
+  const response = createJsonResponse();
+  const handle = createProductsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/updated_at/.test(text)) return { rows: [{ updated_at: "db-v1" }] };
+        return { rows: [] };
+      }
+    }),
+    deleteProductForState: async (_query, key, productId) => {
+      calls.push(["delete", key, productId]);
+      return { deletedProductId: productId, updatedAt: "db-v2" };
+    }
+  });
+
+  await handle(
+    createJsonRequest("DELETE", { baseUpdatedAt: "db-v1" }),
+    response,
+    new URL("http://localhost/api/products/product-1")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.saved, true);
+  assert.equal(response.payload.deletedProductId, "product-1");
+  assert.deepEqual(calls, [["delete", "default", "product-1"]]);
+});
+
+test("products api rejects stale product deletes before deleting", async () => {
+  let deleteCalled = false;
+  const response = createJsonResponse();
+  const currentState = { projects: [{ id: "project-1" }], products: [{ id: "product-1", name: "Fresh" }] };
+  const handle = createProductsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/updated_at/.test(text)) return { rows: [{ updated_at: "db-v2" }] };
+        return { rows: [] };
+      }
+    }),
+    loadNormalizedState: async () => currentState,
+    loadLegacyState: async () => null,
+    deleteProductForState: async () => {
+      deleteCalled = true;
+      return {};
+    }
+  });
+
+  await handle(
+    createJsonRequest("DELETE", { baseUpdatedAt: "db-v1" }),
+    response,
+    new URL("http://localhost/api/products/product-1")
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal(response.payload.conflict, true);
+  assert.equal(deleteCalled, false);
+});
+
+test("products api deletes one product through app-state transaction", async () => {
+  const calls = [];
+  const response = createJsonResponse();
+  const handle = createProductsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => {
+        if (/updated_at/.test(text)) return { rows: [{ updated_at: "db-v1" }] };
+        return { rows: [] };
+      }
+    }),
+    deleteProductForState: async (_query, key, productId) => {
+      calls.push(["delete", key, productId]);
+      return { deletedProductId: productId, updatedAt: "db-v2" };
+    }
+  });
+
+  await handle(
+    createJsonRequest("DELETE", { baseUpdatedAt: "db-v1" }),
+    response,
+    new URL("http://localhost/api/products/product-1")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.saved, true);
+  assert.equal(response.payload.deletedProductId, "product-1");
+  assert.deepEqual(calls.find((call) => call[0] === "delete"), ["delete", "default", "product-1"]);
+});
+
 test("products api recreates a locally known product when relational row is missing", async () => {
   const calls = [];
   const response = createJsonResponse();

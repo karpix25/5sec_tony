@@ -153,6 +153,49 @@ test("remote project update falls back to pending state save on network failure"
   }
 });
 
+test("remote project automation update skips full state save", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (url === `/api/projects/${remoteState.selectedProjectId}/automation` && options.method === "PATCH") {
+      const body = JSON.parse(options.body);
+      return jsonResponse({
+        saved: true,
+        project: { ...remoteState.projects.find((project) => project.id === remoteState.selectedProjectId), ...body.payload },
+        updatedAt: "t1"
+      });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for automation" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await store.updateProjectAutomationRemote(remoteState.selectedProjectId, { enabled: true, status: "running" });
+    await wait(320);
+
+    const projectSave = calls.find((call) => String(call.url).startsWith("/api/projects/"));
+    const body = JSON.parse(projectSave.options.body);
+    assert.equal(body.baseUpdatedAt, "t0");
+    assert.equal(projectSave.url, `/api/projects/${remoteState.selectedProjectId}/automation`);
+    assert.equal(body.payload.automation.enabled, true);
+    assert.equal(store.getState().projects.find((project) => project.id === remoteState.selectedProjectId).automation.enabled, true);
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("remote project update reapplies settings after stale conflict", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
@@ -170,7 +213,7 @@ test("remote project update reapplies settings after stale conflict", async () =
     if (url === "/api/state" && (!options.method || options.method === "GET")) {
       return jsonResponse({ state: remoteState, updatedAt: "t0" });
     }
-    if (String(url).startsWith("/api/projects/") && options.method === "PATCH") {
+    if (url === `/api/projects/${selectedProjectId}` && options.method === "PATCH") {
       patchCount += 1;
       const body = JSON.parse(options.body);
       if (patchCount === 1) {
@@ -200,6 +243,148 @@ test("remote project update reapplies settings after stale conflict", async () =
     const project = store.getState().projects.find((item) => item.id === selectedProjectId);
     assert.equal(project.projectLimit, 25);
     assert.equal(patchCount, 2);
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("remote project automation patch retries over fresh state and skips full state save", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  const selectedProjectId = remoteState.selectedProjectId;
+  const freshState = {
+    ...remoteState,
+    projects: remoteState.projects.map((project) =>
+      project.id === selectedProjectId ? { ...project, name: "Свежий проект" } : project
+    )
+  };
+  let patchCount = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (String(url).startsWith("/api/projects/") && options.method === "PATCH") {
+      patchCount += 1;
+      const body = JSON.parse(options.body);
+      if (patchCount === 1) {
+        assert.equal(body.baseUpdatedAt, "t0");
+        return jsonResponse({ conflict: true, updatedAt: "t1", state: freshState }, 409);
+      }
+      assert.equal(body.baseUpdatedAt, "t1");
+      assert.equal(body.payload.automation.enabled, true);
+      return jsonResponse({
+        saved: true,
+        project: { ...freshState.projects.find((item) => item.id === selectedProjectId), ...body.payload },
+        updatedAt: "t2"
+      });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for automation patch" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await store.updateProjectAutomationRemote(selectedProjectId, {
+      enabled: true,
+      status: "running",
+      lastMessage: "Авторежим включен."
+    });
+    await wait(320);
+
+    const project = store.getState().projects.find((item) => item.id === selectedProjectId);
+    assert.equal(project.name, "Свежий проект");
+    assert.equal(project.automation.enabled, true);
+    assert.equal(patchCount, 2);
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("remote project cta overlay uses scoped resource endpoint", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  const selectedProjectId = remoteState.selectedProjectId;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (url === `/api/projects/${selectedProjectId}/cta-overlay` && options.method === "PATCH") {
+      const body = JSON.parse(options.body);
+      return jsonResponse({
+        saved: true,
+        project: { ...remoteState.projects.find((item) => item.id === selectedProjectId), ...body.payload },
+        updatedAt: "t1"
+      });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for cta overlay" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await store.updateProjectCtaOverlay({ enabled: true, text: "Читай описание" });
+    await wait(320);
+
+    const patchCall = calls.find((call) => call.url === `/api/projects/${selectedProjectId}/cta-overlay`);
+    assert.ok(patchCall);
+    assert.equal(JSON.parse(patchCall.options.body).payload.ctaOverlay.text, "Читай описание");
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("remote avatar upload uses scoped avatars endpoint", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  const selectedProjectId = remoteState.selectedProjectId;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (url === `/api/projects/${selectedProjectId}/avatars` && options.method === "PATCH") {
+      const body = JSON.parse(options.body);
+      return jsonResponse({
+        saved: true,
+        project: { ...remoteState.projects.find((item) => item.id === selectedProjectId), ...body.payload },
+        updatedAt: "t1"
+      });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for avatars" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    store.uploadCharacter({ name: "Uploaded", imageName: "a.png", imageData: "data:image/png;base64,A" });
+    await wait(320);
+
+    const patchCall = calls.find((call) => call.url === `/api/projects/${selectedProjectId}/avatars`);
+    assert.ok(patchCall);
+    assert.equal(JSON.parse(patchCall.options.body).payload.characters.some((item) => item.name === "Uploaded"), true);
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
   } finally {
     globalThis.fetch = originalFetch;

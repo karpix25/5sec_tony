@@ -3,6 +3,7 @@ import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-sel
 import { globalAudioLibrary } from "../domain/entities.js";
 import { normalizeNavigationTab } from "../domain/navigation.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
+import { createRemoteAudioAssets, deleteRemoteAudioAsset } from "../services/audio-library-sync.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import { createDesignReferenceActions } from "./design-reference-actions.js";
@@ -81,21 +82,13 @@ export function createStore() {
     subscribers.forEach((subscriber) => subscriber(state, { operations }));
   });
 
-  const avatarWorkflow = createAvatarWorkflow({
-    getState: () => state,
-    setState,
-    getProject
-  });
+  let avatarWorkflow = null;
   const designReferenceWorkflow = createDesignReferenceWorkflow({
     getState: () => state,
     setState,
     getProject
   });
-  const projectCtaWorkflow = createProjectCtaWorkflow({
-    getState: () => state,
-    getProject,
-    setState
-  });
+  let projectCtaWorkflow = null;
   const jobActions = createJobActions({
     getState: () => state,
     setState,
@@ -119,6 +112,20 @@ export function createStore() {
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
     hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
     runScopedOperation: operationController.runScopedOperation
+  });
+  avatarWorkflow = createAvatarWorkflow({
+    getState: () => state,
+    setState,
+    getProject,
+    saveProjectPatchRemote: projectActions.updateProjectPatchRemote,
+    isRemoteReady: isScopedProjectRemoteReady
+  });
+  projectCtaWorkflow = createProjectCtaWorkflow({
+    getState: () => state,
+    getProject,
+    setState,
+    saveProjectPatchRemote: projectActions.updateProjectPatchRemote,
+    isRemoteReady: isScopedProjectRemoteReady
   });
   const designReferenceActions = createDesignReferenceActions({
     getState: () => state,
@@ -155,6 +162,18 @@ export function createStore() {
     if (hydrationSettled || !patch || !Object.keys(patch).length) return;
     hadLocalChangesBeforeHydrate = true;
     Object.keys(patch).forEach((key) => preHydrationLocalKeys.add(key));
+  }
+
+  function recordAudioRemoteSave(updatedAt) {
+    if (updatedAt && typeof statePersistence?.recordRemoteSave === "function") {
+      statePersistence.recordRemoteSave(state, updatedAt);
+    }
+  }
+
+  function isScopedProjectRemoteReady() {
+    return hydrationSettled
+      && persistenceStatus.status !== "local"
+      && Boolean(statePersistence?.getRemoteUpdatedAt?.());
   }
 
   return {
@@ -250,10 +269,10 @@ export function createStore() {
       setState({ reelsResearch });
     },
     ...projectActions,
-    updateProjectCtaOverlay: projectCtaWorkflow.updateProjectCtaOverlay,
-    createProjectCtaCandidate: projectCtaWorkflow.createProjectCtaCandidate,
-    approveProjectCtaCandidate: projectCtaWorkflow.approveProjectCtaCandidate,
-    resetProjectCtaOverlay: projectCtaWorkflow.resetProjectCtaOverlay,
+    updateProjectCtaOverlay: projectCtaWorkflow.updateProjectCtaOverlayRemote || projectCtaWorkflow.updateProjectCtaOverlay,
+    createProjectCtaCandidate: projectCtaWorkflow.createProjectCtaCandidateRemote || projectCtaWorkflow.createProjectCtaCandidate,
+    approveProjectCtaCandidate: projectCtaWorkflow.approveProjectCtaCandidateRemote || projectCtaWorkflow.approveProjectCtaCandidate,
+    resetProjectCtaOverlay: projectCtaWorkflow.resetProjectCtaOverlayRemote || projectCtaWorkflow.resetProjectCtaOverlay,
     ...productActions,
     createDesignReferenceTemplate: designReferenceWorkflow.createDesignReferenceTemplate,
     ...designReferenceActions,
@@ -275,9 +294,60 @@ export function createStore() {
       const audioLibrary = addGlobalAudioFiles(state.audioLibrary, payloads);
       setState({ audioLibrary, selectedAudioId: audioLibrary[0]?.id });
     },
+    async createAudioFilesRemote(payloads) {
+      if (!payloads.length) return;
+      const previousAudioLibrary = state.audioLibrary;
+      const previousSelectedAudioId = state.selectedAudioId;
+      const audioLibrary = addGlobalAudioFiles(state.audioLibrary, payloads);
+      setState({ audioLibrary, selectedAudioId: audioLibrary[0]?.id }, { skipRemoteSave: true });
+      let result;
+      try {
+        result = await createRemoteAudioAssets(payloads, statePersistence?.getRemoteUpdatedAt?.() || "");
+      } catch (error) {
+        setState({ audioLibrary: previousAudioLibrary, selectedAudioId: previousSelectedAudioId }, { skipRemoteSave: true });
+        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
+        throw error;
+      }
+      if (result.disabled) {
+        setState({ audioLibrary, selectedAudioId: audioLibrary[0]?.id });
+        return result;
+      }
+      const savedLibrary = addGlobalAudioFiles(
+        state.audioLibrary.filter((audio) => !payloads.some((item) => isSameAudioDraft(audio, item))),
+        result.assets.length ? result.assets : payloads
+      );
+      setState({ audioLibrary: savedLibrary, selectedAudioId: result.selectedAudioId || savedLibrary[0]?.id }, { skipRemoteSave: true });
+      recordAudioRemoteSave(result.updatedAt);
+      return result;
+    },
     deleteAudio(audioId) {
       const audioLibrary = deleteGlobalAudio(state.audioLibrary, audioId);
       setState({ audioLibrary, selectedAudioId: getSelectedGlobalAudioId(audioLibrary, state.selectedAudioId) });
+    },
+    async deleteAudioRemote(audioId) {
+      const previousAudioLibrary = state.audioLibrary;
+      const previousSelectedAudioId = state.selectedAudioId;
+      const audioLibrary = deleteGlobalAudio(state.audioLibrary, audioId);
+      const selectedAudioId = getSelectedGlobalAudioId(audioLibrary, state.selectedAudioId);
+      setState({ audioLibrary, selectedAudioId }, { skipRemoteSave: true });
+      let result;
+      try {
+        result = await deleteRemoteAudioAsset(audioId, previousSelectedAudioId, statePersistence?.getRemoteUpdatedAt?.() || "");
+      } catch (error) {
+        setState({ audioLibrary: previousAudioLibrary, selectedAudioId: previousSelectedAudioId }, { skipRemoteSave: true });
+        if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);
+        throw error;
+      }
+      if (result.disabled) {
+        setState({ audioLibrary, selectedAudioId });
+        return result;
+      }
+      setState({
+        audioLibrary: result.audioLibrary.length ? result.audioLibrary : audioLibrary,
+        selectedAudioId: result.selectedAudioId || selectedAudioId
+      }, { skipRemoteSave: true });
+      recordAudioRemoteSave(result.updatedAt);
+      return result;
     },
     deleteCharacter: avatarWorkflow.deleteCharacter,
     markAvatarVideoUsed: avatarWorkflow.markAvatarVideoUsed,
@@ -350,4 +420,9 @@ function preservePreHydrationKeys(remoteState, localState, protectedKeys) {
         .map((key) => [key, localState[key]])
     )
   };
+}
+
+function isSameAudioDraft(audio, draft) {
+  if (draft?.id && audio?.id === draft.id) return true;
+  return Boolean(draft?.fileData && audio?.fileData === draft.fileData);
 }

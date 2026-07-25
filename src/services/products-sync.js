@@ -9,6 +9,24 @@ export async function updateRemoteProduct(productId, product, baseUpdatedAt = ""
   return saveRemoteProduct(`/api/products/${encodeURIComponent(productId)}`, "PATCH", product, baseUpdatedAt);
 }
 
+export async function deleteRemoteProduct(productId, baseUpdatedAt = "") {
+  const body = JSON.stringify({ baseUpdatedAt });
+  const { response, payload } = await fetchJsonWithRetry(`/api/products/${encodeURIComponent(productId)}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true
+  });
+  readProductSyncPayload(response, payload);
+  return {
+    saved: Boolean(payload.saved),
+    disabled: Boolean(payload.disabled),
+    deletedProductId: payload.deletedProductId || "",
+    updatedAt: payload.updatedAt || "",
+    error: payload.error || ""
+  };
+}
+
 async function saveRemoteProduct(url, method, product, baseUpdatedAt) {
   const body = JSON.stringify({ product, baseUpdatedAt });
   const { response, payload } = await fetchJsonWithRetry(url, {

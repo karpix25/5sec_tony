@@ -54,7 +54,7 @@ export function bindAvatarOverlayComposerEvents(root, store) {
       applyOverlayPreview(form);
     });
     form.addEventListener("change", () => {
-      store.updateAvatarVideoOverlay(form.dataset.avatarOverlayForm, getOverlayPayload(form));
+      runStoreAction(store.updateAvatarVideoOverlayRemote || store.updateAvatarVideoOverlay, store, form.dataset.avatarOverlayForm, getOverlayPayload(form));
     });
   });
   root.querySelectorAll("[data-avatar-overlay-preset]").forEach((button) => {
@@ -64,7 +64,7 @@ export function bindAvatarOverlayComposerEvents(root, store) {
       const form = button.closest("[data-avatar-overlay-form]");
       setOverlayFormPayload(form, preset.settings);
       applyOverlayPreview(form);
-      store.updateAvatarVideoOverlay(button.dataset.avatarVideoId, preset.settings);
+      runStoreAction(store.updateAvatarVideoOverlayRemote || store.updateAvatarVideoOverlay, store, button.dataset.avatarVideoId, preset.settings);
     });
   });
   bindCtaOverlayControlEvents(root, {
@@ -76,33 +76,38 @@ export function bindAvatarOverlayComposerEvents(root, store) {
     },
     onChange(targetId, payload, form) {
       if (form?.dataset.ctaScope === "project") {
-        store.updateProjectCtaOverlay(payload);
+        runStoreAction(store.updateProjectCtaOverlayRemote || store.updateProjectCtaOverlay, store, payload);
         return;
       }
-      store.updateAvatarVideoCtaOverlay(targetId, payload);
+      runStoreAction(store.updateAvatarVideoCtaOverlayRemote || store.updateAvatarVideoCtaOverlay, store, targetId, payload);
     },
     onGenerate(targetId, payload, _button, form) {
       if (form?.dataset.ctaScope === "project") {
-        store.createProjectCtaCandidate(payload);
+        runStoreAction(store.createProjectCtaCandidateRemote || store.createProjectCtaCandidate, store, payload);
         return;
       }
-      store.createAvatarVideoCtaCandidate(targetId, payload);
+      runStoreAction(store.createAvatarVideoCtaCandidateRemote || store.createAvatarVideoCtaCandidate, store, targetId, payload);
     },
     onApprove(targetId, _button, form) {
       if (form?.dataset.ctaScope === "project") {
-        store.approveProjectCtaCandidate();
+        runStoreAction(store.approveProjectCtaCandidateRemote || store.approveProjectCtaCandidate, store);
         return;
       }
-      store.approveAvatarVideoCtaCandidate(targetId);
+      runStoreAction(store.approveAvatarVideoCtaCandidateRemote || store.approveAvatarVideoCtaCandidate, store, targetId);
     },
     onReset(targetId, _button, form) {
       if (form?.dataset.ctaScope === "project") {
-        store.resetProjectCtaOverlay();
+        runStoreAction(store.resetProjectCtaOverlayRemote || store.resetProjectCtaOverlay, store);
         return;
       }
-      store.resetAvatarVideoCtaOverlay(targetId);
+      runStoreAction(store.resetAvatarVideoCtaOverlayRemote || store.resetAvatarVideoCtaOverlay, store, targetId);
     }
   });
+}
+
+function runStoreAction(action, store, ...args) {
+  Promise.resolve(action?.call(store, ...args))
+    .catch((error) => window.alert?.(error.message || "Не удалось сохранить настройку"));
 }
 
 function applyOverlayPreview(form) {

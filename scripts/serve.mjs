@@ -8,6 +8,7 @@ import { handleGenerationBatchesApi } from "./generation-batches-api.mjs";
 import { handleCompositeVideoApi } from "./composite-video.mjs";
 import { handleAvatarAlphaVideoApi } from "./avatar-alpha-video.mjs";
 import { handleAudioAssetsApi } from "./audio-assets.mjs";
+import { handleAudioLibraryApi } from "./audio-library-api.mjs";
 import { handleProductReferenceAssetsApi } from "./product-reference-assets.mjs";
 import { handleReferenceAssetsApi } from "./reference-assets.mjs";
 import { handleReelsResearchApi } from "./reels-research-api.mjs";
@@ -44,6 +45,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname.startsWith("/api/") && !await requireApprovedUser(request, response)) return;
   if (await handleHookPdfApi(request, response, url)) return;
   if (await handleAudioAssetsApi(request, response, url)) return;
+  if (await handleAudioLibraryApi(request, response, url)) return;
   if (await handleProductReferenceAssetsApi(request, response, url)) return;
   if (await handleReferenceAssetsApi(request, response, url)) return;
   if (await handleAvatarAlphaVideoApi(request, response, url)) return;

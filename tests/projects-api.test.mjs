@@ -66,6 +66,45 @@ test("projects api patches one project inside app-state transaction", async () =
   assert.deepEqual(calls.find((call) => call[0] === "save"), ["save", "default", "project-1", { name: "Новый проект" }]);
 });
 
+test("projects api patches only automation through project resource endpoint", async () => {
+  const calls = [];
+  const response = createJsonResponse();
+  const handle = createProjectsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text, params = []) => {
+        calls.push(["query", text, params]);
+        return { rows: [] };
+      }
+    }),
+    saveProjectForState: async (_query, key, projectId, patch) => {
+      calls.push(["save", key, projectId, patch]);
+      return { project: { id: projectId, automation: patch.automation }, updatedAt: "db-v2" };
+    }
+  });
+
+  await handle(
+    createJsonRequest("PATCH", {
+      payload: {
+        automation: { enabled: true, status: "running" },
+        projectLimit: 1
+      },
+      baseUpdatedAt: "db-v1"
+    }),
+    response,
+    new URL("http://localhost/api/projects/project-1/automation")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.resource, "automation");
+  assert.deepEqual(calls.find((call) => call[0] === "save"), [
+    "save",
+    "default",
+    "project-1",
+    { automation: { enabled: true, status: "running" } }
+  ]);
+});
+
 test("projects api deletes one project through app-state transaction", async () => {
   const calls = [];
   const response = createJsonResponse();

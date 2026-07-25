@@ -32,7 +32,7 @@ const RECOVERABLE_ALPHA_MESSAGE = "Видео готово. Связь с обр
 const MAX_RECOVERABLE_POLLS = 180;
 const MAX_ALPHA_RECOVERIES = 20;
 
-export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter, addProjectAvatarVideo }) {
+export function createAvatarVideoWorkflow({ getState, getProject, patchCharacter, addProjectAvatarVideo, saveProjectPatchRemote }) {
   const activePolls = new Set();
   const activeAlphaConversions = new Set();
 

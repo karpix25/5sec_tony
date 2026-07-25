@@ -43,6 +43,10 @@ export function createProjectsApiHandler(deps = {}) {
     if (request.method === "POST" && url.pathname === "/api/projects") {
       return handleCreateProject(request, response, url, handlerDeps);
     }
+    const resource = getProjectResource(url.pathname);
+    if (request.method === "PATCH" && resource?.projectId) {
+      return handlePatchProjectResource(request, response, url, { ...handlerDeps, ...resource });
+    }
     if (request.method === "PATCH" && projectId) {
       return handlePatchProject(request, response, url, { ...handlerDeps, projectId });
     }
@@ -101,6 +105,30 @@ async function handlePatchProject(request, response, url, deps) {
   }
 }
 
+async function handlePatchProjectResource(request, response, url, deps) {
+  if (!deps.isConfigured()) {
+    return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
+  }
+  try {
+    const body = await readJsonBody(request, { limitBytes: projectsJsonBodyLimitBytes });
+    const patch = getResourcePatch(deps.resourceName, body);
+    if (!isPlainObject(patch)) return sendJson(response, 400, { error: "resource payload is required" });
+    const result = await writeWithConflictCheck(body, deps, (tx) =>
+      deps.saveProject(tx.query, appStateKey, deps.projectId, patch)
+    );
+    if (result.conflict) return sendConflict(response, url, result);
+    return sendJson(response, 200, {
+      saved: true,
+      key: appStateKey,
+      project: result.project,
+      resource: deps.resourceName,
+      updatedAt: result.updatedAt || ""
+    });
+  } catch (error) {
+    return sendProjectError(response, error, "Не удалось сохранить часть проекта");
+  }
+}
+
 async function handleDeleteProject(request, response, url, deps) {
   if (!deps.isConfigured()) {
     return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
@@ -135,10 +163,36 @@ function getProjectId(pathname) {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
+function getProjectResource(pathname) {
+  const match = pathname.match(/^\/api\/projects\/([^/]+)\/(automation|usage|cta-overlay|avatars)$/);
+  if (!match) return null;
+  return {
+    projectId: decodeURIComponent(match[1]),
+    resourceName: match[2]
+  };
+}
+
 function getProjectPatch(body) {
   if (isPlainObject(body?.project)) return body.project;
   if (isPlainObject(body?.payload)) return body.payload;
   return body;
+}
+
+function getResourcePatch(resourceName, body) {
+  const payload = isPlainObject(body?.payload) ? body.payload : body;
+  if (resourceName === "automation") return pickDefined(payload, ["automation"]);
+  if (resourceName === "usage") return pickDefined(payload, ["usedToday", "dailyUsageDate", "usedTotal"]);
+  if (resourceName === "cta-overlay") return pickDefined(payload, ["ctaOverlay"]);
+  if (resourceName === "avatars") return pickDefined(payload, ["avatarCandidates", "characters", "avatarRoundRobinIndex"]);
+  return {};
+}
+
+function pickDefined(source, keys) {
+  const result = {};
+  keys.forEach((key) => {
+    if (Object.hasOwn(source || {}, key)) result[key] = source[key];
+  });
+  return result;
 }
 
 function sendProjectError(response, error, fallback) {

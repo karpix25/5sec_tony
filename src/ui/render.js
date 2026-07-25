@@ -286,7 +286,8 @@ function bindEvents(root, store, options = {}) {
       activeStatus: "uploading"
     }, async () => {
       const payloads = await getAudioPayloads(form);
-      store.createAudioFiles(payloads);
+      if (store.createAudioFilesRemote) await store.createAudioFilesRemote(payloads);
+      else store.createAudioFiles(payloads);
     })
       .catch((error) => window.alert?.(error.message || "Не удалось загрузить аудио"));
   });
@@ -320,10 +321,18 @@ function bindEvents(root, store, options = {}) {
     button.addEventListener("click", () => store.rejectDesignReference(button.dataset.rejectDesignReference));
   });
   root.querySelectorAll("[data-reset-project-usage]").forEach((button) => {
-    button.addEventListener("click", () => store.resetProjectDailyUsage(button.dataset.resetProjectUsage));
+    button.addEventListener("click", () => {
+      const action = store.resetProjectDailyUsageRemote || store.resetProjectDailyUsage;
+      Promise.resolve(action.call(store, button.dataset.resetProjectUsage))
+        .catch((error) => window.alert?.(error.message || "Не удалось сбросить дневной лимит"));
+    });
   });
   root.querySelectorAll("[data-reset-project-total-usage]").forEach((button) => {
-    button.addEventListener("click", () => store.resetProjectTotalUsage(button.dataset.resetProjectTotalUsage));
+    button.addEventListener("click", () => {
+      const action = store.resetProjectTotalUsageRemote || store.resetProjectTotalUsage;
+      Promise.resolve(action.call(store, button.dataset.resetProjectTotalUsage))
+        .catch((error) => window.alert?.(error.message || "Не удалось сбросить общий лимит"));
+    });
   });
   root.querySelectorAll("[data-delete-character]").forEach((button) => {
     button.addEventListener("click", () => store.deleteCharacter(button.dataset.deleteCharacter));
@@ -349,6 +358,11 @@ function bindEvents(root, store, options = {}) {
         label: "Удаляем аудио",
         activeStatus: "deleting"
       }, async () => {
+        if (store.deleteAudioRemote) {
+          await store.deleteAudioRemote(button.dataset.deleteAudio);
+          await deleteAudioAsset(audio);
+          return;
+        }
         await deleteAudioAsset(audio);
         store.deleteAudio(button.dataset.deleteAudio);
       })

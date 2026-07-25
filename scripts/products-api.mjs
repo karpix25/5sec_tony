@@ -7,7 +7,7 @@ import {
   sendJson,
   writeWithConflictCheck
 } from "./app-state-api-helpers.mjs";
-import { ProductPersistenceError, saveProductForState } from "./product-state-store.mjs";
+import { ProductPersistenceError, deleteProductForState, saveProductForState } from "./product-state-store.mjs";
 import { loadLegacyState, loadNormalizedState } from "./state-relational-store.mjs";
 
 const appStateKey = defaultAppStateKey;
@@ -19,6 +19,7 @@ export function createProductsApiHandler(deps = {}) {
   const isConfigured = deps.isPostgresConfigured || isPostgresConfigured;
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   const saveProduct = deps.saveProductForState || saveProductForState;
+  const deleteProduct = deps.deleteProductForState || deleteProductForState;
   const loadNormalized = deps.loadNormalizedState || loadNormalizedState;
   const loadLegacy = deps.loadLegacyState || loadLegacyState;
 
@@ -29,6 +30,9 @@ export function createProductsApiHandler(deps = {}) {
     const productId = getProductId(url.pathname);
     if (request.method === "PATCH" && productId) {
       return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "update", productId });
+    }
+    if (request.method === "DELETE" && productId) {
+      return handleDeleteProduct(request, response, { isConfigured, withTransaction, deleteProduct, loadNormalized, loadLegacy, productId });
     }
     return false;
   };
@@ -66,6 +70,33 @@ async function handleSaveProduct(request, response, deps) {
   } catch (error) {
     const status = error instanceof ProductPersistenceError ? error.status : 500;
     return sendJson(response, status, { error: error.message || "Не удалось сохранить продукт" });
+  }
+}
+
+async function handleDeleteProduct(request, response, deps) {
+  if (!deps.isConfigured()) {
+    return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
+  }
+  try {
+    const body = await readJsonBody(request, { limitBytes: productsJsonBodyLimitBytes });
+    const result = await writeWithConflictCheck(body, deps, (tx) =>
+      deps.deleteProduct(tx.query, appStateKey, deps.productId)
+    );
+    if (result.conflict) {
+      return sendJson(response, 409, buildConflictPayload(result, {
+        error: "БД обновлена другим оператором. Данные обновлены, повторите удаление продукта.",
+        key: appStateKey
+      }));
+    }
+    return sendJson(response, 200, {
+      saved: true,
+      key: appStateKey,
+      deletedProductId: result.deletedProductId || "",
+      updatedAt: result.updatedAt || ""
+    });
+  } catch (error) {
+    const status = error instanceof ProductPersistenceError ? error.status : 500;
+    return sendJson(response, status, { error: error.message || "Не удалось удалить продукт" });
   }
 }
 

@@ -1,5 +1,5 @@
 import { getProductsForProject } from "../domain/generation.js";
-import { createRemoteProduct, updateRemoteProduct } from "../services/products-sync.js";
+import { createRemoteProduct, deleteRemoteProduct, updateRemoteProduct } from "../services/products-sync.js";
 import { createId, createProductEntity, ensureGenerationBrief } from "./factories.js";
 
 export function createProductActions({
@@ -127,25 +127,35 @@ export function createProductActions({
   }
 
   function deleteProduct(productId) {
-    const state = getState();
-    const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
-    if (!projectProducts.some((product) => product.id === productId)) {
-      console.warn("[store:delete-product]", { reason: "wrong-project", productId, selectedProjectId: state.selectedProjectId });
-      return { ok: false, reason: "wrong-project" };
-    }
-    if (projectProducts.length <= 1) {
-      console.warn("[store:delete-product]", { reason: "last-product", productId, selectedProjectId: state.selectedProjectId });
-      return { ok: false, reason: "last-product" };
-    }
-    const productsNext = state.products.filter((product) => product.id !== productId);
-    setState({
-      products: productsNext,
-      jobs: state.jobs.filter((job) => job.productId !== productId),
-      deletedProductIds: appendUniqueProductIds(state.deletedProductIds, [productId]),
-      selectedProductId: getProductsForProject(productsNext, state.selectedProjectId)[0]?.id,
-      generationBrief: ensureGenerationBrief({})
+    const deletion = buildProductDeletion(productId);
+    if (deletion?.ok === false) return deletion;
+    applyProductDeletion(deletion);
+    return { ok: true, deletedProductId: productId };
+  }
+
+  async function deleteProductRemoteAction(productId) {
+    return runProductOperation({
+      scope: `product:${productId}`,
+      kind: "delete",
+      targetId: productId,
+      label: "Удаляем продукт",
+      activeStatus: "deleting"
+    }, async () => {
+      const deletion = buildProductDeletion(productId);
+      if (deletion?.ok === false) return deletion;
+      if (hasPendingRemoteSave?.()) return deleteProduct(productId);
+      let result;
+      try {
+        result = await deleteRemoteProduct(productId, getRemoteUpdatedAt?.() || "");
+      } catch (error) {
+        if (error?.conflict) await handleRemoteConflict?.(error);
+        throw error;
+      }
+      if (result.disabled) return deleteProduct(productId);
+      applyProductDeletion(deletion, { skipRemoteSave: true });
+      recordSaved(result);
+      return { ok: true, deletedProductId: productId };
     });
-    return { ok: true };
   }
 
   function buildCreatedProduct(payload) {
@@ -172,6 +182,28 @@ export function createProductActions({
     return product ? { ...product, references: (product.references || []).filter((reference) => reference.id !== referenceId) } : null;
   }
 
+  function buildProductDeletion(productId) {
+    const state = getState();
+    const projectProducts = getProductsForProject(state.products, state.selectedProjectId);
+    if (!projectProducts.some((product) => product.id === productId)) {
+      console.warn("[store:delete-product]", { reason: "wrong-project", productId, selectedProjectId: state.selectedProjectId });
+      return { ok: false, reason: "wrong-project" };
+    }
+    if (projectProducts.length <= 1) {
+      console.warn("[store:delete-product]", { reason: "last-product", productId, selectedProjectId: state.selectedProjectId });
+      return { ok: false, reason: "last-product" };
+    }
+    const products = state.products.filter((product) => product.id !== productId);
+    return {
+      ok: true,
+      productId,
+      products,
+      jobs: state.jobs.filter((job) => job.productId !== productId),
+      deletedProductIds: appendUniqueProductIds(state.deletedProductIds, [productId]),
+      selectedProductId: getProductsForProject(products, state.selectedProjectId)[0]?.id
+    };
+  }
+
   function applyCreatedProduct(product, options = {}) {
     const state = getState();
     setState({ products: [product, ...state.products.filter((item) => item.id !== product.id)], selectedProductId: product.id }, options);
@@ -184,6 +216,16 @@ export function createProductActions({
 
   function recordSaved(result) {
     recordRemoteSave?.(getState(), result.updatedAt);
+  }
+
+  function applyProductDeletion(deletion, options = {}) {
+    setState({
+      products: deletion.products,
+      jobs: deletion.jobs,
+      deletedProductIds: deletion.deletedProductIds,
+      selectedProductId: deletion.selectedProductId,
+      generationBrief: ensureGenerationBrief({})
+    }, options);
   }
 
   async function runRemoteProductSave(request) {
@@ -213,7 +255,8 @@ export function createProductActions({
     createProductReferenceRemote,
     deleteProductReference,
     deleteProductReferenceRemote,
-    deleteProduct
+    deleteProduct,
+    deleteProductRemote: deleteProductRemoteAction
   };
 }
 

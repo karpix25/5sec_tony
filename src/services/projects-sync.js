@@ -9,6 +9,15 @@ export async function updateRemoteProject(projectId, project, baseUpdatedAt = ""
   return saveRemoteProject(`/api/projects/${encodeURIComponent(projectId)}`, "PATCH", { project, ...metadata }, baseUpdatedAt);
 }
 
+export async function updateRemoteProjectResource(projectId, resourceName, payload, baseUpdatedAt = "") {
+  return saveRemoteProject(
+    `/api/projects/${encodeURIComponent(projectId)}/${encodeURIComponent(resourceName)}`,
+    "PATCH",
+    { payload },
+    baseUpdatedAt
+  );
+}
+
 export async function deleteRemoteProject(projectId, baseUpdatedAt = "") {
   const body = JSON.stringify({ baseUpdatedAt });
   const { response, payload } = await fetchJsonWithRetry(`/api/projects/${encodeURIComponent(projectId)}`, {

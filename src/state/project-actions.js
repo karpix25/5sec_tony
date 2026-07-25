@@ -3,7 +3,7 @@ import { getProductsForProject } from "../domain/generation.js";
 import { noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
-import { createRemoteProject, deleteRemoteProject, updateRemoteProject } from "../services/projects-sync.js";
+import { createRemoteProject, deleteRemoteProject, updateRemoteProject, updateRemoteProjectResource } from "../services/projects-sync.js";
 import { isTransientFetchError } from "../services/sync-fetch.js";
 import { ensureGenerationBrief } from "./factories.js";
 import { createProjectBundle } from "./project-creation.js";
@@ -63,6 +63,43 @@ export function createProjectActions({
     });
   }
 
+  function updateProjectPatchRemote(projectId, patch, operation = {}) {
+    return runProjectOperation({
+      scope: `project:${projectId}`,
+      key: `project:${projectId}:${operation.kind || "patch"}`,
+      kind: operation.kind || "patch",
+      targetId: projectId,
+      label: operation.label || "Сохраняем проект",
+      activeStatus: operation.activeStatus || "saving"
+    }, async () => {
+      const state = getState();
+      const currentProject = getProject(state, projectId);
+      const project = { ...currentProject, ...patch };
+      if (hasPendingRemoteSave?.()) return applyLocalProjectPatch(projectId, patch, project);
+      try {
+        const result = operation.resourceName
+          ? await updateRemoteProjectResource(project.id, operation.resourceName, patch, getRemoteUpdatedAt?.() || "")
+          : await updateRemoteProject(project.id, project, getRemoteUpdatedAt?.() || "", {
+              projectLimitBase: currentProject?.projectLimit
+            });
+        if (result.disabled) return applyLocalProjectPatch(projectId, patch, project);
+        setState({
+          projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
+        }, { skipRemoteSave: true });
+        recordRemoteSave?.(getState(), result.updatedAt);
+        return result.project || project;
+      } catch (error) {
+        if (error?.conflict) {
+          const retried = await retryProjectPatchAfterConflict({ error, projectId, patch, resourceName: operation.resourceName });
+          if (retried) return retried;
+          await handleRemoteConflict?.(error);
+        }
+        if (!error?.conflict && isTransientFetchError(error)) return applyLocalProjectPatch(projectId, patch, project);
+        throw error;
+      }
+    });
+  }
+
   function updateProjectAutomation(projectId, payload) {
     const state = getState();
     setState({
@@ -71,6 +108,17 @@ export function createProjectActions({
           ? { ...project, automation: normalizeProjectAutomation({ ...(project.automation || {}), ...payload }) }
           : project
       )
+    });
+  }
+
+  function updateProjectAutomationRemote(projectId, payload) {
+    const state = getState();
+    const project = getProject(state, projectId);
+    const automation = normalizeProjectAutomation({ ...(project.automation || {}), ...payload });
+    return updateProjectPatchRemote(projectId, { automation }, {
+      kind: "automation",
+      resourceName: "automation",
+      label: "Сохраняем авторежим"
     });
   }
 
@@ -83,10 +131,29 @@ export function createProjectActions({
     });
   }
 
+  function resetProjectDailyUsageRemote(projectId = getState().selectedProjectId) {
+    return updateProjectPatchRemote(projectId, {
+      usedToday: 0,
+      dailyUsageDate: createDailyUsageDate()
+    }, {
+      kind: "reset-daily-usage",
+      resourceName: "usage",
+      label: "Сбрасываем дневной лимит"
+    });
+  }
+
   function resetProjectTotalUsage(projectId = getState().selectedProjectId) {
     const state = getState();
     setState({
       projects: state.projects.map((project) => project.id === projectId ? { ...project, usedTotal: 0 } : project)
+    });
+  }
+
+  function resetProjectTotalUsageRemote(projectId = getState().selectedProjectId) {
+    return updateProjectPatchRemote(projectId, { usedTotal: 0 }, {
+      kind: "reset-total-usage",
+      resourceName: "usage",
+      label: "Сбрасываем общий лимит"
     });
   }
 
@@ -181,6 +248,13 @@ export function createProjectActions({
     return project;
   }
 
+  function applyLocalProjectPatch(projectId, patch, project) {
+    setState({
+      projects: getState().projects.map((item) => item.id === projectId ? { ...item, ...patch } : item)
+    });
+    return project;
+  }
+
   async function retryProjectUpdateAfterConflict({ error, payload, projectId }) {
     const remoteState = error?.state;
     const remoteProject = remoteState?.projects?.find((item) => item.id === projectId);
@@ -197,6 +271,33 @@ export function createProjectActions({
       throw retryError;
     }
     if (result.disabled) return applyLocalProjectUpdate(payload, project);
+    const currentState = getState();
+    setState({
+      projects: (remoteState.projects || currentState.projects).map((item) => item.id === project.id ? (result.project || project) : item),
+      products: Array.isArray(remoteState.products) ? remoteState.products : currentState.products,
+      jobs: Array.isArray(remoteState.jobs) ? remoteState.jobs : currentState.jobs
+    }, { skipRemoteSave: true });
+    recordRemoteSave?.(getState(), result.updatedAt);
+    return result.project || project;
+  }
+
+  async function retryProjectPatchAfterConflict({ error, patch, projectId, resourceName }) {
+    const remoteState = error?.state;
+    const remoteProject = remoteState?.projects?.find((item) => item.id === projectId);
+    if (!remoteProject || !error?.updatedAt) return null;
+    const project = { ...remoteProject, ...patch };
+    let result;
+    try {
+      result = resourceName
+        ? await updateRemoteProjectResource(project.id, resourceName, patch, error.updatedAt)
+        : await updateRemoteProject(project.id, project, error.updatedAt, {
+            projectLimitBase: remoteProject?.projectLimit
+          });
+    } catch (retryError) {
+      if (retryError?.conflict) await handleRemoteConflict?.(retryError);
+      throw retryError;
+    }
+    if (result.disabled) return applyLocalProjectPatch(projectId, patch, project);
     const currentState = getState();
     setState({
       projects: (remoteState.projects || currentState.projects).map((item) => item.id === project.id ? (result.project || project) : item),
@@ -245,9 +346,13 @@ export function createProjectActions({
   return {
     updateProjectSettings,
     updateProjectSettingsRemote,
+    updateProjectPatchRemote,
     updateProjectAutomation,
+    updateProjectAutomationRemote,
     resetProjectDailyUsage,
+    resetProjectDailyUsageRemote,
     resetProjectTotalUsage,
+    resetProjectTotalUsageRemote,
     generateProjectField,
     createProject,
     createProjectRemote,
