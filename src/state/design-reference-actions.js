@@ -16,7 +16,6 @@ export function createDesignReferenceActions({
   recordRemoteSave,
   getRemoteUpdatedAt,
   handleRemoteConflict,
-  hasPendingRemoteSave,
   isRemoteReady,
   scheduleFallbackSave,
   runScopedOperation
@@ -154,7 +153,7 @@ export function createDesignReferenceActions({
   };
 
   function shouldUseRemote() {
-    return Boolean(isRemoteReady?.()) && !hasPendingRemoteSave?.();
+    return Boolean(isRemoteReady?.());
   }
 
   async function syncAfterOptimistic(request, { projectId, optimisticValue, optimisticReferenceId }) {

@@ -127,7 +127,6 @@ export function createStore() {
     recordRemoteSave: (nextState, updatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt),
     getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
-    hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
     isRemoteReady: () => hydrationSettled && persistenceStatus.status !== "local",
     scheduleFallbackSave: () => statePersistence?.scheduleSave?.(),
     runScopedOperation: operationController.runScopedOperation

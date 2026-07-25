@@ -47,6 +47,49 @@ test("remote design reference create uses backend endpoint and skips full state 
   }
 });
 
+test("remote design reference create uses backend endpoint while full state save is pending", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "db-v1" });
+    }
+    if (String(url).includes("/design-references") && options.method === "POST") {
+      const body = JSON.parse(options.body);
+      const project = remoteState.projects.find((item) => item.id === remoteState.selectedProjectId);
+      return jsonResponse({
+        saved: true,
+        reference: body.reference,
+        project: { ...project, references: [body.reference, ...project.references] },
+        updatedAt: "db-v2"
+      });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ saved: true, updatedAt: "db-state-save" });
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    store.updateGenerationBrief({ hook: "черновик перед референсом" });
+    calls.length = 0;
+
+    await store.createReference({ title: "Реф во время фонового сейва", imageData: "/api/reference-assets/new-ref" });
+    await wait(320);
+
+    const designCall = calls.find((call) => String(call.url).includes("/design-references"));
+    assert.ok(designCall);
+    assert.equal(JSON.parse(designCall.options.body).baseUpdatedAt, "db-v1");
+    assert.equal(store.getState().projects[0].references[0].title, "Реф во время фонового сейва");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("remote selected design reference update uses backend endpoint", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
