@@ -56,20 +56,18 @@ test("design references api approves generated candidate through backend", async
   assert.deepEqual(calls[0], ["approve", "default", "project-1", "candidate-1"]);
 });
 
-test("design references api rejects stale writes before saving", async () => {
+test("design references api accepts stale app-state versions for isolated reference writes", async () => {
   let wrote = false;
   const response = createJsonResponse();
-  const currentState = { projects: [{ id: "project-1", references: [{ imageData: "data:image/png;base64,AAA" }] }], products: [], jobs: [] };
   const handle = createDesignReferencesApiHandler({
     isPostgresConfigured: () => true,
     withPostgresTransaction: async (callback) => callback({
       query: async (text) => /updated_at/.test(text) ? { rows: [{ updated_at: "db-v2" }] } : { rows: [] }
     }),
-    loadNormalizedState: async () => currentState,
     loadLegacyState: async () => null,
-    updateDesignReferenceForState: async () => {
+    updateDesignReferenceForState: async (_query, _key, projectId, referenceId, patch) => {
       wrote = true;
-      return {};
+      return { reference: { id: referenceId, ...patch }, project: { id: projectId }, updatedAt: "db-v3" };
     }
   });
 
@@ -79,10 +77,10 @@ test("design references api rejects stale writes before saving", async () => {
     new URL("http://localhost/api/projects/project-1/design-references/ref-1")
   );
 
-  assert.equal(response.status, 409);
-  assert.equal(response.payload.conflict, true);
-  assert.equal(response.payload.state.projects[0].references[0].imageData, "");
-  assert.equal(wrote, false);
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.saved, true);
+  assert.equal(response.payload.reference.title, "Stale");
+  assert.equal(wrote, true);
 });
 
 

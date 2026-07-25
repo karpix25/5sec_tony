@@ -69,7 +69,7 @@ test("automation state caps next batch by total project limit", () => {
     automation: { enabled: true, targetCount: 8, batchSize: 5, concurrency: 3 }
   };
 
-  const state = getProjectAutomationState({ project, jobs: [] });
+  const state = getProjectAutomationState({ project, jobs: [], now: getMiddayTodayMs() });
 
   assert.equal(state.remainingDaily, 8);
   assert.equal(state.remainingProject, 1);
@@ -87,7 +87,7 @@ test("automation state resets stale daily usage without changing total usage", (
     automation: { enabled: true, targetCount: 10, batchSize: 5, concurrency: 3 }
   };
 
-  const state = getProjectAutomationState({ project, jobs: [], now: Date.parse("2026-07-24T12:00:00.000Z") });
+  const state = getProjectAutomationState({ project, jobs: [], now: getMiddayTodayMs() });
 
   assert.equal(state.remainingDaily, 100);
   assert.equal(state.remainingProject, 86);
@@ -107,7 +107,7 @@ test("automation state respects exhausted current-day daily limit without changi
     automation: { enabled: true, targetCount: 10, batchSize: 5, concurrency: 3 }
   };
 
-  const state = getProjectAutomationState({ project, jobs: [] });
+  const state = getProjectAutomationState({ project, jobs: [], now: getMiddayTodayMs() });
 
   assert.equal(state.remainingDaily, 0);
   assert.equal(state.remainingProject, 86);
@@ -127,7 +127,7 @@ test("automation state keeps queue errors enabled but blocked from reruns", () =
     automation: { enabled: true, status: "error", batchSize: 1, concurrency: 1 }
   };
 
-  const state = getProjectAutomationState({ project, jobs: [] });
+  const state = getProjectAutomationState({ project, jobs: [], now: getMiddayTodayMs() });
 
   assert.equal(state.automation.enabled, true);
   assert.equal(state.nextCount, 1);
@@ -385,6 +385,10 @@ function getYesterdayDateString() {
   const date = new Date();
   date.setDate(date.getDate() - 1);
   return formatDateString(date);
+}
+
+function getMiddayTodayMs() {
+  return Date.parse(`${getTodayDateString()}T12:00:00.000Z`);
 }
 
 function formatDateString(date) {

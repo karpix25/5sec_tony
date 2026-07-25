@@ -2,10 +2,10 @@ import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.
 import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
 import { getStateTransportMeta, prepareStateForTransport, shouldUseFullStateTransport } from "./state-transport.mjs";
 
-export async function writeWithAppStateConflictCheck({ body, deps, appStateKey, write }) {
+export async function writeWithAppStateConflictCheck({ body, deps, appStateKey, write, allowStaleBaseUpdatedAt = false }) {
   return withAppStateRetry(() => deps.withTransaction(async (tx) => {
     const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
-    if (hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
+    if (!allowStaleBaseUpdatedAt && hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
       return {
         conflict: true,
         updatedAt: currentUpdatedAt,
@@ -21,6 +21,7 @@ export function writeWithConflictCheck(body, deps, write, options = {}) {
     body,
     deps,
     appStateKey: options.appStateKey || defaultAppStateKey,
+    allowStaleBaseUpdatedAt: Boolean(options.allowStaleBaseUpdatedAt),
     write
   });
 }

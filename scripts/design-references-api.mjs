@@ -91,7 +91,7 @@ async function writeDesignReference(request, response, url, deps, write) {
   if (!deps.isConfigured()) return sendJson(response, 200, { saved: false, disabled: true, reason: "postgres_not_configured" });
   try {
     const body = await readJsonBody(request, { limitBytes: designReferencesJsonBodyLimitBytes });
-    const result = await writeWithConflictCheck(body, deps, (tx) => write(body, tx));
+    const result = await writeWithConflictCheck(body, deps, (tx) => write(body, tx), { allowStaleBaseUpdatedAt: true });
     if (result.conflict) return sendConflict(response, url, result);
     return sendJson(response, 200, { saved: true, key: appStateKey, ...result });
   } catch (error) {

@@ -30,6 +30,7 @@ test("server automation scheduler creates a strict queued batch for enabled proj
   const calls = [];
 
   const result = await runAutomationSchedulerOnce({
+    now: getMiddayTodayMs(),
     env: strictQueueEnv,
     deps: {
       updateGenerationState: stateStore.updateGenerationState,
@@ -379,4 +380,8 @@ function createProject(id, overrides = {}) {
 
 function getTodayDateString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function getMiddayTodayMs() {
+  return Date.parse(`${getTodayDateString()}T12:00:00.000Z`);
 }
