@@ -13,18 +13,29 @@ test("project limit guard preserves raised server limit for stale full-state sna
 
 test("project limit guard preserves raised server limit for stale project saves", () => {
   const protectedProject = protectProjectLimitFloor(
-    { id: "project-1", projectLimit: 21, usedTotal: 21 },
-    { id: "project-1", projectLimit: 25, usedTotal: 21 }
+    { id: "project-1", projectLimit: 25, usedTotal: 21 },
+    { id: "project-1", projectLimit: 30, usedTotal: 21 }
   );
 
-  assert.equal(protectedProject.projectLimit, 25);
+  assert.equal(protectedProject.projectLimit, 30);
 });
 
 test("project limit guard allows deliberate lowering above used total", () => {
   const protectedProject = protectProjectLimitFloor(
     { id: "project-1", projectLimit: 50, usedTotal: 21 },
-    { id: "project-1", projectLimit: 100, usedTotal: 21 }
+    { id: "project-1", projectLimit: 100, usedTotal: 21 },
+    { allowProjectLimitDecrease: true }
   );
 
   assert.equal(protectedProject.projectLimit, 50);
+});
+
+test("project limit guard allows deliberate lowering to used total", () => {
+  const protectedProject = protectProjectLimitFloor(
+    { id: "project-1", projectLimit: 21, usedTotal: 21 },
+    { id: "project-1", projectLimit: 25, usedTotal: 21 },
+    { allowProjectLimitDecrease: true }
+  );
+
+  assert.equal(protectedProject.projectLimit, 21);
 });

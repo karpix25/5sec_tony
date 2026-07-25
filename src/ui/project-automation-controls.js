@@ -43,9 +43,13 @@ export function renderProjectAutomationControls(project, automationState) {
 export function bindProjectAutomationControls(root, store) {
   const panel = root.querySelector("#automation-form");
   panel?.addEventListener("change", () => {
-    const projectId = readFieldValue(panel, "projectId");
     const projectSettings = readLimitSettings(panel);
-    if (Object.keys(projectSettings).length) store.updateProjectSettings?.(projectSettings);
+    if (Object.keys(projectSettings).length) {
+      const saveProjectSettings = store.updateProjectSettingsRemote || store.updateProjectSettings;
+      Promise.resolve(saveProjectSettings?.(projectSettings)).catch((error) => {
+        console.warn("[project-automation] limit save failed", error);
+      });
+    }
   });
   panel?.querySelector("#toggle-automation-mode")?.addEventListener("click", (event) => {
     const projectId = readFieldValue(panel, "projectId");

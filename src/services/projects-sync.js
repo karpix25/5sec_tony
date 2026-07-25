@@ -5,8 +5,8 @@ export async function createRemoteProject(bundle, baseUpdatedAt = "") {
   return saveRemoteProject("/api/projects", "POST", bundle, baseUpdatedAt);
 }
 
-export async function updateRemoteProject(projectId, project, baseUpdatedAt = "") {
-  return saveRemoteProject(`/api/projects/${encodeURIComponent(projectId)}`, "PATCH", { project }, baseUpdatedAt);
+export async function updateRemoteProject(projectId, project, baseUpdatedAt = "", metadata = {}) {
+  return saveRemoteProject(`/api/projects/${encodeURIComponent(projectId)}`, "PATCH", { project, ...metadata }, baseUpdatedAt);
 }
 
 export async function deleteRemoteProject(projectId, baseUpdatedAt = "") {

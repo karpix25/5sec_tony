@@ -19,18 +19,24 @@ export class ProjectPersistenceError extends Error {
   }
 }
 
-export async function saveProjectForState(query, appStateKey, projectId, patch) {
+export async function saveProjectForState(query, appStateKey, projectId, patch, options = {}) {
   await ensureStateSchema(query);
   const existing = await loadProject(query, appStateKey, projectId);
   if (!existing) throw new ProjectPersistenceError("Project not found", 404);
+  const allowProjectLimitDecrease = canDecreaseProjectLimit(existing, options);
   const project = protectProjectLimitFloor({
     ...updateProjectEntity(existing, patch),
     ...pickExtraFields(existing, projectKeys),
     ...pickExtraFields(patch, projectKeys)
-  }, existing);
+  }, existing, { allowProjectLimitDecrease });
   await updateProjectRow(query, appStateKey, projectId, project);
   const updatedAt = await rebuildLegacyMirror(query, appStateKey);
   return { project, updatedAt };
+}
+
+function canDecreaseProjectLimit(existing, options = {}) {
+  if (!Object.hasOwn(options, "projectLimitBase")) return false;
+  return asInteger(options.projectLimitBase, -1) === asInteger(existing?.projectLimit, 0);
 }
 
 export async function createProjectForState(query, appStateKey, bundle) {

@@ -226,6 +226,27 @@ test("save normalized state preserves raised project limit from used-total stale
   assert.equal(loadedState.projects[0].projectLimit, 25);
 });
 
+test("save normalized state preserves raised project limit from stale lower snapshots", async () => {
+  const db = createFakeRelationalStateDb();
+  const baseState = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project", dailyLimit: 31, usedToday: 0, projectLimit: 30, usedTotal: 21 }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: []
+  };
+  await saveNormalizedState(db.query, "workspace-protected-lower-project-limit", baseState);
+
+  await saveNormalizedState(db.query, "workspace-protected-lower-project-limit", {
+    ...baseState,
+    projects: [{ ...baseState.projects[0], projectLimit: 25 }]
+  });
+
+  const loadedState = await loadNormalizedState(db.query, "workspace-protected-lower-project-limit");
+  assert.equal(loadedState.projects[0].usedTotal, 21);
+  assert.equal(loadedState.projects[0].projectLimit, 30);
+});
+
 test("save normalized state repairs already corrupted project limit floor", async () => {
   const db = createFakeRelationalStateDb();
   const state = {

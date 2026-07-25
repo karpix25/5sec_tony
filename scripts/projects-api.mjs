@@ -85,7 +85,9 @@ async function handlePatchProject(request, response, url, deps) {
     if (!isPlainObject(patch)) return sendJson(response, 400, { error: "project object is required" });
     if (patch.id && patch.id !== deps.projectId) return sendJson(response, 400, { error: "project id does not match request path" });
     const result = await writeWithConflictCheck(body, deps, (tx) =>
-      deps.saveProject(tx.query, appStateKey, deps.projectId, patch)
+      deps.saveProject(tx.query, appStateKey, deps.projectId, patch, {
+        projectLimitBase: body.projectLimitBase
+      })
     );
     if (result.conflict) return sendConflict(response, url, result);
     return sendJson(response, 200, {

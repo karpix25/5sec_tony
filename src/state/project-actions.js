@@ -38,10 +38,13 @@ export function createProjectActions({
       label: "Сохраняем проект"
     }, async () => {
       const state = getState();
-      const project = updateProjectEntity(getProject(state, projectId), payload);
+      const currentProject = getProject(state, projectId);
+      const project = updateProjectEntity(currentProject, payload);
       if (hasPendingRemoteSave?.()) return applyLocalProjectUpdate(payload, project);
       try {
-        const result = await updateRemoteProject(project.id, project, getRemoteUpdatedAt?.() || "");
+        const result = await updateRemoteProject(project.id, project, getRemoteUpdatedAt?.() || "", {
+          projectLimitBase: currentProject?.projectLimit
+        });
         if (result.disabled) return applyLocalProjectUpdate(payload, project);
         setState({
           projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
@@ -182,10 +185,13 @@ export function createProjectActions({
     const remoteState = error?.state;
     const remoteProject = remoteState?.projects?.find((item) => item.id === projectId);
     if (!remoteProject || !error?.updatedAt) return null;
+    const currentProject = getProject(getState(), projectId);
     const project = updateProjectEntity(remoteProject, payload);
     let result;
     try {
-      result = await updateRemoteProject(project.id, project, error.updatedAt);
+      result = await updateRemoteProject(project.id, project, error.updatedAt, {
+        projectLimitBase: currentProject?.projectLimit
+      });
     } catch (retryError) {
       if (retryError?.conflict) await handleRemoteConflict?.(retryError);
       throw retryError;

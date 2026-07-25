@@ -175,10 +175,12 @@ test("remote project update reapplies settings after stale conflict", async () =
       const body = JSON.parse(options.body);
       if (patchCount === 1) {
         assert.equal(body.baseUpdatedAt, "t0");
+        assert.equal(body.projectLimitBase, remoteState.projects.find((item) => item.id === selectedProjectId).projectLimit);
         return jsonResponse({ conflict: true, updatedAt: "t1", state: freshState }, 409);
       }
       assert.equal(body.baseUpdatedAt, "t1");
       assert.equal(body.project.projectLimit, 25);
+      assert.equal(body.projectLimitBase, remoteState.projects.find((item) => item.id === selectedProjectId).projectLimit);
       return jsonResponse({ saved: true, project: body.project, updatedAt: "t2" });
     }
     if (url === "/api/state" && options.method === "POST") {
