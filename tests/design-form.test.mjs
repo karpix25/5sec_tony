@@ -59,6 +59,8 @@ test("design reference submit awaits backend-first reference creation", async ()
       ["start", "/api/reference-assets/ref-preview"],
       ["done", "Столбы"]
     ]);
+    assert.equal(form.resetCount, 1);
+    assert.equal(form.status.textContent, "Референс сохранен");
   } finally {
     restore();
   }
@@ -94,6 +96,26 @@ test("design reference submit waits for remote hydration before upload and creat
       ["hydrate"],
       ["create", "/api/reference-assets/ref-preview"]
     ]);
+    assert.equal(form.resetCount, 1);
+  } finally {
+    restore();
+  }
+});
+
+test("design reference submit keeps form data and shows status when save fails", async () => {
+  const restore = installFormAndFileFakes({ uploadUrl: "/api/reference-assets/ref-preview" });
+  const form = createDesignForm({ fileName: "style.png" });
+  const store = {
+    async createReference() {
+      throw new Error("fast save failed");
+    }
+  };
+
+  try {
+    await submitDesignReferenceForm(form, store);
+
+    assert.equal(form.resetCount, 0);
+    assert.equal(form.status.textContent, "Ошибка: fast save failed");
   } finally {
     restore();
   }
@@ -136,12 +158,15 @@ test("design reference submit replaces selected reference from replace button", 
 });
 
 function createDesignForm({ fileName }) {
+  const status = { textContent: "" };
   return {
     resetCount: 0,
+    status,
     reset() {
       this.resetCount += 1;
     },
     querySelector(selector) {
+      if (selector === "#reference-form-status") return status;
       if (selector !== "input[type='file']" || !fileName) return { files: [] };
       return { files: [{ name: fileName }] };
     }

@@ -12,23 +12,31 @@ export function bindDesignReferenceFormEvents(root, store) {
 
 export async function submitDesignReferenceForm(form, store, options = {}) {
   try {
+    setReferenceFormStatus(form, "Загружаем состояние из БД");
     await store.whenHydrated?.();
     const mode = getSubmitMode(form, options.submitter);
-    const payload = await getDesignReferencePayloadWithStatus(form, store, options.submitter);
+    const payload = await getDesignReferencePayloadWithStatus(form, store, options.submitter, { reset: false });
     if (!payload.imageData) {
       if (mode === "replace") throw new Error("Для замены выберите файл референса");
+      setReferenceFormStatus(form, "Сохраняем шаблон");
       store.createDesignReferenceTemplate(payload);
+      form.reset?.();
+      setReferenceFormStatus(form, "Шаблон сохранен");
       return;
     }
+    setReferenceFormStatus(form, "Сохраняем референс в БД");
     if (mode === "replace" && options.submitter?.dataset?.replaceReference) {
       await store.replaceDesignReference(options.submitter.dataset.replaceReference, payload);
     } else {
       await store.createReference({ ...payload, promptComment: "", takeaways: "" });
     }
+    form.reset?.();
+    setReferenceFormStatus(form, "Референс сохранен");
     refreshSavedDesignAnalysis(store).catch((error) => {
       console.warn("[design-reference:analysis:error]", error.message || error);
     });
   } catch (error) {
+    setReferenceFormStatus(form, `Ошибка: ${error.message || "не удалось сохранить референс"}`);
     console.warn("[design-reference:save:error]", error.message || error);
   }
 }
@@ -44,11 +52,11 @@ async function refreshSavedDesignAnalysis(store) {
   await store.updateSelectedDesignReference({ designAnalysis: { ...designAnalysis, analyzedAt: new Date().toISOString() } });
 }
 
-export async function getDesignReferencePayload(form) {
+export async function getDesignReferencePayload(form, options = {}) {
   const file = form.querySelector("input[type='file']")?.files?.[0];
   const payload = Object.fromEntries(new FormData(form).entries());
   if (!file) {
-    form.reset();
+    if (options.reset !== false) form.reset();
     return payload;
   }
 
@@ -56,13 +64,13 @@ export async function getDesignReferencePayload(form) {
   const imageData = await readImageFileAsOptimizedDataUrl(file);
   const uploaded = await uploadReferenceAsset({ imageData, imageName: file.name });
   payload.imageData = uploaded.url;
-  form.reset();
+  if (options.reset !== false) form.reset();
   return payload;
 }
 
-async function getDesignReferencePayloadWithStatus(form, store, submitter) {
+async function getDesignReferencePayloadWithStatus(form, store, submitter, options = {}) {
   if (!hasSelectedDesignFile(form) || typeof store.runScopedOperation !== "function") {
-    return getDesignReferencePayload(form);
+    return getDesignReferencePayload(form, options);
   }
   const projectId = store.getState?.().selectedProjectId || "project";
   return store.runScopedOperation({
@@ -72,7 +80,7 @@ async function getDesignReferencePayloadWithStatus(form, store, submitter) {
     targetId: submitter?.dataset?.replaceReference || "new",
     label: "Загружаем файл референса",
     activeStatus: "uploading"
-  }, () => getDesignReferencePayload(form));
+  }, () => getDesignReferencePayload(form, options));
 }
 
 function hasSelectedDesignFile(form) {
@@ -83,4 +91,10 @@ function getSubmitMode(form, submitter) {
   const mode = submitter?.dataset?.replaceReference ? "replace" : form?.dataset?.submitMode || "create";
   form?.removeAttribute?.("data-submit-mode");
   return mode;
+}
+
+function setReferenceFormStatus(form, message) {
+  const status = form?.querySelector?.("#reference-form-status")
+    || (typeof document !== "undefined" ? document.querySelector("#reference-form-status") : null);
+  if (status) status.textContent = message;
 }
