@@ -68,8 +68,13 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
   setStatus(status, "Сохраняем проект...", "loading");
   try {
     const snapshot = formSnapshot(form);
+    const shouldRefreshAi = hasProjectAiMemorySourceChanges(store, snapshot);
     await saveProjectSettings(store, snapshot);
     projectSaved = true;
+    if (!shouldRefreshAi) {
+      setStatus(status, "Проект сохранен.", "success");
+      return;
+    }
     if (button) button.textContent = "Обновляем AI...";
     setStatus(status, "Обновляем AI-память для будущих генераций...", "loading");
     const draft = await requestAudienceExpertDraft(store, snapshot);
@@ -171,6 +176,34 @@ async function requestProjectFieldDraft(store, snapshot, fieldName) {
 
 function formSnapshot(form) {
   return form ? Object.fromEntries(new FormData(form).entries()) : {};
+}
+
+function hasProjectAiMemorySourceChanges(store, snapshot) {
+  const state = store.getState?.();
+  const project = state?.projects?.find((item) => item.id === state.selectedProjectId);
+  if (!project) return true;
+  return projectAiMemorySourceFields.some((field) => normalizeFormText(snapshot[field]) !== normalizeFormText(project[field]));
+}
+
+const projectAiMemorySourceFields = [
+  "projectTheme",
+  "niche",
+  "keyScenarios",
+  "audiencePains",
+  "audienceDesires",
+  "audienceObjections",
+  "allowedTriggers",
+  "forbiddenTriggers",
+  "hookAggression",
+  "contentRestrictions",
+  "companyInfo",
+  "companyAudience",
+  "toneOfVoice",
+  "restrictions"
+];
+
+function normalizeFormText(value) {
+  return String(value ?? "").trim();
 }
 
 function getLiveProjectForm(form) {

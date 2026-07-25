@@ -153,6 +153,57 @@ test("remote project update falls back to pending state save on network failure"
   }
 });
 
+test("remote project update reapplies settings after stale conflict", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = createInitialState();
+  const selectedProjectId = remoteState.selectedProjectId;
+  const freshState = {
+    ...remoteState,
+    projects: remoteState.projects.map((project) =>
+      project.id === selectedProjectId ? { ...project, projectLimit: 21, usedTotal: 21 } : project
+    )
+  };
+  let patchCount = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (String(url).startsWith("/api/projects/") && options.method === "PATCH") {
+      patchCount += 1;
+      const body = JSON.parse(options.body);
+      if (patchCount === 1) {
+        assert.equal(body.baseUpdatedAt, "t0");
+        return jsonResponse({ conflict: true, updatedAt: "t1", state: freshState }, 409);
+      }
+      assert.equal(body.baseUpdatedAt, "t1");
+      assert.equal(body.project.projectLimit, 25);
+      return jsonResponse({ saved: true, project: body.project, updatedAt: "t2" });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for project update conflict retry" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await store.updateProjectSettingsRemote({ projectLimit: "25" });
+    await wait(320);
+
+    const project = store.getState().projects.find((item) => item.id === selectedProjectId);
+    assert.equal(project.projectLimit, 25);
+    assert.equal(patchCount, 2);
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function jsonResponse(payload, status = 200) {
   return {
     ok: status >= 200 && status < 300,

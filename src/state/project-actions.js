@@ -49,7 +49,11 @@ export function createProjectActions({
         recordRemoteSave?.(getState(), result.updatedAt);
         return result.project || project;
       } catch (error) {
-        if (error?.conflict) await handleRemoteConflict?.(error);
+        if (error?.conflict) {
+          const retried = await retryProjectUpdateAfterConflict({ error, payload, projectId });
+          if (retried) return retried;
+          await handleRemoteConflict?.(error);
+        }
         if (!error?.conflict && isTransientFetchError(error)) return applyLocalProjectUpdate(payload, project);
         throw error;
       }
@@ -172,6 +176,29 @@ export function createProjectActions({
   function applyLocalProjectUpdate(payload, project) {
     updateProjectSettings(payload);
     return project;
+  }
+
+  async function retryProjectUpdateAfterConflict({ error, payload, projectId }) {
+    const remoteState = error?.state;
+    const remoteProject = remoteState?.projects?.find((item) => item.id === projectId);
+    if (!remoteProject || !error?.updatedAt) return null;
+    const project = updateProjectEntity(remoteProject, payload);
+    let result;
+    try {
+      result = await updateRemoteProject(project.id, project, error.updatedAt);
+    } catch (retryError) {
+      if (retryError?.conflict) await handleRemoteConflict?.(retryError);
+      throw retryError;
+    }
+    if (result.disabled) return applyLocalProjectUpdate(payload, project);
+    const currentState = getState();
+    setState({
+      projects: (remoteState.projects || currentState.projects).map((item) => item.id === project.id ? (result.project || project) : item),
+      products: Array.isArray(remoteState.products) ? remoteState.products : currentState.products,
+      jobs: Array.isArray(remoteState.jobs) ? remoteState.jobs : currentState.jobs
+    }, { skipRemoteSave: true });
+    recordRemoteSave?.(getState(), result.updatedAt);
+    return result.project || project;
   }
 
   function applyCreatedProject({ state, project, product }, options = {}) {

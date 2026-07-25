@@ -261,6 +261,64 @@ test("project save keeps manual ai-field edits made while request is running", a
   assert.equal(updates.at(-1).companyAudience, "Ручная новая ЦА");
 });
 
+test("project save skips ai memory refresh for limit-only changes", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  const form = createProjectSettingsForm({
+    name: "Проект",
+    dailyLimit: "31",
+    projectLimit: "25",
+    projectTheme: "Тема",
+    companyAudience: "ЦА",
+    restrictions: "Нельзя"
+  });
+  const updates = [];
+  const fetchCalls = [];
+  const store = {
+    getState: () => ({
+      selectedProjectId: "project",
+      projects: [{
+        id: "project",
+        name: "Проект",
+        dailyLimit: 20,
+        projectLimit: 21,
+        projectTheme: "Тема",
+        companyAudience: "ЦА",
+        restrictions: "Нельзя"
+      }],
+      products: []
+    }),
+    updateProjectSettings: (payload) => updates.push({ ...payload })
+  };
+  globalThis.FormData = class FakeFormData {
+    constructor(target) {
+      this.entriesList = Object.entries(target.values);
+    }
+    entries() {
+      return this.entriesList[Symbol.iterator]();
+    }
+    [Symbol.iterator]() {
+      return this.entriesList[Symbol.iterator]();
+    }
+  };
+  globalThis.fetch = async () => {
+    fetchCalls.push("ai");
+    return { ok: true, json: async () => ({ draft: { companyAudience: "AI ЦА" } }) };
+  };
+
+  try {
+    await saveProjectAndRefreshAiMemory(form, store);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.FormData = originalFormData;
+  }
+
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].projectLimit, "25");
+  assert.deepEqual(fetchCalls, []);
+  assert.equal(form.status.textContent, "Проект сохранен.");
+});
+
 test("project save recovers UI when state save throws", async () => {
   const originalFormData = globalThis.FormData;
   const form = createProjectSettingsForm({ name: "Проект", companyAudience: "ЦА" });
@@ -295,7 +353,7 @@ test("project save keeps saved status when only ai memory fails", async () => {
   const form = createProjectSettingsForm({ name: "Проект", companyAudience: "ЦА" });
   const updates = [];
   const store = {
-    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project" }], products: [] }),
+    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project", audienceObjections: "Старое возражение" }], products: [] }),
     updateProjectSettings: (payload) => updates.push({ ...payload })
   };
   globalThis.FormData = class FakeFormData {
@@ -332,7 +390,7 @@ test("project save strips replacement signs from ai memory text", async () => {
   });
   const updates = [];
   const store = {
-    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project" }], products: [] }),
+    getState: () => ({ selectedProjectId: "project", projects: [{ id: "project", audienceObjections: "Старое возражение" }], products: [] }),
     updateProjectSettings: (payload) => updates.push({ ...payload })
   };
   globalThis.FormData = class FakeFormData {
