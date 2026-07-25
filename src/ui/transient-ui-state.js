@@ -76,6 +76,7 @@ function captureFormDraft(form) {
   const draft = {};
   [...form.elements].forEach((field) => {
     if (!field?.name) return;
+    if (isFileInput(field)) return;
     draft[field.name] = field.type === "checkbox" ? field.checked : field.value;
   });
   return draft;
@@ -86,6 +87,7 @@ function restoreFormDraft(form, draft) {
   if ((form.dataset?.transientContext || "") !== (draft.context || "")) return;
   [...form.elements].forEach((field) => {
     if (!field?.name || !Object.hasOwn(draft.fields, field.name)) return;
+    if (isFileInput(field)) return;
     restoreFieldValue(field, draft.fields[field.name]);
   });
 }
@@ -105,4 +107,8 @@ function captureFieldValue(field) {
 function restoreFieldValue(field, value) {
   if (field.type === "checkbox") field.checked = Boolean(value);
   else if (value !== undefined && value !== null) field.value = value;
+}
+
+function isFileInput(field) {
+  return String(field.type || "").toLowerCase() === "file";
 }

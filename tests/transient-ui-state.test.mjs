@@ -150,6 +150,42 @@ test("transient form restore keeps drafts for the same product context", () => {
   assert.equal(renderedName.value, "Черновик продукта");
 });
 
+test("transient form state ignores file inputs", () => {
+  const fileInput = createFileInput("imageFile", "C:\\fakepath\\reference.png");
+  const title = { name: "title", type: "text", value: "Новый стиль" };
+  const snapshot = captureTransientUiState(createRoot({
+    forms: {
+      "reference-form": {
+        id: "reference-form",
+        elements: [title, fileInput]
+      }
+    }
+  }));
+
+  assert.deepEqual(snapshot.forms["reference-form"].draft, { title: "Новый стиль" });
+
+  const renderedFileInput = createFileInput("imageFile", "");
+  const renderedTitle = { name: "title", type: "text", value: "" };
+  restoreTransientUiState(createRoot({
+    forms: {
+      "reference-form": {
+        id: "reference-form",
+        elements: [renderedTitle, renderedFileInput]
+      }
+    }
+  }), {
+    forms: {
+      "reference-form": {
+        context: "",
+        draft: { title: "Новый стиль", imageFile: "C:\\fakepath\\reference.png" }
+      }
+    }
+  });
+
+  assert.equal(renderedTitle.value, "Новый стиль");
+  assert.equal(renderedFileInput.value, "");
+});
+
 test("transient details restore keeps forced avatar video section open", () => {
   const avatarVideoSection = { dataset: { avatarSection: "video", forceOpen: "true" }, open: false };
   const root = createRoot({ details: { video: avatarVideoSection } });
@@ -185,6 +221,21 @@ function createRoot({ generationCount, hookTitle, hookText, forms = {}, details 
       if (selector === "form[id]") return Object.values(forms);
       if (selector === "[data-avatar-section]") return Object.values(details);
       return [];
+    }
+  };
+}
+
+function createFileInput(name, initialValue) {
+  let value = initialValue;
+  return {
+    name,
+    type: "file",
+    get value() {
+      return value;
+    },
+    set value(next) {
+      if (next !== "") throw new Error("File input value cannot be set");
+      value = next;
     }
   };
 }
