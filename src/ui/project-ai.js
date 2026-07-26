@@ -1,4 +1,5 @@
 import { generateAudienceExpertDraft } from "../services/audience-expert.js";
+import { raiseProjectLimitAboveUsedTotal } from "./project-limit-fields.js";
 
 const projectAiFieldLabels = {
   projectTheme: "Тема проекта",
@@ -67,12 +68,13 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
   }
   setStatus(status, "Сохраняем проект...", "loading");
   try {
-    const snapshot = formSnapshot(form);
+    const limitResult = raiseProjectLimitAboveUsedTotal(formSnapshot(form), store, form);
+    const snapshot = limitResult.payload;
     const shouldRefreshAi = hasProjectAiMemorySourceChanges(store, snapshot);
     await saveProjectSettings(store, snapshot);
     projectSaved = true;
     if (!shouldRefreshAi) {
-      setStatus(status, "Проект сохранен.", "success");
+      setStatus(status, limitResult.adjusted ? `Проект сохранен. ${limitResult.message}` : "Проект сохранен.", "success");
       return;
     }
     if (button) button.textContent = "Обновляем AI...";

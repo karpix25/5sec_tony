@@ -56,3 +56,44 @@ test("project automation limit edits use remote project save when available", as
 
   assert.deepEqual(calls, [{ dailyLimit: 31, projectLimit: 30 }]);
 });
+
+test("project automation limit edit raises total limit above used total", async () => {
+  let changeHandler = null;
+  const fields = {
+    projectId: { value: "project-1" },
+    dailyLimit: { value: "31" },
+    projectLimit: { value: "25" }
+  };
+  const note = { textContent: "" };
+  const panel = {
+    addEventListener(type, handler) {
+      if (type === "change") changeHandler = handler;
+    },
+    querySelector(selector) {
+      if (selector === "[data-project-limit-note]") return note;
+      const match = selector.match(/^\[name="(.+)"\]$/);
+      if (match) return fields[match[1]] || null;
+      return null;
+    }
+  };
+  const calls = [];
+  const root = {
+    querySelector(selector) {
+      return selector === "#automation-form" ? panel : null;
+    }
+  };
+
+  bindProjectAutomationControls(root, {
+    getState: () => ({
+      selectedProjectId: "project-1",
+      projects: [{ id: "project-1", usedTotal: 51, projectLimit: 51 }]
+    }),
+    updateProjectSettingsRemote: async (payload) => calls.push(payload)
+  });
+  changeHandler?.();
+  await Promise.resolve();
+
+  assert.deepEqual(calls, [{ dailyLimit: 31, projectLimit: 52 }]);
+  assert.equal(fields.projectLimit.value, "52");
+  assert.match(note.textContent, /уже использовано 51/i);
+});

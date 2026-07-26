@@ -319,6 +319,40 @@ test("project save skips ai memory refresh for limit-only changes", async () => 
   assert.equal(form.status.textContent, "Проект сохранен.");
 });
 
+test("project save raises total limit above already used generations", async () => {
+  const originalFormData = globalThis.FormData;
+  const form = createProjectSettingsForm({
+    name: "GARANTIS",
+    dailyLimit: "31",
+    projectLimit: "25",
+    projectTheme: "Тема",
+    companyAudience: "ЦА",
+    restrictions: "Нельзя"
+  });
+  const updates = [];
+  const project = { id: "project", name: "GARANTIS", dailyLimit: 31, projectLimit: 51, usedTotal: 51, projectTheme: "Тема", companyAudience: "ЦА", restrictions: "Нельзя" };
+  const store = {
+    getState: () => ({ selectedProjectId: "project", projects: [project], products: [] }),
+    updateProjectSettings: (payload) => updates.push({ ...payload })
+  };
+  globalThis.FormData = class FakeFormData {
+    constructor(target) { this.entriesList = Object.entries(target.values); }
+    entries() { return this.entriesList[Symbol.iterator](); }
+    [Symbol.iterator]() { return this.entriesList[Symbol.iterator](); }
+  };
+
+  try {
+    await saveProjectAndRefreshAiMemory(form, store);
+  } finally {
+    globalThis.FormData = originalFormData;
+  }
+
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].projectLimit, "52");
+  assert.equal(form.values.projectLimit, "52");
+  assert.match(form.status.textContent, /уже использовано 51/i);
+});
+
 test("project save recovers UI when state save throws", async () => {
   const originalFormData = globalThis.FormData;
   const form = createProjectSettingsForm({ name: "Проект", companyAudience: "ЦА" });

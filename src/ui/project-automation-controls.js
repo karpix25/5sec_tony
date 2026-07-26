@@ -1,4 +1,5 @@
 import { escapeHtml } from "./infographic.js";
+import { getProjectTotalLimitHint, raiseProjectLimitAboveUsedTotal } from "./project-limit-fields.js";
 
 export function renderProjectAutomationControls(project, automationState) {
   const { automation } = automationState;
@@ -7,6 +8,7 @@ export function renderProjectAutomationControls(project, automationState) {
   const nextEnabled = !automation.enabled || canRetryError;
   const buttonLabel = getAutomationButtonLabel(automation, canRetryError);
   const note = getAutomationNote(automation);
+  const limitHint = getProjectTotalLimitHint(project);
   return `
     <section class="automation-card project-automation-card">
       <div class="automation-head">
@@ -28,6 +30,7 @@ export function renderProjectAutomationControls(project, automationState) {
             <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
           </label>
         </div>
+        <small class="automation-note" data-project-limit-note>${escapeHtml(limitHint)}</small>
         ${note ? `<small class="automation-note">${escapeHtml(note)}</small>` : ""}
         <button
           id="toggle-automation-mode"
@@ -43,7 +46,10 @@ export function renderProjectAutomationControls(project, automationState) {
 export function bindProjectAutomationControls(root, store) {
   const panel = root.querySelector("#automation-form");
   panel?.addEventListener("change", () => {
-    const projectSettings = readLimitSettings(panel);
+    const projectId = readFieldValue(panel, "projectId");
+    const limitResult = raiseProjectLimitAboveUsedTotal(readLimitSettings(panel), store, panel, { projectId });
+    const projectSettings = limitResult.payload;
+    setLimitNote(panel, limitResult.message || "");
     if (Object.keys(projectSettings).length) {
       const saveProjectSettings = store.updateProjectSettingsRemote || store.updateProjectSettings;
       Promise.resolve(saveProjectSettings?.(projectSettings)).catch((error) => {
@@ -64,6 +70,12 @@ export function bindProjectAutomationControls(root, store) {
       console.warn("[project-automation] automation save failed", error);
     });
   });
+}
+
+function setLimitNote(panel, message) {
+  const note = panel?.querySelector?.("[data-project-limit-note]");
+  if (!note || !message) return;
+  note.textContent = message;
 }
 
 function getAutomationStatusView(automationState) {

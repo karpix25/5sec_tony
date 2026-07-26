@@ -147,6 +147,7 @@ const files = [
   "src/ui/preview-modal.js",
   "src/ui/button-debug.js",
   "src/ui/form-data.js",
+  "src/ui/project-limit-fields.js",
   "src/ui/brief-field-labels.js",
   "src/ui/product-analysis-merge.js",
   "src/ui/transient-ui-state.js",
