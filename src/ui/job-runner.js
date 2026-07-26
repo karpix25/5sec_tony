@@ -13,7 +13,7 @@ export async function runImageJob(store, jobId) {
     stage: "image",
     progress: Math.max(12, Number(job.progress || 0)),
     failMsg: "Передали генерацию серверу..."
-  });
+  }, { skipRemoteSave: true });
 
   try {
     const currentJob = findJob(store, jobId) || job;
@@ -67,7 +67,7 @@ async function pollServerImageJob(store, jobId, options = {}) {
         }
         store.patchJob(jobId, {
           failMsg: "Не удалось прочитать статус сервера, пробуем еще раз..."
-        });
+        }, { skipRemoteSave: true });
       }
     }
     failServerJob(store, jobId, "Сервер слишком долго не вернул результат. Проверьте задачу и запустите заново.");
@@ -78,7 +78,7 @@ async function pollServerImageJob(store, jobId, options = {}) {
 
 function applyServerJobPayload(store, payload) {
   if (!payload?.job?.id) return;
-  store.patchJob(payload.job.id, payload.job);
+  store.patchJob(payload.job.id, payload.job, { skipRemoteSave: true });
   applyAvatarUsage(store, payload.job.id, payload.avatarUsage);
 }
 
@@ -125,7 +125,7 @@ function failServerJob(store, jobId, message) {
     stage: "image",
     progress: 100,
     failMsg: message
-  });
+  }, { skipRemoteSave: true });
 }
 
 function findJob(store, jobId) {

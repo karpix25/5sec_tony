@@ -68,13 +68,13 @@ export function createJobActions({ getState, setState, getProject }) {
         setState({
           selectedProjectTab: "queue",
           jobs: [failedJob, ...state.jobs]
-        });
+        }, { skipRemoteSave: true });
         return { batchId: serverBatchId, jobs: [failedJob], accepted: false, reason: failedJob.failMsg };
       }
       setState({
         selectedProjectTab: "queue",
         jobs: [...reservedJobs, ...state.jobs]
-      });
+      }, { skipRemoteSave: true });
       return { batchId: serverBatchId, jobs: reservedJobs, accepted: true, reason: "" };
     },
     failPendingGenerationBatch(batchId, message) {
@@ -92,14 +92,14 @@ export function createJobActions({ getState, setState, getProject }) {
               }
             : job
         ))
-      });
+      }, { skipRemoteSave: true });
     },
     mergeServerJobs(jobs = []) {
       const state = getState();
       const incoming = Array.isArray(jobs) ? jobs.filter((job) => job?.id) : [];
       if (!incoming.length) return [];
       const ids = new Set(incoming.map((job) => job.id));
-      setState({ jobs: [...incoming, ...state.jobs.filter((job) => !ids.has(job.id))] });
+      setState({ jobs: [...incoming, ...state.jobs.filter((job) => !ids.has(job.id))] }, { skipRemoteSave: true });
       return incoming;
     },
     replacePendingGenerationJob(jobId) {
@@ -118,8 +118,8 @@ export function createJobActions({ getState, setState, getProject }) {
       setState({ jobs: state.jobs.map((item) => (item.id === jobId ? job : item)) });
       return job;
     },
-    patchJob(jobId, payload) {
-      setState(patchJobWithQuotaAccounting(getState(), jobId, payload));
+    patchJob(jobId, payload, options = {}) {
+      setState(patchJobWithQuotaAccounting(getState(), jobId, payload), options);
     },
     replaceJob(jobId, jobNext) {
       const state = getState();

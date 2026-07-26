@@ -68,6 +68,8 @@ test("image job starts on the server and mirrors final status into the queue", a
     audioLibrary: [{ id: "audio-1", title: "Beat", fileData: "data:audio/wav;base64,UklGRg==" }]
   };
   const store = createTestStore(state);
+  const patchOptions = [];
+  store.onPatch = (_jobId, _payload, options) => patchOptions.push(options);
   let runPayload = null;
   let markedUsage = null;
   store.markAvatarVideoUsed = (characterId, videoId, nextIndex, nextCharacterIndex) => {
@@ -111,6 +113,7 @@ test("image job starts on the server and mirrors final status into the queue", a
     assert.equal(runPayload.context.selectedAudioId, "audio-1");
     assert.equal(state.jobs[0].finalVideoUrl, "/generated/avatar-videos/final.mp4");
     assert.deepEqual(markedUsage, { characterId: "char-1", videoId: "video-1", nextIndex: 1, nextCharacterIndex: 0 });
+    assert.equal(patchOptions.every((options) => options?.skipRemoteSave === true), true);
   } finally {
     globalThis.fetch = originalFetch;
     restore();
@@ -175,7 +178,8 @@ test("running local job without server acceptance is not resumed after reload", 
 function createTestStore(state) {
   return {
     getState: () => state,
-    patchJob: (jobId, payload) => {
+    patchJob(jobId, payload, options = {}) {
+      this.onPatch?.(jobId, payload, options);
       const target = state.jobs.find((item) => item.id === jobId);
       if (target) Object.assign(target, payload);
     }

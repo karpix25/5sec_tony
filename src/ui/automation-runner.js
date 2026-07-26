@@ -83,5 +83,7 @@ function markAutomation(store, projectId, status, lastMessage, options = {}) {
   if (Object.hasOwn(options, "enabled")) payload.enabled = options.enabled;
   const enabledUnchanged = !Object.hasOwn(payload, "enabled") || project?.automation?.enabled === payload.enabled;
   if (project?.automation?.status === status && project?.automation?.lastMessage === lastMessage && enabledUnchanged) return;
-  store.updateProjectAutomation(projectId, payload);
+  const saveAutomation = store.updateProjectAutomationRemote || store.updateProjectAutomation;
+  Promise.resolve(saveAutomation?.call(store, projectId, payload))
+    .catch((error) => console.warn("[automation:status-save]", error));
 }
