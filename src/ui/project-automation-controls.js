@@ -7,7 +7,7 @@ export function renderProjectAutomationControls(project, automationState) {
   const canRetryError = automation.enabled && automation.status === "error";
   const nextEnabled = !automation.enabled || canRetryError;
   const buttonLabel = getAutomationButtonLabel(automation, canRetryError);
-  const note = getAutomationNote(automation);
+  const note = getAutomationNote(automationState);
   const limitHint = getProjectTotalLimitHint(project);
   return `
     <section class="automation-card project-automation-card">
@@ -97,11 +97,14 @@ function getAutomationButtonLabel(automation, canRetryError) {
   return automation.enabled ? "Остановить авторежим" : "Включить авторежим";
 }
 
-function getAutomationNote(automation) {
+function getAutomationNote(automationState) {
+  const { automation, remainingProject } = automationState || {};
   const message = String(automation?.lastMessage || "").trim();
   if (automation?.status === "error") return message;
   if (automation?.status === "waiting") return "Авторежим продолжит после обновления дневного лимита.";
-  if (automation?.status === "done" && /Лимит проекта исчерпан/i.test(message)) return "Лимит проекта исчерпан.";
+  if (automation?.status === "done" && /Лимит проекта исчерпан/i.test(message)) {
+    return Number(remainingProject || 0) <= 0 ? "Лимит проекта исчерпан." : "";
+  }
   if (automation?.status === "done" && /Цель авторежима выполнена/i.test(message)) return "";
   return "";
 }

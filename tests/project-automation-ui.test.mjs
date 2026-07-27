@@ -23,6 +23,27 @@ test("project automation render prioritizes exhausted project limit over active 
   assert.doesNotMatch(html, /В работе/);
 });
 
+test("project automation render ignores stale exhausted note when project has capacity", () => {
+  const html = renderProjectAutomationControls(
+    { id: "project-1", dailyLimit: 31, projectLimit: 101, usedTotal: 51 },
+    {
+      automation: {
+        enabled: false,
+        status: "done",
+        lastMessage: "Лимит проекта исчерпан. Авторежим выключен."
+      },
+      activeJobs: 0,
+      completedJobs: 51,
+      remainingDaily: 2,
+      remainingProject: 50,
+      canRun: true
+    }
+  );
+
+  assert.doesNotMatch(html, /<small class="automation-note">Лимит проекта исчерпан\.<\/small>/);
+  assert.match(html, /Уже использовано: 51/);
+});
+
 test("project automation limit edits use remote project save when available", async () => {
   let changeHandler = null;
   const fields = {
