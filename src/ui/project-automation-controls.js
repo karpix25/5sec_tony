@@ -1,5 +1,5 @@
 import { escapeHtml } from "./infographic.js";
-import { getProjectTotalLimitHint, raiseProjectLimitAboveUsedTotal } from "./project-limit-fields.js";
+import { getProjectTotalLimitHint, raiseProjectLimitAboveUsedTotal, readProjectLimitBase } from "./project-limit-fields.js";
 
 export function renderProjectAutomationControls(project, automationState) {
   const { automation } = automationState;
@@ -27,7 +27,7 @@ export function renderProjectAutomationControls(project, automationState) {
           </label>
           <label class="stacked-field compact-field">
             <span>Лимит на весь проект</span>
-            <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" required>
+            <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" data-project-limit-base="${Number(project.projectLimit || 500)}" required>
           </label>
         </div>
         <small class="automation-note" data-project-limit-note>${escapeHtml(limitHint)}</small>
@@ -52,7 +52,9 @@ export function bindProjectAutomationControls(root, store) {
     setLimitNote(panel, limitResult.message || "");
     if (Object.keys(projectSettings).length) {
       const saveProjectSettings = store.updateProjectSettingsRemote || store.updateProjectSettings;
-      Promise.resolve(saveProjectSettings?.(projectSettings)).catch((error) => {
+      Promise.resolve(saveProjectSettings?.(projectSettings, {
+        projectLimitBase: readProjectLimitBase(panel)
+      })).catch((error) => {
         console.warn("[project-automation] limit save failed", error);
       });
     }

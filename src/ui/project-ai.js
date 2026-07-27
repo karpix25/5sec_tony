@@ -1,5 +1,5 @@
 import { generateAudienceExpertDraft } from "../services/audience-expert.js";
-import { raiseProjectLimitAboveUsedTotal } from "./project-limit-fields.js";
+import { raiseProjectLimitAboveUsedTotal, readProjectLimitBase } from "./project-limit-fields.js";
 
 const projectAiFieldLabels = {
   projectTheme: "Тема проекта",
@@ -47,7 +47,9 @@ export async function runAudienceExpertAi(button, store) {
     const liveSnapshot = formSnapshot(liveForm);
     const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft);
     applyAudienceExpertDraft(liveForm, mergedDraft);
-    await saveProjectSettings(store, { ...formSnapshot(liveForm), ...mergedDraft });
+    await saveProjectSettings(store, { ...formSnapshot(liveForm), ...mergedDraft }, {
+      projectLimitBase: readProjectLimitBase(liveForm)
+    });
     setStatus(status, "AI-память обновлена и будет использоваться в генерациях.", "success");
   } catch (error) {
     setStatus(status, humanizeError(error), "error");
@@ -68,10 +70,11 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
   }
   setStatus(status, "Сохраняем проект...", "loading");
   try {
+    const projectLimitBase = readProjectLimitBase(form);
     const limitResult = raiseProjectLimitAboveUsedTotal(formSnapshot(form), store, form);
     const snapshot = limitResult.payload;
     const shouldRefreshAi = hasProjectAiMemorySourceChanges(store, snapshot);
-    await saveProjectSettings(store, snapshot);
+    await saveProjectSettings(store, snapshot, { projectLimitBase });
     projectSaved = true;
     if (!shouldRefreshAi) {
       setStatus(status, limitResult.adjusted ? `Проект сохранен. ${limitResult.message}` : "Проект сохранен.", "success");
@@ -84,7 +87,7 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
     const liveSnapshot = formSnapshot(liveForm);
     const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft, { preserveFilledLiveValues: true });
     applyAudienceExpertDraft(liveForm, mergedDraft);
-    await saveProjectSettings(store, formSnapshot(liveForm));
+    await saveProjectSettings(store, formSnapshot(liveForm), { projectLimitBase: readProjectLimitBase(liveForm) ?? projectLimitBase });
     setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
   } catch (error) {
     setStatus(status, humanizeProjectSaveError(error, { projectSaved }), "error");
@@ -113,7 +116,9 @@ export async function runProjectFieldAi(button, store) {
     const liveField = liveForm?.querySelector(`[name="${fieldName}"]`) || field;
     const nextValue = shouldKeepLiveValue(snapshot[fieldName], liveSnapshot[fieldName]) ? liveSnapshot[fieldName] : (payload.value || snapshot[fieldName] || "");
     if (liveField && nextValue) liveField.value = nextValue;
-    await saveProjectSettings(store, { ...liveSnapshot, [fieldName]: nextValue });
+    await saveProjectSettings(store, { ...liveSnapshot, [fieldName]: nextValue }, {
+      projectLimitBase: readProjectLimitBase(liveForm)
+    });
     setStatus(status, "Готово. Проверьте текст и сохраните настройки.", "success");
   } catch (error) {
     const message = humanizeError(error);
@@ -125,9 +130,9 @@ export async function runProjectFieldAi(button, store) {
   }
 }
 
-async function saveProjectSettings(store, payload) {
+async function saveProjectSettings(store, payload, options = {}) {
   if (typeof store.updateProjectSettingsRemote === "function") {
-    return store.updateProjectSettingsRemote(payload);
+    return store.updateProjectSettingsRemote(payload, options);
   }
   store.updateProjectSettings(payload);
   return null;

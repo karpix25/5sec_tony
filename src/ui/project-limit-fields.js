@@ -24,6 +24,12 @@ export function getProjectTotalLimitHint(project = {}) {
   return `Уже использовано: ${usedTotal}. Для новых генераций общий лимит должен быть больше ${usedTotal}.`;
 }
 
+export function readProjectLimitBase(form = null) {
+  const field = form?.querySelector?.('[name="projectLimit"]');
+  const base = Number(field?.dataset?.projectLimitBase);
+  return Number.isFinite(base) ? base : null;
+}
+
 function getProjectForLimit(store, projectId = "") {
   const state = store?.getState?.() || {};
   const id = projectId || state.selectedProjectId || "";

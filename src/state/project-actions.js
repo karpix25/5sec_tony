@@ -28,7 +28,7 @@ export function createProjectActions({
     });
   }
 
-  function updateProjectSettingsRemote(payload) {
+  function updateProjectSettingsRemote(payload, options = {}) {
     const projectId = getState().selectedProjectId;
     return runProjectOperation({
       scope: `project:${projectId}`,
@@ -43,7 +43,7 @@ export function createProjectActions({
       if (hasPendingRemoteSave?.()) return applyLocalProjectUpdate(payload, project);
       try {
         const result = await updateRemoteProject(project.id, project, getRemoteUpdatedAt?.() || "", {
-          projectLimitBase: currentProject?.projectLimit
+          projectLimitBase: getProjectLimitBase(currentProject, options)
         });
         if (result.disabled) return applyLocalProjectUpdate(payload, project);
         setState({
@@ -53,7 +53,7 @@ export function createProjectActions({
         return result.project || project;
       } catch (error) {
         if (error?.conflict) {
-          const retried = await retryProjectUpdateAfterConflict({ error, payload, projectId });
+          const retried = await retryProjectUpdateAfterConflict({ error, payload, projectId, options });
           if (retried) return retried;
           await handleRemoteConflict?.(error);
         }
@@ -255,7 +255,7 @@ export function createProjectActions({
     return project;
   }
 
-  async function retryProjectUpdateAfterConflict({ error, payload, projectId }) {
+  async function retryProjectUpdateAfterConflict({ error, payload, projectId, options = {} }) {
     const remoteState = error?.state;
     const remoteProject = remoteState?.projects?.find((item) => item.id === projectId);
     if (!remoteProject || !error?.updatedAt) return null;
@@ -264,7 +264,7 @@ export function createProjectActions({
     let result;
     try {
       result = await updateRemoteProject(project.id, project, error.updatedAt, {
-        projectLimitBase: currentProject?.projectLimit
+        projectLimitBase: getProjectLimitBase(currentProject, options)
       });
     } catch (retryError) {
       if (retryError?.conflict) await handleRemoteConflict?.(retryError);
@@ -341,6 +341,11 @@ export function createProjectActions({
   function runProjectOperation(config, task) {
     if (!runScopedOperation) return task();
     return runScopedOperation({ activeStatus: "saving", ...config }, task);
+  }
+
+  function getProjectLimitBase(currentProject, options = {}) {
+    const base = Number(options.projectLimitBase);
+    return Number.isFinite(base) ? base : currentProject?.projectLimit;
   }
 
   return {
