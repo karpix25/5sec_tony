@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { deflateSync } from "node:zlib";
 import { isMultipartRequest, readMultipartForm } from "./multipart-form.mjs";
 import { isS3AssetStorageConfigured, uploadDataUrlToS3 } from "./s3-assets.mjs";
 
 const dataUrlPattern = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([a-z0-9+/=\s]+)$/i;
+const builtInSafeZoneAssetId = "safe-zone-placement-mask.png";
 const assets = new Map();
 let cachedPublicBaseUrl;
+let cachedSafeZoneMaskPng;
 
 export async function handleReferenceAssetsApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/reference-assets") {
@@ -12,6 +15,7 @@ export async function handleReferenceAssetsApi(request, response, url) {
   }
   if (request.method !== "GET" || !url.pathname.startsWith("/api/reference-assets/")) return false;
   const id = decodeURIComponent(url.pathname.replace("/api/reference-assets/", ""));
+  if (id === builtInSafeZoneAssetId) return sendBuiltInSafeZoneMask(response);
   const asset = assets.get(id);
   if (!asset) {
     response.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
@@ -24,6 +28,16 @@ export async function handleReferenceAssetsApi(request, response, url) {
     "Access-Control-Allow-Origin": "*"
   });
   response.end(asset.buffer);
+  return true;
+}
+
+function sendBuiltInSafeZoneMask(response) {
+  response.writeHead(200, {
+    "Content-Type": "image/png",
+    "Cache-Control": "public, max-age=31536000, immutable",
+    "Access-Control-Allow-Origin": "*"
+  });
+  response.end(getSafeZoneMaskPng());
   return true;
 }
 
@@ -176,6 +190,66 @@ function createDataImageUrl(mimeType, buffer) {
   if (!buffer.length || buffer.length > 12 * 1024 * 1024) throw new Error("Reference image слишком большой, максимум 12 MB");
   return `data:${normalized};base64,${buffer.toString("base64")}`;
 }
+
+function getSafeZoneMaskPng() {
+  if (cachedSafeZoneMaskPng) return cachedSafeZoneMaskPng;
+  cachedSafeZoneMaskPng = createPlacementMaskPng({
+    width: 1080,
+    height: 1920,
+    safe: { x0: 150, x1: 830, y0: 280, y1: 1300 }
+  });
+  return cachedSafeZoneMaskPng;
+}
+
+function createPlacementMaskPng({ width, height, safe }) {
+  const forbidden = [126, 61, 219, 255];
+  const allowed = [255, 255, 255, 255];
+  const raw = Buffer.alloc((width * 4 + 1) * height);
+  let offset = 0;
+  for (let y = 0; y < height; y += 1) {
+    raw[offset++] = 0;
+    for (let x = 0; x < width; x += 1) {
+      const color = x >= safe.x0 && x <= safe.x1 && y >= safe.y0 && y <= safe.y1 ? allowed : forbidden;
+      raw[offset++] = color[0];
+      raw[offset++] = color[1];
+      raw[offset++] = color[2];
+      raw[offset++] = color[3];
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from("89504e470d0a1a0a", "hex"),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(raw, { level: 9 })),
+    pngChunk("IEND", Buffer.alloc(0))
+  ]);
+}
+
+function pngChunk(type, data) {
+  const name = Buffer.from(type);
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  name.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([name, data])), 8 + data.length);
+  return chunk;
+}
+
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+const crcTable = new Uint32Array(256).map((_, index) => {
+  let crc = index;
+  for (let bit = 0; bit < 8; bit += 1) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  return crc >>> 0;
+});
 
 function isLocalHost(host) {
   const hostname = String(host || "").replace(/^\[/, "").split("]")[0].split(":")[0];

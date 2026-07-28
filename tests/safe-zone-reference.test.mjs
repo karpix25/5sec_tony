@@ -13,7 +13,7 @@ test("generation input references keep safe-zone first and design primary", () =
 
   assert.equal(refs[0].role, "safe_zone");
   assert.equal(refs[0].title, "Safe zone placement mask");
-  assert.match(refs[0].url, /^data:image\/png;base64,/);
+  assert.equal(refs[0].url, "/api/reference-assets/safe-zone-placement-mask.png");
   assert.deepEqual(refs.map((item) => item.role), ["safe_zone", "design", "product"]);
 });
 

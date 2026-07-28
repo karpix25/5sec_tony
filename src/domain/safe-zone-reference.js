@@ -1,6 +1,5 @@
-const safeZoneMaskPng = "iVBORw0KGgoAAAANSUhEUgAAAGwAAADACAYAAADhuIZYAAABVElEQVR42u3RQQ0AIAwEwapEDkIxAwr4NaEls8kZuIk51rY+CycAM2AGDJgBM2DADJgBA2bADBgwA2bAgBkwAwbMgBkwYAbMgAGzzmB6GzBgAiZgwARMwIAJmIABEzABAwYMmIABAwZMwIABAyZgwIABEzBgwIAJGDBgwARMwIAJmIABEzABAyZgAgZMwAQMGDBgAgYMGDABAwYMmIABAwZMwIABAyZgAgZMwAQMmIAJGDABEzBgAiZgwIABEzBgwIAJGDBgwAQMGDBgAgYMGDABE7AaZ2cMGDABAwYMmIABAwZMwIABAyZgwIABEzBgwIAJGDBgwAQMGDBgwIABAwYMGDBgwIABAwYMGDBgwAQMGDBgAgYM2PdgVnPAgBkwAwbMgBkwYAbMgAEzYAYMmAEzYMAMmAEDZsAMGDADZsCAGTADBswJwAyYAQNmwAwYMANm1x2PfbvlbQH+EAAAAABJRU5ErkJggg==";
-
 export const safeZoneReferenceRole = "safe_zone";
+export const safeZoneReferenceUrl = "/api/reference-assets/safe-zone-placement-mask.png";
 
 export const safeZoneReferenceRules = [
   "SAFE ZONE REFERENCE: среди input images есть служебная 9:16 маска размещения; это первый служебный референс только для границ размещения, не дизайн-референс, не палитра, не фон и не источник композиционного стиля.",
@@ -17,6 +16,6 @@ export function getSafeZoneInputReference() {
   return {
     role: safeZoneReferenceRole,
     title: "Safe zone placement mask",
-    url: `data:image/png;base64,${safeZoneMaskPng}`
+    url: safeZoneReferenceUrl
   };
 }

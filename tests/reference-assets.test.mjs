@@ -106,6 +106,23 @@ test("reference asset resolver expands saved same-origin asset paths for provide
   }
 });
 
+test("built-in safe-zone mask is a full-size 1080x1920 placement reference", async () => {
+  const response = createBinaryCaptureResponse();
+  const handled = await handleReferenceAssetsApi(
+    { method: "GET", headers: { host: "127.0.0.1:4173" } },
+    response,
+    new URL("http://127.0.0.1:4173/api/reference-assets/safe-zone-placement-mask.png")
+  );
+  const buffer = response.readBuffer();
+
+  assert.equal(handled, true);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers["Content-Type"], "image/png");
+  assert.equal(buffer.readUInt32BE(16), 1080);
+  assert.equal(buffer.readUInt32BE(20), 1920);
+  assert.equal(getSafeZoneInputReference().url, "/api/reference-assets/safe-zone-placement-mask.png");
+});
+
 test("generation job keeps saved design reference asset paths for image handoff", () => {
   const project = {
     ...projects[0],
@@ -156,7 +173,7 @@ test("reference asset logs distinguish product references", () => {
     resolvedInputUrls: ["https://studio.example.com/api/reference-assets/1", "https://cdn.example.com/style.png"],
     inputRefs: [
       { role: "product", title: "Реальная упаковка", isLocalData: true },
-      { role: safeZoneReferenceRole, title: "Safe zone placement mask", isLocalData: true },
+      { role: safeZoneReferenceRole, title: "Safe zone placement mask", isLocalData: false },
       { role: "design", title: "Стиль", isLocalData: false }
     ]
   });
@@ -206,15 +223,35 @@ test("generation job skips product image inputs in no-package mode", () => {
 function createJsonCaptureResponse() {
   return {
     status: 200,
+    headers: {},
     data: "",
-    writeHead(status) {
+    writeHead(status, headers = {}) {
       this.status = status;
+      this.headers = headers;
     },
     end(data) {
       this.data = data || "";
     },
     readJson() {
       return { status: this.status, payload: this.data ? JSON.parse(this.data) : {} };
+    }
+  };
+}
+
+function createBinaryCaptureResponse() {
+  return {
+    status: 200,
+    headers: {},
+    chunks: [],
+    writeHead(status, headers = {}) {
+      this.status = status;
+      this.headers = headers;
+    },
+    end(data) {
+      if (data) this.chunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
+    },
+    readBuffer() {
+      return Buffer.concat(this.chunks);
     }
   };
 }
