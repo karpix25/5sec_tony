@@ -131,9 +131,10 @@ test("remote product delete skips full state save and refreshes next baseUpdated
   }
 });
 
-test("stale remote product update refreshes state instead of overwriting", async () => {
+test("stale remote product update retries on fresh db version", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
+  let productPatchAttempts = 0;
   const remoteState = createInitialState();
   const freshState = {
     ...remoteState,
@@ -147,12 +148,20 @@ test("stale remote product update refreshes state instead of overwriting", async
       return jsonResponse({ state: remoteState, updatedAt: "t0" });
     }
     if (String(url).startsWith("/api/products/")) {
+      productPatchAttempts += 1;
+      if (productPatchAttempts === 1) {
+        return jsonResponse({
+          conflict: true,
+          error: "БД обновлена другим оператором",
+          updatedAt: "t1",
+          state: freshState
+        }, 409);
+      }
       return jsonResponse({
-        conflict: true,
-        error: "БД обновлена другим оператором",
-        updatedAt: "t1",
-        state: freshState
-      }, 409);
+        saved: true,
+        product: JSON.parse(options.body).product,
+        updatedAt: "t2"
+      });
     }
     return jsonResponse({ error: `unexpected ${url}` }, 500);
   };
@@ -162,15 +171,19 @@ test("stale remote product update refreshes state instead of overwriting", async
     await store.whenHydrated();
     calls.length = 0;
 
-    await assert.rejects(
-      () => store.updateProductRemote({ name: "Устаревшая правка" }),
-      /БД обновлена другим оператором/
-    );
+    await store.updateProductRemote({ name: "Устаревшая правка" });
     await wait(20);
 
     const product = store.getState().products.find((item) => item.id === remoteState.selectedProductId);
-    assert.equal(product.name, "Свежий продукт из БД");
+    const retryCall = calls.find((call) =>
+      String(call.url).startsWith("/api/products/")
+        && JSON.parse(call.options.body).baseUpdatedAt === "t1"
+    );
+    assert.equal(product.name, "Устаревшая правка");
+    assert.equal(calls.filter((call) => String(call.url).startsWith("/api/products/")).length, 2);
+    assert.equal(JSON.parse(retryCall.options.body).product.name, "Устаревшая правка");
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+    assert.deepEqual(store.getOperations(), {});
   } finally {
     globalThis.fetch = originalFetch;
   }

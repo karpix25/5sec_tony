@@ -58,7 +58,10 @@ export function createProductActions({
         applyUpdatedProduct(product);
         return product;
       }
-      const result = await runRemoteProductSave(() => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""));
+      const result = await runRemoteProductSave(
+        () => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""),
+        (error) => retryProductUpdateAfterConflict({ error, payload, productId: product.id })
+      );
       if (result.disabled) return updateProduct(payload);
       applyUpdatedProduct(result.product || product, { skipRemoteSave: true });
       recordSaved(result);
@@ -228,13 +231,52 @@ export function createProductActions({
     }, options);
   }
 
-  async function runRemoteProductSave(request) {
+  async function runRemoteProductSave(request, retryAfterConflict) {
     try {
       return await request();
     } catch (error) {
-      if (error?.conflict) await handleRemoteConflict?.(error);
+      if (error?.conflict) {
+        const retried = await retryAfterConflict?.(error);
+        if (retried) return retried;
+        await handleRemoteConflict?.(error);
+      }
       throw error;
     }
+  }
+
+  async function retryProductUpdateAfterConflict({ error, payload, productId }) {
+    const remoteState = error?.state;
+    const remoteProduct = remoteState?.products?.find((item) => item.id === productId);
+    if (!remoteProduct || !error?.updatedAt) return null;
+    const product = createProductEntity(remoteProduct.projectId, payload.name || remoteProduct.name, {
+      ...remoteProduct,
+      ...payload,
+      id: remoteProduct.id
+    });
+    let result;
+    try {
+      result = await updateRemoteProduct(product.id, product, error.updatedAt);
+    } catch (retryError) {
+      if (retryError?.conflict) await handleRemoteConflict?.(retryError);
+      throw retryError;
+    }
+    if (result.disabled) {
+      applyUpdatedProduct(product);
+      return { disabled: true, product };
+    }
+    applyRemoteStateWithProduct(remoteState, result.product || product);
+    recordSaved(result);
+    return result;
+  }
+
+  function applyRemoteStateWithProduct(remoteState, product) {
+    const currentState = getState();
+    setState({
+      projects: Array.isArray(remoteState?.projects) ? remoteState.projects : currentState.projects,
+      products: (Array.isArray(remoteState?.products) ? remoteState.products : currentState.products)
+        .map((item) => item.id === product.id ? product : item),
+      jobs: Array.isArray(remoteState?.jobs) ? remoteState.jobs : currentState.jobs
+    }, { skipRemoteSave: true });
   }
 
   function runProductOperation(config, task) {
