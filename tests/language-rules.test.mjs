@@ -184,6 +184,13 @@ test("image prompt keeps important elements inside social safe zones", () => {
 
   assert.match(prompt, /КОМПОЗИЦИЯ И ОТСТУПЫ/);
   assert.match(prompt, /SAFE ZONE REFERENCE/);
+  assert.match(prompt, /1080x1920/);
+  assert.match(prompt, /x=150\.\.830/);
+  assert.match(prompt, /y=280\.\.1300/);
+  assert.match(prompt, /минимум 620px от нижнего края/);
+  assert.match(prompt, /x=830\.\.1080/);
+  assert.match(prompt, /примерно 250px справа/);
+  assert.match(prompt, /y=1344\.\.1920/);
   assert.match(prompt, /Белая область safe-zone маски/);
   assert.match(prompt, /Фиолетовая область safe-zone маски/);
   assert.match(prompt, /Не копируй цвета, прямоугольники, форму маски/);

@@ -1,5 +1,6 @@
 import { modernImageFormatRule, oldFormatShellBan } from "./generation-format-contract.js";
 import { safeZoneReferenceRules } from "./safe-zone-reference.js";
+import { socialSafeZonePixelRules } from "./social-safe-zone-contract.js";
 
 export const russianImageTextRules = [
   "ЯЗЫК НА ИЗОБРАЖЕНИИ: весь редакционный текст инфографики строго на русском языке.",
@@ -11,6 +12,7 @@ export const russianImageTextRules = [
 
 export const socialSafeZoneRules = [
   ...safeZoneReferenceRules,
+  ...socialSafeZonePixelRules,
   "КОМПОЗИЦИЯ И ОТСТУПЫ: обязательно учитывай интерфейс вертикальных соцсетей (Reels/TikTok/Shorts).",
   "ЖЕСТКАЯ РАБОЧАЯ ОБЛАСТЬ: весь важный текст, карточки, номера, продукт и главный объект должны находиться внутри центральных 76-80% ширины кадра; оставь минимум 10-12% пустого поля слева и справа.",
   "Верхняя безопасная зона: не размещай заголовок, номера, карточки или продукт в верхних 12% кадра; там должен оставаться спокойный фон под часы, статус-бар и UI.",
