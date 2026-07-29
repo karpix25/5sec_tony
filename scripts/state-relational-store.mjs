@@ -41,6 +41,7 @@ const jobKeys = [
   "queueName", "queueStatus", "queuePriority", "queueAttempts", "queueMaxAttempts", "queueScheduledAt", "queueLockedAt",
   "queueLockOwner", "queueLastError", "queueIdempotencyKey", "queueProviderTaskId", "queueMetadata"
 ];
+const compactJobExtraDropKeys = ["serverJobContext", "promptContract", "imagePromptContract", "aiTrace", "imagePromptPackage", "attentionMap", "qaReview", "creativeQuality", "visualBrief", "contentScript", "creativeBrief", "diversitySlot", "hookIntelligence", "layoutContentPlan", "aiPlan", "finalContent", "productFact", "curiosityAngle"];
 
 const audioKeys = [
   "id", "title", "mood", "duration", "fileName", "fileType", "fileSize", "fileData", "createdAt"
@@ -49,14 +50,14 @@ const audioKeys = [
 const hookVersionKeys = ["id", "title", "status", "createdAt", "sourceType", "hooks"];
 const hookItemKeys = ["id", "text", "enabled", "tags", "aggression"];
 
-export async function loadNormalizedState(query, appStateKey) {
+export async function loadNormalizedState(query, appStateKey, options = {}) {
   await ensureStateSchema(query);
   if (!(await hasNormalizedState(query, appStateKey))) return null;
 
   const ui = await loadUiState(query, appStateKey);
   const projects = await loadProjects(query, appStateKey);
   const products = await loadProducts(query, appStateKey);
-  const jobs = await loadJobs(query, appStateKey);
+  const jobs = await loadJobs(query, appStateKey, options);
   const audioLibrary = await loadGlobalAudio(query, appStateKey);
   const hookLibrary = await loadHookLibrary(query, appStateKey);
   const reelsResearch = await loadReelsResearch(query, appStateKey);
@@ -196,8 +197,12 @@ async function loadProducts(query, appStateKey) {
   }));
 }
 
-async function loadJobs(query, appStateKey) {
-  const result = await query("select * from studio_jobs where app_state_key = $1 order by sort_order asc", [appStateKey]);
+async function loadJobs(query, appStateKey, options = {}) {
+  const compactSql = "select job_row.*, ''::text as prompt, job_row.extra - $2::text[] as extra from studio_jobs job_row where app_state_key = $1 order by sort_order asc";
+  const fullSql = "select * from studio_jobs where app_state_key = $1 order by sort_order asc";
+  const result = options.compactJobs
+    ? await query(compactSql, [appStateKey, compactJobExtraDropKeys])
+    : await query(fullSql, [appStateKey]);
   return result.rows.map(mapJobRow);
 }
 

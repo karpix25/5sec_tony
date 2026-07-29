@@ -42,7 +42,8 @@ async function handleLoadState(response, url, deps) {
     return sendJson(response, 200, { state: null, disabled: true, reason: "postgres_not_configured" });
   }
   try {
-    let state = await deps.loadNormalized(deps.query, appStateKey);
+    const fullTransport = shouldUseFullStateTransport(url);
+    let state = await deps.loadNormalized(deps.query, appStateKey, { compactJobs: !fullTransport });
     let source = "relational";
     if (!state) {
       state = await deps.loadLegacy(deps.query, appStateKey);
@@ -61,7 +62,6 @@ async function handleLoadState(response, url, deps) {
       }
     }
     const meta = await deps.query("select updated_at from app_state where id = $1 limit 1", [appStateKey]);
-    const fullTransport = shouldUseFullStateTransport(url);
     const transportState = prepareStateForTransport(state, { full: fullTransport });
     return sendJson(response, 200, {
       state: transportState || null,

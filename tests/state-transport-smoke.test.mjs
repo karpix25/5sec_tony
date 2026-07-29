@@ -5,9 +5,13 @@ import { createStateApiHandler } from "../scripts/state-api.mjs";
 test("state api compact transport strips embedded blobs by default", async () => {
   const state = createHeavyState();
   const response = createJsonResponse();
+  let loadOptions = null;
   const handle = createStateApiHandler({
     isPostgresConfigured: () => true,
-    loadNormalizedState: async () => state,
+    loadNormalizedState: async (query, key, options) => {
+      loadOptions = options;
+      return state;
+    },
     loadLegacyState: async () => null,
     queryPostgres: async () => ({ rows: [{ updated_at: "2026-06-30T20:00:00.000Z" }] }),
     withPostgresTransaction: async () => {
@@ -18,6 +22,7 @@ test("state api compact transport strips embedded blobs by default", async () =>
   await handle({ method: "GET" }, response, new URL("http://localhost/api/state"));
 
   assert.equal(response.status, 200);
+  assert.equal(loadOptions.compactJobs, true);
   assert.equal(response.payload.transport.mode, "compact");
   assert.equal(response.payload.state.projects[0].references[0].imageData, "");
   assert.equal(response.payload.state.projects[0].references[1].imageData, "https://cdn.example.com/ref.png");
@@ -41,9 +46,13 @@ test("state api compact transport strips embedded blobs by default", async () =>
 test("state api can return full transport explicitly for diagnostics", async () => {
   const state = createHeavyState();
   const response = createJsonResponse();
+  let loadOptions = null;
   const handle = createStateApiHandler({
     isPostgresConfigured: () => true,
-    loadNormalizedState: async () => state,
+    loadNormalizedState: async (query, key, options) => {
+      loadOptions = options;
+      return state;
+    },
     loadLegacyState: async () => null,
     queryPostgres: async () => ({ rows: [{ updated_at: "2026-06-30T20:00:00.000Z" }] }),
     withPostgresTransaction: async () => {
@@ -54,6 +63,7 @@ test("state api can return full transport explicitly for diagnostics", async () 
   await handle({ method: "GET" }, response, new URL("http://localhost/api/state?transport=full"));
 
   assert.equal(response.status, 200);
+  assert.equal(loadOptions.compactJobs, false);
   assert.equal(response.payload.transport.mode, "full");
   assert.match(response.payload.state.projects[0].references[0].imageData, /^data:image\//);
   assert.match(response.payload.state.audioLibrary[0].fileData, /^data:audio\//);
