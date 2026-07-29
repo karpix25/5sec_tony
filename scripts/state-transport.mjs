@@ -14,10 +14,18 @@ export function prepareStateForTransport(state, options = {}) {
 }
 
 export function getStateTransportMeta(state, transportState, options = {}) {
-  const originalBytes = estimateJsonBytes(state);
   const transportBytes = estimateJsonBytes(transportState);
+  if (!options.full) {
+    return {
+      mode: "compact",
+      originalBytes: null,
+      transportBytes,
+      savedBytes: null
+    };
+  }
+  const originalBytes = estimateJsonBytes(state);
   return {
-    mode: options.full ? "full" : "compact",
+    mode: "full",
     originalBytes,
     transportBytes,
     savedBytes: Math.max(0, originalBytes - transportBytes)

@@ -35,7 +35,7 @@ test("state api compact transport strips embedded blobs by default", async () =>
     assertTerminalQueueFields(job);
     assertHeavyTerminalFieldsRemoved(job);
   });
-  assert.equal(response.payload.transport.savedBytes > 0, true);
+  assert.equal(response.payload.transport.savedBytes, null);
 });
 
 test("state api can return full transport explicitly for diagnostics", async () => {
