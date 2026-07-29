@@ -12,6 +12,7 @@ const essentialPromptPatterns = [
   /DESIGN REFERENCE остается главным источником визуального стиля/i,
   /RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE/i,
   /ТОЧНЫЙ SOCIAL SAFE-ZONE CONTRACT/i,
+  /ЖЕСТКАЯ ПУСТАЯ ВЕРХНЯЯ ЗОНА/i,
   /ЖЕСТКАЯ ПУСТАЯ НИЖНЯЯ ЗОНА/i,
   /VISIBLE TEXT WHITELIST/i,
   /Рабочая область для важного контента/i,

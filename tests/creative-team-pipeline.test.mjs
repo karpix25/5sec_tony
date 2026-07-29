@@ -52,6 +52,8 @@ test("creative team image prompt package and script are authoritative", () => {
   assert.match(prompt, /y=280\.\.1300/);
   assert.match(prompt, /x=830\.\.1080/);
   assert.match(prompt, /VISIBLE TEXT WHITELIST/);
+  assert.match(prompt, /ЖЕСТКАЯ ПУСТАЯ ВЕРХНЯЯ ЗОНА/);
+  assert.match(prompt, /y=0\.\.280 полностью без букв/);
   assert.match(prompt, /ЖЕСТКАЯ ПУСТАЯ НИЖНЯЯ ЗОНА/);
   assert.match(prompt, /y=1300\.\.1920 полностью без букв/);
   assert.match(prompt, /y=1344\.\.1920/);
@@ -385,6 +387,7 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.match(imagePromptInstruction.rules.join(" "), /1080x1920/);
   assert.match(imagePromptInstruction.rules.join(" "), /x=150\.\.830/);
   assert.match(imagePromptInstruction.rules.join(" "), /y=280\.\.1300/);
+  assert.match(imagePromptInstruction.rules.join(" "), /ЖЕСТКАЯ ПУСТАЯ ВЕРХНЯЯ ЗОНА/);
   assert.match(imagePromptInstruction.rules.join(" "), /минимум 620px от нижнего края/);
   assert.match(imagePromptInstruction.rules.join(" "), /примерно 250px справа/);
   assert.match(imagePromptInstruction.rules.join(" "), /ЖЕСТКАЯ ПУСТАЯ НИЖНЯЯ ЗОНА/);
