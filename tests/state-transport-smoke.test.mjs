@@ -26,8 +26,9 @@ test("state api compact transport strips embedded blobs by default", async () =>
   assert.equal(response.payload.state.audioLibrary[0].fileData, "");
   assert.equal(response.payload.state.jobs[0].imageData, "");
   assert.deepEqual(response.payload.state.jobs[0].inputUrls, ["https://cdn.example.com/input.png"]);
-  assert.equal(response.payload.state.jobs[0].serverJobContext.project.characters[0].imageData, "");
-  assert.equal(response.payload.state.jobs[0].serverJobContext.product.references[0].imageData, "");
+  assert.equal("prompt" in response.payload.state.jobs[0], false);
+  assert.equal("serverJobContext" in response.payload.state.jobs[0], false);
+  assert.equal(response.payload.state.jobs[0].aiTrace.imagePromptContract.productVisibilityDecision.reason, "keep product");
   const terminalJobs = response.payload.state.jobs.filter((job) => ["done", "failed", "review"].includes(job.status));
   assert.equal(terminalJobs.length, 3);
   terminalJobs.forEach((job) => {
@@ -123,9 +124,22 @@ function createHeavyState() {
     jobs: [{
       id: "job-1",
       projectId: "project-1",
+      status: "running",
+      stage: "image",
+      progress: 50,
+      title: "Active heavy job",
       imageUrl: "https://cdn.example.com/job.png",
       imageData: "https://cdn.example.com/job.png",
       inputUrls: ["data:image/png;base64,EEE", "https://cdn.example.com/input.png"],
+      prompt: "x".repeat(8000),
+      aiTrace: {
+        version: "trace-v1",
+        hookSeed: "active hook",
+        imagePromptContract: {
+          productVisibilityDecision: { reason: "keep product", huge: "x".repeat(8000) },
+          huge: "x".repeat(8000)
+        }
+      },
       serverJobContext: {
         project: {
           id: "project-1",
@@ -242,16 +256,15 @@ function assertTerminalQueueFields(job) {
   if (job.diskMessage) assert.equal(job.diskMessage.length <= 501, true);
   assert.equal(job.queueName, "generation");
   assert.equal(job.queuePriority, 7);
-  assert.equal(job.queueMetadata.source, "smoke");
+  assert.equal("queueMetadata" in job, false);
   assert.equal(job.quotaCountedAt, "2026-06-30T20:01:00.000Z");
 }
 
 function assertHeavyTerminalFieldsRemoved(job) {
+  assert.equal(JSON.stringify(job).includes('"huge"'), false);
   [
     "prompt",
     "serverJobContext",
-    "aiTrace",
-    "promptContract",
     "imagePromptContract",
     "imagePromptPackage",
     "attentionMap",
@@ -259,7 +272,6 @@ function assertHeavyTerminalFieldsRemoved(job) {
     "creativeQuality",
     "visualBrief",
     "contentScript",
-    "creativeBrief",
     "diversitySlot",
     "hookIntelligence",
     "layoutContentPlan",
@@ -267,9 +279,7 @@ function assertHeavyTerminalFieldsRemoved(job) {
     "finalContent",
     "productFact",
     "curiosityAngle",
-    "productVisibilityDecision",
-    "hookSeed",
-    "selectionSnapshot"
+    "hookSeed"
   ].forEach((field) => assert.equal(field in job, false, `${field} should be removed from compact terminal job`));
 }
 

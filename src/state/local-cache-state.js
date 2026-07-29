@@ -62,7 +62,20 @@ const compactTerminalJobFields = [
   "inputUrls",
   "inputRefs",
   "quotaCountedAt",
-  "quotaCountedStatus"
+  "quotaCountedStatus",
+  "createdAt",
+  "updatedAt",
+  "serverJobAcceptedAt",
+  "serverJobCompletedAt",
+  "serverJobFailedAt",
+  "completedAt",
+  "finishedAt",
+  "briefStartedAt",
+  "referenceId",
+  "referenceTitle",
+  "generationSource",
+  "source",
+  "serverBatchSource"
 ];
 
 function compactProjects(projects) {
@@ -116,20 +129,15 @@ function compactAudioLibrary(audioLibrary) {
 }
 
 function compactJobs(jobs) {
-  return jobs.map((job) => compactHistoricalJob({
+  return jobs.map((job) => compactQueueJob({
     ...job,
     imageData: compactJobPreview(job),
     inputUrls: (job.inputUrls || []).filter((url) => !isEmbeddedAssetUrl(url)),
-    ...compactOptionalObject(job, "serverJobContext", compactServerJobContext)
+    inputRefs: compactInputRefs(job.inputRefs)
   }));
 }
 
-function compactHistoricalJob(job) {
-  if (!isCompactTerminalJob(job)) return job;
-  return compactTerminalQueueJob(job);
-}
-
-function compactTerminalQueueJob(job) {
+function compactQueueJob(job) {
   return removeEmptyFields({
     ...pickFields(job, compactTerminalJobFields),
     ...pickQueueFields(job),
@@ -140,17 +148,53 @@ function compactTerminalQueueJob(job) {
     diskMessage: compactText(job.diskMessage, 500),
     queueLastError: compactText(job.queueLastError, 500),
     diskPath: keepPublicHttpUrl(job.diskPath),
-    inputRefs: compactInputRefs(job.inputRefs)
+    inputRefs: compactInputRefs(job.inputRefs),
+    selectionSnapshot: compactSelectionSnapshot(job.selectionSnapshot),
+    productVisibilityDecision: compactProductVisibilityDecision(job.productVisibilityDecision),
+    promptContract: compactPromptContract(job.promptContract || job.imagePromptContract),
+    aiTrace: compactAiTrace(job.aiTrace),
+    creativeBrief: compactCreativeBrief(job.creativeBrief)
   });
-}
-
-function isCompactTerminalJob(job) {
-  return ["done", "failed", "review"].includes(String(job?.status || ""));
 }
 
 function compactInputRefs(inputRefs) {
   if (!Array.isArray(inputRefs)) return inputRefs;
   return inputRefs.map((item) => pickFields(item, ["role", "title", "isLocalData"]));
+}
+
+function compactSelectionSnapshot(snapshot) {
+  return snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+    ? removeEmptyFields(pickFields(snapshot, ["productId"]))
+    : undefined;
+}
+
+function compactProductVisibilityDecision(decision) {
+  return decision && typeof decision === "object" && !Array.isArray(decision)
+    ? removeEmptyFields(pickFields(decision, ["shouldPassProductRefs", "productVisualMode", "mode", "reason"]))
+    : undefined;
+}
+
+function compactPromptContract(contract) {
+  if (!contract || typeof contract !== "object" || Array.isArray(contract)) return undefined;
+  return removeEmptyFields({
+    ...pickFields(contract, ["referencePriority"]),
+    productVisibilityDecision: compactProductVisibilityDecision(contract.productVisibilityDecision),
+    inputRefs: compactInputRefs(contract.inputRefs)
+  });
+}
+
+function compactAiTrace(trace) {
+  if (!trace || typeof trace !== "object" || Array.isArray(trace)) return undefined;
+  return removeEmptyFields({
+    ...pickFields(trace, ["version", "hookSeed", "selectedAngle"]),
+    imagePromptContract: compactPromptContract(trace.imagePromptContract)
+  });
+}
+
+function compactCreativeBrief(brief) {
+  return brief && typeof brief === "object" && !Array.isArray(brief)
+    ? removeEmptyFields({ topic: compactText(brief.topic, 360) })
+    : undefined;
 }
 
 function compactText(value, maxLength) {
@@ -171,7 +215,7 @@ function pickFields(source, fields) {
 }
 
 function pickQueueFields(source) {
-  return Object.fromEntries(Object.entries(source || {}).filter(([key]) => key.startsWith("queue")));
+  return Object.fromEntries(Object.entries(source || {}).filter(([key]) => key.startsWith("queue") && key !== "queueMetadata"));
 }
 
 function hasOwn(source, field) {
