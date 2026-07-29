@@ -58,6 +58,7 @@ function formatDesignReferenceLockPrompt(contract) {
     reference.structureName ? `структура: ${reference.structureName}` : "",
     reference.formatType ? `формат: ${reference.formatType}` : "",
     formatVisualGrammar(reference.visualGrammar),
+    formatSafeZoneAdaptation(reference.safeZoneAdaptation),
     Array.isArray(reference.adaptationRules) && reference.adaptationRules.length
       ? `правила адаптации: ${reference.adaptationRules.join("; ")}`
       : ""
@@ -75,6 +76,21 @@ function formatVisualGrammar(grammar = {}) {
     .filter(([, value]) => value !== undefined && value !== null && value !== "")
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`);
   return lines.length ? `визуальная грамматика: ${lines.join("; ")}` : "";
+}
+
+function formatSafeZoneAdaptation(adaptation = {}) {
+  if (!adaptation || typeof adaptation !== "object") return "";
+  const risks = ["edgePressure", "topRisk", "bottomRisk", "rightRailRisk", "leftRisk"]
+    .map((key) => adaptation[key] ? `${key}: ${adaptation[key]}` : "")
+    .filter(Boolean);
+  const remap = Array.isArray(adaptation.remapPlan) && adaptation.remapPlan.length
+    ? `remapPlan: ${adaptation.remapPlan.join("; ")}`
+    : "";
+  const decorative = Array.isArray(adaptation.decorativeOnlyZones) && adaptation.decorativeOnlyZones.length
+    ? `decorativeOnlyZones: ${adaptation.decorativeOnlyZones.join("; ")}`
+    : "";
+  const text = [risks.join("; "), remap, decorative].filter(Boolean).join("; ");
+  return text ? `safe-zone adaptation: ${text}` : "";
 }
 
 function sanitizePromptContract(contract, content) {

@@ -178,6 +178,7 @@ function designFormatBriefInstruction(body, productPassport) {
         layoutSlots: [{ id: "", role: "headline|subtitle|source_bar|rank_card|value_label|image_slot|logo_slot|caption|note", textCapacity: "short|medium|number|none", repeatCount: 0, required: true }],
         textContract: { headlineShape: "", subheadShape: "", itemShape: "", minItems: 0, maxItems: 0, preferredItems: 0, mustIncludeNumbers: false, avoidTextTypes: [], forbiddenCarryoverText: [] },
         visualGrammar: { composition: "", background: "", palette: "", typography: "", framesAndDividers: "", imageTreatment: "", hierarchy: "" },
+        safeZoneAdaptation: { edgePressure: "", topRisk: "", bottomRisk: "", rightRailRisk: "", leftRisk: "", remapPlan: [], decorativeOnlyZones: [] },
         adaptationRules: [],
         doNotCopy: []
       }
@@ -190,6 +191,9 @@ function designFormatBriefInstruction(body, productPassport) {
         "Для ranking_leaderboard задай textContract: preferredItems 8-12, headlineShape начинается с ТОП, subheadShape как legend/source strip, itemShape 2-5 слов, forbiddenCarryoverText включает старые числа и checklist-формулы вроде '5 маркеров'.",
         "Опиши, какие смысловые слоты должен заполнить сценарист: например headline, subtitle, source_bar, rank_card, value_label, image_slot, caption.",
         "Укажи textCapacity честно: если в слот влезает только число или 2-4 слова, не разрешай длинные фразы.",
+        "Оцени edge pressure референса: какие важные элементы прижаты к верхнему краю, нижним 30%, левому краю или правому rail Instagram.",
+        "Заполни safeZoneAdaptation: topRisk/bottomRisk/rightRailRisk/leftRisk и remapPlan — как сохранить visual grammar, но перенести важный контент внутрь x=150..830, y=280..1300.",
+        "В decorativeOnlyZones перечисли зоны референса, которые в будущих генерациях должны стать только фоном/текстурой без текста, карточек, продукта и важных объектов.",
         "Копируй структуру, ритм, сетку, иерархию, цветовую логику и типографический характер; не копируй людей, бренды, логотипы, чужой текст и чужие claims.",
         "Если референс содержит цифры или источники, не придумывай реальные цифры для продукта; разрешай условные ранги, признаки или критерии только если это безопасно.",
         "Для продукта вроде крема для лица адаптируй leaderboard как рейтинг признаков, ситуаций, ошибок, зон применения или критериев выбора, а не как список богатых людей."

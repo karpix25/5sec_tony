@@ -367,6 +367,9 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.equal(calls[1].model, "vision-model");
   assert.equal(Array.isArray(calls[1].content), true);
   assert.match(calls[1].content[0].text, /format architect/);
+  assert.match(calls[1].content[0].text, /safeZoneAdaptation/);
+  assert.match(calls[1].content[0].text, /edge pressure/);
+  assert.match(calls[1].content[0].text, /x=150\.\.830, y=280\.\.1300/);
   assert.equal(calls[1].content[1].image_url.url, "https://studio.example.com/api/reference-assets/design-1");
   assert.match(calls[5].content, /ranking_leaderboard/);
   assert.match(calls[6].content, /format compliance editor/);

@@ -11,6 +11,7 @@ export function createPromptContract({ brief = {}, reference = {}, inputReferenc
       formatType: design.formatType || reference.layoutType || "",
       structureName: design.structureName || "",
       visualGrammar: design.visualGrammar || {},
+      safeZoneAdaptation: design.safeZoneAdaptation || {},
       adaptationRules: design.adaptationRules || [],
       doNotCopy: design.doNotCopy || reference.avoidCopy || []
     }),
