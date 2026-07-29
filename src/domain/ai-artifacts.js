@@ -34,6 +34,7 @@ export function normalizeDesignAnalysis(analysis = null) {
     layoutSlots: asArray(source.layoutSlots),
     textContract: asObject(source.textContract),
     visualGrammar: asObject(source.visualGrammar),
+    safeZoneAdaptation: asObject(source.safeZoneAdaptation),
     background: source.background || source.visualGrammar?.background || "",
     typography: source.typography || source.visualGrammar?.typography || "",
     composition: source.composition || source.visualGrammar?.composition || "",

@@ -55,10 +55,12 @@ test("design analysis requires reusable visual grammar fields", () => {
   const analysis = normalizeDesignAnalysis({
     version: "design-analysis-v1",
     formatType: "comparison_grid",
+    safeZoneAdaptation: { bottomRisk: "низ занят текстом", remapPlan: ["поднять карточки"] },
     ctaPolicy: "ignore-reference-cta"
   });
 
   assert.equal(analysis.formatType, "comparison_grid");
+  assert.equal(analysis.safeZoneAdaptation.bottomRisk, "низ занят текстом");
   assert.equal(hasUsefulDesignAnalysis(analysis), true);
 });
 

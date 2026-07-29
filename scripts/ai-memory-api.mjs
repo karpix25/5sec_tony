@@ -96,7 +96,9 @@ function designAnalysisInstruction(body) {
       "Мыслями как дизайнер: структура, композиция, типографика, фон, элементы, плотность текста, safe zones, ритм.",
       "CTA, кнопки, футер и чужие призывы из референса не копировать и пометить как запрещенный carryover.",
       "Не копировать чужой продукт, логотипы, человека, текст, claims.",
-      "Описание должно помогать адаптировать новые темы под этот дизайн, а не повторять картинку буквально."
+      "Описание должно помогать адаптировать новые темы под этот дизайн, а не повторять картинку буквально.",
+      "Оцени edge pressure: важные элементы у верхнего края, нижних 30%, левого края и правого rail Instagram.",
+      "Заполни safeZoneAdaptation: как сохранить visual grammar, но перенести важный контент внутрь x=150..830, y=280..1300; нижние 30% оставлять декоративным фоном."
     ],
     output: {
       designAnalysis: {
@@ -105,6 +107,7 @@ function designAnalysisInstruction(body) {
         layoutSlots: [],
         textContract: { headlineShape: "", subheadShape: "", itemShape: "", minItems: 0, maxItems: 0, preferredItems: 0, avoidTextTypes: [], forbiddenCarryoverText: [] },
         visualGrammar: { composition: "", background: "", palette: "", typography: "", framesAndDividers: "", imageTreatment: "", hierarchy: "" },
+        safeZoneAdaptation: { edgePressure: "", topRisk: "", bottomRisk: "", rightRailRisk: "", leftRisk: "", remapPlan: [], decorativeOnlyZones: [] },
         elements: [],
         adaptationRules: [],
         doNotCopy: [],
