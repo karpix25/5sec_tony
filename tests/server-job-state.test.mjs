@@ -14,6 +14,7 @@ test("server job progress updates normalized row without touching legacy app sta
   );
 
   assert.equal(persisted, true);
+  assert.equal(queries.some(({ text }) => /pg_advisory_xact_lock/i.test(text)), true);
   assert.equal(queries.some(({ text }) => /update studio_jobs/i.test(text)), true);
   assert.equal(queries.some(({ text }) => /update app_state/i.test(text)), false);
 });

@@ -50,6 +50,7 @@ test("save normalized state writes separate project product job and hook tables"
     return { rows: [] };
   }, "workspace-1", state);
 
+  assert.ok(queries.some((entry) => /pg_advisory_xact_lock/i.test(entry.text)));
   const uiInsert = queries.find((entry) => entry.text.includes("insert into studio_app_ui_state"));
   assert.ok(uiInsert);
   assert.equal(JSON.parse(uiInsert.params[9]).queueProductFilter, "all");

@@ -1,4 +1,5 @@
 import { patchJobWithQuotaAccounting } from "../src/domain/job-quota.js";
+import { lockAppStateMutation } from "./app-state-advisory-lock.mjs";
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
 import { loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
 
@@ -47,6 +48,7 @@ export async function persistServerJobSnapshot(job, deps = {}) {
   if (!job?.id || !(deps.isPostgresConfigured || isPostgresConfigured)()) return false;
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   return withTransaction(async (tx) => {
+    await lockAppStateMutation(tx.query, appStateKey);
     const current = await loadPersistedJob(tx.query, job.id);
     if (!current) return false;
     const merged = { ...current, ...job };

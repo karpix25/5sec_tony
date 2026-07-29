@@ -1,6 +1,7 @@
 import { ensureStateSchema } from "./state-schema.mjs";
 import { isServerProtectedJob, mergeClientJobWithServerJob } from "./job-state-merge-policy.mjs";
 import { syncAudioLibraryRefreshReminder } from "./audio-refresh-reminders.mjs";
+import { lockAppStateMutation } from "./app-state-advisory-lock.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 
@@ -82,6 +83,7 @@ export async function loadNormalizedState(query, appStateKey) {
 
 export async function saveNormalizedState(query, appStateKey, state) {
   await ensureStateSchema(query);
+  await lockAppStateMutation(query, appStateKey);
   const existingProjectsById = await loadExistingProjectsById(query, appStateKey);
   const existingJobsById = await loadExistingJobsById(query, appStateKey);
   const normalizedState = prepareStateForRelationalSave(state, existingJobsById, existingProjectsById);
