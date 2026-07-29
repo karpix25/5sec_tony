@@ -106,6 +106,36 @@ test("reference asset resolver expands saved same-origin asset paths for provide
   }
 });
 
+test("reference asset resolver rejects docker-internal hosts as public URLs", async () => {
+  const previousPublicBase = process.env.PUBLIC_BASE_URL;
+  const previousAppPublic = process.env.APP_PUBLIC_URL;
+  const previousNgrok = process.env.NGROK_URL;
+  const originalFetch = globalThis.fetch;
+  delete process.env.PUBLIC_BASE_URL;
+  delete process.env.APP_PUBLIC_URL;
+  delete process.env.NGROK_URL;
+  globalThis.fetch = async () => {
+    throw new Error("no tunnel");
+  };
+
+  try {
+    await assert.rejects(
+      () => resolveImageInputUrls(["/api/reference-assets/ref-1"], {
+        headers: { host: "n8n-5sec:4173" }
+      }),
+      /нужен публичный URL/
+    );
+  } finally {
+    if (previousPublicBase === undefined) delete process.env.PUBLIC_BASE_URL;
+    else process.env.PUBLIC_BASE_URL = previousPublicBase;
+    if (previousAppPublic === undefined) delete process.env.APP_PUBLIC_URL;
+    else process.env.APP_PUBLIC_URL = previousAppPublic;
+    if (previousNgrok === undefined) delete process.env.NGROK_URL;
+    else process.env.NGROK_URL = previousNgrok;
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("built-in safe-zone mask is a full-size 1080x1920 placement reference", async () => {
   const response = createBinaryCaptureResponse();
   const handled = await handleReferenceAssetsApi(

@@ -143,7 +143,7 @@ async function getPublicBaseUrl(request) {
   const host = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost || request.headers.host || "";
   const forwardedProto = request.headers["x-forwarded-proto"];
   const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || "https";
-  if (host && !isLocalHost(host)) return `${proto}://${host}`;
+  if (host && isPublicHost(host)) return `${proto}://${host}`;
 
   if (cachedPublicBaseUrl) return cachedPublicBaseUrl;
   cachedPublicBaseUrl = await detectNgrokBaseUrl();
@@ -254,6 +254,11 @@ const crcTable = new Uint32Array(256).map((_, index) => {
 function isLocalHost(host) {
   const hostname = String(host || "").replace(/^\[/, "").split("]")[0].split(":")[0];
   return /^localhost$/i.test(hostname) || /^127\./.test(hostname) || hostname === "0.0.0.0" || hostname === "::1";
+}
+
+function isPublicHost(host) {
+  const hostname = String(host || "").replace(/^\[/, "").split("]")[0].split(":")[0];
+  return !isLocalHost(hostname) && hostname.includes(".");
 }
 
 function readJson(request) {
