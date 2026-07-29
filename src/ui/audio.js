@@ -34,8 +34,18 @@ async function readAudioFileAndUpload(file) {
 
 function renderAudioList(items, operations, scope, isScopeBusy) {
   return `
+    ${items.length ? renderAudioBulkControls(isScopeBusy) : ""}
     <div class="audio-list">
       ${items.map((audio) => renderAudioItem(audio, operations, scope, isScopeBusy)).join("")}
+    </div>
+  `;
+}
+
+function renderAudioBulkControls(isBusy) {
+  return `
+    <div class="audio-bulk-actions">
+      <button class="secondary-btn" data-select-all-audio type="button" ${isBusy ? "disabled" : ""}>Выбрать все</button>
+      <button class="danger-btn" data-delete-selected-audio type="button" ${isBusy ? "disabled" : ""}>Удалить выбранные</button>
     </div>
   `;
 }
@@ -45,6 +55,7 @@ function renderAudioItem(audio, operations, scope, isScopeBusy) {
   const isBusy = isScopeBusy || isUiOperationBusy(operation);
   return `
     <article class="audio-item ${isBusy ? "busy" : ""}">
+      <input class="audio-select" data-audio-select="${audio.id}" type="checkbox" ${isBusy ? "disabled" : ""} aria-label="Выбрать аудио" />
       <div class="audio-icon">♪</div>
       <div>
         <strong>${escapeHtml(audio.title || audio.fileName || "Аудио файл")}</strong>

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendAudioAssetToState, appendProductReferenceToState, deleteAudioAssetFromState } from "../scripts/media-state-store.mjs";
+import { appendAudioAssetToState, appendProductReferenceToState, deleteAudioAssetFromState, deleteAudioAssetsFromState } from "../scripts/media-state-store.mjs";
 
 test("uploaded audio is appended to canonical and legacy state", async () => {
   const queries = [];
@@ -74,6 +74,40 @@ test("deleted audio is removed from canonical and legacy state", async () => {
   assert.equal(result.audioLibrary[0].id, "audio-next");
   assert.ok(queries.some(({ text }) => /delete from studio_global_audio_assets/i.test(text)));
   assert.ok(queries.some(({ text, params }) => /insert into app_state/i.test(text) && !String(params[1]).includes("audio-s3")));
+});
+
+test("deleted audio batch is removed from canonical and legacy state", async () => {
+  const queries = [];
+  const query = async (text, params = []) => {
+    queries.push({ text, params });
+    if (/from studio_global_audio_assets\s+where app_state_key/i.test(text)) {
+      return { rows: [{
+        id: "audio-keep",
+        title: "Keep",
+        mood: "файл аудио",
+        duration: "5 sec",
+        file_name: "keep.wav",
+        file_type: "audio/wav",
+        file_size: 42,
+        file_data: "https://s3.example.com/audio/keep.wav",
+        created_at: "2026-06-29T00:00:00.000Z"
+      }] };
+    }
+    if (/select data from app_state/i.test(text)) {
+      return { rows: [{ data: { selectedAudioId: "audio-one", audioLibrary: [{ id: "audio-one" }, { id: "audio-two" }, { id: "audio-keep" }] } }] };
+    }
+    if (/insert into app_state/i.test(text)) return { rows: [{ updated_at: "2026-06-29T00:03:00.000Z" }] };
+    return { rows: [] };
+  };
+
+  const result = await deleteAudioAssetsFromState(["audio-one", "audio-two"], { query, appStateKey: "default", isPostgresConfigured: () => true });
+
+  assert.deepEqual(result.deletedAudioIds, ["audio-one", "audio-two"]);
+  assert.equal(result.selectedAudioId, "audio-keep");
+  assert.equal(result.updatedAt, "2026-06-29T00:03:00.000Z");
+  assert.match(queries.find(({ text }) => /delete from studio_global_audio_assets/i.test(text)).text, /id = any/);
+  assert.ok(queries.some(({ text, params }) => /insert into app_state/i.test(text) && !String(params[1]).includes("audio-one")));
+  assert.ok(queries.some(({ text, params }) => /insert into app_state/i.test(text) && !String(params[1]).includes("audio-two")));
 });
 
 test("uploaded product photo is prepended to product references in DB state", async () => {

@@ -60,6 +60,37 @@ test("audio library api rejects stale deletes before writing", async () => {
   assert.equal(deleteCalled, false);
 });
 
+test("audio library api deletes selected assets inside app-state transaction", async () => {
+  const calls = [];
+  const response = createJsonResponse();
+  const handle = createAudioLibraryApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text, params = []) => {
+        calls.push(["query", text, params]);
+        return { rows: [] };
+      }
+    }),
+    deleteAudioAssetsFromState: async (audioIds, _deps) => ({
+      deletedAudioIds: audioIds,
+      selectedAudioId: "audio-keep",
+      audioLibrary: [{ id: "audio-keep" }],
+      updatedAt: "db-v2"
+    })
+  });
+
+  await handle(
+    createJsonRequest("DELETE", { audioIds: ["audio-1", "audio-2"], selectedAudioId: "audio-1", baseUpdatedAt: "db-v1" }),
+    response,
+    new URL("http://localhost/api/audio-library")
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.payload.deletedAudioIds, ["audio-1", "audio-2"]);
+  assert.equal(response.payload.selectedAudioId, "audio-keep");
+  assert.match(calls[0][1], /pg_advisory_xact_lock/);
+});
+
 function createJsonResponse() {
   return {
     status: 0,

@@ -15,6 +15,12 @@ export function deleteGlobalAudio(audioLibrary, audioId) {
   return audioLibrary.filter((audio) => audio.id !== audioId);
 }
 
+export function deleteGlobalAudioMany(audioLibrary, audioIds = []) {
+  const ids = new Set(audioIds.filter(Boolean));
+  if (!ids.size) return audioLibrary;
+  return audioLibrary.filter((audio) => !ids.has(audio.id));
+}
+
 export function getSelectedGlobalAudioId(audioLibrary, selectedAudioId) {
   return audioLibrary.some((audio) => audio.id === selectedAudioId)
     ? selectedAudioId

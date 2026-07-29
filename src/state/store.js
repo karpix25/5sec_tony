@@ -3,7 +3,7 @@ import { isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-sel
 import { globalAudioLibrary } from "../domain/entities.js";
 import { normalizeNavigationTab } from "../domain/navigation.js";
 import { getDesignReferences, getFirstDesignReference } from "../domain/references.js";
-import { createRemoteAudioAssets, deleteRemoteAudioAsset } from "../services/audio-library-sync.js";
+import { createRemoteAudioAssets, deleteRemoteAudioAsset, deleteRemoteAudioAssets } from "../services/audio-library-sync.js";
 import { createAvatarWorkflow } from "./avatar-workflow.js";
 import { createDesignReferenceWorkflow } from "./design-reference-workflow.js";
 import { createDesignReferenceActions } from "./design-reference-actions.js";
@@ -11,6 +11,7 @@ import { createProjectCtaWorkflow } from "./project-cta-workflow.js";
 import {
   addGlobalAudioFiles,
   deleteGlobalAudio,
+  deleteGlobalAudioMany,
   ensureGlobalAudioLibrary,
   getSelectedGlobalAudioId
 } from "./global-assets.js";
@@ -324,15 +325,26 @@ export function createStore() {
       const audioLibrary = deleteGlobalAudio(state.audioLibrary, audioId);
       setState({ audioLibrary, selectedAudioId: getSelectedGlobalAudioId(audioLibrary, state.selectedAudioId) });
     },
+    deleteAudioMany(audioIds) {
+      const audioLibrary = deleteGlobalAudioMany(state.audioLibrary, audioIds);
+      setState({ audioLibrary, selectedAudioId: getSelectedGlobalAudioId(audioLibrary, state.selectedAudioId) });
+    },
     async deleteAudioRemote(audioId) {
+      return this.deleteAudioManyRemote([audioId]);
+    },
+    async deleteAudioManyRemote(audioIds) {
+      const ids = [...new Set((audioIds || []).filter(Boolean))];
+      if (!ids.length) return;
       const previousAudioLibrary = state.audioLibrary;
       const previousSelectedAudioId = state.selectedAudioId;
-      const audioLibrary = deleteGlobalAudio(state.audioLibrary, audioId);
+      const audioLibrary = deleteGlobalAudioMany(state.audioLibrary, ids);
       const selectedAudioId = getSelectedGlobalAudioId(audioLibrary, state.selectedAudioId);
       setState({ audioLibrary, selectedAudioId }, { skipRemoteSave: true });
       let result;
       try {
-        result = await deleteRemoteAudioAsset(audioId, previousSelectedAudioId, statePersistence?.getRemoteUpdatedAt?.() || "");
+        result = ids.length === 1
+          ? await deleteRemoteAudioAsset(ids[0], previousSelectedAudioId, statePersistence?.getRemoteUpdatedAt?.() || "")
+          : await deleteRemoteAudioAssets(ids, previousSelectedAudioId, statePersistence?.getRemoteUpdatedAt?.() || "");
       } catch (error) {
         setState({ audioLibrary: previousAudioLibrary, selectedAudioId: previousSelectedAudioId }, { skipRemoteSave: true });
         if (error?.conflict) await statePersistence?.handleRemoteConflict?.(error);

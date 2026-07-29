@@ -45,11 +45,17 @@ export async function appendAudioAssetToState(audio, deps = {}) {
 }
 
 export async function deleteAudioAssetFromState(audioId, deps = {}) {
-  if (!isDbConfigured(deps) || !audioId) return { deletedAudioId: audioId || "", updatedAt: "" };
+  const result = await deleteAudioAssetsFromState([audioId].filter(Boolean), deps);
+  return { ...result, deletedAudioId: result.deletedAudioIds?.[0] || audioId || "" };
+}
+
+export async function deleteAudioAssetsFromState(audioIds, deps = {}) {
+  const ids = [...new Set(asArray(audioIds).filter(Boolean))];
+  if (!isDbConfigured(deps) || !ids.length) return { deletedAudioIds: ids, updatedAt: "" };
   const query = deps.query || queryPostgres;
   const appStateKey = deps.appStateKey || defaultAppStateKey;
   await ensureStateSchema(query);
-  await query("delete from studio_global_audio_assets where app_state_key = $1 and id = $2", [appStateKey, audioId]);
+  await query("delete from studio_global_audio_assets where app_state_key = $1 and id = any($2::text[])", [appStateKey, ids]);
   const audioLibrary = await loadAudioLibrary(query, appStateKey);
   const selectedAudioId = audioLibrary.some((audio) => audio.id === deps.selectedAudioId) ? deps.selectedAudioId : audioLibrary[0]?.id || "";
   await query(
@@ -61,7 +67,7 @@ export async function deleteAudioAssetFromState(audioId, deps = {}) {
   const updatedAt = await upsertLegacyState(query, appStateKey, (state) => ({
     ...state,
     selectedAudioId,
-    audioLibrary: asArray(state.audioLibrary).filter((audio) => audio?.id !== audioId)
+    audioLibrary: asArray(state.audioLibrary).filter((audio) => !ids.includes(audio?.id))
   }));
   await syncAudioLibraryRefreshReminder(audioLibrary, {
     query,
@@ -69,7 +75,7 @@ export async function deleteAudioAssetFromState(audioId, deps = {}) {
     changedAt: new Date().toISOString(),
     isPostgresConfigured: deps.isPostgresConfigured
   });
-  return { deletedAudioId: audioId, selectedAudioId, audioLibrary, updatedAt };
+  return { deletedAudioIds: ids, selectedAudioId, audioLibrary, updatedAt };
 }
 
 export async function appendProductReferenceToState(productId, reference, deps = {}) {

@@ -40,6 +40,26 @@ export async function deleteRemoteAudioAsset(audioId, selectedAudioId = "", base
   };
 }
 
+export async function deleteRemoteAudioAssets(audioIds, selectedAudioId = "", baseUpdatedAt = "") {
+  const body = JSON.stringify({ audioIds, selectedAudioId, baseUpdatedAt });
+  const { response, payload } = await fetchJsonWithRetry("/api/audio-library", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: body.length < 60 * 1024
+  });
+  readAudioSyncPayload(response, payload);
+  return {
+    saved: Boolean(payload.saved),
+    disabled: Boolean(payload.disabled),
+    deletedAudioIds: payload.deletedAudioIds || [],
+    selectedAudioId: payload.selectedAudioId || "",
+    audioLibrary: payload.audioLibrary || [],
+    updatedAt: payload.updatedAt || "",
+    error: payload.error || ""
+  };
+}
+
 function readAudioSyncPayload(response, payload = {}) {
   if (response.status === 409 || payload.conflict) throw new StateSyncConflictError(payload);
   if (!response.ok) throw new Error(payload.error || "Audio library sync request failed");

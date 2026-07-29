@@ -5,7 +5,7 @@ import {
   sendJson,
   writeWithConflictCheck
 } from "./app-state-api-helpers.mjs";
-import { appendAudioAssetToState, deleteAudioAssetFromState } from "./media-state-store.mjs";
+import { appendAudioAssetToState, deleteAudioAssetFromState, deleteAudioAssetsFromState } from "./media-state-store.mjs";
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
 import { loadLegacyState, loadNormalizedState } from "./state-relational-store.mjs";
 
@@ -19,12 +19,16 @@ export function createAudioLibraryApiHandler(deps = {}) {
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   const appendAudio = deps.appendAudioAssetToState || appendAudioAssetToState;
   const deleteAudio = deps.deleteAudioAssetFromState || deleteAudioAssetFromState;
+  const deleteAudios = deps.deleteAudioAssetsFromState || deleteAudioAssetsFromState;
   const loadNormalized = deps.loadNormalizedState || loadNormalizedState;
   const loadLegacy = deps.loadLegacyState || loadLegacyState;
 
   return async function handleAudioLibraryApi(request, response, url) {
     if (request.method === "POST" && url.pathname === "/api/audio-library") {
       return handleAppendAudio(request, response, url, { isConfigured, withTransaction, appendAudio, loadNormalized, loadLegacy });
+    }
+    if (request.method === "DELETE" && url.pathname === "/api/audio-library") {
+      return handleDeleteAudios(request, response, url, { isConfigured, withTransaction, deleteAudios, loadNormalized, loadLegacy });
     }
     const audioId = getAudioId(url.pathname);
     if (request.method === "DELETE" && audioId) {
@@ -80,6 +84,34 @@ async function handleDeleteAudio(request, response, url, deps) {
       saved: true,
       key: appStateKey,
       deletedAudioId: result.deletedAudioId || "",
+      selectedAudioId: result.selectedAudioId || "",
+      audioLibrary: result.audioLibrary || [],
+      updatedAt: result.updatedAt || ""
+    });
+  } catch (error) {
+    return sendJson(response, 500, { error: error.message || "Не удалось удалить аудио" });
+  }
+}
+
+async function handleDeleteAudios(request, response, url, deps) {
+  if (!deps.isConfigured()) return sendDisabled(response);
+  try {
+    const body = await readJsonBody(request, { limitBytes: audioJsonBodyLimitBytes });
+    const audioIds = [...new Set((Array.isArray(body.audioIds) ? body.audioIds : []).filter(Boolean))];
+    if (!audioIds.length) return sendJson(response, 400, { error: "audio ids are required" });
+    const result = await writeWithConflictCheck(body, deps, (tx) =>
+      deps.deleteAudios(audioIds, {
+        query: tx.query,
+        appStateKey,
+        selectedAudioId: body.selectedAudioId || "",
+        isPostgresConfigured: deps.isConfigured
+      })
+    );
+    if (result.conflict) return sendConflict(response, url, result, "повторите удаление аудио");
+    return sendJson(response, 200, {
+      saved: true,
+      key: appStateKey,
+      deletedAudioIds: result.deletedAudioIds || [],
       selectedAudioId: result.selectedAudioId || "",
       audioLibrary: result.audioLibrary || [],
       updatedAt: result.updatedAt || ""

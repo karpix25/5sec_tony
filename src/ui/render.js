@@ -291,6 +291,32 @@ function bindEvents(root, store, options = {}) {
     })
       .catch((error) => window.alert?.(error.message || "Не удалось загрузить аудио"));
   });
+  root.querySelector("[data-select-all-audio]")?.addEventListener("click", () => {
+    root.querySelectorAll("[data-audio-select]").forEach((checkbox) => {
+      checkbox.checked = true;
+    });
+  });
+  root.querySelector("[data-delete-selected-audio]")?.addEventListener("click", () => {
+    const audioIds = getSelectedAudioIds(root);
+    if (!audioIds.length) {
+      window.alert?.("Выберите аудио для удаления");
+      return;
+    }
+    const audios = getAudiosByIds(store, audioIds);
+    runStoreOperation(store, {
+      scope: "global-audio",
+      key: "global-audio:delete-selected",
+      kind: "delete",
+      targetId: "library",
+      label: "Удаляем аудио",
+      activeStatus: "deleting"
+    }, async () => {
+      if (store.deleteAudioManyRemote) await store.deleteAudioManyRemote(audioIds);
+      else store.deleteAudioMany(audioIds);
+      await deleteAudioAssetsBestEffort(audios);
+    })
+      .catch((error) => window.alert?.(error.message || "Не удалось удалить аудио"));
+  });
   root.querySelectorAll("[data-advance]").forEach((button) => {
     button.addEventListener("click", () => store.advanceJob(button.dataset.advance));
   });
@@ -360,11 +386,11 @@ function bindEvents(root, store, options = {}) {
       }, async () => {
         if (store.deleteAudioRemote) {
           await store.deleteAudioRemote(button.dataset.deleteAudio);
-          await deleteAudioAsset(audio);
+          await deleteAudioAssetsBestEffort([audio]);
           return;
         }
-        await deleteAudioAsset(audio);
         store.deleteAudio(button.dataset.deleteAudio);
+        await deleteAudioAssetsBestEffort([audio]);
       })
         .catch((error) => window.alert?.(error.message || "Не удалось удалить аудио"));
     });
@@ -376,6 +402,21 @@ function bindEvents(root, store, options = {}) {
 function runStoreOperation(store, config, task) {
   if (typeof store.runScopedOperation === "function") return store.runScopedOperation(config, task);
   return task();
+}
+
+function getSelectedAudioIds(root) {
+  return [...root.querySelectorAll("[data-audio-select]:checked")]
+    .map((checkbox) => checkbox.dataset.audioSelect)
+    .filter(Boolean);
+}
+
+function getAudiosByIds(store, audioIds) {
+  const ids = new Set(audioIds);
+  return store.getState().audioLibrary.filter((audio) => ids.has(audio.id));
+}
+
+async function deleteAudioAssetsBestEffort(audios = []) {
+  await Promise.allSettled(audios.filter(Boolean).map(deleteAudioAsset));
 }
 
 function getAvatarUploadPayload(form) {

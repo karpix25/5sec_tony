@@ -98,6 +98,55 @@ test("remote audio delete applies server selection without full state save", asy
   }
 });
 
+test("remote audio batch delete uses audio endpoint without full state save", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const remoteState = {
+    ...createInitialState(),
+    audioLibrary: [
+      { id: "audio-delete-1", title: "Delete 1" },
+      { id: "audio-delete-2", title: "Delete 2" },
+      { id: "audio-keep", title: "Keep me" }
+    ],
+    selectedAudioId: "audio-delete-1"
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (url === "/api/audio-library" && options.method === "DELETE") {
+      return jsonResponse({
+        saved: true,
+        deletedAudioIds: JSON.parse(options.body).audioIds,
+        selectedAudioId: "audio-keep",
+        audioLibrary: [{ id: "audio-keep", title: "Keep me" }],
+        updatedAt: "t1"
+      });
+    }
+    if (url === "/api/state" && options.method === "POST") {
+      return jsonResponse({ error: "full state save should not be used for audio delete" }, 500);
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    await store.deleteAudioManyRemote(["audio-delete-1", "audio-delete-2"]);
+    await wait(320);
+
+    assert.deepEqual(store.getState().audioLibrary.map((audio) => audio.id), ["audio-keep"]);
+    assert.equal(store.getState().selectedAudioId, "audio-keep");
+    assert.equal(calls.filter((call) => call.url === "/api/audio-library" && call.options.method === "DELETE").length, 1);
+    assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function jsonResponse(payload, status = 200) {
   return {
     ok: status >= 200 && status < 300,
