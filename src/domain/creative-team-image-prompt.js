@@ -45,6 +45,7 @@ function getFinalRenderContract() {
     "DESIGN REFERENCE FIDELITY GATE: перед финальным рендером сравни макет с design reference. Если не узнается тот же skeleton, palette, typography hierarchy, card rhythm and object geometry, пересобери кадр ближе к референсу.",
     "Нельзя подменять выбранный референс привычным шаблоном инфографики: не превращать funnel, chart, poster, comparison или карточную сетку в обычный centered checklist, если этого нет в референсе.",
     "Сохраняй macro-layout: крупные зоны, направление чтения, повторяемые формы, пропорции блоков, тип декоративных элементов и визуальный вес должны совпадать с приложенным design reference.",
+    "VISIBLE TEXT WHITELIST: на финальной картинке разрешены только headline, subhead и blocks из финального текстового контракта. Не добавлять никаких других слов, микроподписей, источников, футеров, дисклеймеров, сносок, legal copy или нижних строк.",
     ...russianImageTextRules,
     "АНГЛИЙСКИЙ ТЕКСТ ИЗ DESIGN REFERENCE: не копировать как пиксели и не переносить в финальную картинку; заменить естественными русскими заголовками, подписью, карточками и служебными ярлыками.",
     ...socialSafeZoneRules

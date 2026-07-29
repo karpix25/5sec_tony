@@ -190,6 +190,8 @@ test("image prompt keeps important elements inside social safe zones", () => {
   assert.match(prompt, /минимум 620px от нижнего края/);
   assert.match(prompt, /x=830\.\.1080/);
   assert.match(prompt, /примерно 250px справа/);
+  assert.match(prompt, /ЖЕСТКАЯ ПУСТАЯ НИЖНЯЯ ЗОНА/);
+  assert.match(prompt, /y=1300\.\.1920 полностью без букв/);
   assert.match(prompt, /y=1344\.\.1920/);
   assert.match(prompt, /Белая область safe-zone маски/);
   assert.match(prompt, /Фиолетовая область safe-zone маски/);
@@ -197,7 +199,8 @@ test("image prompt keeps important elements inside social safe zones", () => {
   assert.match(prompt, /центральных 76-80% ширины/);
   assert.match(prompt, /10-12% пустого поля слева и справа/);
   assert.match(prompt, /верхних 12% кадра/);
-  assert.match(prompt, /нижние 22-28% кадра/);
+  assert.match(prompt, /нижние 30% кадра/);
+  assert.match(prompt, /без любого текста, даже мелкого дисклеймера/);
   assert.match(prompt, /Запрещено касание краев/);
   assert.match(prompt, /Reels\/TikTok\/Shorts/);
   assert.match(prompt, /широкие пустые поля/);
