@@ -198,7 +198,7 @@ async function loadProducts(query, appStateKey) {
 }
 
 async function loadJobs(query, appStateKey, options = {}) {
-  const compactSql = "select job_row.*, ''::text as prompt, job_row.extra - $2::text[] as extra from studio_jobs job_row where app_state_key = $1 order by sort_order asc";
+  const compactSql = "select id, project_id, product_id, character_id, status, stage, progress, title, topic, music, ''::text as prompt, reference_title, output_type, final_video_url, final_video_has_audio, semantic_key, meaning_pattern_id, product_visual_mode, composition_mode, content_layer_id, format, input_urls, input_refs, diversity_slot, queue_name, queue_status, queue_priority, queue_attempts, queue_max_attempts, queue_scheduled_at, queue_locked_at, queue_lock_owner, queue_last_error, queue_idempotency_key, queue_provider_task_id, queue_metadata, extra - $2::text[] as extra from studio_jobs where app_state_key = $1 order by sort_order asc";
   const fullSql = "select * from studio_jobs where app_state_key = $1 order by sort_order asc";
   const result = options.compactJobs
     ? await query(compactSql, [appStateKey, compactJobExtraDropKeys])
