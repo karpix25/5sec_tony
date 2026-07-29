@@ -186,9 +186,9 @@ test("image prompt keeps important elements inside social safe zones", () => {
   assert.match(prompt, /SAFE ZONE REFERENCE/);
   assert.match(prompt, /1080x1920/);
   assert.match(prompt, /x=150\.\.830/);
-  assert.match(prompt, /y=280\.\.1300/);
+  assert.match(prompt, /y=360\.\.1300/);
   assert.match(prompt, /ЖЕСТКАЯ ПУСТАЯ ВЕРХНЯЯ ЗОНА/);
-  assert.match(prompt, /y=0\.\.280 полностью без букв/);
+  assert.match(prompt, /y=0\.\.360 полностью без букв/);
   assert.match(prompt, /минимум 620px от нижнего края/);
   assert.match(prompt, /x=830\.\.1080/);
   assert.match(prompt, /примерно 250px справа/);
@@ -200,7 +200,7 @@ test("image prompt keeps important elements inside social safe zones", () => {
   assert.match(prompt, /Не копируй цвета, прямоугольники, форму маски/);
   assert.match(prompt, /центральных 76-80% ширины/);
   assert.match(prompt, /10-12% пустого поля слева и справа/);
-  assert.match(prompt, /Верхняя безопасная зона: y=0\.\.280/);
+  assert.match(prompt, /Верхняя безопасная зона: y=0\.\.360/);
   assert.match(prompt, /нижние 30% кадра/);
   assert.match(prompt, /без любого текста, даже мелкого дисклеймера/);
   assert.match(prompt, /Запрещено касание краев/);
