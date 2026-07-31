@@ -1,7 +1,12 @@
+import { existsSync } from "node:fs";
+
 const CANVAS_WIDTH = 1024;
 const CANVAS_HEIGHT = 1792;
+const preferredCtaFontFiles = [
+  "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+];
 
-export function buildCtaTextBadgeFilter(cta) {
+export function buildCtaTextBadgeFilter(cta, options = {}) {
   const fontSize = Math.round(58 * (cta.scale / 100));
   const box = getBadgeBox(cta, fontSize);
   const x = Math.round(CANVAS_WIDTH * (cta.x / 100));
@@ -14,10 +19,18 @@ export function buildCtaTextBadgeFilter(cta) {
     `color=c=${getCtaBorderColor(cta)}:s=${box.width}x${box.height}:d=5,format=rgba,${alphaMaskFilter(outerMask)}[ctaOuter]`,
     `color=c=${getCtaBoxColor(cta)}:s=${box.innerWidth}x${box.innerHeight}:d=5,format=rgba,${alphaMaskFilter(innerMask)}[ctaInner]`,
     `[ctaOuter][ctaInner]overlay=x=${box.border}:y=${box.border}:format=auto[ctaBg]`,
-    `[ctaBg]drawtext=text='${escapeFfmpegText(cta.text)}':x=(w-text_w)/2:y=(h-text_h)/2:fontsize=${fontSize}:fontcolor=${getCtaTextColor(cta)}[ctaText]`,
+    `[ctaBg]drawtext=${buildDrawtextTextOptions(cta.text, options.textFilePath)}:x=(w-text_w)/2:y=(h-text_h)/2:fontsize=${fontSize}:fontcolor=${getCtaTextColor(cta)}[ctaText]`,
     `[ctaText]colorchannelmixer=aa=${opacity}[cta]`,
     `[base][cta]overlay=x=${x}-w/2:y=${y}-h/2:enable='gte(t,3)',format=yuv420p[out]`
   ].join(";");
+}
+
+export function buildDrawtextTextOptions(text, textFilePath = "") {
+  const fontFile = resolveCtaFontFile();
+  return [
+    fontFile ? `fontfile='${escapeFfmpegOption(fontFile)}'` : "",
+    textFilePath ? `textfile='${escapeFfmpegOption(textFilePath)}'` : `text='${escapeFfmpegText(text)}'`
+  ].filter(Boolean).join(":");
 }
 
 function alphaMaskFilter(mask) {
@@ -81,7 +94,15 @@ function toFfmpegColor(value, fallback) {
 }
 
 function escapeFfmpegText(value) {
+  return escapeFfmpegOption(value);
+}
+
+function escapeFfmpegOption(value) {
   return String(value || "").replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "\\'");
+}
+
+function resolveCtaFontFile() {
+  return preferredCtaFontFiles.find((file) => existsSync(file)) || "";
 }
 
 function clampNumber(value, min, max) {

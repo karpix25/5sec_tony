@@ -81,6 +81,35 @@ test("scheduleSave stays inert before hydrate and saves after remote state is re
   }
 });
 
+test("repeated save requests collapse before the debounce timer fires", async () => {
+  const originalFetch = globalThis.fetch;
+  let postCount = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/api/state") && (!options.method || options.method === "GET")) {
+      return { ok: true, json: async () => ({ state: { jobs: [] }, updatedAt: "t0" }) };
+    }
+    postCount += 1;
+    return { ok: true, json: async () => ({ saved: true, updatedAt: "t1" }) };
+  };
+
+  const persistence = createStatePersistence({
+    getState: () => ({ jobs: [] }),
+    replaceState: () => {},
+    notifyStatus: () => {},
+    refreshIntervalMs: 0
+  });
+
+  try {
+    await persistence.hydrate();
+    persistence.scheduleSave();
+    persistence.scheduleSave();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(postCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("save sends the hydrated db version as baseUpdatedAt", async () => {
   const originalFetch = globalThis.fetch;
   const saveBodies = [];

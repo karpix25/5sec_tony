@@ -36,7 +36,6 @@ export function renderProjectManagementSettings({ project, automationState, oper
         </aside>
       </div>
       <div class="project-actions">
-        <button id="save-project-settings" class="primary-btn" type="submit" ${isBusy ? "disabled" : ""}>Сохранить проект</button>
         <small id="audience-expert-status" class="ai-field-status">После сохранения AI сам обновит память проекта.</small>
         ${busyOperation ? renderOperationStatus(busyOperation) : ""}
       </div>

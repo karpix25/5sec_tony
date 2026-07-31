@@ -59,7 +59,7 @@ export async function runAudienceExpertAi(button, store) {
   }
 }
 
-export async function saveProjectAndRefreshAiMemory(form, store) {
+export async function saveProjectAndRefreshAiMemory(form, store, options = {}) {
   const button = form?.querySelector("#save-project-settings");
   const status = form?.querySelector("#audience-expert-status");
   const previous = button?.textContent || "";
@@ -91,6 +91,7 @@ export async function saveProjectAndRefreshAiMemory(form, store) {
     setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
   } catch (error) {
     setStatus(status, humanizeProjectSaveError(error, { projectSaved }), "error");
+    if (options.rethrowSaveError && !projectSaved) throw error;
   } finally {
     if (button) {
       button.textContent = previous || "Сохранить проект";

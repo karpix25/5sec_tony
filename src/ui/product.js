@@ -22,9 +22,6 @@ export function renderProductSettings({ product, operations = {} }) {
     <section class="product-screen">
       <div class="product-action-bar">
         <div><span class="eyebrow">Текущий продукт</span><h2>${escapeHtml(product.name)}</h2></div>
-        <div class="form-actions">
-          <button class="secondary-btn" form="product-settings-form" type="submit" ${isBusy ? "disabled" : ""}>Сохранить изменения</button>
-        </div>
       </div>
       ${busyOperation ? renderOperationStatus(busyOperation) : ""}
       <div class="product-stage-grid">

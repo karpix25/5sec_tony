@@ -23,10 +23,6 @@ export function bindProductEvents(root, store) {
     event.preventDefault();
     runCreateProductFromPhotos(root, store, event.currentTarget);
   });
-  root.querySelector("#product-settings-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    runProductSettingsSave(root, store, event.currentTarget);
-  });
   root.querySelector("#product-photo-analysis-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     runProductPhotoAnalysis(root, store, event.currentTarget);
@@ -41,19 +37,6 @@ export function bindProductEvents(root, store) {
   root.querySelectorAll("[data-delete-product-reference]").forEach((button) => {
     button.addEventListener("click", () => deleteProductReference(store, button.dataset.deleteProductReference));
   });
-}
-
-async function runProductSettingsSave(root, store, form) {
-  const button = root.querySelector('button[form="product-settings-form"]');
-  const label = button?.textContent || "";
-  try {
-    setButtonBusy(button, "Сохраняем...");
-    await saveProduct(store, getFormSnapshot(form));
-  } catch (error) {
-    window.alert?.(error.message || "Не удалось сохранить продукт");
-  } finally {
-    restoreButton(button, label);
-  }
 }
 
 async function runProductPhotoAnalysis(root, store, form) {
@@ -160,18 +143,6 @@ function deleteProductReference(store, referenceId) {
     ? store.deleteProductReferenceRemote(referenceId)
     : store.deleteProductReference(referenceId);
   Promise.resolve(result).catch((error) => window.alert?.(error.message || "Не удалось удалить фото продукта"));
-}
-
-function setButtonBusy(button, text) {
-  if (!button) return;
-  button.disabled = true;
-  button.textContent = text;
-}
-
-function restoreButton(button, text) {
-  if (!button) return;
-  button.disabled = false;
-  button.textContent = text;
 }
 
 function openProductModal(root) {

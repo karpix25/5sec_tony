@@ -57,6 +57,23 @@ test("composite filter renders default cta badge with rounded border layer", () 
   assert.match(filter, /\[base\]\[cta\]overlay=x=512-w\/2:y=1398-h\/2:enable='gte\(t,3\)',format=yuv420p\[out\]/);
 });
 
+test("composite filter can read cta text from utf8 textfile", () => {
+  const filter = buildCompositeVideoFilter({
+    hasAvatarInput: false,
+    ctaTextPath: "/tmp/cta.txt",
+    ctaOverlay: { enabled: true, mode: "badge", text: "ЧИТАЙ ОПИСАНИЕ" }
+  });
+
+  assert.match(filter, /drawtext=(?:fontfile='[^']+':)?textfile='\/tmp\/cta\.txt'/);
+  assert.doesNotMatch(filter, /drawtext=[^;]+text='ЧИТАЙ ОПИСАНИЕ'/);
+});
+
+test("docker image installs a cyrillic-capable cta font", () => {
+  const source = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
+
+  assert.match(source, /fonts-dejavu-core/);
+});
+
 test("composite video returns local final file without waiting for S3 upload", () => {
   const source = readFileSync(new URL("../scripts/composite-video.mjs", import.meta.url), "utf8");
 

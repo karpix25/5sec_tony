@@ -4,16 +4,12 @@ import { readFileSync } from "node:fs";
 import { projects } from "../src/domain/entities.js";
 import { renderProductSettings } from "../src/ui/product.js";
 
-test("product settings save reads form without resetting values", () => {
+test("product settings save is routed through the shared control", () => {
   const renderSource = readFileSync(new URL("../src/ui/render.js", import.meta.url), "utf8");
   const source = readFileSync(new URL("../src/ui/product-events.js", import.meta.url), "utf8");
-  const handler = source.match(/#product-settings-form[\s\S]+?}\);/);
 
-  assert.match(renderSource, /bindProductEvents\(root, store\)/);
-  assert.ok(handler, "product settings submit handler exists");
-  assert.match(source, /store\.updateProductRemote/);
-  assert.match(handler[0], /runProductSettingsSave\(root, store, event\.currentTarget\)/);
-  assert.doesNotMatch(handler[0], /getFormPayload\(event\.currentTarget\)/);
+  assert.match(renderSource, /bindGlobalSave\(root, store\)/);
+  assert.doesNotMatch(source, /runProductSettingsSave|#product-settings-form.*addEventListener\("submit"/);
 });
 
 test("product questionnaire fields are open inside settings form by default", () => {
@@ -74,7 +70,7 @@ test("product screen has a single save changes action", () => {
   const html = renderProductSettings({ product });
   const matches = html.match(/Сохранить изменения/g) || [];
 
-  assert.equal(matches.length, 1);
+  assert.equal(matches.length, 0);
   assert.doesNotMatch(html, /Сохранить анкету/);
   assert.doesNotMatch(html, /id="open-product-modal"/);
 });

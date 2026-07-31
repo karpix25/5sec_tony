@@ -12,7 +12,7 @@ import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
 import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewModal } from "./modals.js";
 import { bindPreviewModalEvents } from "./preview-modal.js";
-import { runAudienceExpertAi, runProjectFieldAi, saveProjectAndRefreshAiMemory } from "./project-ai.js";
+import { runAudienceExpertAi, runProjectFieldAi } from "./project-ai.js";
 import { renderProductSettings } from "./product.js";
 import { renderProductSelectOptions } from "./product-select.js";
 import { bindProductEvents } from "./product-events.js";
@@ -24,7 +24,13 @@ import { getProjectAutomationState } from "../domain/project-automation.js";
 import { bindQueuePanelEvents, renderQueuePanel } from "./queue.js";
 import { bindYandexFolderPickers } from "./yandex-folder-picker.js";
 import { bindWorkspaceAuthEvents, renderWorkspaceAuthAdmin } from "./auth-workspace.js";
-import { renderPersistenceStatus, updatePersistenceStatusView } from "./persistence-status.js";
+import {
+  bindGlobalSave,
+  renderGlobalSaveControl,
+  renderPersistenceStatus,
+  updateGlobalSavePersistenceStatus,
+  updatePersistenceStatusView
+} from "./persistence-status.js";
 
 export function renderApp(root, store, options = {}) {
   const state = store.getState();
@@ -45,6 +51,7 @@ export function renderApp(root, store, options = {}) {
     ${renderCreateProjectModal(field)}
     ${renderDeleteProjectModal(context)}
     ${renderMediaPreviewModal()}
+    ${renderGlobalSaveControl()}
   `;
 
   bindEvents(root, store, options);
@@ -52,6 +59,7 @@ export function renderApp(root, store, options = {}) {
 
 export function updatePersistenceStatus(root, status) {
   updatePersistenceStatusView(root, status);
+  updateGlobalSavePersistenceStatus(root, status);
 }
 
 function renderSidebar(state, context, projectProducts) {
@@ -233,10 +241,7 @@ function bindEvents(root, store, options = {}) {
     }
   });
   bindProductEvents(root, store);
-  root.querySelector("#project-settings-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveProjectAndRefreshAiMemory(event.currentTarget, store);
-  });
+  bindGlobalSave(root, store);
   root.querySelectorAll("[data-ai-project-field]").forEach((button) => {
     button.addEventListener("click", () => runProjectFieldAi(button, store));
   });

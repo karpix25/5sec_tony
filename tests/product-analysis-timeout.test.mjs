@@ -23,3 +23,10 @@ test("product photo analysis merges ai draft with live form state", () => {
   assert.match(mergeSource, /initialProduct/);
   assert.match(mergeSource, /liveProduct/);
 });
+
+test("product photo analysis asks writer to proofread OCR text", () => {
+  const serverSource = readFileSync(new URL("../scripts/openrouter-api.mjs", import.meta.url), "utf8");
+
+  assert.match(serverSource, /исправь очевидные OCR-ошибки/);
+  assert.match(serverSource, /Не копируй в поля карточки искаженные слова/);
+});

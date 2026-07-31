@@ -335,7 +335,7 @@ test("project management UI exposes limits and autorun controls on the right-sid
   assert.doesNotMatch(html, /Сегодня:/);
   assert.doesNotMatch(html, /data-reset-project-usage/);
   assert.doesNotMatch(html, /data-reset-project-total-usage/);
-  assert.match(html, /Сохранить проект/);
+  assert.doesNotMatch(html, /Сохранить проект|Сохранить изменения/);
   assert.doesNotMatch(html, /Обновить AI-память|AI Audience Expert|AI Strategy|Смысловая база|Сценарные кластеры|Боли аудитории|Tone of voice|Стиль проекта/);
 });
 
