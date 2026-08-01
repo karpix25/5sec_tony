@@ -153,6 +153,7 @@ test("BullMQ lock reaper redispatches requeued orphan jobs", async () => {
     requeueExpiredJobLocks: async (options) => {
       await options.onRequeuedJobs([{
         id: "job-orphan",
+        queueStatus: "retrying",
         queueIdempotencyKey: "generation:job-orphan",
         queueMaxAttempts: 3
       }]);
@@ -169,4 +170,27 @@ test("BullMQ lock reaper redispatches requeued orphan jobs", async () => {
   assert.equal(dispatched[0].job.id, "job-orphan");
   assert.match(dispatched[0].job.queueIdempotencyKey, /^generation:job-orphan:requeue:/);
   assert.equal(dispatched[0].job.queueMaxAttempts, 3);
+});
+
+test("BullMQ lock reaper does not redispatch terminal failed jobs", async () => {
+  const dispatched = [];
+  const result = await requeueAndRedispatchExpiredJobLocks({
+    requeueExpiredJobLocks: async (options) => {
+      await options.onRequeuedJobs([{
+        id: "job-failed",
+        queueStatus: "failed",
+        queueIdempotencyKey: "generation:job-failed",
+        queueMaxAttempts: 3
+      }]);
+      return 1;
+    },
+    dispatchJobToQueue: async (job) => {
+      dispatched.push(job);
+      return { mode: "bullmq", enqueued: true };
+    }
+  }, { JOB_QUEUE_MODE: "bullmq", REDIS_URL: "redis://localhost:6379" });
+
+  assert.equal(result.count, 1);
+  assert.equal(result.redispatches.length, 0);
+  assert.equal(dispatched.length, 0);
 });

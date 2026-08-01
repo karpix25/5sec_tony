@@ -1,6 +1,7 @@
 import { getServerImageJobStatus, runServerImageJob } from "../services/server-jobs.js";
 
 const terminalStatuses = ["done", "review", "failed"];
+const terminalQueueStatuses = ["completed", "failed"];
 const activeServerPolls = new Set();
 const appliedAvatarUsage = new Set();
 
@@ -54,7 +55,7 @@ async function pollServerImageJob(store, jobId, options = {}) {
       immediate = false;
 
       const localJob = findJob(store, jobId);
-      if (!localJob || terminalStatuses.includes(localJob.status)) return;
+      if (!localJob || isTerminalJob(localJob)) return;
 
       try {
         const payload = await getServerImageJobStatus(jobId);
@@ -104,7 +105,7 @@ function createServerJobContext(store, job) {
 }
 
 function isTerminalJob(job) {
-  return job?.status && terminalStatuses.includes(job.status);
+  return terminalStatuses.includes(job?.status) || terminalQueueStatuses.includes(job?.queueStatus);
 }
 
 function isServerJobMissing(error) {
@@ -116,7 +117,7 @@ function hasServerJobHandshake(job) {
 }
 
 function shouldPollServerJob(job) {
-  return job?.status === "running" && hasServerJobHandshake(job);
+  return job?.status === "running" && !isTerminalJob(job) && hasServerJobHandshake(job);
 }
 
 function failServerJob(store, jobId, message) {

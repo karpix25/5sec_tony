@@ -159,6 +159,9 @@ test("job ledger requeues expired worker locks without deleting jobs", async () 
 
   assert.equal(count, 2);
   assert.match(update.text, /queue_status = case/i);
+  assert.match(update.text, /status = case/i);
+  assert.match(update.text, /progress = case/i);
+  assert.match(update.text, /extra = case/i);
   assert.match(update.text, /queue_locked_at is null/i);
   assert.match(update.text, /returning id, queue_status, queue_last_error, queue_idempotency_key, queue_max_attempts/i);
   assert.doesNotMatch(update.text, /\b(delete|truncate|drop)\b/i);

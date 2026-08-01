@@ -90,6 +90,7 @@ export async function requeueAndRedispatchExpiredJobLocks(deps = {}, env = proce
     ...deps,
     onRequeuedJobs: async (jobs) => {
       for (const job of jobs || []) {
+        if (job.queueStatus !== "retrying") continue;
         const dispatchJob = {
           id: job.id,
           queueIdempotencyKey: `${job.queueIdempotencyKey || job.id}:requeue:${Date.now()}`,

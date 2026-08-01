@@ -113,15 +113,15 @@ function getEmptyQueueMessage(state, context) {
 }
 
 function renderQueueJob(job, productName = "") {
-  const ready = isQueueJobReady(job);
+  const failed = isQueueJobFailed(job);
+  const ready = !failed && isQueueJobReady(job);
   const preview = job.imageData || job.imageUrl || "";
-  const failed = job.status === "failed";
   return `
     <article class="queue-job ${ready ? "ready" : "loading"} ${failed ? "failed" : ""}">
       <div class="queue-job-main">
         <div class="queue-job-head">
           <div>
-            <span class="queue-status">${escapeHtml(statusLabels[job.status] || "В работе")}</span>
+            <span class="queue-status">${escapeHtml(getQueueStatusLabel(job))}</span>
             <h3>${escapeHtml(job.title)}</h3>
           </div>
           <button class="danger-icon" data-delete-job="${job.id}" type="button" aria-label="Удалить задачу">×</button>
@@ -187,6 +187,26 @@ function firstValidDate(values = []) {
 
 function isQueueJobTerminal(job) {
   return ["done", "review", "failed"].includes(job?.status) || ["completed", "failed"].includes(job?.queueStatus);
+}
+
+function isQueueJobFailed(job) {
+  return job?.status === "failed" || job?.queueStatus === "failed";
+}
+
+function isQueueJobCompleted(job) {
+  return job?.status === "done" || job?.queueStatus === "completed";
+}
+
+function getQueueStatusLabel(job) {
+  if (isQueueJobFailed(job)) return statusLabels.failed;
+  if (isQueueJobCompleted(job)) return statusLabels.done;
+  if (job?.queueStatus === "retrying") return "Повторная попытка";
+  if (job?.queueStatus === "queued") return statusLabels.queued;
+  return statusLabels[job?.status] || "В работе";
+}
+
+function getQueueFailureMessage(job) {
+  return job?.queueLastError || job?.failMsg || "Генерация завершилась ошибкой";
 }
 
 function formatJobDate(value) {
@@ -257,8 +277,9 @@ function getGenerationSource(job) {
 }
 
 function renderQueueAction(job, ready, failed) {
+  if (failed) return `<span>${escapeHtml(humanizeQueueMessage(getQueueFailureMessage(job)))}</span>`;
   if (job.finalVideoUrl) return `<span>Финальный mp4 на 5 секунд${job.finalVideoHasAudio ? " с аудио" : ""} готов</span>`;
-  if (failed) return `<span>${escapeHtml(humanizeQueueMessage(job.failMsg || "Генерация завершилась ошибкой"))}</span>`;
+  if (isQueueJobCompleted(job) && !ready) return "<span>Генерация завершена, результат не найден</span>";
   if (isFinalVideoJob(job) && (job.imageData || job.imageUrl)) return "<span>Картинка готова, собираем финальное видео</span>";
   if (ready) return "<span>Кликните по превью, чтобы открыть полностью</span>";
   return `<span>Результат появится автоматически</span>`;
@@ -274,6 +295,13 @@ function renderQueuePreviewColumn(job, ready, failed, preview) {
 }
 
 function renderQueuePreview(job, ready, failed, preview) {
+  if (failed) {
+    return `
+      <button class="queue-preview" type="button" disabled>
+        ${renderQueueLoader(true, getQueueFailureMessage(job), "image", job)}
+      </button>
+    `;
+  }
   if (job.finalVideoUrl) {
     return renderPreviewTrigger({
       src: job.finalVideoUrl,
@@ -287,13 +315,13 @@ function renderQueuePreview(job, ready, failed, preview) {
   if (isFinalVideoJob(job)) {
     return `
       <button class="queue-preview" type="button" disabled>
-        ${renderQueueLoader(failed, job.failMsg, job.imageData || job.imageUrl ? "video" : "image", job)}
+        ${renderQueueLoader(false, getQueueFailureMessage(job), job.imageData || job.imageUrl ? "video" : "image", job)}
       </button>
     `;
   }
   return `
     <button class="queue-preview" data-preview-media="${escapeHtml(preview)}" data-preview-type="image" data-preview-title="${escapeHtml(job.title)}" type="button" ${ready ? "" : "disabled"}>
-      ${ready ? `<img src="${escapeHtml(preview)}" alt="">` : renderQueueLoader(failed, job.failMsg, "image")}
+      ${ready ? `<img src="${escapeHtml(preview)}" alt="">` : renderQueueLoader(false, getQueueFailureMessage(job), "image", job)}
     </button>
   `;
 }
@@ -352,6 +380,14 @@ function renderQueueLoader(failed, failMsg, pendingType = "image", job = null) {
       </div>
     `;
   }
+  if (isQueueJobCompleted(job)) {
+    return `
+      <div class="queue-loader completed">
+        <strong>Готово</strong>
+        <small>Очередь завершила обработку, но результат не найден.</small>
+      </div>
+    `;
+  }
   return `
     <div class="queue-loader">
       <span></span><span></span><span></span>
@@ -363,6 +399,8 @@ function renderQueueLoader(failed, failMsg, pendingType = "image", job = null) {
 
 function getQueuePendingMessage(pendingType, job) {
   if (pendingType !== "video") {
+    if (job?.queueStatus === "retrying") return "Предыдущая попытка завершилась ошибкой, запускаем повторно.";
+    if (job?.queueStatus === "queued") return "Задача стоит в очереди и будет запущена автоматически.";
     return "Результат появится здесь автоматически после этапа генерации.";
   }
   return job?.renderedWithoutAvatar || isNoAvatarCharacterId(job?.characterId)

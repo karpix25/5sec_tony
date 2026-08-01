@@ -175,6 +175,37 @@ test("running local job without server acceptance is not resumed after reload", 
   }
 });
 
+test("queue terminal status prevents polling when public status is still running", async () => {
+  const originalFetch = globalThis.fetch;
+  const jobs = [
+    {
+      id: "job-queue-failed",
+      status: "running",
+      queueStatus: "failed",
+      serverJobAcceptedAt: "2026-06-25T20:00:00.000Z"
+    },
+    {
+      id: "job-queue-completed",
+      status: "running",
+      queueStatus: "completed",
+      serverJobAcceptedAt: "2026-06-25T20:00:00.000Z"
+    }
+  ];
+  const store = createTestStore({ jobs });
+  let fetchCalled = false;
+  globalThis.fetch = async () => {
+    fetchCalled = true;
+    return jsonResponse({ job: jobs[0] });
+  };
+
+  try {
+    await resumeRunningImageJobs(store);
+    assert.equal(fetchCalled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function createTestStore(state) {
   return {
     getState: () => state,

@@ -156,6 +156,14 @@ export async function requeueExpiredJobLocks(options = {}) {
                 when queue_attempts < queue_max_attempts then 'retrying'
                 else 'failed'
               end,
+              status = case
+                when queue_attempts < queue_max_attempts then status
+                else 'failed'
+              end,
+              progress = case
+                when queue_attempts < queue_max_attempts then progress
+                else 100
+              end,
               queue_scheduled_at = case
                 when queue_attempts < queue_max_attempts then now()
                 else null
@@ -165,6 +173,16 @@ export async function requeueExpiredJobLocks(options = {}) {
               queue_last_error = case
                 when queue_locked_at is null then 'Worker lock missing'
                 else 'Worker lock expired'
+              end,
+              extra = case
+                when queue_attempts < queue_max_attempts then extra
+                else coalesce(extra, '{}'::jsonb) || jsonb_build_object(
+                  'serverJobFailedAt', now(),
+                  'failMsg', case
+                    when queue_locked_at is null then 'Worker lock missing'
+                    else 'Worker lock expired'
+                  end
+                )
               end,
               updated_at = now()
         where app_state_key = $1

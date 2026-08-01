@@ -306,3 +306,61 @@ test("queue translates provider text length errors into operator message", () =>
   assert.match(list.innerHTML, /Промпт получился слишком длинным для генератора/);
   assert.doesNotMatch(list.innerHTML, /The text length cannot exceed/);
 });
+
+test("queueStatus failed renders an error even when job status is still running", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  root.append(panel);
+  panel.append(list);
+
+  updateQueuePanel(root, {
+    jobs: [{
+      id: "job-queue-failed",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "running",
+      queueStatus: "failed",
+      stage: "image",
+      outputType: "image",
+      failMsg: "Передали генерацию серверу...",
+      queueLastError: "Worker lock expired",
+      title: "Задача потеряла worker lock"
+    }],
+    products: [{ id: "product-1", name: "Продукт" }]
+  }, {
+    project: { id: "project-1" }
+  }, { deleteJob() {} });
+
+  assert.match(list.innerHTML, /Ошибка/);
+  assert.match(list.innerHTML, /Worker lock expired/);
+  assert.match(list.innerHTML, /queue-loader error/);
+  assert.doesNotMatch(list.innerHTML, /Ждем картинку/);
+});
+
+test("queue retry state is visible instead of looking like a normal running job", () => {
+  const root = new FakeElement();
+  const panel = new FakeElement({ className: "queue-panel" });
+  const list = new FakeElement({ className: "queue-list" });
+  root.append(panel);
+  panel.append(list);
+
+  updateQueuePanel(root, {
+    jobs: [{
+      id: "job-queue-retrying",
+      projectId: "project-1",
+      productId: "product-1",
+      status: "running",
+      queueStatus: "retrying",
+      stage: "image",
+      outputType: "image",
+      title: "Задача повторяется"
+    }],
+    products: [{ id: "product-1", name: "Продукт" }]
+  }, {
+    project: { id: "project-1" }
+  }, { deleteJob() {} });
+
+  assert.match(list.innerHTML, /Повторная попытка/);
+  assert.match(list.innerHTML, /Предыдущая попытка завершилась ошибкой/);
+});
