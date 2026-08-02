@@ -1,7 +1,11 @@
 import { normalizeProjectAutomation } from "../../src/domain/project-automation.js";
 import { updateGenerationState } from "../generation-state.mjs";
+import { patchAutomationProject, shouldUseRelationalAutomation } from "./relational-state-store.mjs";
 
 export async function markAutomationStatus(projectId, patch, deps = {}) {
+  if (shouldUseRelationalAutomation(deps)) {
+    return (deps.patchAutomationProject || patchAutomationProject)(projectId, patch, deps);
+  }
   const updateState = deps.updateGenerationState || updateGenerationState;
   await updateState((state) => ({
     ...state,

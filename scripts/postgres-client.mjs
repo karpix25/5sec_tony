@@ -26,6 +26,16 @@ export async function withPostgresTransaction(callback) {
   }
 }
 
+export async function withPostgresClient(callback) {
+  const pool = await getPool();
+  const client = await pool.connect();
+  try {
+    return await callback(client);
+  } finally {
+    client.release();
+  }
+}
+
 async function getPool() {
   if (!isPostgresConfigured()) {
     throw new Error("Postgres is not configured. Set DATABASE_URL or DB_HOST/DB_USER/DB_PASSWORD/DB_NAME.");

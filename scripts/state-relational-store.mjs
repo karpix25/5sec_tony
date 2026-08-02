@@ -34,7 +34,7 @@ const productKeys = [
   "id", "projectId", "name", "description", "offer", "components", "pains", "facts", "forbidden", "aiPassport", "references"
 ];
 
-const jobKeys = [
+export const jobKeys = [
   "id", "projectId", "productId", "characterId", "status", "stage", "progress", "title", "topic", "music", "prompt",
   "referenceTitle", "outputType", "finalVideoUrl", "finalVideoHasAudio", "semanticKey", "meaningPatternId",
   "productVisualMode", "compositionMode", "contentLayerId", "format", "inputUrls", "inputRefs", "diversitySlot",
@@ -400,16 +400,29 @@ async function saveProducts(query, appStateKey, products) {
   }
 }
 
-async function saveJobs(query, appStateKey, jobs, existingJobsById = new Map()) {
-  for (const [index, job] of jobs.entries()) {
-    const mergedJob = mergeClientJobWithServerJob(job, existingJobsById.get(job.id));
+export async function saveJobs(query, appStateKey, jobs, existingJobsById = new Map(), options = {}) {
+  const mergedJobs = jobs.map((job) => mergeClientJobWithServerJob(job, existingJobsById.get(job.id)));
+  for (let start = 0; start < mergedJobs.length; start += 250) {
+    const chunk = mergedJobs.slice(start, start + 250);
+    const values = chunk.flatMap((job, index) => buildJobValues(job, start + index, appStateKey));
+    const rowPlaceholders = chunk.map((_job, rowIndex) => buildJobPlaceholders(rowIndex * 39)).join(",\n");
     await query(
       `insert into studio_jobs
         (app_state_key, id, sort_order, project_id, product_id, character_id, status, stage, progress, title, topic, music, prompt, reference_title, output_type, final_video_url, final_video_has_audio, semantic_key, meaning_pattern_id, product_visual_mode, composition_mode, content_layer_id, format, input_urls, input_refs, diversity_slot, queue_name, queue_status, queue_priority, queue_attempts, queue_max_attempts, queue_scheduled_at, queue_locked_at, queue_lock_owner, queue_last_error, queue_idempotency_key, queue_provider_task_id, queue_metadata, extra, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24::jsonb, $25::jsonb, $26::jsonb, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38::jsonb, $39::jsonb, now())`,
-      [appStateKey, mergedJob.id, index, mergedJob.projectId, mergedJob.productId, mergedJob.characterId || "", mergedJob.status || "", mergedJob.stage || "", asInteger(mergedJob.progress, 0), mergedJob.title || "", mergedJob.topic || "", mergedJob.music || "", mergedJob.prompt || "", mergedJob.referenceTitle || "", mergedJob.outputType || "", mergedJob.finalVideoUrl || "", Boolean(mergedJob.finalVideoHasAudio), mergedJob.semanticKey || "", mergedJob.meaningPatternId || "", mergedJob.productVisualMode || "", mergedJob.compositionMode || "", mergedJob.contentLayerId || "", mergedJob.format || "", toJson(asArray(mergedJob.inputUrls)), toJson(asArray(mergedJob.inputRefs)), toJson(mergedJob.diversitySlot ?? null), mergedJob.queueName || "generation", mergedJob.queueStatus || "", asInteger(mergedJob.queuePriority, 0), asInteger(mergedJob.queueAttempts, 0), asInteger(mergedJob.queueMaxAttempts, 1), mergedJob.queueScheduledAt || null, mergedJob.queueLockedAt || null, mergedJob.queueLockOwner || "", mergedJob.queueLastError || "", mergedJob.queueIdempotencyKey || "", mergedJob.queueProviderTaskId || "", toJson(asObject(mergedJob.queueMetadata)), toJson(pickExtraFields(mergedJob, jobKeys))]
+       values ${rowPlaceholders}${options.ignoreConflicts ? " on conflict (app_state_key, id) do nothing" : ""}`,
+      values
     );
   }
+}
+
+function buildJobPlaceholders(offset) {
+  const values = Array.from({ length: 39 }, (_value, index) => `$${offset + index + 1}`);
+  for (const index of [23, 24, 25, 37, 38]) values[index] += "::jsonb";
+  return `(${values.join(", ")})`;
+}
+
+function buildJobValues(job, index, appStateKey) {
+  return [appStateKey, job.id, index, job.projectId, job.productId, job.characterId || "", job.status || "", job.stage || "", asInteger(job.progress, 0), job.title || "", job.topic || "", job.music || "", job.prompt || "", job.referenceTitle || "", job.outputType || "", job.finalVideoUrl || "", Boolean(job.finalVideoHasAudio), job.semanticKey || "", job.meaningPatternId || "", job.productVisualMode || "", job.compositionMode || "", job.contentLayerId || "", job.format || "", toJson(asArray(job.inputUrls)), toJson(asArray(job.inputRefs)), toJson(job.diversitySlot ?? null), job.queueName || "generation", job.queueStatus || "", asInteger(job.queuePriority, 0), asInteger(job.queueAttempts, 0), asInteger(job.queueMaxAttempts, 1), job.queueScheduledAt || null, job.queueLockedAt || null, job.queueLockOwner || "", job.queueLastError || "", job.queueIdempotencyKey || "", job.queueProviderTaskId || "", toJson(asObject(job.queueMetadata)), toJson(pickExtraFields(job, jobKeys))];
 }
 
 async function saveGlobalAudio(query, appStateKey, audioLibrary) {

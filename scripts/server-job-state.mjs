@@ -1,7 +1,7 @@
 import { patchJobWithQuotaAccounting } from "../src/domain/job-quota.js";
 import { lockAppStateMutation } from "./app-state-advisory-lock.mjs";
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
-import { loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
+import { loadNormalizedState } from "./state-relational-store.mjs";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
 const jobColumns = {
@@ -48,7 +48,7 @@ export async function persistServerJobSnapshot(job, deps = {}) {
   if (!job?.id || !(deps.isPostgresConfigured || isPostgresConfigured)()) return false;
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   return withTransaction(async (tx) => {
-    await lockAppStateMutation(tx.query, appStateKey);
+    await lockAppStateMutation(tx.query, appStateKey, job.projectId || "");
     const current = await loadPersistedJob(tx.query, job.id);
     if (!current) return false;
     const merged = { ...current, ...job };
@@ -56,7 +56,7 @@ export async function persistServerJobSnapshot(job, deps = {}) {
     await updateRelationalJobRow(tx.query, accounted.job);
     if (accounted.project) {
       await updateProjectUsageRow(tx.query, accounted.project);
-      await rebuildLegacyMirror(tx.query);
+      await touchLegacyMirrorTimestamp(tx.query);
     }
     return true;
   });
@@ -206,9 +206,8 @@ async function updateProjectUsageRow(query, project) {
   );
 }
 
-async function rebuildLegacyMirror(query) {
-  const state = await loadNormalizedState(query, appStateKey);
-  if (state) await saveLegacyState(query, appStateKey, state);
+async function touchLegacyMirrorTimestamp(query) {
+  await query("update app_state set updated_at = now() where id = $1", [appStateKey]);
 }
 
 async function loadServerJobAudioLibrary(query) {

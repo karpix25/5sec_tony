@@ -6,6 +6,7 @@ import { processAudioLibraryRefreshReminder } from "../audio-refresh-reminders.m
 import { claimAutomationDispatches } from "./scheduler-planner.mjs";
 import { getAutomationErrorMessage, markAutomationStatus } from "./scheduler-status.mjs";
 import { withAutomationSchedulerLock } from "./scheduler-lock.mjs";
+import { loadAutomationState, persistAutomationStateDelta, shouldUseRelationalAutomation } from "./relational-state-store.mjs";
 
 export async function runLockedAutomationSchedulerOnce(options = {}) {
   const deps = options.deps || {};
@@ -48,6 +49,18 @@ function ensureStrictQueue(env, deps) {
 }
 
 async function claimDispatches(options, deps) {
+  if (shouldUseRelationalAutomation(deps)) {
+    const loadState = deps.loadGenerationState || loadAutomationState;
+    const persist = deps.persistAutomationStateDelta || persistAutomationStateDelta;
+    const current = await loadState(deps);
+    const claim = claimAutomationDispatches(current, {
+      now: options.now,
+      maxProjectsPerTick: options.maxProjectsPerTick,
+      staleBriefTimeoutMs: options.staleBriefTimeoutMs
+    });
+    if (claim.state !== current) await persist(current, claim.state, { ...deps, optimizedPersistence: true });
+    return { dispatches: claim.dispatches, rescued: claim.rescued, state: claim.state };
+  }
   const updateState = deps.updateGenerationState || updateGenerationState;
   let dispatches = [];
   let rescued = 0;
@@ -73,14 +86,14 @@ async function runDispatch(dispatch, options, deps) {
       source: "automation",
       origin: getAutomationOrigin(options.env || process.env),
       selection: dispatch.selection,
-      deps: deps.generationBatchDeps || {}
+      deps: { ...(deps.generationBatchDeps || {}), optimizedPersistence: shouldUseRelationalAutomation(deps) }
     });
     const jobs = payload.jobs || [];
     await markAutomationStatus(dispatch.projectId, {
       status: "running",
       lastMessage: `Запущено задач: ${jobs.length || dispatch.count}.`,
       dispatchStartedAt: ""
-    }, deps);
+    }, { ...deps, optimizedPersistence: shouldUseRelationalAutomation(deps) });
     return { projectId: dispatch.projectId, ok: true, count: jobs.length || dispatch.count, batchId: payload.batchId || "" };
   } catch (error) {
     await markAutomationStatus(dispatch.projectId, {
