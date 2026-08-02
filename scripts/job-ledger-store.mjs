@@ -231,8 +231,8 @@ export async function findUndispatchedQueueJobs(options = {}) {
           and queue_name = 'generation'
           and queue_status in ('queued', 'retrying')
           and (queue_scheduled_at is null or queue_scheduled_at <= now())
-          and coalesce(queue_scheduled_at, created_at) < now() - ($2::int * interval '1 millisecond')
-        order by queue_priority desc, coalesce(queue_scheduled_at, created_at) asc
+          and queue_scheduled_at < now() - ($2::int * interval '1 millisecond')
+        order by queue_priority desc, queue_scheduled_at asc
         limit $3`,
       [appStateKey, graceMs, limit]
     );
