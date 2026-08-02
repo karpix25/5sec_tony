@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assertBullMqConfig,
+  dispatchJobToQueue,
   getBullMqConfigError,
   getRedisConnection,
   shouldUseBullMq,
@@ -53,4 +54,28 @@ test("job queue dispatcher encodes BullMQ job ids without Redis separators", () 
   const jobId = toBullMqJobId("generation:job-f5385771-df75-46e0-8abf-5ede8b45291d");
   assert.match(jobId, /^job-/);
   assert.equal(jobId.includes(":"), false);
+});
+
+test("job queue dispatcher replaces terminal BullMQ jobs during reconciliation", async () => {
+  const removed = [];
+  const added = [];
+  const result = await dispatchJobToQueue(
+    { id: "job-reconcile", queueIdempotencyKey: "stable-key" },
+    {
+      env: { JOB_QUEUE_MODE: "bullmq", REDIS_URL: "redis://localhost:6379" },
+      BullMQ: {
+        Queue: class FakeQueue {
+          async getJob() {
+            return { getState: async () => "failed", remove: async () => removed.push(true) };
+          }
+          async add() { added.push(true); }
+          async close() {}
+        }
+      }
+    }
+  );
+
+  assert.deepEqual(result, { mode: "bullmq", enqueued: true });
+  assert.deepEqual(removed, [true]);
+  assert.deepEqual(added, [true]);
 });
