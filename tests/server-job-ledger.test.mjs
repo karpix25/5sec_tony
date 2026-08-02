@@ -238,7 +238,7 @@ test("job ledger selects old queued and retrying jobs for reconciliation", async
     queueMaxAttempts: 3,
     queueIdempotencyKey: "generation:job-orphan-queued"
   }]);
-  assert.match(queries.at(-1).text, /updated_at < now\(\)/i);
+  assert.match(queries.at(-1).text, /coalesce\(queue_scheduled_at, created_at\) < now\(\)/i);
   assert.deepEqual(queries.at(-1).params, ["default", 120000, 50]);
 });
 
