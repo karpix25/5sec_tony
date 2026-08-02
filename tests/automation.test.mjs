@@ -59,6 +59,26 @@ test("automation state caps next batch by daily limit, project limit and active 
   assert.equal(state.canRun, false);
 });
 
+test("automation state ignores terminal queue records that retain a running public status", () => {
+  const project = {
+    id: "auto-project-terminal-queue",
+    dailyLimit: 10,
+    usedToday: 0,
+    projectLimit: 20,
+    usedTotal: 0,
+    automation: { enabled: true, concurrency: 2 }
+  };
+
+  const state = getProjectAutomationState({
+    project,
+    jobs: [{ projectId: project.id, status: "running", queueStatus: "failed" }],
+    now: Date.parse("2026-07-24T12:00:00.000Z")
+  });
+
+  assert.equal(state.activeJobs, 0);
+  assert.equal(state.canRun, true);
+});
+
 test("automation state caps next batch by total project limit", () => {
   const project = {
     id: "auto-project-total",
@@ -91,7 +111,7 @@ test("automation state resets stale daily usage without changing total usage", (
 
   assert.equal(state.remainingDaily, 100);
   assert.equal(state.remainingProject, 86);
-  assert.equal(state.nextCount, 5);
+  assert.equal(state.nextCount, 3);
   assert.equal(state.canRun, true);
   assert.equal(state.automation.enabled, true);
 });
@@ -185,7 +205,7 @@ test("automation state ignores legacy target count when project limits have room
   assert.equal(state.completedJobs, 90);
   assert.equal(state.remainingDaily, 90);
   assert.equal(state.remainingProject, 110);
-  assert.equal(state.nextCount, 5);
+  assert.equal(state.nextCount, 2);
   assert.equal(state.canRun, true);
 });
 

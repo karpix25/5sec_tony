@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { dispatchJobToQueue, getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
 import { appendJobQueueEvent } from "./job-ledger-events.mjs";
-import { claimNextQueuedJob, claimQueuedJobById, markJobWorkerFailure, requeueExpiredJobLocks } from "./job-ledger-store.mjs";
+import { claimNextQueuedJob, claimQueuedJobById, findUndispatchedQueueJobs, markJobWorkerFailure, requeueExpiredJobLocks } from "./job-ledger-store.mjs";
 import { queryPostgres } from "./postgres-client.mjs";
 import { loadPersistedServerJob, loadPersistedServerJobContext, persistServerJobSnapshot } from "./server-job-state.mjs";
 import { createResumedServerJobRecord, runServerJob } from "./server-job-runner.mjs";
@@ -84,24 +84,39 @@ export function startJobLockReaper(deps = {}, env = process.env) {
 
 export async function requeueAndRedispatchExpiredJobLocks(deps = {}, env = process.env) {
   const redispatches = [];
-  const requeueLocks = deps.requeueExpiredJobLocks || requeueExpiredJobLocks;
+  const dispatchedIds = new Set();
   const dispatch = deps.dispatchJobToQueue || dispatchJobToQueue;
+  const findOrphans = deps.findUndispatchedQueueJobs || findUndispatchedQueueJobs;
+  const orphanJobs = await findOrphans({
+    ...deps,
+    graceMs: Math.max(0, Number(env.JOB_QUEUE_RECONCILE_GRACE_MS || 2 * 60 * 1000))
+  });
+  for (const job of orphanJobs || []) {
+    await redispatchQueueJob(job, dispatch, { ...deps, env }, redispatches, dispatchedIds);
+  }
+  const requeueLocks = deps.requeueExpiredJobLocks || requeueExpiredJobLocks;
   const count = await requeueLocks({
     ...deps,
     onRequeuedJobs: async (jobs) => {
       for (const job of jobs || []) {
         if (job.queueStatus !== "retrying") continue;
-        const dispatchJob = {
-          id: job.id,
-          queueIdempotencyKey: `${job.queueIdempotencyKey || job.id}:requeue:${Date.now()}`,
-          queueMaxAttempts: job.queueMaxAttempts || 3
-        };
-        const result = await dispatch(dispatchJob, { ...deps, env });
-        redispatches.push({ jobId: job.id, result });
+        await redispatchQueueJob(job, dispatch, { ...deps, env }, redispatches, dispatchedIds);
       }
     }
   });
-  return { count, redispatches };
+  return { count, orphanCount: orphanJobs?.length || 0, redispatches };
+}
+
+async function redispatchQueueJob(job, dispatch, dispatchDeps, redispatches, dispatchedIds) {
+  if (!job?.id || dispatchedIds.has(job.id)) return;
+  const dispatchJob = {
+    id: job.id,
+    queueIdempotencyKey: job.queueIdempotencyKey || job.id,
+    queueMaxAttempts: job.queueMaxAttempts || 3
+  };
+  const result = await dispatch(dispatchJob, dispatchDeps);
+  dispatchedIds.add(job.id);
+  redispatches.push({ jobId: job.id, result });
 }
 
 async function loadBullMq(deps) {

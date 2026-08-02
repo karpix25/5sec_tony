@@ -147,7 +147,7 @@ export async function markJobWorkerFailure(jobId, error, deps = {}) {
 export async function requeueExpiredJobLocks(options = {}) {
   if (!(options.isPostgresConfigured || isPostgresConfigured)()) return 0;
   const withTransaction = options.withPostgresTransaction || withPostgresTransaction;
-  return withTransaction(async (tx) => {
+  const requeueResult = await withTransaction(async (tx) => {
     await ensureJobQueueSchema(tx.query);
     const lockTimeoutMs = Number(options.lockTimeoutMs || 15 * 60 * 1000);
     const result = await tx.query(
@@ -201,14 +201,49 @@ export async function requeueExpiredJobLocks(options = {}) {
         lockTimeoutMs
       });
     }
-    await options.onRequeuedJobs?.((result.rows || []).map((row) => ({
+    return {
+      count: result.rowCount || 0,
+      jobs: (result.rows || []).map((row) => ({
+        id: row.id,
+        queueStatus: row.queue_status,
+        queueLastError: row.queue_last_error,
+        queueIdempotencyKey: row.queue_idempotency_key,
+        queueMaxAttempts: row.queue_max_attempts
+      }))
+    };
+  });
+  await options.onRequeuedJobs?.(requeueResult.jobs);
+  return requeueResult.count;
+}
+
+export async function findUndispatchedQueueJobs(options = {}) {
+  if (!(options.isPostgresConfigured || isPostgresConfigured)()) return [];
+  const withTransaction = options.withPostgresTransaction || withPostgresTransaction;
+  const graceMs = Math.max(0, Number(options.graceMs || 2 * 60 * 1000));
+  const limit = Math.min(100, Math.max(1, Number(options.limit || 50)));
+  return withTransaction(async (tx) => {
+    await ensureJobQueueSchema(tx.query);
+    const result = await tx.query(
+      `select id, queue_status, queue_priority, queue_attempts,
+              queue_max_attempts, queue_idempotency_key
+         from studio_jobs
+        where app_state_key = $1
+          and queue_name = 'generation'
+          and queue_status in ('queued', 'retrying')
+          and (queue_scheduled_at is null or queue_scheduled_at <= now())
+          and updated_at < now() - ($2::int * interval '1 millisecond')
+        order by queue_priority desc, updated_at asc
+        limit $3`,
+      [appStateKey, graceMs, limit]
+    );
+    return (result.rows || []).map((row) => ({
       id: row.id,
       queueStatus: row.queue_status,
-      queueLastError: row.queue_last_error,
-      queueIdempotencyKey: row.queue_idempotency_key,
-      queueMaxAttempts: row.queue_max_attempts
-    })));
-    return result.rowCount || 0;
+      queuePriority: row.queue_priority,
+      queueAttempts: row.queue_attempts,
+      queueMaxAttempts: row.queue_max_attempts,
+      queueIdempotencyKey: row.queue_idempotency_key
+    }));
   });
 }
 

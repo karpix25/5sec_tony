@@ -78,6 +78,36 @@ test("project automation limit edits use remote project save when available", as
   assert.deepEqual(calls, [{ dailyLimit: 31, projectLimit: 30 }]);
 });
 
+test("project automation concurrency edits use automation save", async () => {
+  let changeHandler = null;
+  const fields = {
+    projectId: { value: "project-1" },
+    concurrency: { value: "3" }
+  };
+  const panel = {
+    addEventListener(type, handler) {
+      if (type === "change") changeHandler = handler;
+    },
+    querySelector(selector) {
+      const match = selector.match(/^\[name="(.+)"\]$/);
+      return match ? fields[match[1]] || null : null;
+    }
+  };
+  const calls = [];
+  const root = {
+    querySelector(selector) {
+      return selector === "#automation-form" ? panel : null;
+    }
+  };
+
+  bindProjectAutomationControls(root, {
+    updateProjectAutomationRemote: async (...args) => calls.push(args)
+  });
+  await changeHandler?.({ target: { name: "concurrency" } });
+
+  assert.deepEqual(calls, [["project-1", { concurrency: 3 }]]);
+});
+
 test("project automation limit edit raises total limit above used total", async () => {
   let changeHandler = null;
   const fields = {

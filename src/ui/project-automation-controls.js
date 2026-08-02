@@ -29,6 +29,10 @@ export function renderProjectAutomationControls(project, automationState) {
             <span>Лимит на весь проект</span>
             <input name="projectLimit" class="text-input" type="number" min="1" max="10000" step="1" value="${Number(project.projectLimit || 500)}" data-project-limit-base="${Number(project.projectLimit || 500)}" required>
           </label>
+          <label class="stacked-field compact-field">
+            <span>Параллельных задач</span>
+            <input name="concurrency" class="text-input" type="number" min="1" max="5" step="1" value="${Number(automation.concurrency || 1)}" required>
+          </label>
         </div>
         <small class="automation-note" data-project-limit-note>${escapeHtml(limitHint)}</small>
         ${note ? `<small class="automation-note">${escapeHtml(note)}</small>` : ""}
@@ -45,7 +49,16 @@ export function renderProjectAutomationControls(project, automationState) {
 
 export function bindProjectAutomationControls(root, store) {
   const panel = root.querySelector("#automation-form");
-  panel?.addEventListener("change", () => {
+  panel?.addEventListener("change", (event) => {
+    if (event?.target?.name === "concurrency") {
+      const projectId = readFieldValue(panel, "projectId");
+      const concurrency = readOptionalNumberField(panel, "concurrency");
+      const saveAutomation = store.updateProjectAutomationRemote || store.updateProjectAutomation;
+      if (concurrency !== null) Promise.resolve(saveAutomation?.(projectId, { concurrency })).catch((error) => {
+        console.warn("[project-automation] concurrency save failed", error);
+      });
+      return;
+    }
     const projectId = readFieldValue(panel, "projectId");
     const limitResult = raiseProjectLimitAboveUsedTotal(readLimitSettings(panel), store, panel, { projectId });
     const projectSettings = limitResult.payload;

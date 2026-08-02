@@ -1,11 +1,20 @@
-export function createDailyUsageDate(now = new Date()) {
+const defaultTimeZone = "America/Argentina/Buenos_Aires";
+
+export function createDailyUsageDate(now = new Date(), timeZone = defaultTimeZone) {
   const date = now instanceof Date ? now : new Date(now);
-  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
-  return date.toISOString().slice(0, 10);
+  if (Number.isNaN(date.getTime())) return createDailyUsageDate(new Date(), timeZone);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 export function normalizeProjectDailyUsage(project = {}, options = {}) {
-  const today = options.today || createDailyUsageDate(options.now);
+  const today = options.today || createDailyUsageDate(options.now, options.timeZone);
   const currentDate = String(project.dailyUsageDate || "").slice(0, 10);
   if (!currentDate) return { ...project, dailyUsageDate: today };
   if (currentDate === today) return { ...project, dailyUsageDate: currentDate };
@@ -13,7 +22,7 @@ export function normalizeProjectDailyUsage(project = {}, options = {}) {
 }
 
 export function normalizeStateDailyUsage(state = {}, options = {}) {
-  const today = options.today || createDailyUsageDate(options.now);
+  const today = options.today || createDailyUsageDate(options.now, options.timeZone);
   return {
     ...state,
     projects: (state.projects || []).map((project) => normalizeProjectDailyUsage(project, { today }))

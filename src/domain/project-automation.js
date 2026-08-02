@@ -6,6 +6,7 @@ export const defaultAutomation = {
   enabled: false,
   batchSize: 1,
   concurrency: 1,
+  timeZone: "America/Argentina/Buenos_Aires",
   status: "idle",
   lastMessage: "",
   dispatchStartedAt: ""
@@ -19,6 +20,7 @@ export function normalizeProjectAutomation(value = {}) {
     enabled: Boolean(value.enabled),
     batchSize: clampAutomationNumber(value.batchSize, defaultAutomation.batchSize, 1, 10),
     concurrency: clampAutomationNumber(value.concurrency, defaultAutomation.concurrency, 1, 5),
+    timeZone: normalizeTimeZone(value.timeZone),
     status: isLegacyCompletedTarget ? defaultAutomation.status : value.status || defaultAutomation.status,
     lastMessage: isLegacyCompletedTarget ? "" : value.lastMessage || "",
     dispatchStartedAt: value.dispatchStartedAt || ""
@@ -26,12 +28,12 @@ export function normalizeProjectAutomation(value = {}) {
 }
 
 export function getProjectAutomationState({ project, jobs = [], now = Date.now() }) {
-  const normalizedProject = normalizeProjectDailyUsage(project, { now });
-  const automation = normalizeProjectAutomation(normalizedProject?.automation);
+  const automation = normalizeProjectAutomation(project?.automation);
+  const normalizedProject = normalizeProjectDailyUsage(project, { now, timeZone: automation.timeZone });
   const projectJobs = jobs.filter((job) => job.projectId === normalizedProject?.id);
-  const activeJobs = projectJobs.filter((job) => ["queued", "running"].includes(job.status)).length;
+  const activeJobs = projectJobs.filter(isActiveAutomationJob).length;
   const completedJobs = countSuccessfulGenerationJobs(projectJobs);
-  const dailyUsage = getDailyUsageInfo(normalizedProject, { now });
+  const dailyUsage = getDailyUsageInfo(normalizedProject, { now, timeZone: automation.timeZone });
   const remainingDaily = dailyUsage.remaining;
   const remainingProject = Math.max(0, Number(normalizedProject?.projectLimit || 0) - Number(normalizedProject?.usedTotal || 0));
   const pacing = getAutomationPacing({
@@ -39,6 +41,9 @@ export function getProjectAutomationState({ project, jobs = [], now = Date.now()
     usedToday: dailyUsage.used,
     activeJobs,
     remainingProject,
+    batchSize: automation.batchSize,
+    concurrency: automation.concurrency,
+    timeZone: automation.timeZone,
     now
   });
   const nextCount = pacing.nextCount;
@@ -72,6 +77,21 @@ function clampAutomationNumber(value, fallback, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+function normalizeTimeZone(value) {
+  const timeZone = String(value || defaultAutomation.timeZone);
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format();
+    return timeZone;
+  } catch {
+    return defaultAutomation.timeZone;
+  }
+}
+
+function isActiveAutomationJob(job = {}) {
+  if (job.quotaCountedAt || !["queued", "running"].includes(job.status)) return false;
+  return !["completed", "failed"].includes(String(job.queueStatus || "").toLowerCase());
 }
 
 function isLegacyCompletedTargetState(value = {}) {

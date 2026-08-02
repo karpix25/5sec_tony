@@ -7,6 +7,7 @@ import {
   claimNextQueuedJob,
   claimQueuedJobById,
   enqueueJobLedgerRecord,
+  findUndispatchedQueueJobs,
   markJobWorkerFailure,
   patchJobLedgerRecord,
   requeueExpiredJobLocks
@@ -206,6 +207,39 @@ test("job ledger requeues orphan running jobs without worker locks", async () =>
     queueIdempotencyKey: "generation:job-orphan",
     queueMaxAttempts: 3
   }]);
+});
+
+test("job ledger selects old queued and retrying jobs for reconciliation", async () => {
+  const queries = [];
+  const jobs = await findUndispatchedQueueJobs({
+    isPostgresConfigured: () => true,
+    graceMs: 120000,
+    withPostgresTransaction: async (callback) => callback({ query: async (text, params = []) => {
+      queries.push({ text, params });
+      if (/select id, queue_status/i.test(text)) {
+        return { rows: [{
+          id: "job-orphan-queued",
+          queue_status: "queued",
+          queue_priority: 1,
+          queue_attempts: 0,
+          queue_max_attempts: 3,
+          queue_idempotency_key: "generation:job-orphan-queued"
+        }] };
+      }
+      return { rows: [] };
+    } })
+  });
+
+  assert.deepEqual(jobs, [{
+    id: "job-orphan-queued",
+    queueStatus: "queued",
+    queuePriority: 1,
+    queueAttempts: 0,
+    queueMaxAttempts: 3,
+    queueIdempotencyKey: "generation:job-orphan-queued"
+  }]);
+  assert.match(queries.at(-1).text, /updated_at < now\(\)/i);
+  assert.deepEqual(queries.at(-1).params, ["default", 120000, 50]);
 });
 
 
