@@ -418,7 +418,7 @@ export async function saveJobs(query, appStateKey, jobs, existingJobsById = new 
 function buildJobPlaceholders(offset) {
   const values = Array.from({ length: 39 }, (_value, index) => `$${offset + index + 1}`);
   for (const index of [23, 24, 25, 37, 38]) values[index] += "::jsonb";
-  return `(${values.join(", ")})`;
+  return `(${values.join(", ")}, now())`;
 }
 
 function buildJobValues(job, index, appStateKey) {

@@ -60,6 +60,7 @@ test("save normalized state writes separate project product job and hook tables"
   assert.ok(queries.some((entry) => /insert into studio_products[\s\S]*"references"/i.test(entry.text)));
   const jobInsert = queries.find((entry) => entry.text.includes("insert into studio_jobs"));
   assert.ok(jobInsert);
+  assert.match(jobInsert.text, /, now\(\)\)\s*$/);
   assert.equal(JSON.parse(jobInsert.params.at(-1)).createdAt, "2026-07-22T14:32:00.000Z");
   assert.ok(queries.some((entry) => /insert into studio_jobs[\s\S]*queue_status/i.test(entry.text)));
   assert.ok(queries.some((entry) => entry.params.includes("running") && entry.params.includes("generation:job-1")));
