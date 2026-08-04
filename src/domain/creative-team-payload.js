@@ -1,3 +1,5 @@
+import { stripUnicodeReplacementCharacters } from "./text-integrity.js";
+
 const creativeTeamPayloadDataImagePattern = /^data:image\/(?:png|jpe?g|webp);base64,/i;
 
 export function createCreativeTeamPayload(body = {}) {
@@ -11,11 +13,11 @@ export function createCreativeTeamPayload(body = {}) {
     product: compactProduct(body.product, { includeReferences: includeProductReferences }),
     reference,
     activeDesignReference: compactActiveDesignReference(body.activeDesignReference || reference),
-    layoutContentPlan: body.layoutContentPlan || null,
-    hookLibrary: body.hookLibrary || null,
-    existingJobs: Array.isArray(body.existingJobs) ? body.existingJobs : [],
+    layoutContentPlan: sanitizeValue(body.layoutContentPlan || null),
+    hookLibrary: sanitizeValue(body.hookLibrary || null),
+    existingJobs: sanitizeValue(Array.isArray(body.existingJobs) ? body.existingJobs : []),
     availableAvatarEmotions: sanitizeValue(body.availableAvatarEmotions || []),
-    diversitySlot: body.diversitySlot || null,
+    diversitySlot: sanitizeValue(body.diversitySlot || null),
     topicCluster: sanitizeValue(body.topicCluster || null),
     topicClusterPlan: sanitizeValue(body.topicClusterPlan || null)
   };
@@ -117,7 +119,9 @@ function pickPlain(source = {}, keys = [], extra = {}) {
 }
 
 function sanitizeValue(value) {
-  if (typeof value === "string") return creativeTeamPayloadDataImagePattern.test(value) ? "" : value;
+  if (typeof value === "string") {
+    return creativeTeamPayloadDataImagePattern.test(value) ? "" : stripUnicodeReplacementCharacters(value);
+  }
   if (Array.isArray(value)) return value.map(sanitizeValue);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(

@@ -1,3 +1,5 @@
+import { stripUnicodeReplacementCharacters } from "./text-integrity.js";
+
 export function normalizeHumanizedPlan(draft, fallbackPlan, options = {}) {
   const points = normalizeHumanizerPoints(draft?.points, fallbackPlan.points);
   const lockedHeadline = cleanText(options.lockedHeadline);
@@ -151,7 +153,7 @@ function scoreHeadlineCandidate(value, points = []) {
 }
 
 function cleanText(value) {
-  return String(value || "").replace(/["'«»]/g, "").trim();
+  return stripUnicodeReplacementCharacters(value).replace(/["'«»]/g, "").trim();
 }
 
 function stripTechnicalLabels(value) {

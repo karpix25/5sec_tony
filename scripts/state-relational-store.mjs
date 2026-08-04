@@ -5,6 +5,7 @@ import { lockAppStateMutation } from "./app-state-advisory-lock.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 import { compactLegacyState } from "./compact-legacy-state.mjs";
+import { sanitizeTextTree } from "../src/domain/text-integrity.js";
 
 const uiKeys = [
   "selectedProjectId",
@@ -64,7 +65,7 @@ export async function loadNormalizedState(query, appStateKey, options = {}) {
   const reelsResearch = await loadReelsResearch(query, appStateKey);
 
   const uiExtra = asObject(ui?.extra);
-  return {
+  return sanitizeTextTree({
     ...uiExtra,
     projects,
     products,
@@ -80,7 +81,7 @@ export async function loadNormalizedState(query, appStateKey, options = {}) {
     selectedProjectTab: ui?.selected_project_tab || "project",
     generationBrief: asObject(ui?.generation_brief),
     freePrompt: ui?.free_prompt || ""
-  };
+  });
 }
 
 export async function saveNormalizedState(query, appStateKey, state) {
@@ -88,7 +89,7 @@ export async function saveNormalizedState(query, appStateKey, state) {
   await lockAppStateMutation(query, appStateKey);
   const existingProjectsById = await loadExistingProjectsById(query, appStateKey);
   const existingJobsById = await loadExistingJobsById(query, appStateKey);
-  const normalizedState = prepareStateForRelationalSave(state, existingJobsById, existingProjectsById);
+  const normalizedState = prepareStateForRelationalSave(sanitizeTextTree(state), existingJobsById, existingProjectsById);
   await clearNormalizedState(query, appStateKey);
 
   await saveUiState(query, appStateKey, normalizedState);
@@ -104,11 +105,11 @@ export async function saveNormalizedState(query, appStateKey, state) {
 
 export async function loadLegacyState(query, appStateKey) {
   const result = await query("select data, updated_at from app_state where id = $1 limit 1", [appStateKey]);
-  return result.rows[0]?.data || null;
+  return sanitizeTextTree(result.rows[0]?.data || null);
 }
 
 export async function saveLegacyState(query, appStateKey, state) {
-  const compactedState = compactLegacyState(state);
+  const compactedState = compactLegacyState(sanitizeTextTree(state));
   return query(
     `insert into app_state (id, data, updated_at)
      values ($1, $2::jsonb, now())
