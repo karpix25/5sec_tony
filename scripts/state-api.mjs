@@ -24,6 +24,7 @@ export function createStateApiHandler(deps = {}) {
   const loadLegacy = deps.loadLegacyState || loadLegacyState;
   const saveNormalized = deps.saveNormalizedState || saveNormalizedState;
   const saveLegacy = deps.saveLegacyState || saveLegacyState;
+  const touchAppStateMetadata = deps.touchAppStateMetadata || updateAppStateMetadata;
   const markAudioUpdated = deps.markAudioLibraryUpdated || markAudioLibraryUpdated;
 
   return async function handleStateApi(request, response, url) {
@@ -31,7 +32,7 @@ export function createStateApiHandler(deps = {}) {
       return handleLoadState(response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
-      return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized, markAudioUpdated });
+      return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized, touchAppStateMetadata, markAudioUpdated });
     }
     return false;
   };
@@ -108,14 +109,14 @@ async function handleSaveState(request, response, url, deps) {
       const audioLibraryChanged = hasAudioLibraryChanged(currentState, nextState);
       const normalizedResult = await deps.saveNormalized(tx.query, appStateKey, nextState);
       const savedState = isPlainStateObject(normalizedResult) ? normalizedResult : nextState;
-      const legacyResult = await deps.saveLegacy(tx.query, appStateKey, savedState);
+      const metadataResult = await deps.touchAppStateMetadata(tx.query, appStateKey);
       if (audioLibraryChanged) await deps.markAudioUpdated({ query: tx.query, appStateKey });
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
       if (!statesEqual(rebuiltState, savedState)) {
         throw new Error(formatParityError("Relational state parity check failed", rebuiltState, savedState));
       }
       return {
-        updatedAt: legacyResult.rows[0]?.updated_at || null,
+        updatedAt: metadataResult.rows[0]?.updated_at || null,
         parityOk: true
       };
     });
@@ -136,6 +137,21 @@ async function handleSaveState(request, response, url, deps) {
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось сохранить состояние в Postgres" });
   }
+}
+
+async function updateAppStateMetadata(query, key) {
+  const result = await query(
+    "update app_state set updated_at = now() where id = $1 returning updated_at",
+    [key]
+  );
+  if (result.rows[0]) return result;
+  return query(
+    `insert into app_state (id, data, updated_at)
+     values ($1, '{}'::jsonb, now())
+     on conflict (id) do update set updated_at = now()
+     returning updated_at`,
+    [key]
+  );
 }
 
 function isPlainStateObject(value) {

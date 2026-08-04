@@ -1,5 +1,5 @@
 import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
-import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
+import { loadLegacyState, loadNormalizedState, saveNormalizedState } from "./state-relational-store.mjs";
 import { defaultAppStateKey, lockAppState, withAppStateRetry } from "./app-state-lock.mjs";
 import { persistAutomationStateDelta } from "./automation/relational-state-store.mjs";
 
@@ -30,10 +30,13 @@ export async function updateGenerationState(updater, deps = {}) {
     if (!current) throw new Error("State is empty");
     const nextState = await updater(current);
     await saveNormalizedState(tx.query, appStateKey, nextState);
-    const legacyResult = await saveLegacyState(tx.query, appStateKey, nextState);
+    const timestampResult = await tx.query(
+      "update app_state set updated_at = now() where id = $1 returning updated_at",
+      [appStateKey]
+    );
     return {
       state: nextState,
-      updatedAt: legacyResult.rows[0]?.updated_at || null
+      updatedAt: timestampResult.rows[0]?.updated_at || new Date().toISOString()
     };
   }));
 }

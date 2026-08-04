@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ensureStateSchema } from "../scripts/state-schema.mjs";
-import { loadNormalizedState, saveNormalizedState } from "../scripts/state-relational-store.mjs";
+import { loadNormalizedState, saveLegacyState, saveNormalizedState } from "../scripts/state-relational-store.mjs";
 import { createFakeRelationalStateDb } from "./helpers/fake-relational-state-db.mjs";
 
 test("state schema creates normalized tables and justified indexes", async () => {
@@ -23,6 +23,25 @@ test("state schema creates normalized tables and justified indexes", async () =>
   assert.match(ddl, /create index if not exists idx_studio_jobs_app_state_sort/i);
   assert.match(ddl, /create index if not exists idx_studio_hook_items_app_state_sort/i);
   assert.match(ddl, /create unique index if not exists idx_studio_hook_versions_one_active/i);
+});
+
+test("legacy mirror stores a compact fallback without embedded generation payloads", async () => {
+  let params;
+  await saveLegacyState(async (_text, queryParams) => {
+    params = queryParams;
+    return { rows: [{ updated_at: "2026-08-04T00:00:00.000Z" }] };
+  }, "workspace-1", {
+    audioLibrary: [{ id: "audio-1", fileData: "https://cdn.example.com/audio.mp3" }],
+    projects: [],
+    products: [],
+    jobs: [{ id: "job-1", status: "queued", stage: "brief", prompt: "x".repeat(100_000) }]
+  });
+
+  const saved = JSON.parse(params[1]);
+  assert.equal(saved.jobs[0].id, "job-1");
+  assert.equal("prompt" in saved.jobs[0], false);
+  assert.equal(saved.audioLibrary[0].fileData, "https://cdn.example.com/audio.mp3");
+  assert.ok(JSON.stringify(saved).length < 10_000);
 });
 
 test("save normalized state writes separate project product job and hook tables", async () => {

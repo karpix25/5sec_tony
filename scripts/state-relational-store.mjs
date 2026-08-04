@@ -4,6 +4,7 @@ import { syncAudioLibraryRefreshReminder } from "./audio-refresh-reminders.mjs";
 import { lockAppStateMutation } from "./app-state-advisory-lock.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
+import { compactLegacyState } from "./compact-legacy-state.mjs";
 
 const uiKeys = [
   "selectedProjectId",
@@ -107,13 +108,14 @@ export async function loadLegacyState(query, appStateKey) {
 }
 
 export async function saveLegacyState(query, appStateKey, state) {
+  const compactedState = compactLegacyState(state);
   return query(
     `insert into app_state (id, data, updated_at)
      values ($1, $2::jsonb, now())
      on conflict (id)
      do update set data = excluded.data, updated_at = now()
      returning updated_at`,
-    [appStateKey, JSON.stringify(state)]
+    [appStateKey, JSON.stringify(compactedState)]
   );
 }
 

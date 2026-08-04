@@ -131,8 +131,9 @@ test("state api fails legacy migration when normalized parity is broken", async 
   assert.match(response.payload.error, /parity/i);
 });
 
-test("state api saves relational tables and legacy mirror when postgres is configured", async () => {
+test("state api saves relational tables and only touches app state metadata", async () => {
   const calls = [];
+  const queries = [];
   const state = { projects: [{ id: "project-1" }], products: [], jobs: [] };
   const baseUpdatedAt = "2026-06-16T10:04:00.000Z";
   const response = createJsonResponse();
@@ -141,14 +142,16 @@ test("state api saves relational tables and legacy mirror when postgres is confi
     saveNormalizedState: async (_query, _key, nextState) => {
       calls.push(["normalized", nextState]);
     },
-    saveLegacyState: async (_query, _key, nextState) => {
-      calls.push(["legacy", nextState]);
-      return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
+    saveLegacyState: async () => {
+      throw new Error("POST /api/state must not rewrite the legacy snapshot");
     },
     loadNormalizedState: async () => state,
     withPostgresTransaction: async (callback) => callback({
       query: async (text) => {
+        queries.push(text);
         if (/select updated_at from app_state/i.test(text)) return { rows: [{ updated_at: baseUpdatedAt }] };
+        if (/update app_state set updated_at/i.test(text)) return { rows: [] };
+        if (/insert into app_state/i.test(text)) return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
         return { rows: [] };
       }
     })
@@ -165,10 +168,12 @@ test("state api saves relational tables and legacy mirror when postgres is confi
   assert.equal(response.payload.saved, true);
   assert.equal(response.payload.updatedAt, "2026-06-16T10:05:00.000Z");
   assert.equal(response.payload.parityOk, true);
-  assert.deepEqual(calls, [["normalized", state], ["legacy", state]]);
+  assert.deepEqual(calls, [["normalized", state]]);
+  assert.equal(queries.filter((query) => /update app_state set updated_at/i.test(query)).length, 1);
+  assert.equal(queries.filter((query) => /insert into app_state/i.test(query)).length, 1);
 });
 
-test("state api removes duplicate jobs before saving mirrors", async () => {
+test("state api removes duplicate jobs before saving relational state", async () => {
   const calls = [];
   let savedState = null;
   const state = {
@@ -186,10 +191,6 @@ test("state api removes duplicate jobs before saving mirrors", async () => {
       savedState = nextState;
       calls.push(["normalized", nextState.jobs.map((job) => job.title)]);
     },
-    saveLegacyState: async (_query, _key, nextState) => {
-      calls.push(["legacy", nextState.jobs.map((job) => job.title)]);
-      return { rows: [{ updated_at: "2026-06-16T10:05:00.000Z" }] };
-    },
     loadNormalizedState: async () => savedState,
     withPostgresTransaction: async (callback) => callback({
       query: async () => ({ rows: [] })
@@ -204,8 +205,7 @@ test("state api removes duplicate jobs before saving mirrors", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(calls, [
-    ["normalized", ["visible current"]],
-    ["legacy", ["visible current"]]
+    ["normalized", ["visible current"]]
   ]);
 });
 
@@ -271,10 +271,6 @@ test("state api rejects product loss without explicit delete action", async () =
   const handleStateApi = createStateApiHandler({
     isPostgresConfigured: () => true,
     saveNormalizedState: async (_query, _key, state) => calls.push(["normalized", state]),
-    saveLegacyState: async (_query, _key, state) => {
-      calls.push(["legacy", state]);
-      return { rows: [{ updated_at: "2026-06-16T10:06:00.000Z" }] };
-    },
     loadNormalizedState: async () => dbState,
     loadLegacyState: async () => null,
     withPostgresTransaction: async (callback) => callback({
@@ -349,8 +345,7 @@ test("state api allows product loss with explicit delete action", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(calls, [
-    ["normalized", ["product-1"]],
-    ["legacy", ["product-1"]]
+    ["normalized", ["product-1"]]
   ]);
 });
 

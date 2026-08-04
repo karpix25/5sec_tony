@@ -21,7 +21,8 @@ async function createBatch(request, response) {
       source: body.source,
       selection: body.selection || {},
       reservation: body.reservation || {},
-      origin: getInternalServerOrigin()
+      origin: getInternalServerOrigin(),
+      deps: { optimizedPersistence: true }
     });
     const { batchId, jobs, queue, updatedAt } = payload;
     return sendJson(response, 202, { batchId, jobs, queue, updatedAt });
