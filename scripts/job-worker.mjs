@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { dispatchJobToQueue, getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
+import { startBriefQueueWorker } from "./brief-queue.mjs";
 import { appendJobQueueEvent } from "./job-ledger-events.mjs";
 import { claimNextQueuedJob, claimQueuedJobById, findUndispatchedQueueJobs, markJobWorkerFailure, requeueExpiredJobLocks } from "./job-ledger-store.mjs";
 import { queryPostgres } from "./postgres-client.mjs";
@@ -66,8 +67,14 @@ export async function startBullMqWorker(deps = {}) {
   const worker = new Worker(queueName, async (job) => {
     await runPersistedJobById(job.data.jobId, deps);
   }, { connection: getRedisConnection(env), concurrency: Number(env.JOB_WORKER_CONCURRENCY || 2) });
-  attachGracefulShutdown(worker, deps, lockReaper);
-  return worker;
+  const briefWorker = await startBriefQueueWorker({
+    ...deps,
+    env,
+    optimizedPersistence: true,
+    disableSignalHandlers: true
+  });
+  attachGracefulShutdown([worker, briefWorker], deps, lockReaper);
+  return { worker, briefWorker };
 }
 
 export function startJobLockReaper(deps = {}, env = process.env) {
@@ -144,12 +151,12 @@ async function appendWorkerEvent(jobId, type, status, payload, deps) {
   }
 }
 
-function attachGracefulShutdown(worker, deps, lockReaper) {
+function attachGracefulShutdown(workers, deps, lockReaper) {
   if (deps.disableSignalHandlers) return;
   const shutdown = async () => {
     try {
       if (lockReaper) clearInterval(lockReaper);
-      await worker.close();
+      await Promise.all(workers.map((worker) => worker.close()));
       process.exit(0);
     } catch (error) {
       console.error(`[job-worker] shutdown failed: ${error.message || error}`);

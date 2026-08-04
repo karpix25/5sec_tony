@@ -17,9 +17,7 @@ const queueStageLabels = {
 export function renderQueuePanel(state, context) {
   return `
     <section class="embedded-panel queue-panel">
-      <div class="panel-head">
-        <div><span class="eyebrow">Очередь генерации</span><h2>Статус задач</h2></div>
-      </div>
+      ${renderQueuePanelHead(state, context)}
       <div class="queue-filter-wrap">${renderQueueProductFilter(state, context)}</div>
       <div class="queue-list">${renderQueueList(state, context)}</div>
     </section>
@@ -32,6 +30,8 @@ export function updateQueuePanel(root, state, context, store) {
   const filter = panel.querySelector(".queue-filter-wrap");
   const list = panel.querySelector(".queue-list");
   if (!list) return false;
+  const head = panel.querySelector(".queue-panel-head");
+  if (head) head.outerHTML = renderQueuePanelHead(state, context);
   if (filter) filter.innerHTML = renderQueueProductFilter(state, context);
   list.innerHTML = renderQueueList(state, context);
   bindQueuePanelEvents(root, store);
@@ -46,6 +46,16 @@ function renderQueueProductFilter(state, context) {
     <div class="queue-filter" role="group" aria-label="Фильтр очереди по продукту">
       ${renderQueueFilterButton("current", `Текущий продукт (${currentProductJobs.length})`, filter)}
       ${renderQueueFilterButton("all", `Все продукты проекта (${projectJobs.length})`, filter)}
+    </div>
+  `;
+}
+
+function renderQueuePanelHead(state, context) {
+  const failedCount = getProjectQueueJobs(state, context).filter(isQueueJobFailed).length;
+  return `
+    <div class="panel-head queue-panel-head">
+      <div><span class="eyebrow">Очередь генерации</span><h2>Статус задач</h2></div>
+      ${failedCount ? `<button class="secondary-btn" data-retry-project="${escapeHtml(context.project.id)}" type="button">Повторить ошибки (${failedCount})</button>` : ""}
     </div>
   `;
 }
@@ -69,6 +79,10 @@ export function bindQueuePanelEvents(root, store) {
   root.querySelectorAll("[data-delete-job]:not([data-queue-bound])").forEach((button) => {
     button.dataset.queueBound = "true";
     button.addEventListener("click", () => store.deleteJob(button.dataset.deleteJob));
+  });
+  root.querySelectorAll("[data-retry-project]:not([data-queue-bound]), [data-retry-job]:not([data-queue-bound])").forEach((button) => {
+    button.dataset.queueBound = "true";
+    button.addEventListener("click", () => retryFailedJobs(button, store));
   });
 }
 
@@ -277,12 +291,40 @@ function getGenerationSource(job) {
 }
 
 function renderQueueAction(job, ready, failed) {
-  if (failed) return `<span>${escapeHtml(humanizeQueueMessage(getQueueFailureMessage(job)))}</span>`;
+  if (failed) return `<span>${escapeHtml(humanizeQueueMessage(getQueueFailureMessage(job)))}</span><button class="ghost-btn" data-retry-job="${escapeHtml(job.id)}" data-retry-project="${escapeHtml(job.projectId || "")}" type="button">Повторить генерацию</button>`;
   if (job.finalVideoUrl) return `<span>Финальный mp4 на 5 секунд${job.finalVideoHasAudio ? " с аудио" : ""} готов</span>`;
   if (isQueueJobCompleted(job) && !ready) return "<span>Генерация завершена, результат не найден</span>";
   if (isFinalVideoJob(job) && (job.imageData || job.imageUrl)) return "<span>Картинка готова, собираем финальное видео</span>";
   if (ready) return "<span>Кликните по превью, чтобы открыть полностью</span>";
   return `<span>Результат появится автоматически</span>`;
+}
+
+async function retryFailedJobs(button, store) {
+  if (button.disabled) return;
+  const projectId = button.dataset.retryProject || store.getState?.().selectedProjectId || "";
+  const jobId = button.dataset.retryJob || "";
+  const job = jobId ? (store.getState?.().jobs || []).find((item) => item.id === jobId) : null;
+  const body = {
+    projectId,
+    ...(job?.serverBatchId ? { batchId: job.serverBatchId } : {}),
+    ...(jobId && !job?.serverBatchId ? { jobIds: [jobId] } : {})
+  };
+  button.disabled = true;
+  button.textContent = "Ставим в очередь...";
+  try {
+    const response = await fetch("/api/jobs/retry-failed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Не удалось повторить генерацию");
+    if (payload.jobs?.length) store.mergeServerJobs?.(payload.jobs);
+  } catch (error) {
+    console.warn("[queue] failed job retry failed", error);
+    button.disabled = false;
+    button.textContent = jobId ? "Повторить генерацию" : "Повторить ошибки";
+  }
 }
 
 function renderQueuePreviewColumn(job, ready, failed, preview) {

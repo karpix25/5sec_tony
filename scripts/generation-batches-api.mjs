@@ -23,7 +23,8 @@ async function createBatch(request, response) {
       reservation: body.reservation || {},
       origin: getInternalServerOrigin()
     });
-    return sendJson(response, 202, payload);
+    const { batchId, jobs, queue, updatedAt } = payload;
+    return sendJson(response, 202, { batchId, jobs, queue, updatedAt });
   } catch (error) {
     const batchError = normalizeBatchError(error);
     return sendJson(response, batchError.status, {
@@ -81,7 +82,7 @@ async function getBatch(response, batchId) {
 }
 
 function getInternalServerOrigin() {
-  return `http://127.0.0.1:${process.env.PORT || 4173}`;
+  return process.env.INTERNAL_SERVER_ORIGIN || `http://127.0.0.1:${process.env.PORT || 4173}`;
 }
 
 function readJson(request) {

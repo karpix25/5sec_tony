@@ -79,6 +79,26 @@ test("automation state ignores terminal queue records that retain a running publ
   assert.equal(state.canRun, true);
 });
 
+test("automation state does not count legacy queued rows without queue lifecycle", () => {
+  const project = {
+    id: "auto-project-legacy-queue",
+    dailyLimit: 10,
+    usedToday: 0,
+    projectLimit: 20,
+    usedTotal: 0,
+    automation: { enabled: true, concurrency: 2 }
+  };
+
+  const state = getProjectAutomationState({
+    project,
+    jobs: [{ projectId: project.id, status: "queued", queueName: "generation", queueStatus: "" }],
+    now: Date.parse("2026-07-24T12:00:00.000Z")
+  });
+
+  assert.equal(state.activeJobs, 0);
+  assert.equal(state.canRun, true);
+});
+
 test("automation state caps next batch by total project limit", () => {
   const project = {
     id: "auto-project-total",

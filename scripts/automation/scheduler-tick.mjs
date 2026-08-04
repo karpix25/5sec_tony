@@ -1,7 +1,6 @@
 import { assertBullMqConfig } from "../job-queue-dispatcher.mjs";
 import { normalizeProjectAutomation } from "../../src/domain/project-automation.js";
 import { updateGenerationState } from "../generation-state.mjs";
-import { createGenerationBatch } from "../generation-batch-runner.mjs";
 import { processAudioLibraryRefreshReminder } from "../audio-refresh-reminders.mjs";
 import { claimAutomationDispatches } from "./scheduler-planner.mjs";
 import { getAutomationErrorMessage, markAutomationStatus } from "./scheduler-status.mjs";
@@ -79,15 +78,13 @@ async function claimDispatches(options, deps) {
 
 async function runDispatch(dispatch, options, deps) {
   try {
-    const createBatch = deps.createGenerationBatch || createGenerationBatch;
-    const payload = await createBatch({
+    const payload = await dispatchGenerationBatch({
       count: dispatch.count,
       distributeProducts: true,
       source: "automation",
       origin: getAutomationOrigin(options.env || process.env),
       selection: dispatch.selection,
-      deps: { ...(deps.generationBatchDeps || {}), optimizedPersistence: shouldUseRelationalAutomation(deps) }
-    });
+    }, { ...deps, timeoutMs: options.dispatchTimeoutMs });
     const jobs = payload.jobs || [];
     await markAutomationStatus(dispatch.projectId, {
       status: "running",
@@ -96,12 +93,54 @@ async function runDispatch(dispatch, options, deps) {
     }, { ...deps, optimizedPersistence: shouldUseRelationalAutomation(deps) });
     return { projectId: dispatch.projectId, ok: true, count: jobs.length || dispatch.count, batchId: payload.batchId || "" };
   } catch (error) {
-    await markAutomationStatus(dispatch.projectId, {
-      status: "error",
-      lastMessage: getAutomationErrorMessage(error),
-      dispatchStartedAt: ""
-    }, deps);
-    return { projectId: dispatch.projectId, ok: false, error: error.message || String(error) };
+    const message = getAutomationErrorMessage(error);
+    try {
+      await markAutomationStatus(dispatch.projectId, {
+        status: "error",
+        lastMessage: message,
+        dispatchStartedAt: ""
+      }, deps);
+    } catch (statusError) {
+      return {
+        projectId: dispatch.projectId,
+        ok: false,
+        error: `${message}; status update failed: ${statusError.message || statusError}`
+      };
+    }
+    return { projectId: dispatch.projectId, ok: false, error: message };
+  }
+}
+
+async function dispatchGenerationBatch(payload, deps = {}) {
+  if (deps.dispatchGenerationBatch) return deps.dispatchGenerationBatch(payload);
+
+  const timeoutMs = Math.max(1_000, Number(deps.timeoutMs || 30_000));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  timeout.unref?.();
+  try {
+    const response = await fetch(`${payload.origin}/api/generation/batches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        count: payload.count,
+        distributeProducts: payload.distributeProducts === true,
+        source: payload.source,
+        selection: payload.selection,
+        requireQueue: true
+      }),
+      signal: controller.signal
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(body.error || `Generation batch dispatch failed: ${response.status}`);
+      error.code = body.code || `HTTP_${response.status}`;
+      error.statusCode = response.status;
+      throw error;
+    }
+    return body;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

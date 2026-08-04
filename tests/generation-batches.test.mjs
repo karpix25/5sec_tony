@@ -82,8 +82,38 @@ test("backend generation batch creates server-owned brief jobs in state", async 
     ["running", "brief", true],
     ["running", "brief", true]
   ]);
+  assert.equal(result.jobs.every((job) => job.queueName === "generation-brief" && job.queueStatus === "queued"), true);
   assert.deepEqual(result.jobs.map((job) => job.productId), [selectedProduct.id, selectedProduct.id]);
   assert.deepEqual(result.jobs.map((job) => job.productName), [selectedProduct.name, selectedProduct.name]);
+});
+
+test("backend generation batch persists placeholders and enqueues brief jobs without running AI", async () => {
+  const calls = [];
+  const deps = createStateDeps(createState(), {
+    enqueueBriefJob: async (job, metadata) => {
+      calls.push({ jobId: job.id, batchId: metadata.batchId, origin: metadata.origin });
+      return { mode: "bullmq", enqueued: true, jobId: `bull-${job.id}` };
+    }
+  });
+
+  const result = await createGenerationBatch({
+    count: 2,
+    origin: "http://127.0.0.1:4173",
+    selection: {
+      projectId: deps.getState().selectedProjectId,
+      productId: deps.getState().selectedProductId,
+      referenceId: deps.getState().selectedReferenceId,
+      characterId: deps.getState().selectedCharacterId,
+      audioId: ""
+    },
+    deps
+  });
+
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map((item) => item.batchId), [result.batchId, result.batchId]);
+  assert.equal(result.queue.length, 2);
+  assert.equal(deps.getSnapshots().length, 1);
+  assert.equal(deps.getState().jobs.every((job) => job.isBriefPlaceholder), true);
 });
 
 test("backend generation batch adopts client reservation ids", async () => {
@@ -210,180 +240,6 @@ test("backend generation batch enqueues quickly when audio preflight would fail"
   assert.equal(deps.getSnapshots().length, 1);
 });
 
-test("backend generation worker saves product cards and design analysis after enqueue", async () => {
-  const state = createState();
-  const secondProduct = {
-    ...products.find((item) => item.projectId === state.selectedProjectId && item.id !== state.selectedProductId),
-    aiPassport: null
-  };
-  state.products = [{ ...state.products[0], aiPassport: null }, secondProduct];
-  state.projects = [{
-    ...state.projects[0],
-    references: state.projects[0].references.map((reference) => ({ ...reference, designAnalysis: null }))
-  }];
-  const calls = [];
-  const deps = createStateDeps(state, {
-    refreshProductPassport: async ({ product }) => {
-      calls.push(["passport", product.id]);
-      return { productName: product.name, safeFacts: [`Факт ${product.id}`] };
-    },
-    refreshDesignAnalysis: async ({ reference }) => {
-      calls.push(["design", reference.id]);
-      return { formatType: "symptom_poster", layoutSlots: ["headline", "cards"] };
-    },
-    generateServerAiBrief: async ({ product }) => {
-      calls.push(["brief", product.id]);
-      return { topic: "Тема", hook: "Хук", aiPlan: { headline: "Хук", subhead: "", points: ["Пункт"] } };
-    },
-    postServerJob: async ({ job }) => {
-      calls.push(["serverJob", job.id]);
-      return { job };
-    }
-  });
-
-  const result = await createGenerationBatch({
-    count: 1,
-    origin: "http://127.0.0.1:4173",
-    selection: {
-      projectId: state.selectedProjectId,
-      productId: state.selectedProductId,
-      referenceId: state.selectedReferenceId,
-      characterId: state.selectedCharacterId,
-      audioId: ""
-    },
-    deps
-  });
-  await waitFor(() => deps.getSnapshots().some((snapshot) =>
-    snapshot.products.every((product) => product.aiPassport?.productName)
-    && snapshot.projects[0].references[0].designAnalysis?.formatType === "symptom_poster"
-  ));
-  const snapshots = deps.getSnapshots();
-  const queueSnapshot = snapshots[0];
-  const preflightSnapshot = snapshots.find((snapshot) =>
-    snapshot.products.every((product) => product.aiPassport?.productName)
-    && snapshot.projects[0].references[0].designAnalysis?.formatType === "symptom_poster"
-  );
-
-  assert.deepEqual(calls.slice(0, 3), [
-    ["passport", state.products[0].id],
-    ["passport", secondProduct.id],
-    ["design", state.selectedReferenceId]
-  ]);
-  assert.equal(result.jobs.length, 1);
-  assert.ok(preflightSnapshot);
-  assert.equal(queueSnapshot.jobs.length, 1);
-  assert.equal(preflightSnapshot.products.every((product) => product.aiPassport?.productName), true);
-  assert.equal(preflightSnapshot.projects[0].references[0].designAnalysis.formatType, "symptom_poster");
-});
-
-test("backend generation worker marks job failed when preflight fails", async () => {
-  const state = createState();
-  state.products = state.products.map((product) => ({ ...product, aiPassport: null }));
-  const deps = createStateDeps(state, {
-    refreshProductPassport: async () => {
-      throw new Error("passport provider failed");
-    }
-  });
-
-  const result = await createGenerationBatch({
-    count: 1,
-    origin: "http://127.0.0.1:4173",
-    selection: {
-      projectId: state.selectedProjectId,
-      productId: state.selectedProductId,
-      referenceId: state.selectedReferenceId,
-      characterId: state.selectedCharacterId,
-      audioId: ""
-    },
-    deps
-  });
-  await waitFor(() => deps.getState().jobs[0]?.status === "failed");
-
-  assert.equal(result.jobs.length, 1);
-  assert.equal(deps.getState().jobs.length, 1);
-  assert.equal(deps.getState().jobs[0].failMsg, "passport provider failed");
-});
-
-test("backend generation worker prepares brief and hands job to server pipeline", async () => {
-  const calls = [];
-  const deps = createStateDeps(createState(), {
-    generateServerAiBrief: async ({ product, existingJobs }) => {
-      calls.push(["brief", product.id, existingJobs.length]);
-      return {
-        topic: "Серверная тема",
-        hook: "Серверный хук",
-        aiPlan: { headline: "Серверный хук", subhead: "", points: ["Пункт"] }
-      };
-    },
-    postServerJob: async ({ job, context }) => {
-      calls.push(["serverJob", job.id, job.title, job.status, job.stage, context.project.id, job.createdAt]);
-      return { job: { ...job, status: "running", stage: "image" } };
-    }
-  });
-
-  const result = await createGenerationBatch({
-    count: 1,
-    origin: "http://127.0.0.1:4173",
-    selection: {
-      projectId: deps.getState().selectedProjectId,
-      productId: deps.getState().selectedProductId,
-      referenceId: deps.getState().selectedReferenceId,
-      characterId: deps.getState().selectedCharacterId,
-      audioId: ""
-    },
-    deps
-  });
-  await waitFor(() => calls.some((call) => call[0] === "serverJob"));
-
-  const job = deps.getState().jobs.find((item) => item.id === result.jobs[0].id);
-  assert.equal(job.isBriefPlaceholder, undefined);
-  assert.equal(job.serverOwned, true);
-  assert.equal(job.title, "Серверный хук");
-  assert.equal(job.createdAt, result.jobs[0].createdAt);
-  assert.deepEqual(deps.getState().generationBrief, {});
-  assert.deepEqual(calls, [
-    ["brief", deps.getState().selectedProductId, 0],
-    ["serverJob", job.id, "Серверный хук", "queued", "brief", deps.getState().selectedProjectId, result.jobs[0].createdAt]
-  ]);
-});
-
-test("backend generation worker keeps selected placeholder design reference", async () => {
-  const state = createState();
-  state.projects = [{
-    ...state.projects[0],
-    references: [
-      { id: "ref-a", type: "design", title: "A", designAnalysis: { formatType: "checklist_cards" } },
-      { id: "ref-b", type: "design", title: "B", designAnalysis: { formatType: "checklist_cards" } }
-    ]
-  }];
-  state.selectedReferenceId = "ref-a";
-  const referencesSeen = [];
-  const deps = createStateDeps(state, {
-    generateServerAiBrief: async ({ reference }) => {
-      referencesSeen.push(reference.id);
-      return { topic: "Тема", hook: "Хук", aiPlan: { headline: "Хук", subhead: "", points: ["Пункт"] } };
-    },
-    postServerJob: async ({ job }) => ({ job })
-  });
-
-  const result = await createGenerationBatch({
-    count: 2,
-    origin: "http://127.0.0.1:4173",
-    selection: {
-      projectId: state.selectedProjectId,
-      productId: state.selectedProductId,
-      referenceId: state.selectedReferenceId,
-      characterId: state.selectedCharacterId,
-      audioId: ""
-    },
-    deps
-  });
-  await waitFor(() => referencesSeen.length === result.jobs.length);
-
-  assert.deepEqual(result.jobs.map((job) => job.referenceId), ["ref-a", "ref-a"]);
-  assert.deepEqual(referencesSeen, ["ref-a", "ref-a"]);
-});
-
 test("server brief generation accepts fallback after stale retry budget", async () => {
   const previousFetch = globalThis.fetch;
   const bodies = [];
@@ -419,11 +275,3 @@ test("server brief generation accepts fallback after stale retry budget", async 
     globalThis.fetch = previousFetch;
   }
 });
-
-async function waitFor(predicate) {
-  for (let index = 0; index < 200; index += 1) {
-    if (predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 1));
-  }
-  assert.fail("condition was not met");
-}

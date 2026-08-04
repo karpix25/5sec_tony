@@ -5,7 +5,7 @@ const defaultStaleBriefMs = 45 * 60 * 1000;
 
 if (isMainModule(import.meta.url)) {
   startAutomationSchedulerFromEnv().catch((error) => {
-    console.error(`[automation-scheduler:fatal] ${error.stack || error.message || error}`);
+    console.error(`[automation-scheduler:fatal] ${formatError(error)}`);
     process.exitCode = 1;
   });
 }
@@ -15,6 +15,7 @@ export async function startAutomationSchedulerFromEnv(env = process.env) {
   const scheduler = createAutomationScheduler({
     intervalMs: Number(env.AUTOMATION_SCHEDULER_INTERVAL_MS || defaultIntervalMs),
     staleBriefMs: Number(env.AUTOMATION_STALE_BRIEF_MS || defaultStaleBriefMs),
+    dispatchTimeoutMs: Number(env.AUTOMATION_DISPATCH_TIMEOUT_MS || 30_000),
     once,
     env,
     logger: console
@@ -26,21 +27,28 @@ export function createAutomationScheduler(options = {}) {
   const intervalMs = Math.max(5_000, Number(options.intervalMs || defaultIntervalMs));
   const logger = options.logger || console;
   let stopped = false;
+  let startPromise = null;
 
   return {
     stop() {
       stopped = true;
     },
-    async start() {
-      logger.log(`[automation-scheduler] started intervalMs=${intervalMs}`);
-      do {
-        await runOnce(options, logger);
-        if (options.once || stopped) break;
-        await sleep(intervalMs);
-      } while (!stopped);
-      logger.log("[automation-scheduler] stopped");
+    start() {
+      if (startPromise) return startPromise;
+      startPromise = runScheduler();
+      return startPromise;
     }
   };
+
+  async function runScheduler() {
+    logger.log(`[automation-scheduler] started intervalMs=${intervalMs}`);
+    do {
+      await runOnce(options, logger);
+      if (options.once || stopped) break;
+      await sleep(intervalMs);
+    } while (!stopped);
+    logger.log("[automation-scheduler] stopped");
+  }
 }
 
 async function runOnce(options, logger) {
@@ -49,11 +57,12 @@ async function runOnce(options, logger) {
       deps: options.deps || {},
       env: options.env || process.env,
       staleBriefTimeoutMs: options.staleBriefMs,
+      dispatchTimeoutMs: options.dispatchTimeoutMs,
       now: options.now
     });
     logger.log(`[automation-scheduler] cycle ${JSON.stringify(summarizeSchedulerResult(result))}`);
   } catch (error) {
-    logger.error(`[automation-scheduler:error] ${error.stack || error.message || error}`);
+    logger.error(`[automation-scheduler:error] ${formatError(error)}`);
   }
 }
 
@@ -66,14 +75,14 @@ function summarizeSchedulerResult(result = {}) {
     dispatches: Array.isArray(result.dispatches) ? result.dispatches.length : 0,
     ok: results.filter((item) => item.ok).length,
     failed: results.filter((item) => !item.ok).length,
-    queueError: result.queueError || "",
+    queueError: compactText(result.queueError),
     audioReminder: summarizeAudioReminder(result.audioLibraryReminder),
     projects: results.map((item) => ({
       projectId: item.projectId || "",
       ok: item.ok === true,
       count: Number(item.count || 0),
       batchId: item.batchId || "",
-      error: item.error || ""
+      error: compactText(item.error)
     }))
   };
 }
@@ -89,6 +98,16 @@ function summarizeAudioReminder(reminder = {}) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatError(error) {
+  const message = error?.message || String(error);
+  return compactText(error?.code ? `${error.code}: ${message}` : message);
+}
+
+function compactText(value, limit = 500) {
+  const text = String(value || "");
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
 
 function isMainModule(url) {

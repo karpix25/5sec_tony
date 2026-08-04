@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createAutomationScheduler } from "../scripts/automation-scheduler.mjs";
 import { runAutomationSchedulerOnce } from "../scripts/automation/scheduler-tick.mjs";
 import { claimAutomationDispatches } from "../scripts/automation/scheduler-planner.mjs";
 import { buildAutomationBatchSelection } from "../scripts/automation/automation-selection.mjs";
@@ -22,7 +23,7 @@ test("server automation scheduler creates a strict queued batch for enabled proj
     ],
     jobs: [
       { id: "active-1", projectId: "auto-project", status: "running" },
-      { id: "active-2", projectId: "auto-project", status: "queued" },
+      { id: "active-2", projectId: "auto-project", status: "queued", queueStatus: "queued" },
       { id: "done-1", projectId: "auto-project", status: "done", finalVideoUrl: "/ok.mp4" }
     ],
     audioLibrary: [{ id: "audio-global", title: "Audio" }]
@@ -34,7 +35,7 @@ test("server automation scheduler creates a strict queued batch for enabled proj
     env: strictQueueEnv,
     deps: {
       updateGenerationState: stateStore.updateGenerationState,
-      createGenerationBatch: async (payload) => {
+      dispatchGenerationBatch: async (payload) => {
         calls.push(payload);
         return { batchId: "batch-1", jobs: [{ id: "job-1" }, { id: "job-2" }, { id: "job-3" }] };
       }
@@ -53,6 +54,88 @@ test("server automation scheduler creates a strict queued batch for enabled proj
   assert.match(stateStore.state.projects[1].automation.lastMessage, /Запущено задач: 3/);
 });
 
+test("scheduler dispatches batches through the backend HTTP boundary by default", async () => {
+  const stateStore = createStateStore({
+    projects: [createProject("http-project", { automation: { enabled: true, batchSize: 2, concurrency: 2 } })]
+  });
+  const requests = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, request) => {
+    requests.push({ url, body: JSON.parse(request.body) });
+    return { ok: true, status: 202, json: async () => ({ batchId: "http-batch", jobs: [{ id: "job-1" }] }) };
+  };
+  try {
+    const result = await runAutomationSchedulerOnce({
+      env: strictQueueEnv,
+      deps: { updateGenerationState: stateStore.updateGenerationState }
+    });
+    assert.equal(result.results[0].ok, true);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, "http://web:4173/api/generation/batches");
+    assert.deepEqual(requests[0].body, {
+      count: 2,
+      distributeProducts: true,
+      source: "automation",
+      selection: requests[0].body.selection,
+      requireQueue: true
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("scheduler continues dispatching other projects after one backend error", async () => {
+  const stateStore = createStateStore({
+    projects: [
+      createProject("failed-project", { automation: { enabled: true, batchSize: 1, concurrency: 1 } }),
+      createProject("healthy-project", { automation: { enabled: true, batchSize: 1, concurrency: 1 } })
+    ]
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, request) => {
+    const projectId = JSON.parse(request.body).selection.projectId;
+    if (projectId === "failed-project") {
+      return { ok: false, status: 503, json: async () => ({ code: "PROVIDER_BUSY", error: "provider busy" }) };
+    }
+    return { ok: true, status: 202, json: async () => ({ batchId: "healthy-batch", jobs: [{ id: "job-2" }] }) };
+  };
+  try {
+    const result = await runAutomationSchedulerOnce({
+      env: strictQueueEnv,
+      maxProjectsPerTick: 2,
+      deps: { updateGenerationState: stateStore.updateGenerationState }
+    });
+    assert.equal(result.results.length, 2);
+    assert.equal(result.results[0].ok, false);
+    assert.equal(result.results[1].ok, true);
+    assert.equal(stateStore.state.projects[0].automation.status, "error");
+    assert.equal(stateStore.state.projects[1].automation.status, "running");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("scheduler start is idempotent and cannot create overlapping loops", async () => {
+  const stateStore = createStateStore({ projects: [] });
+  let cycles = 0;
+  const scheduler = createAutomationScheduler({
+    once: true,
+    deps: {
+      updateGenerationState: stateStore.updateGenerationState,
+      withAutomationSchedulerLock: async (run) => {
+        cycles += 1;
+        return run();
+      }
+    },
+    logger: { log() {}, error() {} }
+  });
+  const first = scheduler.start();
+  const second = scheduler.start();
+  assert.equal(first, second);
+  await Promise.all([first, second]);
+  assert.equal(cycles, 1);
+});
+
 test("server automation scheduler waits at daily limit without disabling autorun", async () => {
   const stateStore = createStateStore({
     projects: [createProject("daily-full", {
@@ -68,7 +151,7 @@ test("server automation scheduler waits at daily limit without disabling autorun
     env: strictQueueEnv,
     deps: {
       updateGenerationState: stateStore.updateGenerationState,
-      createGenerationBatch: async () => { batchCalls += 1; }
+      dispatchGenerationBatch: async () => { batchCalls += 1; }
     }
   });
 
@@ -92,7 +175,7 @@ test("server automation scheduler disables autorun when project limit is reached
     env: strictQueueEnv,
     deps: {
       updateGenerationState: stateStore.updateGenerationState,
-      createGenerationBatch: async () => assert.fail("batch should not be created")
+      dispatchGenerationBatch: async () => assert.fail("batch should not be created")
     }
   });
 
@@ -118,7 +201,7 @@ test("server automation scheduler disables exhausted autorun even with active jo
     env: strictQueueEnv,
     deps: {
       updateGenerationState: stateStore.updateGenerationState,
-      createGenerationBatch: async () => assert.fail("batch should not be created")
+      dispatchGenerationBatch: async () => assert.fail("batch should not be created")
     }
   });
 
@@ -138,7 +221,7 @@ test("server automation scheduler marks queue config errors without creating bat
     env: { JOB_QUEUE_MODE: "inline" },
     deps: {
       updateGenerationState: stateStore.updateGenerationState,
-      createGenerationBatch: async () => { batchCalls += 1; }
+      dispatchGenerationBatch: async () => { batchCalls += 1; }
     }
   });
 

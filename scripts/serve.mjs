@@ -13,6 +13,7 @@ import { handleProductReferenceAssetsApi } from "./product-reference-assets.mjs"
 import { handleReferenceAssetsApi } from "./reference-assets.mjs";
 import { handleReelsResearchApi } from "./reels-research-api.mjs";
 import { handleServerJobsApi } from "./server-jobs.mjs";
+import { handleRetryFailedJobsApi } from "./retry-failed-jobs.mjs";
 import { handleProjectsApi } from "./projects-api.mjs";
 import { handleProductsApi } from "./products-api.mjs";
 import { handleDesignReferencesApi } from "./design-references-api.mjs";
@@ -56,6 +57,7 @@ const server = createServer(async (request, response) => {
   if (await handleGenerationBatchesApi(request, response, url)) return;
   if (await handleReelsResearchApi(request, response, url)) return;
   if (await handleServerJobsApi(request, response, url)) return;
+  if (await handleRetryFailedJobsApi(request, response, url)) return;
   if (await handleProjectsApi(request, response, url)) return;
   if (await handleProductsApi(request, response, url)) return;
   if (await handleDesignReferencesApi(request, response, url)) return;

@@ -1,5 +1,4 @@
 import { normalizeStateDailyUsage } from "../src/domain/daily-usage.js";
-import { createGenerationJob } from "../src/domain/generation.js";
 import {
   createGenerationBatchId,
   normalizeGenerationBatchReservation,
@@ -8,12 +7,9 @@ import {
 } from "../src/domain/generation-batch-reservation.js";
 import { createPendingGenerationJob } from "../src/domain/generation-placeholder.js";
 import { createSelectionJobBatch, getSelectionJobBatchAvailability } from "../src/state/store-context.js";
-import { generateServerAiBrief } from "./generation-brief-service.mjs";
+import { enqueueBriefJob, getBriefQueueIdempotencyKey, getBriefQueueName } from "./brief-queue.mjs";
 import { loadGenerationState, updateGenerationState } from "./generation-state.mjs";
-import { ensureGenerationPreflight } from "./generation-preflight.mjs";
 import { createServerSelectionContext } from "./generation-selection-context.mjs";
-
-const runningBatches = new Map();
 
 export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, reservation = {}, origin, source = "manual", deps = {} }) {
   const safeCount = normalizeGenerationCount(count);
@@ -29,7 +25,14 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
         serverBatchId: batchId,
         selectionSnapshot: normalizeGenerationSelection(selection),
         serverOwned: true,
-        generationSource: normalizeGenerationSource(source)
+        generationSource: normalizeGenerationSource(source),
+        queueName: getBriefQueueName(deps.env || process.env),
+        queueStatus: "queued",
+        queueAttempts: 0,
+        queueMaxAttempts: Number(deps.briefQueueAttempts || 3),
+        queueScheduledAt: new Date().toISOString(),
+        queueIdempotencyKey: getBriefQueueIdempotencyKey({ id: normalizedReservation.jobIds[index] || job.id }, batchId),
+        queueMetadata: { source: "brief-queue", batchId }
       }));
     if (!reservedJobs.length) throw createBatchUnavailableError(availability.reason);
     return {
@@ -39,8 +42,8 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
     };
   }, deps);
   const jobs = result.state.jobs.filter((job) => job.serverBatchId === batchId);
-  if (deps.autoStart !== false) startGenerationBatchWorker({ batchId, origin, deps });
-  return { batchId, jobs, state: result.state, updatedAt: result.updatedAt };
+  const queue = deps.autoStart === false ? [] : await enqueueBatchBriefJobs(jobs, { batchId, origin, deps });
+  return { batchId, jobs, queue, state: result.state, updatedAt: result.updatedAt };
 }
 
 export async function getGenerationBatchStatus(batchId, deps = {}) {
@@ -49,122 +52,28 @@ export async function getGenerationBatchStatus(batchId, deps = {}) {
   return { batchId, jobs, state, updatedAt: null };
 }
 
-function startGenerationBatchWorker({ batchId, origin, deps }) {
-  if (runningBatches.has(batchId)) return;
-  const run = runGenerationBatch({ batchId, origin, deps }).finally(() => runningBatches.delete(batchId));
-  runningBatches.set(batchId, run);
-}
-
-async function runGenerationBatch({ batchId, origin, deps }) {
-  while (true) {
-    const next = await findNextBriefJob(batchId, deps);
-    if (!next) return;
-    await processBriefJob({ batchId, jobId: next.id, origin, deps });
-  }
-}
-
-async function findNextBriefJob(batchId, deps) {
-  const state = await loadState(deps);
-  return (state.jobs || []).find((job) =>
-    job.serverBatchId === batchId && job.status === "running" && job.stage === "brief" && job.isBriefPlaceholder
-  );
-}
-
-async function processBriefJob({ jobId, origin, deps }) {
-  try {
-    const prepared = await prepareServerJob(jobId, origin, deps);
-    await postServerJob(deps, origin, {
-      job: prepared.job,
-      context: prepared.context
-    });
-  } catch (error) {
-    await failBriefJob(jobId, error, deps);
-  }
-}
-
-async function prepareServerJob(jobId, origin, deps) {
-  const state = await loadState(deps);
-  const placeholder = (state.jobs || []).find((job) => job.id === jobId);
-  if (!placeholder) throw new Error("Задача не найдена");
-  const selection = {
-    ...(placeholder.selectionSnapshot || {}),
-    referenceId: placeholder.referenceId || placeholder.selectionSnapshot?.referenceId || ""
-  };
-  await ensureGenerationPreflight({ selection, origin, deps });
-  const preparedState = await loadState(deps);
-  const preparedPlaceholder = (preparedState.jobs || []).find((job) => job.id === jobId);
-  if (!preparedPlaceholder) throw new Error("Задача не найдена");
-  const context = createServerSelectionContext(preparedState, selection, preparedPlaceholder.productId);
-  const existingJobs = (preparedState.jobs || []).filter((job) => job.id !== jobId && job.projectId === context.project.id);
-  const generateBrief = deps.generateServerAiBrief || generateServerAiBrief;
-  const brief = await generateBrief({
-    origin,
-    ...context,
-    existingJobs,
-    hookLibrary: preparedState.hookLibrary
-  });
-  const job = {
-    ...createGenerationJob({ ...context, generationBrief: brief, existingJobs, hookLibrary: preparedState.hookLibrary }),
-    id: jobId,
-    createdAt: placeholder.createdAt || new Date().toISOString(),
-    serverBatchId: placeholder.serverBatchId,
-    serverOwned: true,
-    generationSource: placeholder.generationSource || "manual"
-  };
-  const payload = {
-    job,
-    context: {
-      project: context.project,
-      product: context.product,
-      audioLibrary: preparedState.audioLibrary || [],
-      selectedAudioId: selection.audioId || preparedState.selectedAudioId || "",
-      selectedCharacterId: selection.characterId || preparedState.selectedCharacterId || ""
+async function enqueueBatchBriefJobs(jobs, { batchId, origin, deps }) {
+  const enqueue = deps.enqueueBriefJob || enqueueBriefJob;
+  const results = [];
+  for (const job of jobs) {
+    try {
+      results.push(await enqueue(job, { batchId, origin }, deps));
+    } catch (error) {
+      await updateState(deps, (state) => ({
+        ...state,
+        jobs: (state.jobs || []).map((item) => item.id === job.id ? {
+          ...item,
+          status: "failed",
+          progress: 100,
+          queueStatus: "failed",
+          queueLastError: error.message || "Не удалось поставить AI-бриф в очередь",
+          failMsg: error.message || "Не удалось поставить AI-бриф в очередь"
+        } : item)
+      }));
+      throw error;
     }
-  };
-  await updateState(deps, (current) => {
-    const products = brief.productPassport
-      ? current.products.map((item) => item.id === context.product.id ? { ...item, aiPassport: brief.productPassport } : item)
-      : current.products;
-    const projects = brief.designFormatBrief
-      ? current.projects.map((project) => project.id === context.project.id ? {
-          ...project,
-          references: (project.references || []).map((item) =>
-            item.id === context.reference.id ? { ...item, designAnalysis: brief.designFormatBrief } : item
-          )
-        } : project)
-      : current.projects;
-    return {
-      ...current,
-      products,
-      projects,
-      jobs: current.jobs.map((item) => (item.id === jobId ? job : item))
-    };
-  }, deps);
-  return payload;
-}
-
-async function failBriefJob(jobId, error, deps) {
-  await updateState(deps, (state) => ({
-    ...state,
-    jobs: (state.jobs || []).map((job) => job.id === jobId ? {
-      ...job,
-      status: "failed",
-      stage: "brief",
-      progress: 100,
-      failMsg: error.message || "AI-бриф не подготовился"
-    } : job)
-  }), deps);
-}
-
-async function postJson(origin, path, body) {
-  const response = await fetch(`${origin}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Generation job API failed: ${response.status}`);
-  return payload;
+  }
+  return results;
 }
 
 function loadState(deps) {
@@ -173,10 +82,6 @@ function loadState(deps) {
 
 function updateState(deps, updater) {
   return deps.updateGenerationState ? deps.updateGenerationState(updater) : updateGenerationState(updater, deps);
-}
-
-function postServerJob(deps, origin, body) {
-  return deps.postServerJob ? deps.postServerJob(body) : postJson(origin, "/api/jobs/run", body);
 }
 
 function normalizeGenerationSource(value) {

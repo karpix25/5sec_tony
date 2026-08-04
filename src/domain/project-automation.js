@@ -91,7 +91,27 @@ function normalizeTimeZone(value) {
 
 function isActiveAutomationJob(job = {}) {
   if (job.quotaCountedAt || !["queued", "running"].includes(job.status)) return false;
-  return !["completed", "failed"].includes(String(job.queueStatus || "").toLowerCase());
+  const queueStatus = String(job.queueStatus || "").toLowerCase();
+  if (["completed", "failed"].includes(queueStatus)) return false;
+  if (["queued", "running", "retrying"].includes(queueStatus)) return true;
+  return job.status === "running" || hasQueueLifecycleMarker(job);
+}
+
+function hasQueueLifecycleMarker(job) {
+  if (job.serverBatchId || job.isBriefPlaceholder) return true;
+  return [
+    "serverJobAcceptedAt",
+    "queueIdempotencyKey",
+    "queueProviderTaskId",
+    "queueScheduledAt",
+    "queueLockedAt"
+  ].some((key) => hasMeaningfulValue(job[key]));
+}
+
+function hasMeaningfulValue(value) {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  return true;
 }
 
 function isLegacyCompletedTargetState(value = {}) {
