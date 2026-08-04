@@ -6,11 +6,13 @@ import { formatCurrentDatePrompt } from "../src/domain/current-date-context.js";
 import { clickbaitHeadlineRules, hookPayoffRules, simpleAudienceLanguageRules, viralReelsHookRules } from "../src/domain/headline-style-contract.js";
 import { hasUsefulDesignAnalysis, hasUsefulProductPassport, normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { socialSafeZonePixelRules } from "../src/domain/social-safe-zone-contract.js";
+import { ruTextEditorialRules } from "../src/domain/ru-text-guidance.js";
 import { formatComplianceInstruction } from "./creative-team-format-compliance.mjs";
 import { isJsonDraftFormatError } from "./openrouter-response.mjs";
 
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
+  ...ruTextEditorialRules,
   formatCurrentDatePrompt(),
   "Пиши по-русски. Возвращай только валидный JSON без markdown.",
   "Не выдумывай факты, цифры, состав, гарантии, юридические или медицинские обещания.",
@@ -93,7 +95,8 @@ export function humanizeTextInstruction(body) {
       "Headline, subhead и points должны отвечать на одну тему.",
       "Анкета product — источник истины. Не добавляй свойства, обещания, формат, состав, объем, дозировку, бренд или упаковку, которых нет в product.",
       "Поля forbidden, restrictions и contentRestrictions — внутренние стоп-правила. Не превращай их в visible copy, points, CTA, disclaimer, футер, сноску или нижнюю строку.",
-      "Не добавляй новые цифры, комиссии, гарантии, юридические факты, обход правил, диагнозы или финансовые обещания."
+      "Не добавляй новые цифры, комиссии, гарантии, юридические факты, обход правил, диагнозы или финансовые обещания.",
+      ...ruTextEditorialRules
     ],
     project: body.project,
     product: body.product,
