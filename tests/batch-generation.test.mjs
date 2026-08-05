@@ -26,6 +26,7 @@ test("batch generation assigns different semantic slots before jobs run", () => 
   assert.equal(new Set(jobs.map((job) => job.topic)).size, 3);
   assert.equal(new Set(jobs.map((job) => job.diversitySlot?.id)).size, 3);
   assert.equal(new Set(jobs.map((job) => job.compositionMode)).size, 3);
+  assert.equal(new Set(jobs.map((job) => job.referenceId)).size, 3);
 });
 
 test("wellness batch rotates product pains across content layers", () => {

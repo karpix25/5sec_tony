@@ -78,6 +78,7 @@ test("backend generation batch creates server-owned brief jobs in state", async 
   assert.equal(result.state.selectedProjectTab, "queue");
   assert.equal(result.jobs.every((job) => job.serverOwned && job.serverBatchId === result.batchId), true);
   assert.equal(result.jobs.every((job) => job.generationSource === "manual"), true);
+  assert.equal(new Set(result.jobs.map((job) => job.referenceId)).size, 2);
   assert.deepEqual(result.jobs.map((job) => [job.status, job.stage, job.isBriefPlaceholder]), [
     ["running", "brief", true],
     ["running", "brief", true]

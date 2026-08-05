@@ -19,7 +19,7 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
     const dailyState = normalizeStateDailyUsage(state);
     const context = createServerSelectionContext(dailyState, selection);
     const availability = getSelectionJobBatchAvailability(dailyState, context, safeCount);
-    const reservedJobs = createSelectionJobBatch(dailyState, context, safeCount, { distributeProducts, rotateReferences: false })
+    const reservedJobs = createSelectionJobBatch(dailyState, context, safeCount, { distributeProducts, rotateReferences: true })
       .map((job, index) => createPendingGenerationJob(job, index, safeCount, {
         id: normalizedReservation.jobIds[index],
         serverBatchId: batchId,
