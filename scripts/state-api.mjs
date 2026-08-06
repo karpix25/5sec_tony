@@ -11,6 +11,7 @@ import {
   writeWithConflictCheck
 } from "./app-state-api-helpers.mjs";
 import { getStateTransportMeta, prepareStateForTransport, shouldUseFullStateTransport } from "./state-transport.mjs";
+import { touchAppStateMetadata as touchAppStateMetadataDefault } from "./app-state-metadata.mjs";
 
 const appStateKey = defaultAppStateKey;
 
@@ -24,7 +25,7 @@ export function createStateApiHandler(deps = {}) {
   const loadLegacy = deps.loadLegacyState || loadLegacyState;
   const saveNormalized = deps.saveNormalizedState || saveNormalizedState;
   const saveLegacy = deps.saveLegacyState || saveLegacyState;
-  const touchAppStateMetadata = deps.touchAppStateMetadata || updateAppStateMetadata;
+  const touchAppStateMetadata = deps.touchAppStateMetadata || touchAppStateMetadataDefault;
   const markAudioUpdated = deps.markAudioLibraryUpdated || markAudioLibraryUpdated;
 
   return async function handleStateApi(request, response, url) {
@@ -137,21 +138,6 @@ async function handleSaveState(request, response, url, deps) {
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось сохранить состояние в Postgres" });
   }
-}
-
-async function updateAppStateMetadata(query, key) {
-  const result = await query(
-    "update app_state set updated_at = now() where id = $1 returning updated_at",
-    [key]
-  );
-  if (result.rows[0]) return result;
-  return query(
-    `insert into app_state (id, data, updated_at)
-     values ($1, '{}'::jsonb, now())
-     on conflict (id) do update set updated_at = now()
-     returning updated_at`,
-    [key]
-  );
 }
 
 function isPlainStateObject(value) {

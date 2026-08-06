@@ -1,7 +1,7 @@
 import { createProductEntity } from "../src/state/factories.js";
 import { ensureStateSchema } from "./state-schema.mjs";
-import { loadLegacyState, loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
 import { appendUiTombstones } from "./ui-state-tombstones.mjs";
+import { touchAppStateMetadata } from "./app-state-metadata.mjs";
 
 const productKeys = [
   "id", "projectId", "name", "description", "offer", "components", "pains", "facts", "forbidden", "aiPassport", "references"
@@ -40,7 +40,7 @@ export async function saveProductForState(query, appStateKey, productPayload, op
   const sortOrder = existing?.sortOrder ?? await getNewProductSortOrder(query, appStateKey, projectId);
   await upsertProduct(query, appStateKey, product, sortOrder);
   if (options.selectProduct) await selectProduct(query, appStateKey, product);
-  const updatedAt = await rebuildLegacyMirror(query, appStateKey);
+  const updatedAt = await touchAppStateMetadata(query, appStateKey);
   return { product, updatedAt };
 }
 
@@ -56,7 +56,7 @@ export async function deleteProductForState(query, appStateKey, productId) {
   await query("delete from studio_products where app_state_key = $1 and id = $2", [appStateKey, productId]);
   await selectFirstProductForProject(query, appStateKey, existing.projectId);
   await appendUiTombstones(query, appStateKey, { deletedProductIds: [productId] });
-  const updatedAt = await rebuildLegacyMirror(query, appStateKey);
+  const updatedAt = await touchAppStateMetadata(query, appStateKey);
   return { deletedProductId: productId, updatedAt };
 }
 
@@ -163,14 +163,6 @@ async function selectFirstProductForProject(query, appStateKey, projectId) {
        updated_at = now()`,
     [appStateKey, projectId, productId]
   );
-}
-
-async function rebuildLegacyMirror(query, appStateKey) {
-  const state = await loadNormalizedState(query, appStateKey)
-    || await loadLegacyState(query, appStateKey)
-    || { projects: [], products: [], jobs: [] };
-  const result = await saveLegacyState(query, appStateKey, state);
-  return result.rows[0]?.updated_at || "";
 }
 
 function rowToProduct(row) {

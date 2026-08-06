@@ -1,8 +1,8 @@
 import { updateProjectEntity } from "../src/state/store-projects.js";
 import { ensureStateSchema } from "./state-schema.mjs";
-import { loadLegacyState, loadNormalizedState, saveLegacyState } from "./state-relational-store.mjs";
 import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 import { appendUiTombstones } from "./ui-state-tombstones.mjs";
+import { touchAppStateMetadata } from "./app-state-metadata.mjs";
 
 const projectKeys = [
   "id", "name", "client", "exportFolder", "yandexDiskFolder", "dailyLimit", "usedToday", "dailyUsageDate", "projectLimit",
@@ -37,7 +37,7 @@ export async function saveProjectForState(query, appStateKey, projectId, patch, 
     ...pickExtraFields(patch, projectKeys)
   }, existing, { allowProjectLimitDecrease });
   await updateProjectRow(query, appStateKey, projectId, project);
-  const updatedAt = await rebuildLegacyMirror(query, appStateKey);
+  const updatedAt = await touchAppStateMetadata(query, appStateKey);
   return { project, updatedAt };
 }
 
@@ -57,7 +57,7 @@ export async function createProjectForState(query, appStateKey, bundle) {
   await insertProjectRow(query, appStateKey, project, await getNewProjectSortOrder(query, appStateKey));
   await insertProductRow(query, appStateKey, product, 0);
   await selectProject(query, appStateKey, project, product);
-  const updatedAt = await rebuildLegacyMirror(query, appStateKey);
+  const updatedAt = await touchAppStateMetadata(query, appStateKey);
   return { project, product, updatedAt };
 }
 
@@ -71,7 +71,7 @@ export async function deleteProjectForState(query, appStateKey, projectId) {
   await query("delete from studio_projects where app_state_key = $1 and id = $2", [appStateKey, projectId]);
   await selectFirstProject(query, appStateKey);
   await appendUiTombstones(query, appStateKey, { deletedProjectIds: [projectId], deletedProductIds: productIds });
-  const updatedAt = await rebuildLegacyMirror(query, appStateKey);
+  const updatedAt = await touchAppStateMetadata(query, appStateKey);
   return { deletedProjectId: projectId, updatedAt };
 }
 
@@ -277,14 +277,6 @@ async function selectProjectIds(query, appStateKey, selection) {
        updated_at = now()`,
     [appStateKey, selection.projectId, selection.productId, selection.referenceId, selection.characterId]
   );
-}
-
-async function rebuildLegacyMirror(query, appStateKey) {
-  const state = await loadNormalizedState(query, appStateKey)
-    || await loadLegacyState(query, appStateKey)
-    || { projects: [], products: [], jobs: [] };
-  const result = await saveLegacyState(query, appStateKey, state);
-  return result.rows[0]?.updated_at || "";
 }
 
 function rowToProject(row) {
