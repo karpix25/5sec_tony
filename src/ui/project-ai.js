@@ -63,7 +63,7 @@ export async function saveProjectAndRefreshAiMemory(form, store, options = {}) {
   const button = form?.querySelector("#save-project-settings");
   const status = form?.querySelector("#audience-expert-status");
   const previous = button?.textContent || "";
-  let projectSaved = false;
+  const projectId = store.getState?.().selectedProjectId;
   if (button) {
     button.textContent = "Сохраняем...";
     button.disabled = true;
@@ -74,29 +74,64 @@ export async function saveProjectAndRefreshAiMemory(form, store, options = {}) {
     const limitResult = raiseProjectLimitAboveUsedTotal(formSnapshot(form), store, form);
     const snapshot = limitResult.payload;
     const shouldRefreshAi = hasProjectAiMemorySourceChanges(store, snapshot);
-    await saveProjectSettings(store, snapshot, { projectLimitBase });
-    projectSaved = true;
+    await saveProjectSettings(store, snapshot, {
+      projectLimitBase,
+      preserveFields: audienceExpertFields,
+      savedSnapshot: options.savedSnapshot
+    });
     if (!shouldRefreshAi) {
       setStatus(status, limitResult.adjusted ? `Проект сохранен. ${limitResult.message}` : "Проект сохранен.", "success");
-      return;
+      return { savedPayload: snapshot, aiRefresh: null };
     }
-    if (button) button.textContent = "Обновляем AI...";
-    setStatus(status, "Обновляем AI-память для будущих генераций...", "loading");
-    const draft = await requestAudienceExpertDraft(store, snapshot);
-    const liveForm = getLiveProjectForm(form);
-    const liveSnapshot = formSnapshot(liveForm);
-    const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft, { preserveFilledLiveValues: true });
-    applyAudienceExpertDraft(liveForm, mergedDraft);
-    await saveProjectSettings(store, formSnapshot(liveForm), { projectLimitBase: readProjectLimitBase(liveForm) ?? projectLimitBase });
-    setStatus(status, "Проект сохранен. AI-память обновлена.", "success");
+    setStatus(status, "Проект сохранен. AI-память обновляется в фоне...", "loading");
+    const aiRefresh = refreshProjectAiMemory({ form, store, snapshot, projectId, projectLimitBase, status });
+    return { savedPayload: snapshot, aiRefresh };
   } catch (error) {
-    setStatus(status, humanizeProjectSaveError(error, { projectSaved }), "error");
-    if (options.rethrowSaveError && !projectSaved) throw error;
+    setStatus(status, humanizeProjectSaveError(error), "error");
+    if (options.rethrowSaveError) throw error;
+    return { savedPayload: null, aiRefresh: null };
   } finally {
     if (button) {
       button.textContent = previous || "Сохранить проект";
       button.disabled = false;
     }
+  }
+}
+
+async function refreshProjectAiMemory({ form, store, snapshot, projectId, projectLimitBase, status }) {
+  try {
+    const sourceSnapshot = getProjectAiSourceSnapshot(store, projectId, snapshot);
+    const draft = await requestAudienceExpertDraft(store, snapshot, projectId);
+    const currentProject = store.getState?.().projects?.find((item) => item.id === projectId);
+    const liveForm = store.getState?.().selectedProjectId === projectId ? getLiveProjectForm(form) : null;
+    const liveSnapshot = liveForm ? formSnapshot(liveForm) : currentProject;
+    if (!currentProject || (typeof store.updateProjectPatchRemote === "function" && hasProjectAiSourceDrift(sourceSnapshot, currentProject))
+      || (liveForm && hasProjectAiSourceDrift(sourceSnapshot, getProjectAiSourceSnapshot(store, projectId, liveSnapshot)))) {
+      setStatus(liveForm?.querySelector("#audience-expert-status") || status, "Проект сохранен. AI-обновление пропущено: данные уже изменились.", "success");
+      return null;
+    }
+    const mergedDraft = mergeAudienceDraft(snapshot, liveSnapshot, draft, { preserveFilledLiveValues: true });
+    if (!Object.keys(mergedDraft).length) {
+      setStatus(liveForm?.querySelector("#audience-expert-status") || status, "Проект сохранен. AI-память уже актуальна.", "success");
+      return null;
+    }
+    if (typeof store.updateProjectPatchRemote === "function") {
+      await store.updateProjectPatchRemote(projectId, mergedDraft, { kind: "ai-memory", label: "Обновляем AI-память" });
+    } else {
+      await saveProjectSettings(store, { ...liveSnapshot, ...mergedDraft }, {
+        projectLimitBase: readProjectLimitBase(liveForm) ?? projectLimitBase
+      });
+    }
+    const currentForm = store.getState?.().selectedProjectId === projectId ? getLiveProjectForm(liveForm || form) : null;
+    const latestProject = store.getState?.().projects?.find((item) => item.id === projectId);
+    const latestSnapshot = currentForm ? getProjectAiSourceSnapshot(store, projectId, formSnapshot(currentForm)) : latestProject;
+    if (latestProject && (!currentForm || !hasProjectAiSourceDrift(sourceSnapshot, latestSnapshot))) applyAudienceExpertDraft(currentForm, mergedDraft);
+    setStatus(currentForm?.querySelector("#audience-expert-status") || status, "Проект сохранен. AI-память обновлена.", "success");
+    return mergedDraft;
+  } catch (error) {
+    const liveForm = store.getState?.().selectedProjectId === projectId ? getLiveProjectForm(form) : null;
+    setStatus(liveForm?.querySelector("#audience-expert-status") || status, `Проект сохранен. ${humanizeMemoryError(error)}`, "error");
+    return null;
   }
 }
 
@@ -139,13 +174,13 @@ async function saveProjectSettings(store, payload, options = {}) {
   return null;
 }
 
-async function requestAudienceExpertDraft(store, snapshot) {
+async function requestAudienceExpertDraft(store, snapshot, projectId = store.getState().selectedProjectId) {
   const state = store.getState();
-  const project = state.projects.find((item) => item.id === state.selectedProjectId);
-  const products = state.products.filter((item) => item.projectId === state.selectedProjectId);
+  const project = state.projects.find((item) => item.id === projectId);
+  const products = state.products.filter((item) => item.projectId === projectId);
   const liveDraft = {
     ...snapshot,
-    companyInfo: snapshot.companyInfo || snapshot.projectTheme || project.companyInfo || ""
+    companyInfo: snapshot.companyInfo || snapshot.projectTheme || project?.companyInfo || ""
   };
   return generateAudienceExpertDraft({
     project: { ...project, ...liveDraft },
@@ -191,6 +226,15 @@ function hasProjectAiMemorySourceChanges(store, snapshot) {
   const project = state?.projects?.find((item) => item.id === state.selectedProjectId);
   if (!project) return true;
   return projectAiMemorySourceFields.some((field) => normalizeFormText(snapshot[field]) !== normalizeFormText(project[field]));
+}
+
+function getProjectAiSourceSnapshot(store, projectId, snapshot = {}) {
+  const project = store.getState?.().projects?.find((item) => item.id === projectId) || {};
+  return Object.fromEntries(projectAiMemorySourceFields.map((field) => [field, Object.hasOwn(snapshot, field) ? snapshot[field] : project[field]]));
+}
+
+function hasProjectAiSourceDrift(expected = {}, actual = {}) {
+  return projectAiMemorySourceFields.some((field) => normalizeFormText(expected[field]) !== normalizeFormText(actual[field]));
 }
 
 const projectAiMemorySourceFields = [

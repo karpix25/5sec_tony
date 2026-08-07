@@ -66,7 +66,8 @@ async function handleSaveProduct(request, response, deps) {
       key: appStateKey,
       product: result.product,
       updatedAt: result.updatedAt || "",
-      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || "",
+      catalogUpdatedAt: result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     const status = error instanceof ProductPersistenceError ? error.status : 500;
@@ -94,7 +95,8 @@ async function handleDeleteProduct(request, response, deps) {
       key: appStateKey,
       deletedProductId: result.deletedProductId || "",
       updatedAt: result.updatedAt || "",
-      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || "",
+      catalogUpdatedAt: result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     const status = error instanceof ProductPersistenceError ? error.status : 500;

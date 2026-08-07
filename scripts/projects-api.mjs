@@ -96,7 +96,8 @@ async function handleCreateProject(request, response, url, deps) {
       project: result.project,
       product: result.product,
       updatedAt: result.updatedAt || "",
-      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || "",
+      catalogUpdatedAt: result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось создать проект");
@@ -123,7 +124,8 @@ async function handlePatchProject(request, response, url, deps) {
       key: appStateKey,
       project: result.project,
       updatedAt: result.updatedAt || "",
-      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || "",
+      catalogUpdatedAt: result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось сохранить проект");
@@ -148,7 +150,8 @@ async function handlePatchProjectResource(request, response, url, deps) {
       project: result.project,
       resource: deps.resourceName,
       updatedAt: result.updatedAt || "",
-      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || "",
+      catalogUpdatedAt: result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось сохранить часть проекта");
@@ -170,7 +173,8 @@ async function handleDeleteProject(request, response, url, deps) {
       key: appStateKey,
       deletedProjectId: result.deletedProjectId || "",
       updatedAt: result.updatedAt || "",
-      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || "",
+      catalogUpdatedAt: result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось удалить проект");

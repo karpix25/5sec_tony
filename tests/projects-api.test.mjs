@@ -66,6 +66,32 @@ test("projects api patches one project inside app-state transaction", async () =
   assert.deepEqual(calls.find((call) => call[0] === "save"), ["save", "default", "project-1", { name: "Новый проект" }]);
 });
 
+test("projects api ignores job-only version changes for catalog writes", async () => {
+  let saved = false;
+  const response = createJsonResponse();
+  const handle = createProjectsApiHandler({
+    isPostgresConfigured: () => true,
+    withPostgresTransaction: async (callback) => callback({
+      query: async (text) => /refresh_updated_at/.test(text)
+        ? { rows: [{ updated_at: "job-v2", refresh_updated_at: "audio-v2", catalog_updated_at: "catalog-v1" }] }
+        : { rows: [] }
+    }),
+    saveProjectForState: async (_query, _key, projectId, patch) => {
+      saved = true;
+      return { project: { id: projectId, ...patch }, updatedAt: "job-v2", refreshUpdatedAt: "catalog-v2" };
+    }
+  });
+
+  await handle(
+    createJsonRequest("PATCH", { project: { name: "Сохранено" }, baseUpdatedAt: "catalog-v1" }),
+    response,
+    new URL("http://localhost/api/projects/project-1")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(saved, true);
+});
+
 test("projects api patches only automation through project resource endpoint", async () => {
   const calls = [];
   const response = createJsonResponse();

@@ -98,8 +98,8 @@ export function createStore() {
   const productActions = createProductActions({
     getState: () => state,
     setState,
-    recordRemoteSave: (nextState, updatedAt, refreshUpdatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt, refreshUpdatedAt),
-    getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
+    recordRemoteSave: (nextState, updatedAt, refreshUpdatedAt, catalogUpdatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt, refreshUpdatedAt, catalogUpdatedAt),
+    getRemoteUpdatedAt: () => statePersistence?.getRemoteCatalogUpdatedAt?.() || "",
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
     runScopedOperation: operationController.runScopedOperation
   });
@@ -107,8 +107,8 @@ export function createStore() {
     getState: () => state,
     setState,
     getProject,
-    recordRemoteSave: (nextState, updatedAt, refreshUpdatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt, refreshUpdatedAt),
-    getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
+    recordRemoteSave: (nextState, updatedAt, refreshUpdatedAt, catalogUpdatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt, refreshUpdatedAt, catalogUpdatedAt),
+    getRemoteUpdatedAt: () => statePersistence?.getRemoteCatalogUpdatedAt?.() || "",
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
     runScopedOperation: operationController.runScopedOperation
   });
@@ -165,7 +165,7 @@ export function createStore() {
 
   function recordAudioRemoteSave(updatedAt) {
     if (updatedAt && typeof statePersistence?.recordRemoteSave === "function") {
-      statePersistence.recordRemoteSave(state, updatedAt);
+      statePersistence.recordRemoteSave(state, updatedAt, updatedAt);
     }
   }
 

@@ -10,11 +10,11 @@ test("remote project create keeps existing projects and skips full state save", 
   globalThis.fetch = async (url, options = {}) => {
     calls.push({ url, options });
     if (url === "/api/state" && (!options.method || options.method === "GET")) {
-      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+      return jsonResponse({ state: remoteState, updatedAt: "job-t0", refreshUpdatedAt: "refresh-t0", catalogUpdatedAt: "catalog-t0" });
     }
     if (url === "/api/projects" && options.method === "POST") {
       const body = JSON.parse(options.body);
-      return jsonResponse({ saved: true, project: body.project, product: body.product, updatedAt: "t1" });
+      return jsonResponse({ saved: true, project: body.project, product: body.product, updatedAt: "job-t1", refreshUpdatedAt: "refresh-t1", catalogUpdatedAt: "catalog-t1" });
     }
     if (url === "/api/state" && options.method === "POST") {
       return jsonResponse({ error: "full state save should not be used for project create" }, 500);
@@ -35,7 +35,7 @@ test("remote project create keeps existing projects and skips full state save", 
     assert.equal(state.projects.some((project) => project.name === "Глобал Трэйд"), true);
     assert.equal(state.selectedProjectId, createdProject.id);
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
-    assert.equal(JSON.parse(calls.find((call) => call.url === "/api/projects").options.body).baseUpdatedAt, "t0");
+    assert.equal(JSON.parse(calls.find((call) => call.url === "/api/projects").options.body).baseUpdatedAt, "catalog-t0");
   } finally {
     globalThis.fetch = originalFetch;
   }

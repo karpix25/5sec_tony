@@ -146,6 +146,10 @@ test("state api saves relational tables and only touches app state metadata", as
       throw new Error("POST /api/state must not rewrite the legacy snapshot");
     },
     loadNormalizedState: async () => state,
+    loadAppStateMetadata: async () => ({
+      updatedAt: "2026-06-16T10:05:00.000Z",
+      refreshUpdatedAt: "2026-06-16T10:05:00.000Z"
+    }),
     withPostgresTransaction: async (callback) => callback({
       query: async (text) => {
         queries.push(text);
@@ -167,6 +171,7 @@ test("state api saves relational tables and only touches app state metadata", as
   assert.equal(response.status, 200);
   assert.equal(response.payload.saved, true);
   assert.equal(response.payload.updatedAt, "2026-06-16T10:05:00.000Z");
+  assert.equal(response.payload.refreshUpdatedAt, "2026-06-16T10:05:00.000Z");
   assert.equal(response.payload.parityOk, true);
   assert.deepEqual(calls, [["normalized", state]]);
   assert.equal(queries.filter((query) => /update app_state set updated_at/i.test(query)).length, 1);

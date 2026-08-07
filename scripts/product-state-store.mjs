@@ -1,7 +1,7 @@
 import { createProductEntity } from "../src/state/factories.js";
 import { ensureStateSchema } from "./state-schema.mjs";
 import { appendUiTombstones } from "./ui-state-tombstones.mjs";
-import { touchAppStateMetadata } from "./app-state-metadata.mjs";
+import { loadAppStateMetadata, touchAppStateMetadata } from "./app-state-metadata.mjs";
 
 const productKeys = [
   "id", "projectId", "name", "description", "offer", "components", "pains", "facts", "forbidden", "aiPassport", "references"
@@ -40,8 +40,8 @@ export async function saveProductForState(query, appStateKey, productPayload, op
   const sortOrder = existing?.sortOrder ?? await getNewProductSortOrder(query, appStateKey, projectId);
   await upsertProduct(query, appStateKey, product, sortOrder);
   if (options.selectProduct) await selectProduct(query, appStateKey, product);
-  const updatedAt = await touchAppStateMetadata(query, appStateKey);
-  return { product, updatedAt };
+  await touchAppStateMetadata(query, appStateKey);
+  return { product, ...await loadAppStateMetadata(query, appStateKey) };
 }
 
 export async function deleteProductForState(query, appStateKey, productId) {
@@ -56,8 +56,8 @@ export async function deleteProductForState(query, appStateKey, productId) {
   await query("delete from studio_products where app_state_key = $1 and id = $2", [appStateKey, productId]);
   await selectFirstProductForProject(query, appStateKey, existing.projectId);
   await appendUiTombstones(query, appStateKey, { deletedProductIds: [productId] });
-  const updatedAt = await touchAppStateMetadata(query, appStateKey);
-  return { deletedProductId: productId, updatedAt };
+  await touchAppStateMetadata(query, appStateKey);
+  return { deletedProductId: productId, ...await loadAppStateMetadata(query, appStateKey) };
 }
 
 async function assertProjectExists(query, appStateKey, projectId) {

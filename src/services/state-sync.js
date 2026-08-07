@@ -8,6 +8,7 @@ export async function loadRemoteState() {
     disabled: Boolean(payload.disabled),
     updatedAt: payload.updatedAt || "",
     refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
+    catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || "",
     error: payload.error || ""
   };
 }
@@ -18,7 +19,8 @@ export async function loadRemoteStateMeta() {
   return {
     disabled: Boolean(payload.disabled),
     updatedAt: payload.updatedAt || "",
-    refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || ""
+    refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
+    catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || ""
   };
 }
 
@@ -30,6 +32,7 @@ export class StateSyncConflictError extends Error {
     this.state = payload.state || null;
     this.updatedAt = payload.updatedAt || "";
     this.refreshUpdatedAt = payload.refreshUpdatedAt || payload.updatedAt || "";
+    this.catalogUpdatedAt = payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || "";
   }
 }
 
@@ -45,6 +48,7 @@ export async function saveRemoteState(state, baseUpdatedAt = "") {
     disabled: Boolean(payload.disabled),
     updatedAt: payload.updatedAt || "",
     refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
+    catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || "",
     parityOk: payload.parityOk !== false,
     error: payload.error || ""
   };

@@ -68,6 +68,7 @@ function readProjectResult(payload = {}) {
     deletedProjectId: payload.deletedProjectId || "",
     updatedAt: payload.updatedAt || "",
     refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
+    catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || "",
     error: payload.error || ""
   };
 }

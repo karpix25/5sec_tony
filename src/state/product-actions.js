@@ -200,7 +200,7 @@ export function createProductActions({
   }
 
   function recordSaved(result) {
-    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
   }
 
   function applyProductDeletion(deletion, options = {}) {
@@ -254,10 +254,7 @@ export function createProductActions({
   function applyRemoteStateWithProduct(remoteState, product) {
     const currentState = getState();
     setState({
-      projects: Array.isArray(remoteState?.projects) ? remoteState.projects : currentState.projects,
-      products: (Array.isArray(remoteState?.products) ? remoteState.products : currentState.products)
-        .map((item) => item.id === product.id ? product : item),
-      jobs: Array.isArray(remoteState?.jobs) ? remoteState.jobs : currentState.jobs
+      products: currentState.products.map((item) => item.id === product.id ? product : item)
     }, { skipRemoteSave: true });
   }
 

@@ -64,7 +64,8 @@ test("project settings submit passes rendered project-limit base", async () => {
   globalThis.FormData = fakeFormDataFromValues;
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    const result = await saveProjectAndRefreshAiMemory(form, store);
+    await result?.aiRefresh;
   } finally {
     globalThis.FormData = originalFormData;
   }

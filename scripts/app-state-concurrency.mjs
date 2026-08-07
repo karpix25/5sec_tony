@@ -1,11 +1,12 @@
 import { lockAppState } from "./app-state-lock.mjs";
-import { loadAppStateUpdatedAt } from "./app-state-metadata.mjs";
+import { loadAppStateMetadata } from "./app-state-metadata.mjs";
 
 export async function lockCurrentUpdatedAt(query, key, options = {}) {
   await lockAppState(query, key, options.scope || "");
   const lockClause = options.forUpdate === false ? "" : " for update";
   if (lockClause) await query("select updated_at from app_state where id = $1 limit 1 for update", [key]);
-  return formatUpdatedAt(await loadAppStateUpdatedAt(query, key));
+  const metadata = await loadAppStateMetadata(query, key);
+  return formatUpdatedAt(options.scope === "catalog" ? metadata.catalogUpdatedAt : metadata.updatedAt);
 }
 
 export function hasWriteConflict(currentUpdatedAt, baseUpdatedAt) {

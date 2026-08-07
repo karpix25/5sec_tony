@@ -66,9 +66,10 @@ async function saveGlobalDrafts(root, store) {
   updateGlobalSaveView(root, store);
   for (const draft of activeDrafts) {
     try {
-      const savedPayload = await saveDraft(store, draft, root);
+      const { savedPayload, aiRefresh } = await saveDraft(store, draft, root);
       drafts.delete(draft.key);
       savedSnapshots.set(draft.key, savedPayload || draft.payload);
+      aiRefresh?.then((patch) => syncAiMemorySnapshot(draft.key, patch));
     } catch (error) {
       globalSaveState = { phase: "error", message: `Ошибка сохранения: ${error.message || "повторите попытку"}`, updatedAt: "" };
       updateGlobalSaveView(root, store);
@@ -86,14 +87,29 @@ async function saveDraft(store, draft, root) {
     if (!form) {
       const save = store.updateProjectSettingsRemote || store.updateProjectSettings;
       await save.call(store, draft.payload);
-      return draft.payload;
+      return { savedPayload: draft.payload, aiRefresh: null };
     }
-    await saveProjectAndRefreshAiMemory(form, store, { rethrowSaveError: true });
-    return getFormSnapshot(form);
+    return saveProjectAndRefreshAiMemory(form, store, {
+      rethrowSaveError: true,
+      savedSnapshot: savedSnapshots.get(draft.key)
+    });
   }
   const save = store.updateProductRemote || store.updateProduct;
   await save.call(store, draft.payload);
-  return draft.payload;
+  return { savedPayload: draft.payload, aiRefresh: null };
+}
+
+function syncAiMemorySnapshot(key, patch) {
+  if (!patch) return;
+  const saved = savedSnapshots.get(key) || {};
+  savedSnapshots.set(key, { ...saved, ...patch });
+  const draft = drafts.get(key);
+  if (!draft) return;
+  const payload = { ...draft.payload };
+  Object.entries(patch).forEach(([field, value]) => {
+    if (String(payload[field] ?? "") === String(saved[field] ?? "")) payload[field] = value;
+  });
+  drafts.set(key, { ...draft, payload });
 }
 
 function getActiveDrafts(store) {

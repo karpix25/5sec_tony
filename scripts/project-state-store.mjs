@@ -38,7 +38,11 @@ export async function loadProjectBundleForState(query, appStateKey, projectId) {
          (select updated_at from app_state where id = $1 limit 1),
          (select max(updated_at) from studio_projects where app_state_key = $1),
          (select max(updated_at) from studio_products where app_state_key = $1)
-       ) as refresh_updated_at
+       ) as refresh_updated_at,
+       greatest(
+         (select max(updated_at) from studio_projects where app_state_key = $1),
+         (select max(updated_at) from studio_products where app_state_key = $1)
+       ) as catalog_updated_at
      from studio_projects p
      left join lateral (
        select * from studio_products
@@ -56,7 +60,8 @@ export async function loadProjectBundleForState(query, appStateKey, projectId) {
     project: rowToProject(row),
     product: row.product_row ? rowToProduct(row.product_row) : null,
     updatedAt: row.app_state_updated_at || null,
-    refreshUpdatedAt: row.refresh_updated_at || row.app_state_updated_at || null
+    refreshUpdatedAt: row.refresh_updated_at || row.app_state_updated_at || null,
+    catalogUpdatedAt: row.catalog_updated_at || row.refresh_updated_at || row.app_state_updated_at || null
   };
 }
 
@@ -72,8 +77,8 @@ export async function saveProjectForState(query, appStateKey, projectId, patch, 
     ...pickExtraFields(patch, projectKeys)
   }, existing, { allowProjectLimitDecrease });
   await updateProjectRow(query, appStateKey, projectId, project);
-  const updatedAt = await touchAppStateMetadata(query, appStateKey);
-  return { project, updatedAt };
+  await touchAppStateMetadata(query, appStateKey);
+  return { project, ...await loadAppStateMetadata(query, appStateKey) };
 }
 
 function canDecreaseProjectLimit(existing, options = {}) {
@@ -105,8 +110,8 @@ export async function deleteProjectForState(query, appStateKey, projectId) {
   await query("delete from studio_projects where app_state_key = $1 and id = $2", [appStateKey, projectId]);
   await selectFirstProject(query, appStateKey);
   await appendUiTombstones(query, appStateKey, { deletedProjectIds: [projectId], deletedProductIds: productIds });
-  const updatedAt = await touchAppStateMetadata(query, appStateKey);
-  return { deletedProjectId: projectId, updatedAt };
+  await touchAppStateMetadata(query, appStateKey);
+  return { deletedProjectId: projectId, ...await loadAppStateMetadata(query, appStateKey) };
 }
 
 async function loadProjectProductIds(query, appStateKey, projectId) {

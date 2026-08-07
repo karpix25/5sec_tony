@@ -24,6 +24,7 @@ export async function deleteRemoteProduct(productId, baseUpdatedAt = "") {
     deletedProductId: payload.deletedProductId || "",
     updatedAt: payload.updatedAt || "",
     refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
+    catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || "",
     error: payload.error || ""
   };
 }
@@ -43,6 +44,7 @@ async function saveRemoteProduct(url, method, product, baseUpdatedAt) {
     product: payload.product || null,
     updatedAt: payload.updatedAt || "",
     refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
+    catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || "",
     error: payload.error || ""
   };
 }

@@ -40,7 +40,7 @@ export function createStateApiHandler(deps = {}) {
       return handleLoadState(response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy, loadAppStateMetadata });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
-      return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized, touchAppStateMetadata, markAudioUpdated });
+      return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized, touchAppStateMetadata, loadAppStateMetadata, markAudioUpdated });
     }
     return false;
   };
@@ -129,16 +129,13 @@ async function handleSaveState(request, response, url, deps) {
       const audioLibraryChanged = hasAudioLibraryChanged(currentState, nextState);
       const normalizedResult = await deps.saveNormalized(tx.query, appStateKey, nextState, { preserveCatalog: true });
       const savedState = isPlainStateObject(normalizedResult) ? normalizedResult : nextState;
-      const metadataResult = await deps.touchAppStateMetadata(tx.query, appStateKey);
+      await deps.touchAppStateMetadata(tx.query, appStateKey);
       if (audioLibraryChanged) await deps.markAudioUpdated({ query: tx.query, appStateKey });
       const rebuiltState = await deps.loadNormalized(tx.query, appStateKey, { compactJobs: true });
       if (!statesEqual(compactStateForParity(rebuiltState), compactStateForParity(savedState))) {
         throw new Error(formatParityError("Relational state parity check failed", rebuiltState, savedState));
       }
-      return {
-        updatedAt: metadataResult.rows[0]?.updated_at || null,
-        parityOk: true
-      };
+      return { ...await deps.loadAppStateMetadata(tx.query, appStateKey), parityOk: true };
     });
     if (result.conflict) {
       const fullTransport = shouldUseFullStateTransport(url);
@@ -153,7 +150,14 @@ async function handleSaveState(request, response, url, deps) {
         transport: getStateTransportMeta(result.state, transportState, { full: fullTransport })
       });
     }
-    return sendJson(response, 200, { saved: true, key: appStateKey, updatedAt: result.updatedAt, parityOk: result.parityOk });
+    return sendJson(response, 200, {
+      saved: true,
+      key: appStateKey,
+      updatedAt: result.updatedAt,
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt,
+      catalogUpdatedAt: result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt,
+      parityOk: result.parityOk
+    });
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось сохранить состояние в Postgres" });
   }

@@ -39,16 +39,16 @@ test("project save keeps fresh form values after ai memory refresh", async () =>
   };
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
   }
 
   assert.equal(updates[0].dailyLimit, "20");
-  assert.equal(updates.at(-1).dailyLimit, "33");
-  assert.equal(updates.at(-1).yandexDiskFolder, "disk:/ВИДЕО/5сек/Новое");
-  assert.equal(updates.at(-1).companyAudience, "ЦА");
+  assert.equal(updates.length, 1);
+  assert.equal(form.values.dailyLimit, "33");
+  assert.equal(form.values.yandexDiskFolder, "disk:/ВИДЕО/5сек/Новое");
 });
 
 test("project save only applies ai memory to empty fields", async () => {
@@ -86,7 +86,7 @@ test("project save only applies ai memory to empty fields", async () => {
   });
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
@@ -130,7 +130,7 @@ test("project save can repair object-object placeholder values from ai memory", 
   });
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
@@ -189,7 +189,7 @@ test("project save reads fresh values from live form after rerender", async () =
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ draft: { companyAudience: "AI ЦА" } }) });
 
   try {
-    await saveProjectAndRefreshAiMemory(staleForm, store);
+    await saveProjectAndWaitForAi(staleForm, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
@@ -197,9 +197,10 @@ test("project save reads fresh values from live form after rerender", async () =
   }
 
   assert.equal(updates[0].dailyLimit, "20");
-  assert.equal(updates.at(-1).dailyLimit, "33");
-  assert.equal(updates.at(-1).exportFolder, "Новое");
-  assert.equal(updates.at(-1).companyAudience, "Новая ЦА");
+  assert.equal(updates.length, 1);
+  assert.equal(liveForm.values.dailyLimit, "33");
+  assert.equal(liveForm.values.exportFolder, "Новое");
+  assert.equal(liveForm.values.companyAudience, "Новая ЦА");
 });
 
 test("project save keeps manual ai-field edits made while request is running", async () => {
@@ -251,14 +252,16 @@ test("project save keeps manual ai-field edits made while request is running", a
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ draft: { companyAudience: "AI ЦА" } }) });
 
   try {
-    await saveProjectAndRefreshAiMemory(staleForm, store);
+    await saveProjectAndWaitForAi(staleForm, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
     globalThis.document = originalDocument;
   }
 
-  assert.equal(updates.at(-1).companyAudience, "Ручная новая ЦА");
+  assert.equal(updates.length, 1);
+  assert.equal(liveForm.values.companyAudience, "Ручная новая ЦА");
+  assert.match(liveForm.status.textContent, /данные уже изменились/i);
 });
 
 test("project save skips ai memory refresh for limit-only changes", async () => {
@@ -307,7 +310,7 @@ test("project save skips ai memory refresh for limit-only changes", async () => 
   };
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
@@ -342,7 +345,7 @@ test("project save raises total limit above already used generations", async () 
   };
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.FormData = originalFormData;
   }
@@ -370,7 +373,7 @@ test("project save recovers UI when state save throws", async () => {
   };
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.FormData = originalFormData;
   }
@@ -401,7 +404,7 @@ test("project save keeps saved status when only ai memory fails", async () => {
   globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: "AI timeout" }) });
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
@@ -448,7 +451,7 @@ test("project save strips replacement signs from ai memory text", async () => {
   });
 
   try {
-    await saveProjectAndRefreshAiMemory(form, store);
+    await saveProjectAndWaitForAi(form, store);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.FormData = originalFormData;
@@ -484,4 +487,10 @@ function createProjectSettingsForm(values) {
     button,
     status
   };
+}
+
+async function saveProjectAndWaitForAi(form, store) {
+  const result = await saveProjectAndRefreshAiMemory(form, store);
+  await result?.aiRefresh;
+  return result;
 }

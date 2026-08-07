@@ -45,7 +45,7 @@ test("remote audio upload applies uploaded assets without full state save", asyn
     await store.updateProjectSettingsRemote({ name: "Проект после аудио" });
     await wait(320);
     const projectSave = calls.find((call) => String(call.url).startsWith("/api/projects/"));
-    assert.equal(JSON.parse(projectSave.options.body).baseUpdatedAt, "t1");
+    assert.equal(JSON.parse(projectSave.options.body).baseUpdatedAt, "t0");
   } finally {
     globalThis.fetch = originalFetch;
   }

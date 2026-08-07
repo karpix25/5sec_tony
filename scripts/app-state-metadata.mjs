@@ -25,13 +25,18 @@ export async function loadAppStateMetadata(query, key) {
        (select updated_at from app_state where id = $1 limit 1),
        (select max(updated_at) from studio_projects where app_state_key = $1),
        (select max(updated_at) from studio_products where app_state_key = $1)
-     ) as refresh_updated_at`,
+     ) as refresh_updated_at,
+     greatest(
+       (select max(updated_at) from studio_projects where app_state_key = $1),
+       (select max(updated_at) from studio_products where app_state_key = $1)
+     ) as catalog_updated_at`,
     [key]
   );
   const row = result.rows[0] || {};
   return {
     updatedAt: row.updated_at || null,
-    refreshUpdatedAt: row.refresh_updated_at || row.updated_at || null
+    refreshUpdatedAt: row.refresh_updated_at || row.updated_at || null,
+    catalogUpdatedAt: row.catalog_updated_at || row.refresh_updated_at || row.updated_at || null
   };
 }
 

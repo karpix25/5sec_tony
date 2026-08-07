@@ -44,16 +44,16 @@ export function createProjectActions({
     }, async () => {
       const state = getState();
       const currentProject = getProject(state, projectId);
-      const project = updateProjectEntity(currentProject, payload);
+      const project = updateProjectEntity(currentProject, preserveConcurrentFields(currentProject, payload, options));
       try {
         const result = await updateRemoteProject(project.id, project, getRemoteUpdatedAt?.() || "", {
           projectLimitBase: getProjectLimitBase(currentProject, options)
         });
         if (result.disabled) return applyLocalProjectUpdate(payload, project);
         setState({
-          projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
+          projects: getState().projects.map((item) => item.id === project.id ? (result.project || project) : item)
         }, { skipRemoteSave: true });
-        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
         return result.project || project;
       } catch (error) {
         if (error?.conflict) {
@@ -81,14 +81,14 @@ export function createProjectActions({
       try {
         const result = operation.resourceName
           ? await updateRemoteProjectResource(project.id, operation.resourceName, patch, getRemoteUpdatedAt?.() || "")
-          : await updateRemoteProject(project.id, project, getRemoteUpdatedAt?.() || "", {
+          : await updateRemoteProject(project.id, patch, getRemoteUpdatedAt?.() || "", {
               projectLimitBase: currentProject?.projectLimit
             });
         if (result.disabled) return applyLocalProjectPatch(projectId, patch, project);
         setState({
-          projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
+          projects: getState().projects.map((item) => item.id === project.id ? (result.project || project) : item)
         }, { skipRemoteSave: true });
-        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
         return result.project || project;
       } catch (error) {
         if (error?.conflict) {
@@ -205,7 +205,7 @@ export function createProjectActions({
       const project = result.project || bundle.project;
       const product = result.product || bundle.product;
       applyCreatedProject({ state: getState(), project, product }, { skipRemoteSave: true });
-      recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+      recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
       return project;
     });
   }
@@ -218,7 +218,7 @@ export function createProjectActions({
         const project = result.project;
         const product = result.product || bundle.product;
         applyCreatedProject({ state: getState(), project, product }, { skipRemoteSave: true });
-        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
         return project;
       } catch (error) {
         if (error?.status !== 404 && !isTransientFetchError(error)) return null;
@@ -258,7 +258,7 @@ export function createProjectActions({
       }
       if (result.disabled) return deleteProject(projectId);
       applyProjectDeletion(projectId, {}, { skipRemoteSave: true });
-      recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+      recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
       return result;
     });
   }
@@ -293,11 +293,9 @@ export function createProjectActions({
     if (result.disabled) return applyLocalProjectUpdate(payload, project);
     const currentState = getState();
     setState({
-      projects: (remoteState.projects || currentState.projects).map((item) => item.id === project.id ? (result.project || project) : item),
-      products: Array.isArray(remoteState.products) ? remoteState.products : currentState.products,
-      jobs: Array.isArray(remoteState.jobs) ? remoteState.jobs : currentState.jobs
+      projects: currentState.projects.map((item) => item.id === project.id ? (result.project || project) : item)
     }, { skipRemoteSave: true });
-    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
     return result.project || project;
   }
 
@@ -310,7 +308,7 @@ export function createProjectActions({
     try {
       result = resourceName
         ? await updateRemoteProjectResource(project.id, resourceName, patch, error.updatedAt)
-        : await updateRemoteProject(project.id, project, error.updatedAt, {
+        : await updateRemoteProject(project.id, patch, error.updatedAt, {
             projectLimitBase: remoteProject?.projectLimit
           });
     } catch (retryError) {
@@ -320,11 +318,9 @@ export function createProjectActions({
     if (result.disabled) return applyLocalProjectPatch(projectId, patch, project);
     const currentState = getState();
     setState({
-      projects: (remoteState.projects || currentState.projects).map((item) => item.id === project.id ? (result.project || project) : item),
-      products: Array.isArray(remoteState.products) ? remoteState.products : currentState.products,
-      jobs: Array.isArray(remoteState.jobs) ? remoteState.jobs : currentState.jobs
+      projects: currentState.projects.map((item) => item.id === project.id ? (result.project || project) : item)
     }, { skipRemoteSave: true });
-    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt, result.catalogUpdatedAt);
     return result.project || project;
   }
 
@@ -378,6 +374,16 @@ export function createProjectActions({
   function getProjectLimitBase(currentProject, options = {}) {
     const base = Number(options.projectLimitBase);
     return Number.isFinite(base) ? base : currentProject?.projectLimit;
+  }
+
+  function preserveConcurrentFields(project, payload, options = {}) {
+    if (!options.savedSnapshot || !Array.isArray(options.preserveFields)) return payload;
+    const next = { ...payload };
+    options.preserveFields.forEach((field) => {
+      if (String(payload[field] ?? "") === String(options.savedSnapshot[field] ?? "")
+        && String(project[field] ?? "") !== String(options.savedSnapshot[field] ?? "")) next[field] = project[field];
+    });
+    return next;
   }
 
   return {

@@ -27,6 +27,7 @@ export function createStatePersistence({
   let hydratePromise = null;
   let remoteUpdatedAt = "";
   let remoteRefreshUpdatedAt = "";
+  let remoteCatalogUpdatedAt = "";
   let remoteStateSnapshot = null;
 
   async function hydrate() {
@@ -46,6 +47,7 @@ export function createStatePersistence({
         onRemoteModeChange?.("remote");
         remoteUpdatedAt = result.updatedAt || "";
         remoteRefreshUpdatedAt = result.refreshUpdatedAt || result.updatedAt || "";
+        remoteCatalogUpdatedAt = result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || "";
         remoteStateSnapshot = result.state || null;
         startAutoRefresh();
         if (await restorePendingRemoteSave(result)) return;
@@ -96,6 +98,7 @@ export function createStatePersistence({
       } else {
         remoteUpdatedAt = result.updatedAt || remoteUpdatedAt;
         remoteRefreshUpdatedAt = result.refreshUpdatedAt || result.updatedAt || remoteRefreshUpdatedAt;
+        remoteCatalogUpdatedAt = result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || remoteCatalogUpdatedAt;
         remoteStateSnapshot = stateToSave;
         clearPendingRemoteSave?.();
         notifyStatus({ status: "saved", message: "Сохранено в БД", updatedAt: result.updatedAt });
@@ -117,10 +120,11 @@ export function createStatePersistence({
     }
   }
 
-  function recordRemoteSave(nextState = getState(), updatedAt = "", refreshUpdatedAt = "") {
+  function recordRemoteSave(nextState = getState(), updatedAt = "", refreshUpdatedAt = "", catalogUpdatedAt = "") {
     const hadPendingSave = pendingSave || Boolean(timer) || saveInFlight;
     if (updatedAt) remoteUpdatedAt = updatedAt;
     if (refreshUpdatedAt) remoteRefreshUpdatedAt = refreshUpdatedAt;
+    if (catalogUpdatedAt) remoteCatalogUpdatedAt = catalogUpdatedAt;
     remoteStateSnapshot = nextState || getState();
     if (hadPendingSave) {
       pendingSave = true;
@@ -158,6 +162,8 @@ export function createStatePersistence({
     recordRemoteSave,
     handleRemoteConflict: acceptRemoteConflict,
     getRemoteUpdatedAt: () => remoteUpdatedAt,
+    getRemoteRefreshUpdatedAt: () => remoteRefreshUpdatedAt,
+    getRemoteCatalogUpdatedAt: () => remoteCatalogUpdatedAt,
     hasPendingSave: () => pendingSave || Boolean(timer) || saveInFlight,
     whenHydrated: () => hydratePromise || Promise.resolve()
   };
@@ -209,6 +215,7 @@ export function createStatePersistence({
         return;
       }
       remoteUpdatedAt = meta.updatedAt || remoteUpdatedAt;
+      remoteCatalogUpdatedAt = meta.catalogUpdatedAt || remoteCatalogUpdatedAt;
       if (meta.refreshUpdatedAt === remoteRefreshUpdatedAt) return;
       const result = await loadRemoteState();
       if (result.disabled) {
@@ -220,6 +227,7 @@ export function createStatePersistence({
       if (result.state && result.refreshUpdatedAt && result.refreshUpdatedAt !== remoteRefreshUpdatedAt) {
         remoteUpdatedAt = result.updatedAt;
         remoteRefreshUpdatedAt = result.refreshUpdatedAt || result.updatedAt;
+        remoteCatalogUpdatedAt = result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt;
         remoteStateSnapshot = result.state;
         await replaceStateWhenSafe(result.state);
         notifyStatus({ status: "saved", message: "Обновлено из БД", updatedAt: result.updatedAt });
@@ -236,6 +244,7 @@ export function createStatePersistence({
     clearPendingRemoteSave?.();
     remoteUpdatedAt = error.updatedAt || remoteUpdatedAt;
     remoteRefreshUpdatedAt = error.refreshUpdatedAt || remoteRefreshUpdatedAt;
+    remoteCatalogUpdatedAt = error.catalogUpdatedAt || remoteCatalogUpdatedAt;
     remoteStateSnapshot = error.state || remoteStateSnapshot;
     const mergedState = mergeAvatarVideoNameConflict({
       baseState,

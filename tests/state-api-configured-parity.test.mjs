@@ -30,6 +30,7 @@ test("state api saves explicit product deletion without queue filter parity fail
     queryPostgres: db.query,
     withPostgresTransaction: async (callback) => callback({ query: db.query }),
     touchAppStateMetadata: async () => ({ rows: [{ updated_at: savedUpdatedAt }] }),
+    loadAppStateMetadata: async () => ({ updatedAt: savedUpdatedAt, refreshUpdatedAt: savedUpdatedAt }),
     loadLegacyState,
     loadNormalizedState,
     saveLegacyState,

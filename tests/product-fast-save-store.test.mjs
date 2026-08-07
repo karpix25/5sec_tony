@@ -10,13 +10,13 @@ test("remote product update skips full state save and refreshes next baseUpdated
   globalThis.fetch = async (url, options = {}) => {
     calls.push({ url, options });
     if (url === "/api/state" && (!options.method || options.method === "GET")) {
-      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+      return jsonResponse({ state: remoteState, updatedAt: "job-t0", refreshUpdatedAt: "refresh-t0", catalogUpdatedAt: "catalog-t0" });
     }
     if (String(url).startsWith("/api/products/")) {
-      return jsonResponse({ saved: true, product: JSON.parse(options.body).product, updatedAt: "t1" });
+      return jsonResponse({ saved: true, product: JSON.parse(options.body).product, updatedAt: "job-t1", refreshUpdatedAt: "refresh-t1", catalogUpdatedAt: "catalog-t1" });
     }
     if (String(url).startsWith("/api/projects/")) {
-      return jsonResponse({ saved: true, project: JSON.parse(options.body).project, updatedAt: "t2" });
+      return jsonResponse({ saved: true, project: JSON.parse(options.body).project, updatedAt: "job-t2", refreshUpdatedAt: "refresh-t2", catalogUpdatedAt: "catalog-t2" });
     }
     if (url === "/api/state" && options.method === "POST") {
       return jsonResponse({ saved: true, updatedAt: "t2" });
@@ -41,7 +41,7 @@ test("remote product update skips full state save and refreshes next baseUpdated
     const projectSave = calls.find((call) => String(call.url).startsWith("/api/projects/"));
 
     assert.ok(projectSave, "next project save should use the project patch endpoint");
-    assert.equal(JSON.parse(projectSave.options.body).baseUpdatedAt, "t1");
+    assert.equal(JSON.parse(projectSave.options.body).baseUpdatedAt, "catalog-t1");
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
   } finally {
     globalThis.fetch = originalFetch;

@@ -21,7 +21,8 @@ test("state meta api reads only app-state metadata", async () => {
   assert.deepEqual(response.payload, {
     key: "default",
     updatedAt: "2026-08-07T18:00:00.000Z",
-    refreshUpdatedAt: "2026-08-07T18:00:00.000Z"
+    refreshUpdatedAt: "2026-08-07T18:00:00.000Z",
+    catalogUpdatedAt: "2026-08-07T18:00:00.000Z"
   });
   assert.equal(calls.length, 1);
   assert.match(calls[0][0], /^select greatest/i);
