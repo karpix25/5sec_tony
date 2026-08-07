@@ -2,9 +2,9 @@ import { hasWriteConflict, lockCurrentUpdatedAt } from "./app-state-concurrency.
 import { defaultAppStateKey, withAppStateRetry } from "./app-state-lock.mjs";
 import { getStateTransportMeta, prepareStateForTransport, shouldUseFullStateTransport } from "./state-transport.mjs";
 
-export async function writeWithAppStateConflictCheck({ body, deps, appStateKey, write, allowStaleBaseUpdatedAt = false }) {
+export async function writeWithAppStateConflictCheck({ body, deps, appStateKey, write, allowStaleBaseUpdatedAt = false, lockScope = "", lockForUpdate = true }) {
   return withAppStateRetry(() => deps.withTransaction(async (tx) => {
-    const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey);
+    const currentUpdatedAt = await lockCurrentUpdatedAt(tx.query, appStateKey, { scope: lockScope, forUpdate: lockForUpdate });
     if (!allowStaleBaseUpdatedAt && hasWriteConflict(currentUpdatedAt, body.baseUpdatedAt)) {
       return {
         conflict: true,
@@ -22,6 +22,8 @@ export function writeWithConflictCheck(body, deps, write, options = {}) {
     deps,
     appStateKey: options.appStateKey || defaultAppStateKey,
     allowStaleBaseUpdatedAt: Boolean(options.allowStaleBaseUpdatedAt),
+    lockScope: options.lockScope || deps.lockScope || "",
+    lockForUpdate: Object.hasOwn(options, "lockForUpdate") ? options.lockForUpdate : deps.lockForUpdate !== false,
     write
   });
 }
@@ -64,8 +66,8 @@ export function sendTransportConflict(response, url, result, error) {
   });
 }
 
-export async function loadCurrentState(query, deps, key) {
-  return await deps.loadNormalized(query, key) || await deps.loadLegacy(query, key);
+export async function loadCurrentState(query, deps, key, options = {}) {
+  return await deps.loadNormalized(query, key, options) || await deps.loadLegacy(query, key);
 }
 
 export function readJsonBody(request, { limitBytes = 1024 * 1024 } = {}) {

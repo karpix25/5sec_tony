@@ -7,7 +7,18 @@ export async function loadRemoteState() {
     state: payload.state || null,
     disabled: Boolean(payload.disabled),
     updatedAt: payload.updatedAt || "",
+    refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
     error: payload.error || ""
+  };
+}
+
+export async function loadRemoteStateMeta() {
+  const { response, payload } = await fetchJsonWithRetry("/api/state/meta", { method: "GET" });
+  readStateSyncPayload(response, payload);
+  return {
+    disabled: Boolean(payload.disabled),
+    updatedAt: payload.updatedAt || "",
+    refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || ""
   };
 }
 
@@ -18,6 +29,7 @@ export class StateSyncConflictError extends Error {
     this.conflict = true;
     this.state = payload.state || null;
     this.updatedAt = payload.updatedAt || "";
+    this.refreshUpdatedAt = payload.refreshUpdatedAt || payload.updatedAt || "";
   }
 }
 
@@ -32,6 +44,7 @@ export async function saveRemoteState(state, baseUpdatedAt = "") {
     saved: Boolean(payload.saved),
     disabled: Boolean(payload.disabled),
     updatedAt: payload.updatedAt || "",
+    refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
     parityOk: payload.parityOk !== false,
     error: payload.error || ""
   };

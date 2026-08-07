@@ -1,5 +1,5 @@
 import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
-import { loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
+import { compactJobExtraDropKeys, loadLegacyState, loadNormalizedState, saveLegacyState, saveNormalizedState } from "./state-relational-store.mjs";
 import { getStateDifference, statesEqual } from "./state-compare.mjs";
 import { hasAudioLibraryChanged, markAudioLibraryUpdated } from "./audio-refresh-reminders.mjs";
 import { normalizeStateJobIds } from "../src/domain/job-identity.js";
@@ -11,7 +11,10 @@ import {
   writeWithConflictCheck
 } from "./app-state-api-helpers.mjs";
 import { getStateTransportMeta, prepareStateForTransport, shouldUseFullStateTransport } from "./state-transport.mjs";
-import { touchAppStateMetadata as touchAppStateMetadataDefault } from "./app-state-metadata.mjs";
+import {
+  loadAppStateMetadata as loadAppStateMetadataDefault,
+  touchAppStateMetadata as touchAppStateMetadataDefault
+} from "./app-state-metadata.mjs";
 
 const appStateKey = defaultAppStateKey;
 
@@ -26,17 +29,33 @@ export function createStateApiHandler(deps = {}) {
   const saveNormalized = deps.saveNormalizedState || saveNormalizedState;
   const saveLegacy = deps.saveLegacyState || saveLegacyState;
   const touchAppStateMetadata = deps.touchAppStateMetadata || touchAppStateMetadataDefault;
+  const loadAppStateMetadata = deps.loadAppStateMetadata || loadAppStateMetadataDefault;
   const markAudioUpdated = deps.markAudioLibraryUpdated || markAudioLibraryUpdated;
 
   return async function handleStateApi(request, response, url) {
+    if (request.method === "GET" && url.pathname === "/api/state/meta") {
+      return handleLoadStateMeta(response, { isConfigured, query, loadAppStateMetadata });
+    }
     if (request.method === "GET" && url.pathname === "/api/state") {
-      return handleLoadState(response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy });
+      return handleLoadState(response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy, loadAppStateMetadata });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
       return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized, touchAppStateMetadata, markAudioUpdated });
     }
     return false;
   };
+}
+
+async function handleLoadStateMeta(response, deps) {
+  if (!deps.isConfigured()) {
+    return sendJson(response, 200, { key: appStateKey, updatedAt: null, disabled: true });
+  }
+  try {
+    const metadata = await deps.loadAppStateMetadata(deps.query, appStateKey);
+    return sendJson(response, 200, { key: appStateKey, ...metadata });
+  } catch (error) {
+    return sendJson(response, 500, { error: error.message || "Не удалось загрузить метаданные состояния" });
+  }
 }
 
 async function handleLoadState(response, url, deps) {
@@ -63,13 +82,13 @@ async function handleLoadState(response, url, deps) {
         });
       }
     }
-    const meta = await deps.query("select updated_at from app_state where id = $1 limit 1", [appStateKey]);
+    const metadata = await deps.loadAppStateMetadata(deps.query, appStateKey);
     const transportState = prepareStateForTransport(state, { full: fullTransport });
     return sendJson(response, 200, {
       state: transportState || null,
       key: appStateKey,
       source,
-      updatedAt: meta.rows[0]?.updated_at || null,
+      ...metadata,
       transport: getStateTransportMeta(state, transportState, { full: fullTransport })
     });
   } catch (error) {
@@ -88,7 +107,7 @@ async function handleSaveState(request, response, url, deps) {
     }
     const result = await writeWithConflictCheck(body, deps, async (tx, { currentUpdatedAt }) => {
       const nextState = normalizeStateJobIds(body.state);
-      const currentState = await loadCurrentState(tx.query, deps, appStateKey);
+      const currentState = await loadCurrentState(tx.query, deps, appStateKey, { compactJobs: true });
       const projectDeletionConflict = getUnexpectedProjectDeletionConflict(currentState, nextState);
       if (projectDeletionConflict) {
         return {
@@ -108,12 +127,12 @@ async function handleSaveState(request, response, url, deps) {
         };
       }
       const audioLibraryChanged = hasAudioLibraryChanged(currentState, nextState);
-      const normalizedResult = await deps.saveNormalized(tx.query, appStateKey, nextState);
+      const normalizedResult = await deps.saveNormalized(tx.query, appStateKey, nextState, { preserveCatalog: true });
       const savedState = isPlainStateObject(normalizedResult) ? normalizedResult : nextState;
       const metadataResult = await deps.touchAppStateMetadata(tx.query, appStateKey);
       if (audioLibraryChanged) await deps.markAudioUpdated({ query: tx.query, appStateKey });
-      const rebuiltState = await deps.loadNormalized(tx.query, appStateKey);
-      if (!statesEqual(rebuiltState, savedState)) {
+      const rebuiltState = await deps.loadNormalized(tx.query, appStateKey, { compactJobs: true });
+      if (!statesEqual(compactStateForParity(rebuiltState), compactStateForParity(savedState))) {
         throw new Error(formatParityError("Relational state parity check failed", rebuiltState, savedState));
       }
       return {
@@ -138,6 +157,19 @@ async function handleSaveState(request, response, url, deps) {
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось сохранить состояние в Postgres" });
   }
+}
+
+function compactStateForParity(state) {
+  if (!state || !Array.isArray(state.jobs)) return state;
+  return {
+    ...state,
+    jobs: state.jobs.map((job) => {
+      const compactJob = { ...job };
+      for (const key of compactJobExtraDropKeys) delete compactJob[key];
+      compactJob.prompt = "";
+      return compactJob;
+    }),
+  };
 }
 
 function isPlainStateObject(value) {

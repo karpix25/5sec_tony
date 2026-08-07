@@ -1,7 +1,7 @@
 export const defaultAppStateKey = process.env.APP_STATE_KEY || "default";
 
-export async function lockAppState(query, key = defaultAppStateKey) {
-  await query("select pg_advisory_xact_lock(hashtext($1))", [key]);
+export async function lockAppState(query, key = defaultAppStateKey, scope = "") {
+  await query("select pg_advisory_xact_lock(hashtext($1))", [scope ? `${key}:${scope}` : key]);
 }
 
 export async function withAppStateRetry(run, options = {}) {

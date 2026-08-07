@@ -8,7 +8,6 @@ export function createProductActions({
   recordRemoteSave,
   getRemoteUpdatedAt,
   handleRemoteConflict,
-  hasPendingRemoteSave,
   runScopedOperation
 }) {
   function createProduct(payload) {
@@ -25,10 +24,6 @@ export function createProductActions({
       targetId: product.id,
       label: "Создаем продукт"
     }, async () => {
-      if (hasPendingRemoteSave?.()) {
-        applyCreatedProduct(product);
-        return product;
-      }
       const result = await runRemoteProductSave(() => createRemoteProduct(product, getRemoteUpdatedAt?.() || ""));
       if (result.disabled) return createProduct(payload);
       applyCreatedProduct(result.product || product, { skipRemoteSave: true });
@@ -54,10 +49,6 @@ export function createProductActions({
     }, async () => {
       const product = buildUpdatedProduct(payload);
       if (!product) return null;
-      if (hasPendingRemoteSave?.()) {
-        applyUpdatedProduct(product);
-        return product;
-      }
       const result = await runRemoteProductSave(
         () => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""),
         (error) => retryProductUpdateAfterConflict({ error, payload, productId: product.id })
@@ -87,10 +78,6 @@ export function createProductActions({
     }, async () => {
       const product = buildProductWithReference(referencePayload);
       if (!product) return null;
-      if (hasPendingRemoteSave?.()) {
-        applyUpdatedProduct(product);
-        return product;
-      }
       const result = await runRemoteProductSave(() => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""));
       if (result.disabled) return createProductReference(referencePayload);
       applyUpdatedProduct(result.product || product, { skipRemoteSave: true });
@@ -117,10 +104,6 @@ export function createProductActions({
     }, async () => {
       const product = buildProductWithoutReference(referenceId);
       if (!product) return null;
-      if (hasPendingRemoteSave?.()) {
-        applyUpdatedProduct(product);
-        return product;
-      }
       const result = await runRemoteProductSave(() => updateRemoteProduct(product.id, product, getRemoteUpdatedAt?.() || ""));
       if (result.disabled) return deleteProductReference(referenceId);
       applyUpdatedProduct(result.product || product, { skipRemoteSave: true });
@@ -146,7 +129,6 @@ export function createProductActions({
     }, async () => {
       const deletion = buildProductDeletion(productId);
       if (deletion?.ok === false) return deletion;
-      if (hasPendingRemoteSave?.()) return deleteProduct(productId);
       let result;
       try {
         result = await deleteRemoteProduct(productId, getRemoteUpdatedAt?.() || "");
@@ -218,7 +200,7 @@ export function createProductActions({
   }
 
   function recordSaved(result) {
-    recordRemoteSave?.(getState(), result.updatedAt);
+    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
   }
 
   function applyProductDeletion(deletion, options = {}) {

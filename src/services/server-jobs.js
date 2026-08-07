@@ -7,8 +7,8 @@ export async function runServerImageJob({ job, context }) {
   return readServerJobPayload(response);
 }
 
-export async function getServerImageJobStatus(jobId) {
-  const response = await fetch(`/api/jobs/status?jobId=${encodeURIComponent(jobId)}`);
+export async function getServerImageJobStatus(jobId, options = {}) {
+  const response = await fetch(`/api/jobs/status?jobId=${encodeURIComponent(jobId)}`, { signal: options.signal });
   return readServerJobPayload(response);
 }
 

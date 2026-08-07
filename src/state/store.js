@@ -98,20 +98,18 @@ export function createStore() {
   const productActions = createProductActions({
     getState: () => state,
     setState,
-    recordRemoteSave: (nextState, updatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt),
+    recordRemoteSave: (nextState, updatedAt, refreshUpdatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt, refreshUpdatedAt),
     getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
-    hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
     runScopedOperation: operationController.runScopedOperation
   });
   const projectActions = createProjectActions({
     getState: () => state,
     setState,
     getProject,
-    recordRemoteSave: (nextState, updatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt),
+    recordRemoteSave: (nextState, updatedAt, refreshUpdatedAt) => statePersistence?.recordRemoteSave(nextState, updatedAt, refreshUpdatedAt),
     getRemoteUpdatedAt: () => statePersistence?.getRemoteUpdatedAt?.() || "",
     handleRemoteConflict: (error) => statePersistence?.handleRemoteConflict?.(error),
-    hasPendingRemoteSave: () => statePersistence?.hasPendingSave?.() || false,
     runScopedOperation: operationController.runScopedOperation
   });
   avatarWorkflow = createAvatarWorkflow({

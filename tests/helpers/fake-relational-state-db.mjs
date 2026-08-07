@@ -47,10 +47,14 @@ export function createFakeRelationalStateDb(options = {}) {
     if (/select updated_at from app_state/i.test(text)) return selectAppStateUpdatedAt(db, params[0]);
     if (/insert into app_state/i.test(text)) return insertAppState(db, params, updatedAt);
     if (/exists\(select 1 from studio_app_ui_state/i.test(text)) return selectNormalizedPresence(db, params[0]);
+    if (/select id, project_id, product_id, character_id/i.test(text)) {
+      return selectCompactJobs(db, params[0], params[1]);
+    }
 
     const deleteMatch = text.match(/delete from\s+(studio_\w+)/i);
     if (deleteMatch) {
-      deleteStudioRows(db, deleteMatch[1], params[0]);
+      if (/and id = \$2/i.test(text)) deleteStudioRow(db, deleteMatch[1], params[0], params[1]);
+      else deleteStudioRows(db, deleteMatch[1], params[0]);
       return { rows: [] };
     }
 
@@ -134,6 +138,12 @@ function deleteStudioRows(db, table, key) {
   db.lists[table] = db.lists[table].filter((row) => row.app_state_key !== key);
 }
 
+function deleteStudioRow(db, table, key, id) {
+  if (table === "studio_projects" || table === "studio_products") {
+    db.lists[table] = db.lists[table].filter((row) => row.app_state_key !== key || row.id !== id);
+  }
+}
+
 function selectStudioRows(db, table, key) {
   if (table === "studio_app_ui_state") return singleRow(db.uiState.get(key));
   if (table === "studio_hook_library_state") return singleRow(db.hookState.get(key));
@@ -142,6 +152,16 @@ function selectStudioRows(db, table, key) {
     rows: db.lists[table]
       .filter((row) => row.app_state_key === key)
       .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0))
+  };
+}
+
+function selectCompactJobs(db, key, dropKeys = []) {
+  const rows = selectStudioRows(db, "studio_jobs", key).rows;
+  return {
+    rows: rows.map((row) => ({
+      ...row,
+      extra: Object.fromEntries(Object.entries(row.extra || {}).filter(([name]) => !dropKeys.includes(name)))
+    }))
   };
 }
 

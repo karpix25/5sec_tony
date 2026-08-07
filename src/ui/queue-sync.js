@@ -1,8 +1,10 @@
-import { loadRemoteState } from "../services/state-sync.js";
+import { getServerImageJobStatus } from "../services/server-jobs.js";
 import { syncRunningImageJobs } from "./job-runner.js";
 
 const queueSyncTerminalStatuses = new Set(["done", "review", "failed"]);
+const queueSyncTerminalQueueStatuses = new Set(["completed", "failed"]);
 const queueSyncActiveStatuses = new Set(["queued", "running"]);
+const queueSyncStatusTimeoutMs = 5000;
 
 export function startQueueStatusSync(store, options = {}) {
   const intervalMs = Number(options.intervalMs || 5000);
@@ -37,7 +39,7 @@ export function startQueueStatusSync(store, options = {}) {
   };
 
   const unsubscribe = store.subscribe?.((state, patch) => {
-    if (patch && !Array.isArray(patch.jobs)) return;
+    if (patch && !Array.isArray(patch.jobs) && !Object.hasOwn(patch, "selectedProjectId")) return;
     if (hasActiveQueueJobs({ getState: () => state })) schedule(300);
   });
 
@@ -66,14 +68,18 @@ export function startQueueStatusSync(store, options = {}) {
   };
 }
 
-export async function refreshQueueFromRemoteState(store) {
+export async function refreshQueueFromRemoteState(store, options = {}) {
   if (typeof store.mergeServerJobs !== "function") return [];
   const localActiveJobs = getActiveQueueJobs(store);
   if (!localActiveJobs.length) return [];
-  const localIds = new Set(localActiveJobs.map((job) => job.id));
-  const remote = await loadRemoteState();
-  const remoteJobs = Array.isArray(remote.state?.jobs) ? remote.state.jobs : [];
-  const updates = remoteJobs.filter((job) => localIds.has(job?.id) && shouldApplyRemoteJob(job));
+  const timeoutMs = Number(options.timeoutMs || queueSyncStatusTimeoutMs);
+  const results = await Promise.allSettled(localActiveJobs.map((job) => getJobStatusWithTimeout(job.id, timeoutMs)));
+  const currentJobsById = new Map(getActiveQueueJobs(store).map((job) => [job.id, job]));
+  const remoteJobs = results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value?.job)
+    .filter(Boolean);
+  const updates = remoteJobs.filter((job) => shouldApplyRemoteJob(job, currentJobsById.get(job?.id)));
   return store.mergeServerJobs(updates);
 }
 
@@ -82,11 +88,24 @@ function hasActiveQueueJobs(store) {
 }
 
 function getActiveQueueJobs(store) {
-  const jobs = store.getState?.().jobs || [];
-  return jobs.filter((job) => queueSyncActiveStatuses.has(job?.status) || job?.diskStatus === "uploading");
+  const state = store.getState?.() || {};
+  const selectedProjectId = state.selectedProjectId || "";
+  return (state.jobs || []).filter((job) => (!selectedProjectId || job?.projectId === selectedProjectId) && (
+    job?.diskStatus === "uploading" || (
+      queueSyncActiveStatuses.has(job?.status) && !queueSyncTerminalQueueStatuses.has(job?.queueStatus)
+    )
+  ));
 }
 
-function shouldApplyRemoteJob(job) {
+function shouldApplyRemoteJob(job, currentJob) {
+  if (!currentJob) return false;
+  if (currentJob.diskStatus !== "uploading" && queueSyncTerminalStatuses.has(currentJob.status) && !queueSyncTerminalStatuses.has(job?.status)) return false;
   if (queueSyncTerminalStatuses.has(job?.status)) return true;
   return Boolean(job?.imageUrl || job?.imageData || job?.finalVideoUrl || job?.serverJobAcceptedAt || job?.imageTaskId);
+}
+
+function getJobStatusWithTimeout(jobId, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return getServerImageJobStatus(jobId, { signal: controller.signal }).finally(() => clearTimeout(timer));
 }

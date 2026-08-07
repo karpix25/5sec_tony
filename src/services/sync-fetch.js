@@ -3,7 +3,8 @@ const defaultTimeoutMs = 15000;
 const retryBaseDelayMs = 350;
 
 export async function fetchJsonWithRetry(url, options = {}) {
-  const attempts = Number(options.attempts || defaultAttempts);
+  const method = String(options.method || "GET").toUpperCase();
+  const attempts = Number(options.attempts || (method === "POST" ? 1 : defaultAttempts));
   const timeoutMs = Number(options.timeoutMs || defaultTimeoutMs);
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {

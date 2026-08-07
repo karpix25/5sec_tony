@@ -5,6 +5,12 @@ export async function createRemoteProject(bundle, baseUpdatedAt = "") {
   return saveRemoteProject("/api/projects", "POST", bundle, baseUpdatedAt);
 }
 
+export async function loadRemoteProject(projectId) {
+  const { response, payload } = await fetchJsonWithRetry(`/api/projects/${encodeURIComponent(projectId)}`, { method: "GET" });
+  readProjectSyncPayload(response, payload);
+  return readProjectResult(payload);
+}
+
 export async function updateRemoteProject(projectId, project, baseUpdatedAt = "", metadata = {}) {
   return saveRemoteProject(`/api/projects/${encodeURIComponent(projectId)}`, "PATCH", { project, ...metadata }, baseUpdatedAt);
 }
@@ -46,7 +52,11 @@ function readProjectSyncPayload(response, payload = {}) {
   if (response.status === 409 || payload.conflict) {
     throw new StateSyncConflictError(payload);
   }
-  if (!response.ok) throw new Error(payload.error || "Project sync request failed");
+  if (!response.ok) {
+    const error = new Error(payload.error || "Project sync request failed");
+    error.status = response.status;
+    throw error;
+  }
 }
 
 function readProjectResult(payload = {}) {
@@ -57,6 +67,7 @@ function readProjectResult(payload = {}) {
     product: payload.product || null,
     deletedProjectId: payload.deletedProjectId || "",
     updatedAt: payload.updatedAt || "",
+    refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
     error: payload.error || ""
   };
 }

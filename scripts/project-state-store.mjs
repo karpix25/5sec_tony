@@ -2,7 +2,7 @@ import { updateProjectEntity } from "../src/state/store-projects.js";
 import { ensureStateSchema } from "./state-schema.mjs";
 import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 import { appendUiTombstones } from "./ui-state-tombstones.mjs";
-import { touchAppStateMetadata } from "./app-state-metadata.mjs";
+import { loadAppStateMetadata, touchAppStateMetadata } from "./app-state-metadata.mjs";
 
 const projectKeys = [
   "id", "name", "client", "exportFolder", "yandexDiskFolder", "dailyLimit", "usedToday", "dailyUsageDate", "projectLimit",
@@ -23,6 +23,41 @@ export class ProjectPersistenceError extends Error {
     this.name = "ProjectPersistenceError";
     this.status = status;
   }
+}
+
+export async function loadProjectBundleForState(query, appStateKey, projectId) {
+  const result = await query(
+    `select p.*, to_jsonb(product_row) as product_row,
+       greatest(
+         (select updated_at from app_state where id = $1 limit 1),
+         (select max(updated_at) from studio_projects where app_state_key = $1),
+         (select max(updated_at) from studio_products where app_state_key = $1),
+         (select max(updated_at) from studio_jobs where app_state_key = $1)
+       ) as app_state_updated_at,
+       greatest(
+         (select updated_at from app_state where id = $1 limit 1),
+         (select max(updated_at) from studio_projects where app_state_key = $1),
+         (select max(updated_at) from studio_products where app_state_key = $1)
+       ) as refresh_updated_at
+     from studio_projects p
+     left join lateral (
+       select * from studio_products
+       where app_state_key = p.app_state_key and project_id = p.id
+       order by sort_order asc
+       limit 1
+     ) product_row on true
+     where p.app_state_key = $1 and p.id = $2
+     limit 1`,
+    [appStateKey, projectId]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    project: rowToProject(row),
+    product: row.product_row ? rowToProduct(row.product_row) : null,
+    updatedAt: row.app_state_updated_at || null,
+    refreshUpdatedAt: row.refresh_updated_at || row.app_state_updated_at || null
+  };
 }
 
 export async function saveProjectForState(query, appStateKey, projectId, patch, options = {}) {
@@ -56,9 +91,8 @@ export async function createProjectForState(query, appStateKey, bundle) {
   }
   await insertProjectRow(query, appStateKey, project, await getNewProjectSortOrder(query, appStateKey));
   await insertProductRow(query, appStateKey, product, 0);
-  await selectProject(query, appStateKey, project, product);
-  const updatedAt = await touchAppStateMetadata(query, appStateKey);
-  return { project, product, updatedAt };
+  const metadata = await loadAppStateMetadata(query, appStateKey);
+  return { project, product, ...metadata };
 }
 
 export async function deleteProjectForState(query, appStateKey, projectId) {
@@ -231,15 +265,6 @@ async function getNewProjectSortOrder(query, appStateKey) {
   return Number(result.rows[0]?.next_order ?? 0);
 }
 
-async function selectProject(query, appStateKey, project, product) {
-  await selectProjectIds(query, appStateKey, {
-    projectId: project.id,
-    productId: product.id,
-    referenceId: project.references?.[0]?.id || "",
-    characterId: project.characters?.[0]?.id || ""
-  });
-}
-
 async function selectFirstProject(query, appStateKey) {
   const result = await query(
     `select p.id as project_id, pr.id as product_id, p."references", p.characters
@@ -316,6 +341,24 @@ function rowToProject(row) {
     avatarCandidates: asArray(row.avatar_candidates),
     designReferenceCandidates: asArray(row.design_reference_candidates),
     characters: asArray(row.characters)
+  };
+}
+
+function rowToProduct(row) {
+  return {
+    ...asObject(row.extra),
+    id: row.id,
+    projectId: row.project_id,
+    sortOrder: row.sort_order,
+    name: row.name,
+    description: row.description,
+    offer: row.offer,
+    components: row.components,
+    pains: asArray(row.pains),
+    facts: asArray(row.facts),
+    forbidden: asArray(row.forbidden),
+    aiPassport: asObject(row.ai_passport),
+    references: asArray(row.references)
   };
 }
 

@@ -25,14 +25,14 @@ export function createProductsApiHandler(deps = {}) {
 
   return async function handleProductsApi(request, response, url) {
     if (request.method === "POST" && url.pathname === "/api/products") {
-      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "create" });
+      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "create", lockScope: "catalog", lockForUpdate: false });
     }
     const productId = getProductId(url.pathname);
     if (request.method === "PATCH" && productId) {
-      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "update", productId });
+      return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "update", productId, lockScope: "catalog", lockForUpdate: false });
     }
     if (request.method === "DELETE" && productId) {
-      return handleDeleteProduct(request, response, { isConfigured, withTransaction, deleteProduct, loadNormalized, loadLegacy, productId });
+      return handleDeleteProduct(request, response, { isConfigured, withTransaction, deleteProduct, loadNormalized, loadLegacy, productId, lockScope: "catalog", lockForUpdate: false });
     }
     return false;
   };
@@ -65,7 +65,8 @@ async function handleSaveProduct(request, response, deps) {
       saved: true,
       key: appStateKey,
       product: result.product,
-      updatedAt: result.updatedAt || ""
+      updatedAt: result.updatedAt || "",
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     const status = error instanceof ProductPersistenceError ? error.status : 500;
@@ -92,7 +93,8 @@ async function handleDeleteProduct(request, response, deps) {
       saved: true,
       key: appStateKey,
       deletedProductId: result.deletedProductId || "",
-      updatedAt: result.updatedAt || ""
+      updatedAt: result.updatedAt || "",
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     const status = error instanceof ProductPersistenceError ? error.status : 500;

@@ -48,7 +48,7 @@ test("remote product update skips full state save and refreshes next baseUpdated
   }
 });
 
-test("remote product update joins an already pending full-state save", async () => {
+test("remote product update uses its endpoint while a full-state save is pending", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
   const remoteState = createInitialState();
@@ -57,7 +57,9 @@ test("remote product update joins an already pending full-state save", async () 
     if (url === "/api/state" && (!options.method || options.method === "GET")) {
       return jsonResponse({ state: remoteState, updatedAt: "t0" });
     }
-    if (String(url).startsWith("/api/products/")) return jsonResponse({ error: "product endpoint should not be used while state save is pending" }, 500);
+    if (String(url).startsWith("/api/products/")) {
+      return jsonResponse({ saved: true, product: JSON.parse(options.body).product, updatedAt: "t1" });
+    }
     if (String(url).startsWith("/api/projects/")) return jsonResponse({ error: "project endpoint should not be used while state save is pending" }, 500);
     if (url === "/api/state" && options.method === "POST") {
       return jsonResponse({ saved: true, updatedAt: "t2" });
@@ -76,10 +78,10 @@ test("remote product update joins an already pending full-state save", async () 
 
     const productCalls = calls.filter((call) => String(call.url).startsWith("/api/products/"));
     const stateSaves = calls.filter((call) => call.url === "/api/state" && call.options.method === "POST");
-    assert.equal(productCalls.length, 0);
+    assert.equal(productCalls.length, 1);
     assert.equal(stateSaves.length, 1);
     const savedBody = JSON.parse(stateSaves[0].options.body);
-    assert.equal(savedBody.baseUpdatedAt, "t0");
+    assert.equal(savedBody.baseUpdatedAt, "t1");
     assert.equal(savedBody.state.projects.find((project) => project.id === remoteState.selectedProjectId).name, "Несохраненный проект");
     assert.equal(savedBody.state.products.find((product) => product.id === remoteState.selectedProductId).name, "Быстрый продукт");
   } finally {

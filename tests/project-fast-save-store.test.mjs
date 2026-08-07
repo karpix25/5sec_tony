@@ -27,14 +27,88 @@ test("remote project create keeps existing projects and skips full state save", 
     await store.whenHydrated();
     calls.length = 0;
 
-    await store.createProjectRemote({ name: "Глобал Трэйд", productName: "Мишидо" });
+    const createdProject = await store.createProjectRemote({ name: "Глобал Трэйд", productName: "Мишидо" });
     await wait(320);
 
     const state = store.getState();
     assert.equal(state.projects.some((project) => project.id === remoteState.selectedProjectId), true);
     assert.equal(state.projects.some((project) => project.name === "Глобал Трэйд"), true);
+    assert.equal(state.selectedProjectId, createdProject.id);
     assert.equal(calls.filter((call) => call.url === "/api/state" && call.options.method === "POST").length, 0);
     assert.equal(JSON.parse(calls.find((call) => call.url === "/api/projects").options.body).baseUpdatedAt, "t0");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("remote project create recovers a committed project after request abort", async () => {
+  const originalFetch = globalThis.fetch;
+  const remoteState = createInitialState();
+  const calls = [];
+  let createdBundle;
+  let recoveryReads = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (url === "/api/projects" && options.method === "POST") {
+      createdBundle = JSON.parse(options.body);
+      const error = new Error("signal is aborted without reason");
+      error.name = "AbortError";
+      throw error;
+    }
+    if (url === `/api/projects/${createdBundle.project.id}` && options.method === "GET") {
+      recoveryReads += 1;
+      if (recoveryReads === 1) return jsonResponse({ error: "Project not found" }, 404);
+      return jsonResponse({ project: createdBundle.project, product: createdBundle.product, updatedAt: "t1" });
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    calls.length = 0;
+
+    const project = await store.createProjectRemote({ name: "Быстрый проект", productName: "Первый продукт" });
+
+    assert.equal(project.id, createdBundle.project.id);
+    assert.equal(store.getState().selectedProjectId, createdBundle.project.id);
+    assert.equal(store.getState().selectedProductId, createdBundle.product.id);
+    assert.equal(recoveryReads, 2);
+    assert.equal(calls.some((call) => call.url === `/api/projects/${createdBundle.project.id}`), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("remote project create selects the optimistic project before postgres responds", async () => {
+  const originalFetch = globalThis.fetch;
+  const remoteState = createInitialState();
+  let releaseCreate;
+  globalThis.fetch = async (url, options = {}) => {
+    if (url === "/api/state" && (!options.method || options.method === "GET")) {
+      return jsonResponse({ state: remoteState, updatedAt: "t0" });
+    }
+    if (url === "/api/projects" && options.method === "POST") {
+      const body = JSON.parse(options.body);
+      await new Promise((resolve) => { releaseCreate = () => resolve(); });
+      return jsonResponse({ saved: true, project: body.project, product: body.product, updatedAt: "t1" });
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  };
+
+  try {
+    const store = createStore();
+    await store.whenHydrated();
+    const pending = store.createProjectRemote({ name: "Сразу видимый", productName: "Первый продукт" });
+    await wait(0);
+
+    assert.equal(store.getState().projects[0].name, "Сразу видимый");
+    assert.equal(store.getState().selectedProjectId, store.getState().projects[0].id);
+    releaseCreate();
+    await pending;
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -113,7 +187,7 @@ test("stale remote project create refreshes state instead of overwriting", async
   }
 });
 
-test("remote project update falls back to pending state save on network failure", async () => {
+test("remote project update reports network failure without a lossy full-state fallback", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
   const remoteState = createInitialState();
@@ -126,9 +200,6 @@ test("remote project update falls back to pending state save on network failure"
     if (String(url).startsWith("/api/projects/") && options.method === "PATCH") {
       throw new TypeError("Failed to fetch");
     }
-    if (url === "/api/state" && options.method === "POST") {
-      return jsonResponse({ saved: true, updatedAt: "t1" });
-    }
     return jsonResponse({ error: `unexpected ${url}` }, 500);
   };
 
@@ -137,17 +208,14 @@ test("remote project update falls back to pending state save on network failure"
     await store.whenHydrated();
     calls.length = 0;
 
-    await store.updateProjectSettingsRemote({ name: nextName });
+    await assert.rejects(() => store.updateProjectSettingsRemote({ name: nextName }), /fetch/i);
     await wait(360);
 
     const state = store.getState();
     const project = state.projects.find((item) => item.id === state.selectedProjectId);
     const stateSaves = calls.filter((call) => call.url === "/api/state" && call.options.method === "POST");
-    const savedBody = JSON.parse(stateSaves[0].options.body);
-    assert.equal(project.name, nextName);
-    assert.equal(stateSaves.length, 1);
-    assert.equal(savedBody.baseUpdatedAt, "t0");
-    assert.equal(savedBody.state.projects.find((item) => item.id === state.selectedProjectId).name, nextName);
+    assert.notEqual(project.name, nextName);
+    assert.equal(stateSaves.length, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }

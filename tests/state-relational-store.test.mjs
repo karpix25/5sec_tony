@@ -154,6 +154,30 @@ test("save and load normalized state preserves queue product filter", async () =
   assert.deepEqual(loadedState.products.map((product) => product.id), ["product-1"]);
 });
 
+test("catalog-preserving save returns the catalog that remains in postgres", async () => {
+  const db = createFakeRelationalStateDb();
+  const fullState = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Первый" }, { id: "project-2", name: "Новый" }],
+    products: [
+      { id: "product-1", projectId: "project-1", name: "Первый продукт" },
+      { id: "product-2", projectId: "project-2", name: "Новый продукт" }
+    ],
+    jobs: []
+  };
+  await saveNormalizedState(db.query, "workspace-preserved-catalog", fullState);
+
+  const saved = await saveNormalizedState(db.query, "workspace-preserved-catalog", {
+    ...fullState,
+    projects: fullState.projects.slice(0, 1),
+    products: fullState.products.slice(0, 1)
+  }, { preserveCatalog: true });
+
+  assert.deepEqual(saved.projects.map((project) => project.id), ["project-1", "project-2"]);
+  assert.deepEqual(saved.products.map((product) => product.id), ["product-1", "product-2"]);
+});
+
 test("save normalized state preserves server job lifecycle fields from stale client snapshots", async () => {
   const db = createFakeRelationalStateDb();
   const baseState = {

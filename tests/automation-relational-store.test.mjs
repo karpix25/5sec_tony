@@ -62,6 +62,7 @@ test("automation project patch updates one project under scoped lock", async () 
     })
   });
 
-  assert.deepEqual(calls[0].params, ["anton-5sec:app-state", "test-state:project:project-1"]);
+  assert.deepEqual(calls[0].params, ["anton-5sec:app-state", "test-state:jobs"]);
+  assert.deepEqual(calls[1].params, ["anton-5sec:app-state", "test-state:project:project-1"]);
   assert.ok(calls.some(({ text }) => text.includes("set automation")));
 });

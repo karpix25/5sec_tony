@@ -6,11 +6,12 @@ import {
   sendJson,
   writeWithConflictCheck
 } from "./app-state-api-helpers.mjs";
-import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
+import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
 import {
   ProjectPersistenceError,
   createProjectForState,
   deleteProjectForState,
+  loadProjectBundleForState,
   saveProjectForState
 } from "./project-state-store.mjs";
 import { loadLegacyState, loadNormalizedState } from "./state-relational-store.mjs";
@@ -22,9 +23,11 @@ export const handleProjectsApi = createProjectsApiHandler();
 
 export function createProjectsApiHandler(deps = {}) {
   const isConfigured = deps.isPostgresConfigured || isPostgresConfigured;
+  const query = deps.queryPostgres || queryPostgres;
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   const createProject = deps.createProjectForState || createProjectForState;
   const deleteProject = deps.deleteProjectForState || deleteProjectForState;
+  const loadProjectBundle = deps.loadProjectBundleForState || loadProjectBundleForState;
   const saveProject = deps.saveProjectForState || saveProjectForState;
   const loadNormalized = deps.loadNormalizedState || loadNormalizedState;
   const loadLegacy = deps.loadLegacyState || loadLegacyState;
@@ -33,15 +36,22 @@ export function createProjectsApiHandler(deps = {}) {
     const projectId = getProjectId(url.pathname);
     const handlerDeps = {
       isConfigured,
+      query,
       withTransaction,
       createProject,
       deleteProject,
+      loadProjectBundle,
       saveProject,
       loadNormalized,
-      loadLegacy
+      loadLegacy,
+      lockScope: "catalog",
+      lockForUpdate: false
     };
     if (request.method === "POST" && url.pathname === "/api/projects") {
       return handleCreateProject(request, response, url, handlerDeps);
+    }
+    if (request.method === "GET" && projectId) {
+      return handleGetProject(response, { ...handlerDeps, projectId });
     }
     const resource = getProjectResource(url.pathname);
     if (request.method === "PATCH" && resource?.projectId) {
@@ -55,6 +65,19 @@ export function createProjectsApiHandler(deps = {}) {
     }
     return false;
   };
+}
+
+async function handleGetProject(response, deps) {
+  if (!deps.isConfigured()) {
+    return sendJson(response, 200, { project: null, product: null, updatedAt: null, disabled: true });
+  }
+  try {
+    const result = await deps.loadProjectBundle(deps.query, appStateKey, deps.projectId);
+    if (!result) return sendJson(response, 404, { error: "Project not found" });
+    return sendJson(response, 200, result);
+  } catch (error) {
+    return sendProjectError(response, error, "Не удалось загрузить проект");
+  }
 }
 
 async function handleCreateProject(request, response, url, deps) {
@@ -72,7 +95,8 @@ async function handleCreateProject(request, response, url, deps) {
       key: appStateKey,
       project: result.project,
       product: result.product,
-      updatedAt: result.updatedAt || ""
+      updatedAt: result.updatedAt || "",
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось создать проект");
@@ -98,7 +122,8 @@ async function handlePatchProject(request, response, url, deps) {
       saved: true,
       key: appStateKey,
       project: result.project,
-      updatedAt: result.updatedAt || ""
+      updatedAt: result.updatedAt || "",
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось сохранить проект");
@@ -122,7 +147,8 @@ async function handlePatchProjectResource(request, response, url, deps) {
       key: appStateKey,
       project: result.project,
       resource: deps.resourceName,
-      updatedAt: result.updatedAt || ""
+      updatedAt: result.updatedAt || "",
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось сохранить часть проекта");
@@ -143,7 +169,8 @@ async function handleDeleteProject(request, response, url, deps) {
       saved: true,
       key: appStateKey,
       deletedProjectId: result.deletedProjectId || "",
-      updatedAt: result.updatedAt || ""
+      updatedAt: result.updatedAt || "",
+      refreshUpdatedAt: result.refreshUpdatedAt || result.updatedAt || ""
     });
   } catch (error) {
     return sendProjectError(response, error, "Не удалось удалить проект");

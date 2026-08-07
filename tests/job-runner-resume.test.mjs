@@ -206,6 +206,81 @@ test("queue terminal status prevents polling when public status is still running
   }
 });
 
+test("resume polls running jobs only for the selected project", async () => {
+  const originalFetch = globalThis.fetch;
+  const jobs = [
+    { id: "job-current", projectId: "project-current", status: "running", serverJobAcceptedAt: "2026-06-25T20:00:00.000Z" },
+    { id: "job-other", projectId: "project-other", status: "running", serverJobAcceptedAt: "2026-06-25T20:00:00.000Z" }
+  ];
+  const store = createTestStore({ selectedProjectId: "project-current", jobs });
+  const requested = [];
+  globalThis.fetch = async (url) => {
+    requested.push(String(url));
+    return jsonResponse({ job: { ...jobs[0], status: "done", progress: 100 } });
+  };
+
+  try {
+    await resumeRunningImageJobs(store);
+    assert.deepEqual(requested, ["/api/jobs/status?jobId=job-current"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("resume ignores an old project response after selection changes", async () => {
+  const originalFetch = globalThis.fetch;
+  const job = { id: "job-old-project", projectId: "project-old", status: "running", serverJobAcceptedAt: "2026-06-25T20:00:00.000Z" };
+  const state = { selectedProjectId: "project-old", jobs: [job] };
+  const store = createTestStore(state);
+  globalThis.fetch = async () => {
+    state.selectedProjectId = "project-new";
+    return jsonResponse({ job: { ...job, status: "done", progress: 100 } });
+  };
+
+  try {
+    await resumeRunningImageJobs(store);
+    assert.equal(job.status, "running");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("resume ignores an old project error after selection changes", async () => {
+  const originalFetch = globalThis.fetch;
+  const job = { id: "job-old-project-error", projectId: "project-old", status: "running", serverJobAcceptedAt: "2026-06-25T20:00:00.000Z" };
+  const state = { selectedProjectId: "project-old", jobs: [job] };
+  const store = createTestStore(state);
+  globalThis.fetch = async () => {
+    state.selectedProjectId = "project-new";
+    return jsonResponse({ error: "server job not found" }, false);
+  };
+
+  try {
+    await resumeRunningImageJobs(store);
+    assert.equal(job.status, "running");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("resume started without selection stops when a project is selected", async () => {
+  const originalFetch = globalThis.fetch;
+  const job = { id: "job-before-selection", projectId: "project-old", status: "running", serverJobAcceptedAt: "2026-06-25T20:00:00.000Z" };
+  const state = { selectedProjectId: "", jobs: [job] };
+  const store = createTestStore(state);
+  globalThis.fetch = async () => {
+    state.selectedProjectId = "project-new";
+    return jsonResponse({ job: { ...job, status: "done", progress: 100 } });
+  };
+
+  try {
+    await resumeRunningImageJobs(store);
+    assert.equal(job.status, "running");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function createTestStore(state) {
   return {
     getState: () => state,

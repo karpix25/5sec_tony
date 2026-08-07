@@ -41,8 +41,15 @@ export function resumeRunningImageJobs(store) {
 }
 
 export function syncRunningImageJobs(store) {
-  const jobs = store.getState().jobs.filter(shouldPollServerJob);
-  return Promise.all(jobs.map((job) => pollServerImageJob(store, job.id, { immediate: true })));
+  const selectedProjectId = store.getState().selectedProjectId || "";
+  const jobs = store.getState().jobs.filter((job) => (
+    (!selectedProjectId || job.projectId === selectedProjectId) && shouldPollServerJob(job)
+  ));
+  return Promise.all(jobs.map((job) => pollServerImageJob(store, job.id, {
+    immediate: true,
+    projectId: selectedProjectId,
+    stopOnProjectChange: true
+  })));
 }
 
 async function pollServerImageJob(store, jobId, options = {}) {
@@ -54,14 +61,17 @@ async function pollServerImageJob(store, jobId, options = {}) {
       if (!immediate) await delayServerStatusPoll(attempt === 0 ? 1600 : 3000);
       immediate = false;
 
+      if (options.stopOnProjectChange && (store.getState().selectedProjectId || "") !== options.projectId) return;
       const localJob = findJob(store, jobId);
       if (!localJob || isTerminalJob(localJob)) return;
 
       try {
         const payload = await getServerImageJobStatus(jobId);
+        if (options.stopOnProjectChange && (store.getState().selectedProjectId || "") !== options.projectId) return;
         applyServerJobPayload(store, payload);
         if (isTerminalJob(payload.job)) return;
       } catch (error) {
+        if (options.stopOnProjectChange && (store.getState().selectedProjectId || "") !== options.projectId) return;
         if (isServerJobMissing(error)) {
           failServerJob(store, jobId, "Серверная задача не найдена. Запустите генерацию заново.");
           return;

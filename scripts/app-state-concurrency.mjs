@@ -1,9 +1,11 @@
 import { lockAppState } from "./app-state-lock.mjs";
+import { loadAppStateUpdatedAt } from "./app-state-metadata.mjs";
 
-export async function lockCurrentUpdatedAt(query, key) {
-  await lockAppState(query, key);
-  const result = await query("select updated_at from app_state where id = $1 limit 1 for update", [key]);
-  return formatUpdatedAt(result.rows[0]?.updated_at || "");
+export async function lockCurrentUpdatedAt(query, key, options = {}) {
+  await lockAppState(query, key, options.scope || "");
+  const lockClause = options.forUpdate === false ? "" : " for update";
+  if (lockClause) await query("select updated_at from app_state where id = $1 limit 1 for update", [key]);
+  return formatUpdatedAt(await loadAppStateUpdatedAt(query, key));
 }
 
 export function hasWriteConflict(currentUpdatedAt, baseUpdatedAt) {

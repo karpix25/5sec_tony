@@ -3,7 +3,13 @@ import { getProductsForProject } from "../domain/generation.js";
 import { noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { generateProjectStrategyField } from "../domain/project-strategy.js";
-import { createRemoteProject, deleteRemoteProject, updateRemoteProject, updateRemoteProjectResource } from "../services/projects-sync.js";
+import {
+  createRemoteProject,
+  deleteRemoteProject,
+  loadRemoteProject,
+  updateRemoteProject,
+  updateRemoteProjectResource
+} from "../services/projects-sync.js";
 import { isTransientFetchError } from "../services/sync-fetch.js";
 import { ensureGenerationBrief } from "./factories.js";
 import { createProjectBundle } from "./project-creation.js";
@@ -15,7 +21,6 @@ export function createProjectActions({
   getProject,
   getRemoteUpdatedAt,
   handleRemoteConflict,
-  hasPendingRemoteSave,
   recordRemoteSave,
   runScopedOperation
 }) {
@@ -40,7 +45,6 @@ export function createProjectActions({
       const state = getState();
       const currentProject = getProject(state, projectId);
       const project = updateProjectEntity(currentProject, payload);
-      if (hasPendingRemoteSave?.()) return applyLocalProjectUpdate(payload, project);
       try {
         const result = await updateRemoteProject(project.id, project, getRemoteUpdatedAt?.() || "", {
           projectLimitBase: getProjectLimitBase(currentProject, options)
@@ -49,7 +53,7 @@ export function createProjectActions({
         setState({
           projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
         }, { skipRemoteSave: true });
-        recordRemoteSave?.(getState(), result.updatedAt);
+        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
         return result.project || project;
       } catch (error) {
         if (error?.conflict) {
@@ -57,7 +61,6 @@ export function createProjectActions({
           if (retried) return retried;
           await handleRemoteConflict?.(error);
         }
-        if (!error?.conflict && isTransientFetchError(error)) return applyLocalProjectUpdate(payload, project);
         throw error;
       }
     });
@@ -75,7 +78,6 @@ export function createProjectActions({
       const state = getState();
       const currentProject = getProject(state, projectId);
       const project = { ...currentProject, ...patch };
-      if (hasPendingRemoteSave?.()) return applyLocalProjectPatch(projectId, patch, project);
       try {
         const result = operation.resourceName
           ? await updateRemoteProjectResource(project.id, operation.resourceName, patch, getRemoteUpdatedAt?.() || "")
@@ -86,7 +88,7 @@ export function createProjectActions({
         setState({
           projects: state.projects.map((item) => item.id === project.id ? (result.project || project) : item)
         }, { skipRemoteSave: true });
-        recordRemoteSave?.(getState(), result.updatedAt);
+        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
         return result.project || project;
       } catch (error) {
         if (error?.conflict) {
@@ -94,7 +96,6 @@ export function createProjectActions({
           if (retried) return retried;
           await handleRemoteConflict?.(error);
         }
-        if (!error?.conflict && isTransientFetchError(error)) return applyLocalProjectPatch(projectId, patch, project);
         throw error;
       }
     });
@@ -177,6 +178,8 @@ export function createProjectActions({
 
   function createProjectRemote(payload) {
     const bundle = createProjectBundle(payload);
+    const previousState = getState();
+    applyCreatedProject({ state: previousState, ...bundle }, { skipRemoteSave: true });
     return runProjectOperation({
       scope: "projects",
       key: `projects:create:${bundle.project.id}`,
@@ -184,27 +187,45 @@ export function createProjectActions({
       targetId: bundle.project.id,
       label: "Создаем проект"
     }, async () => {
-      if (hasPendingRemoteSave?.()) {
-        createProject(payload);
-        return null;
-      }
       let result;
       try {
         result = await createRemoteProject(bundle, getRemoteUpdatedAt?.() || "");
       } catch (error) {
         if (error?.conflict) await handleRemoteConflict?.(error);
+        if (!error?.conflict && isTransientFetchError(error)) {
+          const recoveredProject = await recoverCreatedProject(bundle);
+          if (recoveredProject) return recoveredProject;
+        }
+        rollbackCreatedProject(bundle, previousState);
         throw error;
       }
       if (result.disabled) {
-        createProject(payload);
-        return null;
+        return bundle.project;
       }
       const project = result.project || bundle.project;
       const product = result.product || bundle.product;
       applyCreatedProject({ state: getState(), project, product }, { skipRemoteSave: true });
-      recordRemoteSave?.(getState(), result.updatedAt);
+      recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
       return project;
     });
+  }
+
+  async function recoverCreatedProject(bundle) {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        const result = await loadRemoteProject(bundle.project.id);
+        if (result.disabled || !result.project) return null;
+        const project = result.project;
+        const product = result.product || bundle.product;
+        applyCreatedProject({ state: getState(), project, product }, { skipRemoteSave: true });
+        recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
+        return project;
+      } catch (error) {
+        if (error?.status !== 404 && !isTransientFetchError(error)) return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    return null;
   }
 
   function deleteProject(projectId) {
@@ -228,7 +249,6 @@ export function createProjectActions({
       label: "Удаляем проект",
       activeStatus: "deleting"
     }, async () => {
-      if (hasPendingRemoteSave?.()) return deleteProject(projectId);
       let result;
       try {
         result = await deleteRemoteProject(projectId, getRemoteUpdatedAt?.() || "");
@@ -238,7 +258,7 @@ export function createProjectActions({
       }
       if (result.disabled) return deleteProject(projectId);
       applyProjectDeletion(projectId, {}, { skipRemoteSave: true });
-      recordRemoteSave?.(getState(), result.updatedAt);
+      recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
       return result;
     });
   }
@@ -277,7 +297,7 @@ export function createProjectActions({
       products: Array.isArray(remoteState.products) ? remoteState.products : currentState.products,
       jobs: Array.isArray(remoteState.jobs) ? remoteState.jobs : currentState.jobs
     }, { skipRemoteSave: true });
-    recordRemoteSave?.(getState(), result.updatedAt);
+    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
     return result.project || project;
   }
 
@@ -304,14 +324,14 @@ export function createProjectActions({
       products: Array.isArray(remoteState.products) ? remoteState.products : currentState.products,
       jobs: Array.isArray(remoteState.jobs) ? remoteState.jobs : currentState.jobs
     }, { skipRemoteSave: true });
-    recordRemoteSave?.(getState(), result.updatedAt);
+    recordRemoteSave?.(getState(), result.updatedAt, result.refreshUpdatedAt);
     return result.project || project;
   }
 
   function applyCreatedProject({ state, project, product }, options = {}) {
     setState({
-      projects: [project, ...state.projects],
-      products: [product, ...state.products],
+      projects: [project, ...state.projects.filter((item) => item.id !== project.id)],
+      products: [product, ...state.products.filter((item) => item.id !== product.id)],
       selectedProjectId: project.id,
       selectedProductId: product.id,
       selectedReferenceId: project.references[0]?.id || "",
@@ -320,6 +340,18 @@ export function createProjectActions({
       selectedProjectTab: "project",
       generationBrief: ensureGenerationBrief({})
     }, options);
+  }
+
+  function rollbackCreatedProject(bundle, previousState) {
+    const state = getState();
+    setState({
+      projects: state.projects.filter((project) => project.id !== bundle.project.id),
+      products: state.products.filter((product) => product.id !== bundle.product.id),
+      selectedProjectId: previousState.selectedProjectId,
+      selectedProductId: previousState.selectedProductId,
+      selectedReferenceId: previousState.selectedReferenceId,
+      selectedCharacterId: previousState.selectedCharacterId
+    }, { skipRemoteSave: true });
   }
 
   function applyProjectDeletion(projectId, patch = {}, options = {}) {

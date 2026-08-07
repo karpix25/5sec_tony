@@ -6,7 +6,7 @@ import { normalizeStateJobIds } from "../src/domain/job-identity.js";
 import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 import { compactLegacyState } from "./compact-legacy-state.mjs";
 import { sanitizeTextTree } from "../src/domain/text-integrity.js";
-
+import { deleteCatalogTombstones } from "./state-catalog-tombstones.mjs";
 const uiKeys = [
   "selectedProjectId",
   "selectedProductId",
@@ -43,15 +43,12 @@ export const jobKeys = [
   "queueName", "queueStatus", "queuePriority", "queueAttempts", "queueMaxAttempts", "queueScheduledAt", "queueLockedAt",
   "queueLockOwner", "queueLastError", "queueIdempotencyKey", "queueProviderTaskId", "queueMetadata"
 ];
-const compactJobExtraDropKeys = ["serverJobContext", "promptContract", "imagePromptContract", "aiTrace", "imagePromptPackage", "attentionMap", "qaReview", "creativeQuality", "visualBrief", "contentScript", "creativeBrief", "diversitySlot", "hookIntelligence", "layoutContentPlan", "aiPlan", "finalContent", "productFact", "curiosityAngle"];
-
+export const compactJobExtraDropKeys = ["serverJobContext", "promptContract", "imagePromptContract", "aiTrace", "imagePromptPackage", "attentionMap", "qaReview", "creativeQuality", "visualBrief", "contentScript", "creativeBrief", "diversitySlot", "hookIntelligence", "layoutContentPlan", "aiPlan", "finalContent", "productFact", "curiosityAngle"];
 const audioKeys = [
   "id", "title", "mood", "duration", "fileName", "fileType", "fileSize", "fileData", "createdAt"
 ];
-
 const hookVersionKeys = ["id", "title", "status", "createdAt", "sourceType", "hooks"];
 const hookItemKeys = ["id", "text", "enabled", "tags", "aggression"];
-
 export async function loadNormalizedState(query, appStateKey, options = {}) {
   await ensureStateSchema(query);
   if (!(await hasNormalizedState(query, appStateKey))) return null;
@@ -84,22 +81,26 @@ export async function loadNormalizedState(query, appStateKey, options = {}) {
   });
 }
 
-export async function saveNormalizedState(query, appStateKey, state) {
+export async function saveNormalizedState(query, appStateKey, state, options = {}) {
+  const preserveCatalog = Boolean(options.preserveCatalog);
   await ensureStateSchema(query);
   await lockAppStateMutation(query, appStateKey);
-  const existingProjectsById = await loadExistingProjectsById(query, appStateKey);
+  const existingProjectsById = preserveCatalog ? new Map() : await loadExistingProjectsById(query, appStateKey);
   const existingJobsById = await loadExistingJobsById(query, appStateKey);
   const normalizedState = prepareStateForRelationalSave(sanitizeTextTree(state), existingJobsById, existingProjectsById);
-  await clearNormalizedState(query, appStateKey);
-
+  await clearNormalizedState(query, appStateKey, { preserveCatalog });
+  if (preserveCatalog) await deleteCatalogTombstones(query, appStateKey, normalizedState);
   await saveUiState(query, appStateKey, normalizedState);
-  await saveProjects(query, appStateKey, normalizedState.projects || []);
-  await saveProducts(query, appStateKey, normalizedState.products || []);
+  if (!preserveCatalog) {
+    await saveProjects(query, appStateKey, normalizedState.projects || []);
+    await saveProducts(query, appStateKey, normalizedState.products || []);
+  }
   await saveJobs(query, appStateKey, normalizedState.jobs || [], existingJobsById);
   await saveGlobalAudio(query, appStateKey, normalizedState.audioLibrary || []);
   await syncAudioLibraryRefreshReminder(normalizedState.audioLibrary || [], { query, appStateKey });
   await saveHookLibrary(query, appStateKey, normalizedState.hookLibrary || { activeVersionId: "", versions: [] });
   await saveReelsResearch(query, appStateKey, normalizedState.reelsResearch);
+  if (preserveCatalog) [normalizedState.projects, normalizedState.products] = await Promise.all([loadProjects(query, appStateKey), loadProducts(query, appStateKey)]);
   return normalizedState;
 }
 
@@ -360,15 +361,17 @@ async function loadReelsResearch(query, appStateKey) {
   };
 }
 
-async function clearNormalizedState(query, appStateKey) {
+async function clearNormalizedState(query, appStateKey, options = {}) {
   await query("delete from studio_hook_items where app_state_key = $1", [appStateKey]);
   await query("delete from studio_hook_versions where app_state_key = $1", [appStateKey]);
   await query("delete from studio_hook_library_state where app_state_key = $1", [appStateKey]);
   await query("delete from studio_reels_research where app_state_key = $1", [appStateKey]);
   await query("delete from studio_global_audio_assets where app_state_key = $1", [appStateKey]);
   await query("delete from studio_jobs where app_state_key = $1", [appStateKey]);
-  await query("delete from studio_products where app_state_key = $1", [appStateKey]);
-  await query("delete from studio_projects where app_state_key = $1", [appStateKey]);
+  if (!options.preserveCatalog) {
+    await query("delete from studio_products where app_state_key = $1", [appStateKey]);
+    await query("delete from studio_projects where app_state_key = $1", [appStateKey]);
+  }
   await query("delete from studio_app_ui_state where app_state_key = $1", [appStateKey]);
 }
 
