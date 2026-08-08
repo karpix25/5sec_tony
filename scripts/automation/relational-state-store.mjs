@@ -63,8 +63,8 @@ export async function persistAutomationStateDelta(previous, next, deps = {}) {
 
     if (previous?.selectedProjectTab !== next?.selectedProjectTab) {
       await tx.query(
-        "update studio_app_ui_state set selected_project_tab = $3, updated_at = now() where app_state_key = $1 and selected_project_tab is distinct from $3",
-        [key, "", next?.selectedProjectTab || "project"]
+        "update studio_app_ui_state set selected_project_tab = $2, updated_at = now() where app_state_key = $1 and selected_project_tab is distinct from $2",
+        [key, next?.selectedProjectTab || "project"]
       );
     }
     return { state: next, updatedAt: new Date().toISOString() };

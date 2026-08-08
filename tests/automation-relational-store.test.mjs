@@ -44,6 +44,9 @@ test("automation delta writes targeted rows without rebuilding app_state", async
   assert.ok(calls.some(({ text }) => text.includes("insert into studio_jobs")));
   assert.ok(calls.some(({ text }) => text.includes("update studio_jobs")));
   assert.ok(calls.some(({ text }) => text.includes("studio_app_ui_state")));
+  const tabUpdate = calls.find(({ text }) => text.includes("update studio_app_ui_state"));
+  assert.match(tabUpdate.text, /selected_project_tab = \$2/);
+  assert.deepEqual(tabUpdate.params, ["test-state", "queue"]);
   assert.equal(calls.some(({ text }) => text.includes("app_state set data")), false);
   assert.equal(calls.some(({ text }) => text.includes("delete from studio_jobs")), false);
 });
