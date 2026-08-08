@@ -1,4 +1,4 @@
-import { createScopedOperationQueue, removeOperation, upsertOperation } from "./operation-status.js";
+import { createScopedOperationQueue, isOperationActive, removeOperation, upsertOperation } from "./operation-status.js";
 
 export function createOperationController(notify) {
   let operations = {};
@@ -6,6 +6,10 @@ export function createOperationController(notify) {
 
   function getOperations() {
     return operations;
+  }
+
+  function hasActiveOperation() {
+    return Object.values(operations).some(isOperationActive);
   }
 
   function setOperation(patch) {
@@ -36,5 +40,5 @@ export function createOperationController(notify) {
     });
   }
 
-  return { getOperations, runScopedOperation };
+  return { getOperations, hasActiveOperation, runScopedOperation };
 }

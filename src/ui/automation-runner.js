@@ -72,6 +72,9 @@ async function createAutomationBatch(store, projectId, count, options) {
 }
 
 function getAutomationErrorMessage(error) {
+  if (error?.code === "DESIGN_REFERENCE_REQUIRED") {
+    return "Добавьте дизайн-референс проекта — без него генерация не запускается.";
+  }
   const message = error?.message || "Серверная очередь недоступна";
   if (error?.code === "JOB_QUEUE_NOT_CONFIGURED") return message;
   return `${message}. Авторежим поставлен на паузу до повторного запуска.`;

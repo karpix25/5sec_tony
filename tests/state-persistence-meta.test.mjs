@@ -57,6 +57,43 @@ test("auto-refresh ignores job-only versions and loads full state after refresh 
   }
 });
 
+test("auto-refresh waits while a scoped catalog operation is active", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let refresh;
+  let metaCalls = 0;
+  globalThis.setInterval = (callback) => {
+    refresh = callback;
+    return { unref() {} };
+  };
+  globalThis.clearInterval = () => {};
+  globalThis.fetch = async (url) => {
+    if (url === "/api/state/meta") {
+      metaCalls += 1;
+      return jsonResponse({ updatedAt: "t1", refreshUpdatedAt: "t1", catalogUpdatedAt: "t1" });
+    }
+    return jsonResponse({ state: { projects: [], products: [], jobs: [] }, updatedAt: "t0" });
+  };
+
+  try {
+    const persistence = createStatePersistence({
+      getState: () => ({ projects: [], products: [], jobs: [] }),
+      replaceState: () => {},
+      notifyStatus: () => {},
+      hasActiveOperation: () => true,
+      refreshIntervalMs: 1000
+    });
+    await persistence.hydrate();
+    await refresh();
+    assert.equal(metaCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+});
+
 function jsonResponse(payload, status = 200) {
   return {
     ok: status >= 200 && status < 300,

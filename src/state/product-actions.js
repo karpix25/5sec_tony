@@ -1,5 +1,6 @@
 import { getProductsForProject } from "../domain/generation.js";
-import { createRemoteProduct, deleteRemoteProduct, updateRemoteProduct } from "../services/products-sync.js";
+import { createRemoteProduct, deleteRemoteProduct, loadRemoteProduct, updateRemoteProduct } from "../services/products-sync.js";
+import { isTransientFetchError } from "../services/sync-fetch.js";
 import { createId, createProductEntity, ensureGenerationBrief } from "./factories.js";
 
 export function createProductActions({
@@ -24,12 +25,37 @@ export function createProductActions({
       targetId: product.id,
       label: "Создаем продукт"
     }, async () => {
-      const result = await runRemoteProductSave(() => createRemoteProduct(product, getRemoteUpdatedAt?.() || ""));
+      let result;
+      try {
+        result = await runRemoteProductSave(() => createRemoteProduct(product, getRemoteUpdatedAt?.() || ""));
+      } catch (error) {
+        if (isTransientFetchError(error)) {
+          const recovered = await recoverCreatedProduct(product);
+          if (recovered) return recovered;
+        }
+        throw error;
+      }
       if (result.disabled) return createProduct(payload);
       applyCreatedProduct(result.product || product, { skipRemoteSave: true });
       recordSaved(result);
       return result.product || product;
     });
+  }
+
+  async function recoverCreatedProduct(product) {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        const result = await loadRemoteProduct(product.id);
+        if (result.disabled || !result.product) return null;
+        applyCreatedProduct(result.product, { skipRemoteSave: true });
+        recordSaved(result);
+        return result.product;
+      } catch (error) {
+        if (error?.status !== 404 && !isTransientFetchError(error)) return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    return null;
   }
 
   function updateProduct(payload) {

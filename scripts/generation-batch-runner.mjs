@@ -91,5 +91,12 @@ function normalizeGenerationSource(value) {
 function createBatchUnavailableError(reason) {
   const error = new Error(reason || "Не удалось создать задачи. Проверьте лимиты проекта.");
   error.statusCode = 409;
+  error.code = /дизайн-референс/i.test(error.message)
+    ? "DESIGN_REFERENCE_REQUIRED"
+    : /дневной лимит/i.test(error.message)
+      ? "DAILY_QUOTA_EXHAUSTED"
+      : /лимит проекта/i.test(error.message)
+        ? "PROJECT_QUOTA_EXHAUSTED"
+        : "GENERATION_BATCH_UNAVAILABLE";
   return error;
 }

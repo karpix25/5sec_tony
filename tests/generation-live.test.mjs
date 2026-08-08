@@ -30,6 +30,17 @@ test("automation stats formatter hides legacy completed target message", () => {
   assert.doesNotMatch(text, /До цели/);
 });
 
+test("automation stats hides stale quota message after limit is raised", () => {
+  const text = formatAutomationStats({
+    automation: { status: "error", lastMessage: "Лимит проекта исчерпан. Авторежим выключен." },
+    activeJobs: 0,
+    completedJobs: 84,
+    remainingProject: 3
+  });
+
+  assert.doesNotMatch(text, /Лимит проекта исчерпан/);
+});
+
 test("jobs-only updates refresh the visible automation counter", () => {
   const node = { textContent: "" };
   const root = {

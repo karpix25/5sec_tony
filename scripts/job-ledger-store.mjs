@@ -144,6 +144,25 @@ export async function markJobWorkerFailure(jobId, error, deps = {}) {
   });
 }
 
+export async function touchJobWorkerLock(jobId, workerId, deps = {}) {
+  if (!jobId || !workerId || !(deps.isPostgresConfigured || isPostgresConfigured)()) return false;
+  const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
+  return withTransaction(async (tx) => {
+    await ensureJobQueueSchema(tx.query);
+    const result = await tx.query(
+      `update studio_jobs
+          set queue_locked_at = now(), updated_at = now()
+        where app_state_key = $1
+          and id = $2
+          and queue_status = 'running'
+          and queue_lock_owner = $3
+        returning id`,
+      [appStateKey, jobId, workerId]
+    );
+    return Boolean(result.rows?.[0]?.id);
+  });
+}
+
 export async function requeueExpiredJobLocks(options = {}) {
   if (!(options.isPostgresConfigured || isPostgresConfigured)()) return 0;
   const withTransaction = options.withPostgresTransaction || withPostgresTransaction;

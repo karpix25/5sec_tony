@@ -5,6 +5,18 @@ export async function createRemoteProduct(product, baseUpdatedAt = "") {
   return saveRemoteProduct("/api/products", "POST", product, baseUpdatedAt);
 }
 
+export async function loadRemoteProduct(productId) {
+  const { response, payload } = await fetchJsonWithRetry(`/api/products/${encodeURIComponent(productId)}`, { method: "GET" });
+  readProductSyncPayload(response, payload);
+  return {
+    disabled: Boolean(payload.disabled),
+    product: payload.product || null,
+    updatedAt: payload.updatedAt || "",
+    refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
+    catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || ""
+  };
+}
+
 export async function updateRemoteProduct(productId, product, baseUpdatedAt = "") {
   return saveRemoteProduct(`/api/products/${encodeURIComponent(productId)}`, "PATCH", product, baseUpdatedAt);
 }
@@ -53,5 +65,9 @@ function readProductSyncPayload(response, payload = {}) {
   if (response.status === 409 || payload.conflict) {
     throw new StateSyncConflictError(payload);
   }
-  if (!response.ok) throw new Error(payload.error || "Product sync request failed");
+  if (!response.ok) {
+    const error = new Error(payload.error || "Product sync request failed");
+    error.status = response.status;
+    throw error;
+  }
 }

@@ -94,8 +94,16 @@ export async function createProjectForState(query, appStateKey, bundle) {
   if (!product?.id || product.projectId !== project.id) {
     throw new ProjectPersistenceError("starter product is required", 400);
   }
+  const existing = await loadProjectBundleForState(query, appStateKey, project.id);
+  if (existing?.product) return existing;
+  if (existing?.project) {
+    await insertProductRow(query, appStateKey, product, 0);
+    return await loadProjectBundleForState(query, appStateKey, project.id) || existing;
+  }
   await insertProjectRow(query, appStateKey, project, await getNewProjectSortOrder(query, appStateKey));
   await insertProductRow(query, appStateKey, product, 0);
+  const persisted = await loadProjectBundleForState(query, appStateKey, project.id);
+  if (persisted) return persisted;
   const metadata = await loadAppStateMetadata(query, appStateKey);
   return { project, product, ...metadata };
 }
@@ -195,7 +203,8 @@ async function insertProjectRow(query, appStateKey, project, sortOrder) {
   await query(
     `insert into studio_projects
       (app_state_key, id, sort_order, name, client, export_folder, yandex_disk_folder, daily_limit, used_today, daily_usage_date, project_limit, used_total, company_info, company_audience, project_theme, niche, key_scenarios, audience_pains, audience_desires, audience_objections, allowed_triggers, forbidden_triggers, hook_aggression, content_restrictions, tone_of_voice, restrictions, style, last_reference_update, avatar_round_robin_index, automation, cta_overlay, "references", audio_library, avatar_candidates, design_reference_candidates, characters, extra, updated_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31::jsonb, $32::jsonb, $33::jsonb, $34::jsonb, $35::jsonb, $36::jsonb, $37::jsonb, now())`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31::jsonb, $32::jsonb, $33::jsonb, $34::jsonb, $35::jsonb, $36::jsonb, $37::jsonb, now())
+     on conflict (app_state_key, id) do nothing`,
     [
       appStateKey,
       project.id,
@@ -242,7 +251,8 @@ async function insertProductRow(query, appStateKey, product, sortOrder) {
   await query(
     `insert into studio_products
       (app_state_key, id, project_id, sort_order, name, description, offer, components, pains, facts, forbidden, ai_passport, "references", extra, updated_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, now())`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, now())
+     on conflict (app_state_key, id) do nothing`,
     [
       appStateKey,
       product.id,

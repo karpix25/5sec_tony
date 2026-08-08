@@ -190,6 +190,25 @@ test("backend generation batch reports exact project limit exhaustion", async ()
   });
 });
 
+test("backend generation batch reports missing design reference before reserving jobs", async () => {
+  const state = createState();
+  state.projects = state.projects.map((project) => ({ ...project, references: [] }));
+  const deps = createStateDeps(state, { autoStart: false });
+
+  await assert.rejects(() => createGenerationBatch({
+    count: 1,
+    origin: "http://127.0.0.1:4173",
+    selection: { projectId: state.selectedProjectId, productId: state.selectedProductId, referenceId: "" },
+    deps
+  }), (error) => {
+    assert.equal(error.statusCode, 409);
+    assert.equal(error.code, "DESIGN_REFERENCE_REQUIRED");
+    assert.match(error.message, /дизайн-референс/i);
+    assert.equal(deps.getState().jobs.length, 0);
+    return true;
+  });
+});
+
 test("backend generation batch distributes products only when explicitly requested", async () => {
   const state = createState();
   const firstProduct = state.products[0];

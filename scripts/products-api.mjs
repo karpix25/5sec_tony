@@ -1,4 +1,4 @@
-import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
+import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "./postgres-client.mjs";
 import { defaultAppStateKey } from "./app-state-lock.mjs";
 import {
   buildConflictPayload,
@@ -7,7 +7,7 @@ import {
   sendJson,
   writeWithConflictCheck
 } from "./app-state-api-helpers.mjs";
-import { ProductPersistenceError, deleteProductForState, saveProductForState } from "./product-state-store.mjs";
+import { ProductPersistenceError, deleteProductForState, loadProductForState, saveProductForState } from "./product-state-store.mjs";
 import { loadLegacyState, loadNormalizedState } from "./state-relational-store.mjs";
 
 const appStateKey = defaultAppStateKey;
@@ -18,6 +18,7 @@ export const handleProductsApi = createProductsApiHandler();
 export function createProductsApiHandler(deps = {}) {
   const isConfigured = deps.isPostgresConfigured || isPostgresConfigured;
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
+  const query = deps.queryPostgres || queryPostgres;
   const saveProduct = deps.saveProductForState || saveProductForState;
   const deleteProduct = deps.deleteProductForState || deleteProductForState;
   const loadNormalized = deps.loadNormalizedState || loadNormalizedState;
@@ -28,6 +29,9 @@ export function createProductsApiHandler(deps = {}) {
       return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "create", lockScope: "catalog", lockForUpdate: false });
     }
     const productId = getProductId(url.pathname);
+    if (request.method === "GET" && productId) {
+      return handleGetProduct(response, { isConfigured, query, loadProduct: deps.loadProductForState || loadProductForState, productId });
+    }
     if (request.method === "PATCH" && productId) {
       return handleSaveProduct(request, response, { isConfigured, withTransaction, saveProduct, loadNormalized, loadLegacy, mode: "update", productId, lockScope: "catalog", lockForUpdate: false });
     }
@@ -36,6 +40,18 @@ export function createProductsApiHandler(deps = {}) {
     }
     return false;
   };
+}
+
+async function handleGetProduct(response, deps) {
+  if (!deps.isConfigured()) return sendJson(response, 200, { product: null, disabled: true });
+  try {
+    const result = await deps.loadProduct(deps.query, appStateKey, deps.productId);
+    if (!result) return sendJson(response, 404, { error: "Product not found" });
+    return sendJson(response, 200, result);
+  } catch (error) {
+    const status = error instanceof ProductPersistenceError ? error.status : 500;
+    return sendJson(response, status, { error: error.message || "Не удалось загрузить продукт" });
+  }
 }
 
 async function handleSaveProduct(request, response, deps) {

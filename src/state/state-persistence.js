@@ -15,6 +15,7 @@ export function createStatePersistence({
   savePendingRemoteSave,
   clearPendingRemoteSave,
   onRemoteModeChange,
+  hasActiveOperation = () => false,
   refreshIntervalMs = defaultRefreshIntervalMs,
   transientSaveRetryDelayMs = defaultTransientSaveRetryDelayMs
 }) {
@@ -204,7 +205,7 @@ export function createStatePersistence({
   }
 
   async function refreshFromRemote() {
-    if (!hydrated || saveInFlight || pendingSave || refreshInFlight || isUserEditing()) return;
+    if (!hydrated || saveInFlight || pendingSave || refreshInFlight || hasActiveOperation() || isUserEditing()) return;
     refreshInFlight = true;
     try {
       const meta = await loadRemoteStateMeta();

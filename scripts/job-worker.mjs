@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { dispatchJobToQueue, getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
 import { startBriefQueueWorker } from "./brief-queue.mjs";
 import { appendJobQueueEvent } from "./job-ledger-events.mjs";
-import { claimNextQueuedJob, claimQueuedJobById, findUndispatchedQueueJobs, markJobWorkerFailure, requeueExpiredJobLocks } from "./job-ledger-store.mjs";
+import { claimNextQueuedJob, claimQueuedJobById, findUndispatchedQueueJobs, markJobWorkerFailure, requeueExpiredJobLocks, touchJobWorkerLock } from "./job-ledger-store.mjs";
 import { queryPostgres } from "./postgres-client.mjs";
 import { loadPersistedServerJob, loadPersistedServerJobContext, persistServerJobSnapshot } from "./server-job-state.mjs";
 import { createResumedServerJobRecord, runServerJob } from "./server-job-runner.mjs";
@@ -30,6 +30,7 @@ export async function runPersistedJobById(jobId, deps = {}) {
   const record = createResumedServerJobRecord(job, persistJob, context);
   await persistJob({ ...record.job, queueStatus: "running", queueLockOwner: workerId });
   await appendWorkerEvent(jobId, "worker_started", "running", { workerId }, deps);
+  const heartbeat = startJobLockHeartbeat(jobId, deps);
   try {
     await runServerJob(record);
     await persistJob({ ...record.job, queueStatus: "completed", queueLockOwner: "", queueLockedAt: null, serverJobCompletedAt: record.job.serverJobCompletedAt || new Date().toISOString() });
@@ -53,7 +54,22 @@ export async function runPersistedJobById(jobId, deps = {}) {
     await persistJob(failedJob);
     await appendWorkerEvent(jobId, failure?.retryable ? "worker_retrying" : "worker_failed", failedJob.queueStatus, { workerId, error: failMsg }, deps);
     throw error;
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
   }
+}
+
+export function startJobLockHeartbeat(jobId, deps = {}) {
+  const env = deps.env || process.env;
+  const intervalMs = Math.max(1000, Number(env.JOB_LOCK_HEARTBEAT_INTERVAL_MS || 60 * 1000));
+  const touch = deps.touchJobWorkerLock || touchJobWorkerLock;
+  const timer = setInterval(() => {
+    Promise.resolve(touch(jobId, workerId, deps)).catch((error) => {
+      console.error(`[job-worker] lock heartbeat failed: ${error.message || error}`);
+    });
+  }, intervalMs);
+  timer.unref?.();
+  return timer;
 }
 
 export async function startBullMqWorker(deps = {}) {

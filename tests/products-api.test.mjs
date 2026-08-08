@@ -38,6 +38,28 @@ test("products api creates a product inside app-state transaction", async () => 
   ]);
 });
 
+test("products api reads a committed product for timeout reconciliation", async () => {
+  const response = createJsonResponse();
+  const handle = createProductsApiHandler({
+    isPostgresConfigured: () => true,
+    queryPostgres: async () => ({ rows: [] }),
+    loadProductForState: async (_query, key, productId) => ({
+      product: { id: productId, projectId: "project-1", name: "Сохраненный" },
+      updatedAt: "db-v2"
+    })
+  });
+
+  await handle(
+    createJsonRequest("GET", {}),
+    response,
+    new URL("http://localhost/api/products/product-1")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.product.name, "Сохраненный");
+  assert.equal(response.payload.updatedAt, "db-v2");
+});
+
 test("products api patches the product from path without selecting it globally", async () => {
   const calls = [];
   const response = createJsonResponse();

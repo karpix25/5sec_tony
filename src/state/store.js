@@ -143,6 +143,7 @@ export function createStore() {
     notifyStatus: setPersistenceStatus,
     getLocalFallbackState: () => storeCache.getFallbackProjectState(),
     ...storeCache.getPendingRemoteSaveHooks(),
+    hasActiveOperation: operationController.hasActiveOperation,
     onRemoteModeChange(mode) {
       if (mode === "remote") storeCache.markRemoteHealthy();
       else storeCache.markRemoteUnavailable(state);

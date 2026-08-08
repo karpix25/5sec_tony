@@ -195,6 +195,9 @@ export function createProjectActions({
         if (!error?.conflict && isTransientFetchError(error)) {
           const recoveredProject = await recoverCreatedProject(bundle);
           if (recoveredProject) return recoveredProject;
+          // Keep the optimistic catalog item until the next reconciliation pass.
+          // The POST may have committed even when the browser lost its response.
+          return bundle.project;
         }
         rollbackCreatedProject(bundle, previousState);
         throw error;

@@ -115,7 +115,9 @@ function getAutomationButtonLabel(automation, canRetryError) {
 function getAutomationNote(automationState) {
   const { automation, remainingProject } = automationState || {};
   const message = String(automation?.lastMessage || "").trim();
-  if (automation?.status === "error") return message;
+  if (automation?.status === "error") {
+    return /Лимит проекта исчерпан/i.test(message) && Number(remainingProject || 0) > 0 ? "" : message;
+  }
   if (automation?.status === "waiting") return "Авторежим продолжит после обновления дневного лимита.";
   if (automation?.status === "done" && /Лимит проекта исчерпан/i.test(message)) {
     return Number(remainingProject || 0) <= 0 ? "Лимит проекта исчерпан." : "";

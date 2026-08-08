@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { requeueAndRedispatchExpiredJobLocks, runPersistedJobById, startJobLockReaper } from "../scripts/job-worker.mjs";
+import { requeueAndRedispatchExpiredJobLocks, runPersistedJobById, startJobLockHeartbeat, startJobLockReaper } from "../scripts/job-worker.mjs";
 
 test("BullMQ worker refuses to run a job that was not claimed in Postgres", async () => {
   let fetchCalled = false;
@@ -141,6 +141,32 @@ test("job lock reaper periodically requeues expired worker locks", async () => {
     assert.equal(timers[0].unrefCalled, true);
     await timers[0].callback();
     assert.equal(reaperRuns, 1);
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+});
+
+test("worker heartbeat refreshes the lock owner timestamp", async () => {
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const timers = [];
+  const calls = [];
+  globalThis.setInterval = (callback, intervalMs) => {
+    timers.push({ callback, intervalMs });
+    return { unref() {} };
+  };
+  globalThis.clearInterval = () => {};
+
+  try {
+    startJobLockHeartbeat("job-heartbeat", {
+      env: { JOB_LOCK_HEARTBEAT_INTERVAL_MS: "2000" },
+      touchJobWorkerLock: async (...args) => calls.push(args)
+    });
+    assert.equal(timers[0].intervalMs, 2000);
+    await timers[0].callback();
+    assert.equal(calls[0][0], "job-heartbeat");
+    assert.match(calls[0][1], /^worker-/);
   } finally {
     globalThis.setInterval = originalSetInterval;
     globalThis.clearInterval = originalClearInterval;

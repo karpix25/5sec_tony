@@ -44,6 +44,13 @@ export async function saveProductForState(query, appStateKey, productPayload, op
   return { product, ...await loadAppStateMetadata(query, appStateKey) };
 }
 
+export async function loadProductForState(query, appStateKey, productId) {
+  await ensureStateSchema(query);
+  const product = await loadProduct(query, appStateKey, productId);
+  if (!product) return null;
+  return { product, ...await loadAppStateMetadata(query, appStateKey) };
+}
+
 export async function deleteProductForState(query, appStateKey, productId) {
   await ensureStateSchema(query);
   const existing = await loadProduct(query, appStateKey, productId);

@@ -9,13 +9,14 @@ export function formatAutomationStats(automationState) {
     `Осталось сегодня: ${dailyUsage?.remaining ?? 0}.`,
     `Остаток проекта: ${remainingProject}.`
   ];
-  const message = getAutomationMessage(automation);
+  const message = getAutomationMessage(automation, remainingProject);
   if (message) parts.push(message);
   return parts.join(" ");
 }
 
-function getAutomationMessage(automation) {
+function getAutomationMessage(automation, remainingProject) {
   const message = String(automation?.lastMessage || "").trim();
+  if (/Лимит проекта исчерпан/i.test(message) && Number(remainingProject || 0) > 0) return "";
   if (automation?.status === "done" && /Цель авторежима выполнена/i.test(message)) return "";
   return message;
 }
