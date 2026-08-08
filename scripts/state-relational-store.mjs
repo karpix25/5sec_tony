@@ -7,6 +7,8 @@ import { protectProjectLimitFloor } from "./project-limit-guard.mjs";
 import { compactLegacyState } from "./compact-legacy-state.mjs";
 import { sanitizeTextTree } from "../src/domain/text-integrity.js";
 import { deleteCatalogTombstones } from "./state-catalog-tombstones.mjs";
+import { compactJobExtraDropKeys, loadJobs } from "./state-jobs-store.mjs";
+export { compactJobExtraDropKeys } from "./state-jobs-store.mjs";
 const uiKeys = [
   "selectedProjectId",
   "selectedProductId",
@@ -43,7 +45,6 @@ export const jobKeys = [
   "queueName", "queueStatus", "queuePriority", "queueAttempts", "queueMaxAttempts", "queueScheduledAt", "queueLockedAt",
   "queueLockOwner", "queueLastError", "queueIdempotencyKey", "queueProviderTaskId", "queueMetadata"
 ];
-export const compactJobExtraDropKeys = ["serverJobContext", "promptContract", "imagePromptContract", "aiTrace", "imagePromptPackage", "attentionMap", "qaReview", "creativeQuality", "visualBrief", "contentScript", "creativeBrief", "diversitySlot", "hookIntelligence", "layoutContentPlan", "aiPlan", "finalContent", "productFact", "curiosityAngle"];
 const audioKeys = [
   "id", "title", "mood", "duration", "fileName", "fileType", "fileSize", "fileData", "createdAt"
 ];
@@ -56,7 +57,7 @@ export async function loadNormalizedState(query, appStateKey, options = {}) {
   const ui = await loadUiState(query, appStateKey);
   const projects = await loadProjects(query, appStateKey);
   const products = await loadProducts(query, appStateKey);
-  const jobs = await loadJobs(query, appStateKey, options);
+  const jobs = options.skipJobs ? [] : await loadJobs(query, appStateKey, options);
   const audioLibrary = await loadGlobalAudio(query, appStateKey);
   const hookLibrary = await loadHookLibrary(query, appStateKey);
   const reelsResearch = await loadReelsResearch(query, appStateKey);
@@ -201,15 +202,6 @@ async function loadProducts(query, appStateKey) {
   }));
 }
 
-async function loadJobs(query, appStateKey, options = {}) {
-  const compactSql = "select id, project_id, product_id, character_id, status, stage, progress, title, topic, music, ''::text as prompt, reference_title, output_type, final_video_url, final_video_has_audio, semantic_key, meaning_pattern_id, product_visual_mode, composition_mode, content_layer_id, format, input_urls, input_refs, diversity_slot, queue_name, queue_status, queue_priority, queue_attempts, queue_max_attempts, queue_scheduled_at, queue_locked_at, queue_lock_owner, queue_last_error, queue_idempotency_key, queue_provider_task_id, queue_metadata, extra - $2::text[] as extra from studio_jobs where app_state_key = $1 order by sort_order asc";
-  const fullSql = "select * from studio_jobs where app_state_key = $1 order by sort_order asc";
-  const result = options.compactJobs
-    ? await query(compactSql, [appStateKey, compactJobExtraDropKeys])
-    : await query(fullSql, [appStateKey]);
-  return result.rows.map(mapJobRow);
-}
-
 async function loadExistingJobsById(query, appStateKey) {
   const jobs = await loadJobs(query, appStateKey);
   return new Map(jobs.filter((job) => job.id).map((job) => [job.id, job]));
@@ -220,47 +212,6 @@ async function loadExistingProjectsById(query, appStateKey) {
   return new Map(projects.filter((project) => project.id).map((project) => [project.id, project]));
 }
 
-function mapJobRow(row) {
-  return {
-    ...asObject(row.extra),
-    id: row.id,
-    projectId: row.project_id,
-    productId: row.product_id,
-    characterId: row.character_id,
-    status: row.status,
-    stage: row.stage,
-    progress: row.progress,
-    title: row.title,
-    topic: row.topic,
-    music: row.music,
-    prompt: row.prompt,
-    referenceTitle: row.reference_title,
-    outputType: row.output_type,
-    finalVideoUrl: row.final_video_url,
-    finalVideoHasAudio: row.final_video_has_audio,
-    semanticKey: row.semantic_key,
-    meaningPatternId: row.meaning_pattern_id,
-    productVisualMode: row.product_visual_mode,
-    compositionMode: row.composition_mode,
-    contentLayerId: row.content_layer_id,
-    format: row.format,
-    inputUrls: asArray(row.input_urls),
-    inputRefs: asArray(row.input_refs),
-    diversitySlot: row.diversity_slot ?? null,
-    queueName: row.queue_name || "",
-    queueStatus: row.queue_status || "",
-    queuePriority: row.queue_priority || 0,
-    queueAttempts: row.queue_attempts || 0,
-    queueMaxAttempts: row.queue_max_attempts || 1,
-    queueScheduledAt: row.queue_scheduled_at || null,
-    queueLockedAt: row.queue_locked_at || null,
-    queueLockOwner: row.queue_lock_owner || "",
-    queueLastError: row.queue_last_error || "",
-    queueIdempotencyKey: row.queue_idempotency_key || "",
-    queueProviderTaskId: row.queue_provider_task_id || "",
-    queueMetadata: asObject(row.queue_metadata)
-  };
-}
 
 function prepareStateForRelationalSave(state, existingJobsById, existingProjectsById) {
   const normalizedState = normalizeStateJobIds(state);

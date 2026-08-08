@@ -18,6 +18,7 @@ import { handleProjectsApi } from "./projects-api.mjs";
 import { handleProductsApi } from "./products-api.mjs";
 import { handleDesignReferencesApi } from "./design-references-api.mjs";
 import { handleStateApi } from "./state-api.mjs";
+import { handleStateJobsApi } from "./state-jobs-api.mjs";
 import { handleYandexDiskApi } from "./yandex-disk-api.mjs";
 import { handleAuthApi, requireApprovedUser } from "./auth/auth-api.mjs";
 import { handleHealthApi } from "./health-api.mjs";
@@ -61,6 +62,7 @@ const server = createServer(async (request, response) => {
   if (await handleProjectsApi(request, response, url)) return;
   if (await handleProductsApi(request, response, url)) return;
   if (await handleDesignReferencesApi(request, response, url)) return;
+  if (await handleStateJobsApi(request, response, url)) return;
   if (await handleStateApi(request, response, url)) return;
   if (await handleYandexDiskApi(request, response, url)) return;
 

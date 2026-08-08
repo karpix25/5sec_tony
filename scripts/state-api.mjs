@@ -37,7 +37,7 @@ export function createStateApiHandler(deps = {}) {
       return handleLoadStateMeta(response, { isConfigured, query, loadAppStateMetadata });
     }
     if (request.method === "GET" && url.pathname === "/api/state") {
-      return handleLoadState(response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy, loadAppStateMetadata });
+      return handleLoadState(response, url, { request, isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveNormalized, saveLegacy, loadAppStateMetadata });
     }
     if (request.method === "POST" && url.pathname === "/api/state") {
       return handleSaveState(request, response, url, { isConfigured, query, withTransaction, loadNormalized, loadLegacy, saveLegacy, saveNormalized, touchAppStateMetadata, loadAppStateMetadata, markAudioUpdated });
@@ -63,8 +63,11 @@ async function handleLoadState(response, url, deps) {
     return sendJson(response, 200, { state: null, disabled: true, reason: "postgres_not_configured" });
   }
   try {
+    const bootstrap = isBootstrapStateRequest(deps.request, url);
     const fullTransport = shouldUseFullStateTransport(url);
-    let state = await deps.loadNormalized(deps.query, appStateKey, { compactJobs: !fullTransport });
+    const loadOptions = { compactJobs: !fullTransport };
+    if (bootstrap && !fullTransport) loadOptions.skipJobs = true;
+    let state = await deps.loadNormalized(deps.query, appStateKey, loadOptions);
     let source = "relational";
     if (!state) {
       state = await deps.loadLegacy(deps.query, appStateKey);
@@ -83,17 +86,25 @@ async function handleLoadState(response, url, deps) {
       }
     }
     const metadata = await deps.loadAppStateMetadata(deps.query, appStateKey);
-    const transportState = prepareStateForTransport(state, { full: fullTransport });
+    let transportState = prepareStateForTransport(state, { full: fullTransport });
+    if (bootstrap && !fullTransport && transportState) transportState = { ...transportState, jobs: [] };
     return sendJson(response, 200, {
       state: transportState || null,
       key: appStateKey,
       source,
+      jobsDeferred: bootstrap && !fullTransport,
       ...metadata,
       transport: getStateTransportMeta(state, transportState, { full: fullTransport })
     });
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось загрузить состояние из Postgres" });
   }
+}
+
+function isBootstrapStateRequest(request, url) {
+  return request?.headers?.["x-state-view"] === "bootstrap"
+    || request?.headers?.["X-State-View"] === "bootstrap"
+    || url.searchParams.get("view") === "bootstrap";
 }
 
 async function handleSaveState(request, response, url, deps) {

@@ -3,7 +3,7 @@ const defaultMaxBytes = 2 * 1024 * 1024;
 async function main() {
   const baseUrl = stripTrailingSlash(process.env.SMOKE_BASE_URL || "http://127.0.0.1:4173");
   const maxBytes = Number(process.env.SMOKE_STATE_MAX_BYTES || defaultMaxBytes);
-  const response = await fetch(`${baseUrl}/api/state`);
+  const response = await fetch(`${baseUrl}/api/state`, { headers: { "X-State-View": "bootstrap" } });
   const text = await response.text();
   const bytes = Buffer.byteLength(text, "utf8");
   const payload = parseJson(text);
@@ -15,6 +15,7 @@ async function main() {
     bytes,
     maxBytes,
     transport: payload?.transport || null,
+    jobsDeferred: Boolean(payload?.jobsDeferred),
     updatedAt: payload?.updatedAt || "",
     forbiddenCount: forbidden.length,
     forbidden: forbidden.slice(0, 20)

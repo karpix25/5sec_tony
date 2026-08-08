@@ -1,7 +1,10 @@
 import { fetchJsonWithRetry } from "./sync-fetch.js";
 
 export async function loadRemoteState() {
-  const { response, payload } = await fetchJsonWithRetry("/api/state", { method: "GET" });
+  const { response, payload } = await fetchJsonWithRetry("/api/state", {
+    method: "GET",
+    headers: { "X-State-View": "bootstrap" }
+  });
   readStateSyncPayload(response, payload);
   return {
     state: payload.state || null,
@@ -9,7 +12,21 @@ export async function loadRemoteState() {
     updatedAt: payload.updatedAt || "",
     refreshUpdatedAt: payload.refreshUpdatedAt || payload.updatedAt || "",
     catalogUpdatedAt: payload.catalogUpdatedAt || payload.refreshUpdatedAt || payload.updatedAt || "",
+    jobsDeferred: Boolean(payload.jobsDeferred),
     error: payload.error || ""
+  };
+}
+
+export async function loadRemoteJobsPage(offset = 0, limit = 500) {
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  const { response, payload } = await fetchJsonWithRetry(`/api/state/jobs?${query}`, { method: "GET" });
+  readStateSyncPayload(response, payload);
+  return {
+    jobs: Array.isArray(payload.jobs) ? payload.jobs : [],
+    nextOffset: Number(payload.nextOffset || 0),
+    hasMore: Boolean(payload.hasMore),
+    total: Number(payload.total || 0),
+    disabled: Boolean(payload.disabled)
   };
 }
 

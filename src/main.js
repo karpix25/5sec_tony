@@ -42,21 +42,39 @@ function startStudio() {
   store.subscribe((state, patch) => scheduleRender(state, patch));
   store.subscribePersistence((status) => {
     if (firstRenderReady) updatePersistenceStatus(root, status);
-    else renderStudioLoading(root, status);
+    else renderStartupStatus(status);
   });
-  renderStudioLoading(root, store.getPersistenceStatus?.());
+  renderStartupStatus(store.getPersistenceStatus?.());
   Promise.resolve(store.whenHydrated?.())
     .catch(() => null)
-    .finally(() => {
-      firstRenderReady = true;
-      applyUrlNavigationToStore(store, window.location);
-      stopUrlNavigationSync?.();
-      stopUrlNavigationSync = startUrlNavigationSync(store, window);
-      renderAppSafely();
-      resumeRunningImageJobs(store);
-      startQueueStatusSync(store);
-      startAutomationRunner(store);
-    });
+    .then(finishStudioStartup);
+}
+
+function renderStartupStatus(status) {
+  renderStudioLoading(root, status);
+  root.querySelector("[data-retry-hydration]")?.addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    await store.retryHydration?.();
+    finishStudioStartup();
+  });
+}
+
+function finishStudioStartup() {
+  if (store.getPersistenceStatus?.().status === "error") {
+    firstRenderReady = false;
+    renderStartupStatus(store.getPersistenceStatus?.());
+    return;
+  }
+  firstRenderReady = true;
+  applyUrlNavigationToStore(store, window.location);
+  stopUrlNavigationSync?.();
+  stopUrlNavigationSync = startUrlNavigationSync(store, window);
+  renderAppSafely();
+  void store.whenJobsHydrated?.().then(() => {
+    resumeRunningImageJobs(store);
+    startQueueStatusSync(store);
+    startAutomationRunner(store);
+  });
 }
 
 function scheduleRender(state, patch) {

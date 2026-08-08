@@ -34,6 +34,28 @@ test("state save uses compact job reads for conflict and parity checks", async (
   assert.deepEqual(saveOptions, [{ preserveCatalog: true }]);
 });
 
+test("state api bootstrap skips all jobs while keeping the catalog", async () => {
+  const loadOptions = [];
+  const response = createJsonResponse();
+  const handle = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    loadNormalizedState: async (_query, _key, options) => {
+      loadOptions.push(options);
+      return { projects: [{ id: "project-1" }], products: [{ id: "product-1" }], jobs: [{ id: "heavy-job" }] };
+    },
+    queryPostgres: async () => ({ rows: [{ updated_at: "t1" }] }),
+    withPostgresTransaction: async () => { throw new Error("bootstrap must not open a transaction"); }
+  });
+
+  await handle({ method: "GET", headers: { "X-State-View": "bootstrap" } }, response, new URL("http://localhost/api/state"));
+
+  assert.deepEqual(loadOptions, [{ compactJobs: true, skipJobs: true }]);
+  assert.deepEqual(response.payload.state.projects, [{ id: "project-1" }]);
+  assert.deepEqual(response.payload.state.products, [{ id: "product-1" }]);
+  assert.deepEqual(response.payload.state.jobs, []);
+  assert.equal(response.payload.jobsDeferred, true);
+});
+
 function createJsonRequest(method, payload) {
   return {
     method,

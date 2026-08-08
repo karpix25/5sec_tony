@@ -1,4 +1,4 @@
-import { StateSyncConflictError, loadRemoteState, loadRemoteStateMeta, saveRemoteState } from "../services/state-sync.js";
+import { StateSyncConflictError, loadRemoteJobsPage, loadRemoteState, loadRemoteStateMeta, saveRemoteState } from "../services/state-sync.js";
 import { isTransientFetchError } from "../services/sync-fetch.js";
 import { mergeAvatarVideoNameConflict } from "./state-conflict-merge.js";
 
@@ -30,6 +30,11 @@ export function createStatePersistence({
   let remoteRefreshUpdatedAt = "";
   let remoteCatalogUpdatedAt = "";
   let remoteStateSnapshot = null;
+  let remoteJobsReady = true;
+  let jobsHydrationInFlight = false;
+  let jobsRetryTimer = null;
+  let jobsHydrationPromise = Promise.resolve();
+  let resolveJobsHydration = null;
 
   async function hydrate() {
     if (hydratePromise) return hydratePromise;
@@ -50,10 +55,15 @@ export function createStatePersistence({
         remoteRefreshUpdatedAt = result.refreshUpdatedAt || result.updatedAt || "";
         remoteCatalogUpdatedAt = result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt || "";
         remoteStateSnapshot = result.state || null;
+        remoteJobsReady = !result.jobsDeferred || !result.state;
         startAutoRefresh();
-        if (await restorePendingRemoteSave(result)) return;
+        if (await restorePendingRemoteSave(result)) {
+          startJobsHydration(result);
+          return;
+        }
         if (result.state) {
           await replaceStateWhenSafe(result.state);
+          startJobsHydration(result);
           notifyStatus({ status: "saved", message: "Загружено из БД", updatedAt: result.updatedAt });
           return;
         }
@@ -61,6 +71,7 @@ export function createStatePersistence({
         notifyStatus({ status: "saving", message: "Создаем запись в БД" });
       } catch (error) {
         hydrated = true;
+        remoteJobsReady = false;
         stopAutoRefresh();
         onRemoteModeChange?.("error");
         await restoreLocalFallbackState();
@@ -74,6 +85,10 @@ export function createStatePersistence({
     if (!hydrated) return;
     pendingSave = true;
     savePendingRemoteSave?.(getState(), remoteUpdatedAt);
+    if (!remoteJobsReady) {
+      notifyStatus({ status: "loading", message: "Загружаем историю генераций перед сохранением" });
+      return;
+    }
     clearTimeout(timer);
     timer = setTimeout(flushSave, saveDelayMs);
     notifyStatus({ status: "saving", message: "Сохраняем в БД" });
@@ -81,6 +96,10 @@ export function createStatePersistence({
 
   async function flushSave() {
     if (saveInFlight) return;
+    if (!remoteJobsReady) {
+      pendingSave = true;
+      return;
+    }
     pendingSave = false;
     clearTimeout(timer);
     timer = null;
@@ -157,8 +176,60 @@ export function createStatePersistence({
     });
   }
 
+  function startJobsHydration(result) {
+    if (!result?.jobsDeferred || jobsHydrationInFlight) return;
+    if (!resolveJobsHydration) {
+      jobsHydrationPromise = new Promise((resolve) => { resolveJobsHydration = resolve; });
+    }
+    jobsHydrationInFlight = true;
+    void hydrateRemoteJobs();
+  }
+
+  async function hydrateRemoteJobs() {
+    try {
+      const jobs = [];
+      let offset = 0;
+      do {
+        const page = await loadRemoteJobsPage(offset, 500);
+        if (page.disabled) break;
+        jobs.push(...page.jobs);
+        const nextOffset = Number(page.nextOffset);
+        if (!page.hasMore || nextOffset <= offset) break;
+        offset = nextOffset;
+      } while (true);
+      remoteJobsReady = true;
+      jobsHydrationInFlight = false;
+      resolveJobsHydration?.();
+      resolveJobsHydration = null;
+      remoteStateSnapshot = { ...(remoteStateSnapshot || {}), jobs };
+      await replaceStateWhenSafe({ ...getState(), jobs });
+      notifyStatus({ status: "saved", message: "История генераций загружена", updatedAt: remoteUpdatedAt });
+      if (pendingSave) {
+        clearTimeout(timer);
+        timer = setTimeout(flushSave, saveDelayMs);
+      }
+    } catch (error) {
+      jobsHydrationInFlight = false;
+      notifyStatus({ status: "error", message: error.message || "Не удалось загрузить историю генераций" });
+      clearTimeout(jobsRetryTimer);
+      jobsRetryTimer = setTimeout(() => startJobsHydration({ jobsDeferred: true }), transientSaveRetryDelayMs);
+    }
+  }
+
+  async function retryHydration() {
+    clearTimeout(jobsRetryTimer);
+    jobsRetryTimer = null;
+    hydratePromise = null;
+    hydrated = false;
+    remoteJobsReady = true;
+    jobsHydrationPromise = Promise.resolve();
+    resolveJobsHydration = null;
+    return hydrate();
+  }
+
   return {
     hydrate,
+    retryHydration,
     scheduleSave,
     recordRemoteSave,
     handleRemoteConflict: acceptRemoteConflict,
@@ -166,7 +237,8 @@ export function createStatePersistence({
     getRemoteRefreshUpdatedAt: () => remoteRefreshUpdatedAt,
     getRemoteCatalogUpdatedAt: () => remoteCatalogUpdatedAt,
     hasPendingSave: () => pendingSave || Boolean(timer) || saveInFlight,
-    whenHydrated: () => hydratePromise || Promise.resolve()
+    whenHydrated: () => hydratePromise || Promise.resolve(),
+    whenJobsHydrated: () => jobsHydrationPromise
   };
 
   async function restoreLocalFallbackState() {
@@ -205,7 +277,7 @@ export function createStatePersistence({
   }
 
   async function refreshFromRemote() {
-    if (!hydrated || saveInFlight || pendingSave || refreshInFlight || hasActiveOperation() || isUserEditing()) return;
+    if (!hydrated || saveInFlight || pendingSave || refreshInFlight || jobsHydrationInFlight || hasActiveOperation() || isUserEditing()) return;
     refreshInFlight = true;
     try {
       const meta = await loadRemoteStateMeta();
@@ -229,8 +301,11 @@ export function createStatePersistence({
         remoteUpdatedAt = result.updatedAt;
         remoteRefreshUpdatedAt = result.refreshUpdatedAt || result.updatedAt;
         remoteCatalogUpdatedAt = result.catalogUpdatedAt || result.refreshUpdatedAt || result.updatedAt;
-        remoteStateSnapshot = result.state;
-        await replaceStateWhenSafe(result.state);
+        remoteJobsReady = !result.jobsDeferred;
+        remoteStateSnapshot = { ...result.state, jobs: remoteStateSnapshot?.jobs || getState().jobs || [] };
+        const nextState = result.jobsDeferred ? { ...result.state, jobs: getState().jobs || [] } : result.state;
+        await replaceStateWhenSafe(nextState);
+        startJobsHydration(result);
         notifyStatus({ status: "saved", message: "Обновлено из БД", updatedAt: result.updatedAt });
       }
     } catch (error) {

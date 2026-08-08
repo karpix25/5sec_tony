@@ -182,6 +182,8 @@ export function createStore() {
     runScopedOperation: operationController.runScopedOperation,
     getPersistenceStatus: () => persistenceStatus,
     whenHydrated: () => hydrationPromise,
+    whenJobsHydrated: () => statePersistence?.whenJobsHydrated?.() || Promise.resolve(),
+    retryHydration: () => statePersistence?.retryHydration?.(),
     subscribe(callback) {
       subscribers.add(callback);
       return () => subscribers.delete(callback);
