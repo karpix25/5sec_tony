@@ -2,6 +2,7 @@ import { isPostgresConfigured, queryPostgres, withPostgresTransaction } from "..
 import { defaultAppStateKey, withAppStateRetry } from "../app-state-lock.mjs";
 import { lockAppStateMutation } from "../app-state-advisory-lock.mjs";
 import { loadNormalizedState, saveJobs, jobKeys } from "../state-relational-store.mjs";
+import { compactJobExtraDropKeys } from "../state-jobs-store.mjs";
 import { normalizeProjectAutomation } from "../../src/domain/project-automation.js";
 
 const projectKeys = [
@@ -35,7 +36,7 @@ export function shouldUseRelationalAutomation(deps = {}) {
 
 export async function loadAutomationState(deps = {}) {
   const query = deps.queryPostgres || queryPostgres;
-  return loadNormalizedState(query, deps.appStateKey || defaultAppStateKey);
+  return loadNormalizedState(query, deps.appStateKey || defaultAppStateKey, { compactJobs: true });
 }
 
 export async function persistAutomationStateDelta(previous, next, deps = {}) {
@@ -59,7 +60,7 @@ export async function persistAutomationStateDelta(previous, next, deps = {}) {
     const newJobs = changedJobs.filter((job) => !previousById.has(job.id));
     const existingJobs = changedJobs.filter((job) => previousById.has(job.id));
     if (newJobs.length) await saveJobs(tx.query, key, newJobs, new Map(), { ignoreConflicts: true });
-    for (const job of existingJobs) await updateJobDelta(tx.query, key, job);
+    for (const job of existingJobs) await updateJobDelta(tx.query, key, job, deps);
 
     if (previous?.selectedProjectTab !== next?.selectedProjectTab) {
       await tx.query(
@@ -123,7 +124,7 @@ async function updateProductDelta(query, key, product) {
   );
 }
 
-async function updateJobDelta(query, key, job) {
+async function updateJobDelta(query, key, job, deps = {}) {
   const assignments = [];
   const values = [key, job.id];
   for (const [property, column, type] of jobColumns) {
@@ -131,8 +132,10 @@ async function updateJobDelta(query, key, job) {
     values.push(type === "json" ? JSON.stringify(job[property] ?? (property === "diversitySlot" ? null : [])) : job[property]);
     assignments.push(`${column} = $${values.length}${type === "json" ? "::jsonb" : ""}`);
   }
-  values.push(JSON.stringify(pickExtraFields(job, jobKeys)));
-  assignments.push(`extra = $${values.length}::jsonb`);
+  if (!deps.compactJobs || compactJobExtraDropKeys.some((key) => key in job)) {
+    values.push(JSON.stringify(pickExtraFields(job, jobKeys)));
+    assignments.push(`extra = $${values.length}::jsonb`);
+  }
   await query(`update studio_jobs set ${assignments.join(", ")}, updated_at = now() where app_state_key = $1 and id = $2`, values);
 }
 

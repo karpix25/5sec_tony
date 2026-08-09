@@ -7,8 +7,8 @@ const preferredCtaFontFiles = [
 ];
 
 export function buildCtaTextBadgeFilter(cta, options = {}) {
-  const fontSize = Math.round(58 * (cta.scale / 100));
-  const box = getBadgeBox(cta, fontSize);
+  const box = getBadgeBox(cta, Math.round(58 * (cta.scale / 100)));
+  const fontSize = box.fontSize;
   const x = Math.round(CANVAS_WIDTH * (cta.x / 100));
   const y = Math.round(CANVAS_HEIGHT * (cta.y / 100));
   const opacity = (cta.opacity / 100).toFixed(2);
@@ -41,12 +41,16 @@ function getBadgeBox(cta, fontSize) {
   const border = Math.max(3, Math.round(4 * (cta.scale / 100)));
   const horizontalPadding = Math.round(48 * (cta.scale / 100));
   const verticalPadding = Math.round(28 * (cta.scale / 100));
-  const textWidth = estimateTextWidth(cta.text, fontSize);
-  const width = clampNumber(textWidth + horizontalPadding * 2, 360, 880);
-  const height = clampNumber(fontSize + verticalPadding * 2, 96, 170);
+  const maxWidth = 880;
+  const availableTextWidth = maxWidth - horizontalPadding * 2;
+  const fittedFontSize = fitFontSize(cta.text, fontSize, availableTextWidth);
+  const textWidth = estimateTextWidth(cta.text, fittedFontSize);
+  const width = clampNumber(textWidth + horizontalPadding * 2, 360, maxWidth);
+  const height = clampNumber(fittedFontSize + verticalPadding * 2, 96, 170);
   const radius = clampNumber(Math.round((cta.badge?.radius ?? cta.radius) * (cta.scale / 100)), 0, Math.floor(height / 2));
   return {
     border,
+    fontSize: fittedFontSize,
     width,
     height,
     radius,
@@ -57,7 +61,13 @@ function getBadgeBox(cta, fontSize) {
 }
 
 function estimateTextWidth(text, fontSize) {
-  return Math.round(String(text || "").length * fontSize * 0.62);
+  return Math.ceil(Array.from(String(text || "")).length * fontSize * 1.05);
+}
+
+function fitFontSize(text, fontSize, availableWidth) {
+  const estimatedWidth = estimateTextWidth(text, fontSize);
+  if (estimatedWidth <= availableWidth) return fontSize;
+  return Math.max(16, Math.floor(fontSize * availableWidth / estimatedWidth));
 }
 
 function roundedRectAlpha(width, height, radius) {

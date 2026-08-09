@@ -174,6 +174,37 @@ test("brief processor promotes a placeholder to a generation job", async () => {
   assert.equal(calls.length, 1);
 });
 
+test("brief processor reloads full job data before retrying generation dispatch", async () => {
+  const state = createState();
+  state.jobs[0] = {
+    ...state.jobs[0],
+    isBriefPlaceholder: false,
+    queueName: "generation",
+    queueStatus: "queued",
+    prompt: "Сохрани этот промпт",
+    promptContract: { version: 1 },
+    serverJobAcceptedAt: ""
+  };
+  const loads = [];
+  let dispatchedJob = null;
+  const deps = createStateDeps(state, {
+    postServerJob: async ({ job }) => {
+      dispatchedJob = job;
+      return { ok: true };
+    }
+  });
+  deps.loadGenerationState = async (options) => {
+    loads.push(options);
+    return state;
+  };
+
+  await processBriefJob({ jobId: state.jobs[0].id, origin: "http://127.0.0.1:4173", deps });
+
+  assert.deepEqual(loads, [{ compactJobs: true }, undefined]);
+  assert.equal(dispatchedJob.prompt, "Сохрани этот промпт");
+  assert.deepEqual(dispatchedJob.promptContract, { version: 1 });
+});
+
 test("brief processor marks retryable and terminal failures explicitly", async () => {
   const state = createState();
   const deps = createStateDeps(state, {

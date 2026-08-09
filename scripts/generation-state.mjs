@@ -5,11 +5,11 @@ import { persistAutomationStateDelta } from "./automation/relational-state-store
 
 const appStateKey = defaultAppStateKey;
 
-export async function loadGenerationState(deps = {}) {
+export async function loadGenerationState(deps = {}, options = {}) {
   const isConfigured = deps.isPostgresConfigured || isPostgresConfigured;
   if (!isConfigured()) throw new Error("Postgres is not configured");
   const query = deps.queryPostgres || queryPostgres;
-  return await loadNormalizedState(query, appStateKey) || await loadLegacyState(query, appStateKey);
+  return await loadNormalizedState(query, appStateKey, options) || await loadLegacyState(query, appStateKey);
 }
 
 export async function updateGenerationState(updater, deps = {}) {
@@ -18,11 +18,14 @@ export async function updateGenerationState(updater, deps = {}) {
   const withTransaction = deps.withPostgresTransaction || withPostgresTransaction;
   if (deps.optimizedPersistence === true) {
     const query = deps.queryPostgres || queryPostgres;
-    const current = await loadNormalizedState(query, appStateKey) || await loadLegacyState(query, appStateKey);
+    const current = await loadNormalizedState(query, appStateKey, deps.stateLoadOptions || {}) || await loadLegacyState(query, appStateKey);
     if (!current) throw new Error("State is empty");
     const nextState = await updater(current);
     const persist = deps.persistAutomationStateDelta || persistAutomationStateDelta;
-    return persist(current, nextState, deps);
+    return persist(current, nextState, {
+      ...deps,
+      compactJobs: deps.stateLoadOptions?.compactJobs === true
+    });
   }
   return withAppStateRetry(() => withTransaction(async (tx) => {
     await lockAppState(tx.query, appStateKey);

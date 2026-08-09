@@ -51,6 +51,35 @@ test("automation delta writes targeted rows without rebuilding app_state", async
   assert.equal(calls.some(({ text }) => text.includes("delete from studio_jobs")), false);
 });
 
+test("compact automation delta keeps heavy job extra fields intact", async () => {
+  const calls = [];
+  const query = async (text, params = []) => {
+    calls.push({ text, params });
+    if (text.includes("select id from studio_projects")) return { rows: [{ id: params[1] }] };
+    return { rows: [] };
+  };
+  const previous = {
+    projects: [],
+    products: [],
+    jobs: [{ id: "job-old", projectId: "project-1", status: "running", promptContract: { version: 1 } }]
+  };
+  const next = {
+    projects: [],
+    products: [],
+    jobs: [{ id: "job-old", projectId: "project-1", status: "failed" }]
+  };
+
+  await persistAutomationStateDelta(previous, next, {
+    appStateKey: "test-state",
+    compactJobs: true,
+    withPostgresTransaction: async (callback) => callback({ query })
+  });
+
+  const update = calls.find(({ text }) => text.includes("update studio_jobs"));
+  assert.ok(update);
+  assert.doesNotMatch(update.text, /extra =/);
+});
+
 test("automation project patch updates one project under scoped lock", async () => {
   const calls = [];
   await patchAutomationProject("project-1", { status: "running", lastMessage: "ok" }, {

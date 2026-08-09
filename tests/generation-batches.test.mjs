@@ -50,6 +50,29 @@ function createStateDeps(initialState, extra = {}) {
   };
 }
 
+test("backend generation batch requests compact jobs for launch persistence", async () => {
+  let state = createState();
+  let updateOptions = null;
+  const deps = {
+    autoStart: false,
+    loadGenerationState: async () => state,
+    updateGenerationState: async (updater, options) => {
+      updateOptions = options;
+      state = await updater(state);
+      return { state, updatedAt: "test-updated-at" };
+    }
+  };
+
+  await createGenerationBatch({
+    count: 1,
+    origin: "http://127.0.0.1:4173",
+    selection: { projectId: state.selectedProjectId, referenceId: state.selectedReferenceId },
+    deps
+  });
+
+  assert.deepEqual(updateOptions.stateLoadOptions, { compactJobs: true });
+});
+
 test("backend generation batch creates server-owned brief jobs in state", async () => {
   const state = createState();
   const firstProduct = state.products[0];

@@ -104,9 +104,10 @@ async function postJson(origin, path, body) {
 }
 
 function loadState(deps) {
-  return deps.loadGenerationState ? deps.loadGenerationState() : loadGenerationState(deps);
+  return deps.loadGenerationState ? deps.loadGenerationState({ compactJobs: true }) : loadGenerationState(deps, { compactJobs: true });
 }
 
 function updateState(deps, updater) {
-  return deps.updateGenerationState ? deps.updateGenerationState(updater) : updateGenerationState(updater, deps);
+  const compactDeps = { ...deps, stateLoadOptions: { ...(deps.stateLoadOptions || {}), compactJobs: true } };
+  return deps.updateGenerationState ? deps.updateGenerationState(updater, compactDeps) : updateGenerationState(updater, compactDeps);
 }

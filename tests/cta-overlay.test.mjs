@@ -78,6 +78,36 @@ test("composite filter shows cta from third second", () => {
   assert.match(filter, /fontcolor=0x111111/);
 });
 
+test("cta badge fits long text inside the maximum badge width", () => {
+  const filter = buildCompositeVideoFilter({
+    ctaOverlay: {
+      enabled: true,
+      mode: "badge",
+      text: "ПОДРОБНО ЧИТАЙТЕ ОПИСАНИЕ ПРОДУКТА ЗДЕСЬ",
+      x: 50,
+      y: 78,
+      scale: 100,
+      opacity: 100
+    }
+  });
+
+  const fontSize = Number(filter.match(/\[ctaBg\]drawtext=.*:fontsize=(\d+)/)?.[1]);
+  assert.ok(fontSize < 58);
+  const badgeWidth = Number(filter.match(/color=c=0x111111:s=(\d+)x/)?.[1]);
+  assert.ok(badgeWidth >= 360 && badgeWidth <= 880);
+});
+
+test("cta badge shrinks wide glyphs enough to stay inside the box", () => {
+  const filter = buildCompositeVideoFilter({
+    ctaOverlay: { enabled: true, mode: "badge", text: "Ш".repeat(32), x: 50, y: 78, scale: 100, opacity: 100 }
+  });
+
+  const fontSize = Number(filter.match(/\[ctaBg\]drawtext=.*:fontsize=(\d+)/)?.[1]);
+  const badgeWidth = Number(filter.match(/color=c=0x111111:s=(\d+)x/)?.[1]);
+  assert.ok(fontSize <= 24);
+  assert.ok(badgeWidth <= 880);
+});
+
 test("composite filter can disable cta overlay", () => {
   const filter = buildCompositeVideoFilter({ ctaOverlay: { enabled: false } });
 

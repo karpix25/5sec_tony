@@ -51,13 +51,13 @@ async function claimDispatches(options, deps) {
   if (shouldUseRelationalAutomation(deps)) {
     const loadState = deps.loadGenerationState || loadAutomationState;
     const persist = deps.persistAutomationStateDelta || persistAutomationStateDelta;
-    const current = await loadState(deps);
+    const current = await loadState(deps, { compactJobs: true });
     const claim = claimAutomationDispatches(current, {
       now: options.now,
       maxProjectsPerTick: options.maxProjectsPerTick,
       staleBriefTimeoutMs: options.staleBriefTimeoutMs
     });
-    if (claim.state !== current) await persist(current, claim.state, { ...deps, optimizedPersistence: true });
+    if (claim.state !== current) await persist(current, claim.state, { ...deps, optimizedPersistence: true, compactJobs: true });
     return { dispatches: claim.dispatches, rescued: claim.rescued, state: claim.state };
   }
   const updateState = deps.updateGenerationState || updateGenerationState;

@@ -12,10 +12,11 @@ import { loadGenerationState, updateGenerationState } from "./generation-state.m
 import { createServerSelectionContext } from "./generation-selection-context.mjs";
 
 export async function createGenerationBatch({ count, selection = {}, distributeProducts = false, reservation = {}, origin, source = "manual", deps = {} }) {
+  const launchDeps = withCompactJobLoad(deps);
   const safeCount = normalizeGenerationCount(count);
   const normalizedReservation = normalizeGenerationBatchReservation(reservation, safeCount);
   const batchId = normalizedReservation.batchId || createGenerationBatchId();
-  const result = await updateState(deps, (state) => {
+  const result = await updateState(launchDeps, (state) => {
     const dailyState = normalizeStateDailyUsage(state);
     const context = createServerSelectionContext(dailyState, selection);
     const availability = getSelectionJobBatchAvailability(dailyState, context, safeCount);
@@ -40,9 +41,9 @@ export async function createGenerationBatch({ count, selection = {}, distributeP
       selectedProjectTab: "queue",
       jobs: [...reservedJobs, ...(state.jobs || [])]
     };
-  }, deps);
+  });
   const jobs = result.state.jobs.filter((job) => job.serverBatchId === batchId);
-  const queue = deps.autoStart === false ? [] : await enqueueBatchBriefJobs(jobs, { batchId, origin, deps });
+  const queue = launchDeps.autoStart === false ? [] : await enqueueBatchBriefJobs(jobs, { batchId, origin, deps: launchDeps });
   return { batchId, jobs, queue, state: result.state, updatedAt: result.updatedAt };
 }
 
@@ -81,7 +82,14 @@ function loadState(deps) {
 }
 
 function updateState(deps, updater) {
-  return deps.updateGenerationState ? deps.updateGenerationState(updater) : updateGenerationState(updater, deps);
+  return deps.updateGenerationState ? deps.updateGenerationState(updater, deps) : updateGenerationState(updater, deps);
+}
+
+function withCompactJobLoad(deps = {}) {
+  return {
+    ...deps,
+    stateLoadOptions: { ...(deps.stateLoadOptions || {}), compactJobs: true }
+  };
 }
 
 function normalizeGenerationSource(value) {

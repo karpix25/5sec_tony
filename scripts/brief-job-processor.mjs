@@ -10,12 +10,16 @@ export async function processBriefJob({ jobId, batchId = "", origin, attemptsMad
     const current = state.jobs?.find((job) => job.id === jobId);
     if (current && !current.isBriefPlaceholder) {
       if (!isGenerationDispatchPending(current)) return current;
+      const fullState = await loadFullState(deps);
+      const fullJob = fullState.jobs?.find((job) => job.id === jobId);
+      if (!fullJob) throw new Error("Задача не найдена");
+      if (!isGenerationDispatchPending(fullJob)) return fullJob;
       await postServerJob(deps, origin, {
-        job: current,
-        context: createServerJobContext(state, current, {})
+        job: fullJob,
+        context: createServerJobContext(fullState, fullJob, {})
       });
       await markBriefDispatched(jobId, deps);
-      return current;
+      return fullJob;
     }
     await markBriefRunning(jobId, deps);
     const prepared = await prepareServerJob(jobId, origin, deps);
@@ -155,11 +159,16 @@ function createServerJobContext(state, placeholder, context) {
 }
 
 function loadState(deps) {
+  return deps.loadGenerationState ? deps.loadGenerationState({ compactJobs: true }) : loadGenerationState(deps, { compactJobs: true });
+}
+
+function loadFullState(deps) {
   return deps.loadGenerationState ? deps.loadGenerationState() : loadGenerationState(deps);
 }
 
 function updateState(deps, updater) {
-  return deps.updateGenerationState ? deps.updateGenerationState(updater) : updateGenerationState(updater, deps);
+  const compactDeps = { ...deps, stateLoadOptions: { ...(deps.stateLoadOptions || {}), compactJobs: true } };
+  return deps.updateGenerationState ? deps.updateGenerationState(updater, compactDeps) : updateGenerationState(updater, compactDeps);
 }
 
 function postServerJob(deps, origin, body) {
