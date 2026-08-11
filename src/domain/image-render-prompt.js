@@ -1,10 +1,11 @@
 import { formatCurrentDatePrompt } from "./current-date-context.js";
+import { getImagePromptProductTextRules } from "./language-policy.js";
 
-export function buildImageRenderPrompt({ strategy, card, reference }) {
+export function buildImageRenderPrompt({ strategy, card, reference, productVisualMode = "", shouldPassProductRefs } = {}) {
   return [
     "Создай вертикальную 9:16 инфографику на русском языке для обложки социального видео.",
-    "ЖЕСТКОЕ ПРАВИЛО: весь редакционный текст, подписи и служебные элементы на финальной картинке только на русском; не писать английские служебные подписи, интерфейсные ярлыки, заглушки или псевдолатинский текст.",
-    "Текст, логотипы, SKU и названия, уже напечатанные на реальной упаковке из product reference, не переводить и не перерисовывать.",
+    "ЖЕСТКОЕ ПРАВИЛО: весь редакционный текст инфографики — это добавляемый редакционный текст, подписи и служебные элементы; он должен быть только на русском. Не писать английские служебные подписи, интерфейсные ярлыки, заглушки или псевдолатинский текст.",
+    ...getImagePromptProductTextRules({ productVisualMode, shouldPassProductRefs }),
     formatCurrentDatePrompt(),
     "",
     "Видимый текст:",

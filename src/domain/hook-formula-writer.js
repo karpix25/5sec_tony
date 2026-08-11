@@ -1,5 +1,15 @@
+import { classifyHeadlineFormula, resolveHeadlineFormula } from "./headline-diversity.js";
+
 export function writeHookFromFormula(template, context) {
-  const shape = classifyHookFormula(template);
+  if (context.locked === true || context.headlineLocked === true) return String(template || "").trim();
+  const diversity = resolveHeadlineFormula({
+    headline: template,
+    existingJobs: context.existingJobs,
+    recentFormulas: context.recentFormulas || context.recentHeadlineFormulas,
+    locked: false,
+    maxConsecutive: context.maxConsecutiveFormula || 2
+  });
+  const shape = context.formula || diversity.formula;
   const count = context.count || "5";
   const focus = pickHookFocus([context.subject, context.object, context.scenario, context.result, context.problem]);
   const problem = cleanHookFocus(context.problem || focus);
@@ -43,13 +53,7 @@ export function writeHookFromFormula(template, context) {
 }
 
 export function classifyHookFormula(value) {
-  const source = String(value || "").toLowerCase();
-  if (/красн|флаг|опасн|риск/.test(source)) return "red-flag";
-  if (/ошиб|стоить|лома|не делайте/.test(source)) return "mistake";
-  if (/миф|правд|реальн|норма|ожидан/.test(source)) return "expectation-shift";
-  if (/проверь|чек|пункт|признак/.test(source)) return "checklist";
-  if (/почему|зачем|что будет/.test(source)) return "curiosity";
-  return "list";
+  return classifyHeadlineFormula(value);
 }
 
 function cleanHookFocus(value) {

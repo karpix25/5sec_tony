@@ -20,6 +20,7 @@ import { createUniqueJobId } from "./job-identity.js";
 import { getReferenceFormatSignal, resolveGenerationFormat, resolvePointCountForFormat } from "./reference-format.js";
 import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budget.js";
 import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "./creative-team-image-prompt.js";
+import { normalizeAiHeadlineContent } from "./ai-headline-normalizer.js";
 import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
 import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avatar-overlay-zone.js";
 import { formatCurrentDatePrompt } from "./current-date-context.js";
@@ -285,7 +286,15 @@ export function createAutoGenerationBrief({ project, product, reference, generat
       : resolveGenerationFormat({ reference, requestedFormat: generationBrief.format, candidateFormat: topicCandidate?.format, lockedFormat }),
     aiPlan: generationBrief.aiPlan || topicCandidatePlan || undefined
   };
-  const aiContent = aiDepartmentMode ? getAiDepartmentContent(generationBrief) : null;
+  const aiContent = aiDepartmentMode
+    ? normalizeAiHeadlineContent({
+        content: getAiDepartmentContent(generationBrief),
+        generationBrief,
+        existingJobs,
+        project,
+        product
+      })
+    : null;
   const meaning = aiDepartmentMode
     ? null
     : createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs, hookLibrary });
@@ -307,13 +316,24 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const format = generationSeed.format || meaning?.format || slot.format || pickFormat(project, reference);
   const semanticKey = generationBrief.semanticKey || slot.id;
   const creativeTeamVisualMode = getCreativeTeamProductVisualMode(generationBrief);
-  const productVisualMode = generationBrief.productVisibilityDecision?.productVisualMode
+  const requestedProductVisualMode = generationBrief.productVisibilityDecision?.productVisualMode
     || generationBrief.productVisibilityDecision?.mode
     || generationBrief.productVisualMode
     || creativeTeamVisualMode
     || resolveProductVisualMode({ project, product, generationBrief: { ...generationSeed, topic, hook }, existingJobs });
-  const productVisibilityDecision = generationBrief.productVisibilityDecision
-    || createProductVisibilityDecision({ project, product, generationBrief: { ...generationSeed, topic, hook, productVisualMode }, existingJobs });
+  const productVisibilityDecision = createProductVisibilityDecision({
+    project,
+    product,
+    generationBrief: {
+      ...generationSeed,
+      topic,
+      hook,
+      productVisualMode: requestedProductVisualMode,
+      productVisibilityDecision: generationBrief.productVisibilityDecision
+    },
+    existingJobs
+  });
+  const productVisualMode = productVisibilityDecision.productVisualMode || requestedProductVisualMode;
   const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap, productVisualMode };
   const editorial = aiDepartmentMode
     ? {
@@ -350,7 +370,9 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     productPassport: generationBrief.productPassport || null,
     designFormatBrief: generationBrief.designFormatBrief || null,
     creativeBrief: generationBrief.creativeBrief || null,
-    contentScript: generationBrief.contentScript || null,
+    contentScript: generationBrief.contentScript
+      ? { ...generationBrief.contentScript, headline: aiContent?.headline || generationBrief.contentScript.headline }
+      : null,
     visualBrief: generationBrief.visualBrief || null,
     imagePromptPackage: generationBrief.imagePromptPackage || null,
     topicCandidate,

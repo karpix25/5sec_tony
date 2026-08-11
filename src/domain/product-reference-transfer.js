@@ -1,3 +1,5 @@
+import { getImagePromptProductTextRules } from "./language-policy.js";
+
 export function getProductReferenceTransferInstruction({ remoteProductRefs, localProductRefs, productVisualMode }) {
   const productRefCount = remoteProductRefs + localProductRefs;
   if (productVisualMode === "exact-product" && productRefCount) {
@@ -6,12 +8,13 @@ export function getProductReferenceTransferInstruction({ remoteProductRefs, loca
       "Локальные product reference images будут опубликованы как S3/public URL перед запросом к генератору; считай их доступными для image-to-image.",
       "Тема требует показать продукт: продукт должен быть визуально виден в кадре.",
       "Внешний вид продукта повторяет product reference: форма, цвет, этикетка, название, крышка, коробка и SKU.",
-      "ТЕКСТ НА РЕАЛЬНОЙ УПАКОВКЕ: текст, логотипы и названия, уже напечатанные на упаковке, являются частью физического объекта: не переводить их на русский, не локализовать и не заменять похожими русскими словами."
+      ...getImagePromptProductTextRules({ productVisualMode, shouldPassProductRefs: true })
     ].join(" ");
   }
   return [
     "PRODUCT REFERENCE PLAN: product-absent.",
     "Product reference images остаются вне image-to-image входа для этой генерации.",
-    "Визуальная идея собирается как retention visual: ситуация, ритуал, интерфейс, предмет боли, абстрактный объект, свет или фактура."
+    "Визуальная идея собирается как retention visual: ситуация, ритуал, интерфейс, предмет боли, абстрактный объект, свет или фактура.",
+    ...getImagePromptProductTextRules({ productVisualMode, shouldPassProductRefs: false })
   ].join(" ");
 }

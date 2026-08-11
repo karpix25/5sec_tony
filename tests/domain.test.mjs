@@ -446,7 +446,7 @@ test("store manages product-level references and adds them to prompt", () => {
   store.createProductReference({
     title: "Упаковка крупно",
     promptComment: "взять ракурс упаковки и зеленый фон",
-    imageName: "pack.png"
+    imageName: "pack.png", imageData: "https://cdn.example.com/pack.png"
   });
   let state = store.getState();
   let product = state.products.find((item) => item.id === state.selectedProductId);

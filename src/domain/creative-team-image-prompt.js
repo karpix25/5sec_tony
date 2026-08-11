@@ -3,6 +3,7 @@ import { formatAvatarCornerCompositionPolicy } from "./image-composition-policy.
 import { formatLayoutPlanPrompt } from "./layout-content-planner.js";
 import { getProductVisualPromptPolicy } from "./product-visual-policy.js";
 import { russianImageTextRules, socialSafeZoneRules } from "./image-prompt-rules.js";
+import { sanitizeAiImagePrompt } from "./language-policy.js";
 
 import { stringifyPromptContract } from "./prompt-contract.js";
 
@@ -17,7 +18,11 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const safePromptContract = promptContract ? sanitizePromptContract(promptContract, content) : null;
   const format = brief.designFormatBrief || {};
   const formatType = getEffectiveFormatType({ brief, format });
-  const safePackagePrompt = sanitizePackagePrompt(packagePrompt, { formatType, productVisualMode, productPassport: brief.productPassport });
+  const shouldPassProductRefs = brief.productVisibilityDecision?.shouldPassProductRefs ?? productVisualMode === "exact-product";
+  const safePackagePrompt = sanitizeAiImagePrompt(
+    sanitizePackagePrompt(packagePrompt, { formatType, productVisualMode, productPassport: brief.productPassport }),
+    { productVisualMode, shouldPassProductRefs }
+  );
   const productVisualContract = getProductVisualPromptPolicy(productVisualMode);
   const cornerCompositionPolicy = formatAvatarCornerCompositionPolicy({ productVisualMode });
   return limitImagePrompt([
@@ -179,7 +184,7 @@ function sanitizePackagePromptLines(prompt = "", productPassport = {}, { removeP
     .filter(Boolean)
     .filter((line) => !isDisclaimerCreativeLine(line))
     .filter((line) => !removeProduct || !productPattern?.test(line))
-    .filter((line) => !removeProduct || !/sonre|chlorophyll|хлорофилл|флакон|бутыл|банка|упаков|packshot|bottle|package|стакан|энерг|бодрост|вынослив|иммун|гидратац|баланс|detox|детокс|поможет|вернет|восстанов/i.test(line));
+    .filter((line) => !removeProduct || !/sonre|chlorophyll|хлорофилл|флакон|бутыл|банка|упаков|packshot|product\s*reference|product\s*image|product\s*ref|bottle|package|стакан|энерг|бодрост|вынослив|иммун|гидратац|баланс|detox|детокс|поможет|вернет|восстанов/i.test(line));
   return safeLines.join(" ");
 }
 

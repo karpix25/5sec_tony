@@ -1,11 +1,14 @@
 import { hasProductVisualReference, resolveProductVisualMode } from "./product-visual-policy.js";
 
 export function createProductVisibilityDecision({ project, product, generationBrief = {}, existingJobs = [] } = {}) {
-  const productVisualMode = generationBrief.productVisualMode
+  const requestedProductVisualMode = generationBrief.productVisualMode
     || generationBrief.productVisibilityDecision?.productVisualMode
     || generationBrief.productVisibilityDecision?.mode
     || resolveProductVisualMode({ project, product, generationBrief, existingJobs });
   const hasRefs = hasProductVisualReference(product);
+  const productVisualMode = requestedProductVisualMode === "exact-product" && !hasRefs
+    ? "no-package"
+    : requestedProductVisualMode;
   const shouldPassProductRefs = productVisualMode === "exact-product" && hasRefs;
   return {
     version: "product-visibility-v1",

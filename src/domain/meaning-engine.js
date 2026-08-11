@@ -3,6 +3,7 @@ import { adaptHookFromReference, selectHookReference } from "./hook-library.js";
 import { createHookProductBridge } from "./hook-product-bridge.js";
 import { writeHookFromFormula } from "./hook-formula-writer.js";
 import { getProductContentFocus } from "./product-content-focus.js";
+import { getExplicitHeadline, isHeadlineLocked, resolveHeadlineFormula } from "./headline-diversity.js";
 
 export function createMeaningBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
   const pattern = generationBrief.meaningPattern || pickScenarioPattern({ project, existingJobs });
@@ -34,9 +35,31 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     product,
     angle
   });
-  const hook = referenceHook
-    || generationBrief.hook
-    || adaptHook(pattern.hook, { project, product, angle });
+  const headlineLocked = isHeadlineLocked(generationBrief);
+  const hookCandidate = headlineLocked && getExplicitHeadline(generationBrief)
+    ? getExplicitHeadline(generationBrief)
+    : referenceHook
+      || generationBrief.hook
+      || adaptHook(pattern.hook, { project, product, angle });
+  const diversity = resolveHeadlineFormula({
+    headline: hookCandidate,
+    existingJobs,
+    recentFormulas: generationBrief.recentFormulas || generationBrief.recentHeadlineFormulas,
+    locked: headlineLocked
+  });
+  const hook = diversity.changed
+    ? writeHookFromFormula(hookCandidate, {
+        subject: angle,
+        object: angle,
+        problem: angle,
+        result: angle,
+        count: "5",
+        formula: diversity.formula,
+        existingJobs,
+        recentFormulas: diversity.history,
+        variantSeed: `${project?.id || ""} ${product?.id || ""} ${angle || ""} ${diversity.formula}`
+      })
+    : hookCandidate;
   return {
     pattern,
     hookReference,

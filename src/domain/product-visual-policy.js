@@ -51,7 +51,7 @@ export function formatProductVisualContext(product, productVisualMode, compactTe
 
 export function hasProductVisualReference(product) {
   return Array.isArray(product?.references) && product.references.some((item) => {
-    return isProductPolicyImageReferenceUrl(item?.imageData) || item?.promptComment || item?.imageName || item?.title;
+    return isProductPolicyImageReferenceUrl(item?.imageData);
   });
 }
 

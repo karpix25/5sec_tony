@@ -207,7 +207,10 @@ test("creative team image prompt renders object points as text", () => {
 
 test("creative team visual brief controls product visibility mode", () => {
   const project = projects[0];
-  const product = products.find((item) => item.projectId === project.id);
+  const product = {
+    ...products.find((item) => item.projectId === project.id),
+    references: [{ title: "Реальная упаковка", imageData: "https://cdn.example.com/product.png" }]
+  };
   const brief = createAutoGenerationBrief({
     project,
     product,

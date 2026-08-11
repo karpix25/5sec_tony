@@ -54,6 +54,20 @@ test("project percentage is clamped and product references are required for exac
   }), "no-package");
 });
 
+test("exact-product falls back to no-package when reference has no image", () => {
+  const job = createGenerationJob({
+    project: { ...project, productInFramePercent: 100 },
+    product: { ...product, references: [{ title: "Только описание", promptComment: "белый флакон" }] },
+    reference,
+    generationBrief: { productVisibilityDecision: { productVisualMode: "exact-product", shouldPassProductRefs: true } }
+  });
+
+  assert.equal(job.productVisualMode, "no-package");
+  assert.equal(job.productVisibilityDecision.shouldPassProductRefs, false);
+  assert.deepEqual(job.inputRefs.map((item) => item.role), ["safe_zone", "design"]);
+  assert.match(job.prompt, /РЕЖИМ NO-PACKAGE/);
+});
+
 test("visible subhead does not duplicate headline", () => {
   const brief = createAutoGenerationBrief({
     project,

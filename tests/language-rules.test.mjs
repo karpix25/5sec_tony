@@ -30,7 +30,7 @@ test("image prompt requires Russian visible text", () => {
     }
   });
 
-  assert.match(prompt, /весь редакционный текст инфографики строго на русском языке/);
+  assert.match(prompt, /весь редакционный текст инфографики.*добавляемый текст.*строго на русском языке/);
   assert.match(prompt, /английский интерфейсный или служебный текст запрещен/);
   assert.match(prompt, /Официальные названия брендов и сервисов/);
 });
@@ -59,6 +59,16 @@ test("old Russian image guard is upgraded with package text exception", () => {
 
   assert.match(prompt, /ТЕКСТ НА УПАКОВКЕ ИЗ PRODUCT REFERENCE/);
   assert.match(prompt, /не переводить, не локализовать, не переписывать/);
+});
+
+test("legacy global translation rule cannot override package exception", () => {
+  const prompt = ensureRussianImagePromptGuard(
+    "ЖЕСТКИЙ ЯЗЫКОВОЙ КОНТРАКТ: весь видимый текст только на русском языке. ТЕКСТ НА РЕАЛЬНОЙ УПАКОВКЕ НЕ ПЕРЕВОДИТЬ."
+  );
+
+  assert.doesNotMatch(prompt, /весь видимый текст только на русском/i);
+  assert.match(prompt, /добавляемый редакционный текст.*русск/i);
+  assert.match(prompt, /текст.*упаковк.*не переводить/i);
 });
 
 test("new project settings require Russian final image text", () => {
@@ -99,7 +109,7 @@ test("project settings save cannot remove Russian final image text rule", () => 
 test("creative team image prompt rules preserve product package labels", () => {
   const source = readFileSync(new URL("../scripts/creative-team-prompts.mjs", import.meta.url), "utf8");
 
-  assert.match(source, /Весь редакционный текст инфографики строго на русском/);
+  assert.match(source, /Весь добавляемый редакционный текст инфографики строго на русском/);
   assert.match(source, /уже напечатанные на реальной упаковке из product reference, не переводить и не менять/);
   assert.match(source, /не удаляй логотипы, уже напечатанные на реальной упаковке product reference/);
   assert.doesNotMatch(source, /Весь видимый текст строго на русском/);
@@ -114,7 +124,18 @@ test("image render prompt preserves product package labels", () => {
 
   assert.match(prompt, /весь редакционный текст/);
   assert.match(prompt, /уже напечатанные на реальной упаковке из product reference/);
+  assert.match(prompt, /добавляемый редакционный текст/);
   assert.doesNotMatch(prompt, /весь видимый текст/);
+});
+
+test("legacy project language restriction is normalized before saving", () => {
+  const restriction = ensureRussianImageTextRestriction(
+    "ЖЕСТКОЕ ПРАВИЛО: весь видимый текст только на русском языке. Текст на реальной упаковке не переводить."
+  );
+
+  assert.doesNotMatch(restriction, /весь видимый текст только на русском/i);
+  assert.match(restriction, /весь редакционный текст.*строго на русском/i);
+  assert.match(restriction, /текст.*упаковк.*не переводить/i);
 });
 
 test("design reference font is fixed for image generations", () => {
