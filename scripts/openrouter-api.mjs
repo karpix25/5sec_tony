@@ -1,7 +1,9 @@
 import { getOpenRouterErrorMessage, parseJsonDraft, readOpenRouterPayload } from "./openrouter-response.mjs";
 import { humanizeTextInstruction, runCreativeTeamBrief } from "./creative-team-prompts.mjs";
 import { humanizeCreativeTeamDraft } from "./creative-team-humanizer.mjs";
+import { completeCreativeTeamImagePrompt } from "./creative-team-image-prompt.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
+import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -82,7 +84,8 @@ async function generateBrief(request, response) {
       model: writingModel,
       referenceModel: designReferenceModel,
       callOpenRouter: callBriefOpenRouter,
-      parseJsonDraft
+      parseJsonDraft,
+      deferImagePromptPackage: true
     });
     const humanizedDraft = await humanizeCreativeTeamDraft({
       token,
@@ -92,7 +95,23 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    return sendJson(response, 200, { model: writingModel, draft: humanizedDraft });
+    const finalDraft = await completeCreativeTeamImagePrompt({
+      token,
+      body: bodyWithReferenceImages,
+      draft: humanizedDraft,
+      model: writingModel,
+      callOpenRouter: callBriefOpenRouter,
+      parseJsonDraft
+    });
+    const textContractViolations = getVisibleTextContractViolations({ contentScript: finalDraft.contentScript });
+    if (textContractViolations.length) {
+      return sendJson(response, 422, {
+        error: "Финальный текст инфографики не прошел проверку",
+        code: "visible_text_contract",
+        violations: textContractViolations
+      });
+    }
+    return sendJson(response, 200, { model: writingModel, draft: finalDraft });
   } catch (error) {
     console.error("[openrouter:brief:error]", JSON.stringify({
       message: error.message || "OpenRouter request failed",

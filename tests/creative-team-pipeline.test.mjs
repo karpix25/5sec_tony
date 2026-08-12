@@ -4,7 +4,6 @@ import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/gener
 import { projects, products } from "../src/domain/entities.js";
 import { runCreativeTeamBrief } from "../scripts/creative-team-prompts.mjs";
 import { parseJsonDraft } from "../scripts/openrouter-response.mjs";
-
 test("creative team image prompt package and script are authoritative", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);

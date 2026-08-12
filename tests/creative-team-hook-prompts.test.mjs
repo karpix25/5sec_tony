@@ -14,7 +14,7 @@ test("creative team prompts require reels hooks with explicit payoff", () => {
   assert.match(source, /первые 2 points обязаны прямо закрывать это обещание/i);
   assert.match(source, /Если headline спрашивает 'почему', points дают причины/);
   assert.match(source, /Не выбирай recommendedHook, если он звучит как тема статьи/);
-  assert.match(source, /не обязан быть дословно 6 слов/);
+  assert.match(source, /Количество слов может быть меньше 6/);
 });
 
 test("creative team prompts reject neutral article-style headlines", () => {

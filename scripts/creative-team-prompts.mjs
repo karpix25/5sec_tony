@@ -49,7 +49,7 @@ const designReferenceFidelityRules = [
   "Сохраняй macro-layout дизайн-референса: крупные зоны, направление чтения, повторяемые формы, пропорции блоков, декоративный язык и визуальный вес. Не подменяй funnel/chart/poster/comparison/card grid обычным generic checklist."
 ];
 
-export async function runCreativeTeamBrief({ token, body, model, referenceModel, callOpenRouter, parseJsonDraft }) {
+export async function runCreativeTeamBrief({ token, body, model, referenceModel, callOpenRouter, parseJsonDraft, deferImagePromptPackage = false }) {
   body = createCreativeTeamPayload(body);
   const productPassport = hasUsefulProductPassport(body.productPassport || body.product?.aiPassport)
     ? { productPassport: normalizeProductAiPassport(body.productPassport || body.product.aiPassport) }
@@ -72,15 +72,39 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
   const safetyContractViolations = getDesignTextContractViolations({ contentScript: safetyScript, designFormatBrief: normalizedDesignFormatBrief });
   const finalScript = safetyScript;
   const finalSafetyReview = withFinalContentScript(safetyReview, finalScript, safetyContractViolations);
-  const imagePromptPackage = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, finalScript, visualBrief, finalSafetyReview, designFormatBrief) });
+  const imagePromptPackage = deferImagePromptPackage
+    ? {}
+    : await createCreativeTeamImagePromptPackage({
+        token,
+        model,
+        callOpenRouter,
+        parseJsonDraft,
+        body,
+        productPassport,
+        creativeBrief,
+        contentScript: finalScript,
+        visualBrief,
+        safetyReview: finalSafetyReview,
+        designFormatBrief
+      });
   return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript: finalScript, formatCompliance, textContractViolations: [...new Set([...contractViolations, ...safetyContractViolations])], visualBrief, safetyReview: finalSafetyReview, imagePromptPackage, body });
+}
+
+export async function createCreativeTeamImagePromptPackage({ token, model, callOpenRouter, parseJsonDraft, body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief }) {
+  return runRole({
+    token,
+    model,
+    callOpenRouter,
+    parseJsonDraft,
+    instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief)
+  });
 }
 
 export function humanizeTextInstruction(body) {
   return JSON.stringify({
     task: "Перепиши финальный текст инфографики человеческим массовым языком перед генерацией картинки.",
     role: ["Ты не придумываешь новую тему.", "Ты редактор, который переводит сухой экспертный план в понятный Reels-текст.", "Текст должен считываться за 1 секунду и попадать в широкую боль аудитории."],
-    output: { headline: "короткий сильный заголовок, 4-9 слов, широкая боль или полезный факт", subhead: "одна простая строка, почему это знакомо в жизни", points: ["4-6 смысловых блоков, каждый 6-14 слов: мини-заголовок + короткое объяснение"], cta: "всегда пустая строка", disclaimer: "всегда пустая строка; нижние защитные подписи, футеры и сноски запрещены" },
+    output: { headline: "короткий сильный заголовок, 3–6 слов и максимум 48 символов; законченная мысль без обрезания", subhead: "одна простая строка, почему это знакомо в жизни", points: ["4-6 смысловых блоков, каждый 6-14 слов: мини-заголовок + короткое объяснение"], cta: "всегда пустая строка", disclaimer: "всегда пустая строка; нижние защитные подписи, футеры и сноски запрещены" },
     rules: [
       "Сохрани исходный смысл, сценарий и hook reference; не меняй тему на другую.",
       formatCurrentDatePrompt(),
@@ -88,7 +112,7 @@ export function humanizeTextInstruction(body) {
       "CTA не нужен: верни cta пустой строкой и убери любые 'узнайте', 'сохраните', 'закажите', 'в описании', 'в профиле' из текста.",
       "Оставь 4-6 самых сильных смысловых фраз: достаточно плотных, чтобы читать дольше 5 секунд, но без длинной таблицы или рекламного каталога.",
       humanizedPointRule,
-      "Headline максимум 6 слов, без двоеточия и второй мысли.",
+      "Headline: 3–6 слов, максимум 48 символов. Сначала сформулируй законченную мысль в этом бюджете. Если исходный headline длиннее, перепиши его целиком короче; не обрезай готовую фразу по словам и не оставляй незаконченный headline.",
       ...clickbaitHeadlineRules,
       ...simpleAudienceLanguageRules,
       ...viralReelsHookRules,
@@ -284,7 +308,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, 
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], invisibleNotes: { hookPayoff: "", productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: ["Headline обычно 4-9 слов; если recommendedHook сильный и помещается в дизайн, используй его как headline или укороти без потери смысла.", "Headline не обязан быть дословно 6 слов, если это ломает живой Reels-хук.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: объясняет конфликт headline, а не повторяет его.", "Первые 1-2 points закрывают recommendedPayoffQuestion выбранного hookSet.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: ["Headline: 3–6 слов, максимум 48 символов. Сначала сформулируй законченную мысль в этом бюджете. Если recommendedHook длиннее, перепиши его целиком короче без потери смысла; не обрезай готовую фразу по словам.", "Количество слов может быть меньше 6, если так сохраняется законченный живой Reels-хук.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: объясняет конфликт headline, а не повторяет его.", "Первые 1-2 points закрывают recommendedPayoffQuestion выбранного hookSet.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       creativeBrief,
       hookSet,
@@ -336,7 +360,7 @@ function imagePromptEngineerInstruction(body, productPassport, creativeBrief, co
     "Ты prompt engineer для GPT Image 2.",
     { imagePromptPackage: { provider: "gpt-image-2", prompt: "", inputRefs: [{ role: "safe_zone|design|product", title: "", required: true }], promptBudgetNotes: { mustKeep: [], canDropIfTooLong: [] } } },
     {
-      rules: ["Верни imagePromptPackage.prompt как структурированный Markdown с JSON-блоком prompt contract внутри.", "Промпт пишет нейросеть на основе данных ниже; не собирай его шаблонно.", "Включи vertical 9:16 infographic.", formatCurrentDatePrompt(), "Весь добавляемый редакционный текст инфографики строго на русском языке; не переводить текст реальной упаковки из product reference.", ...getImagePromptProductTextRules({ productVisualMode, shouldPassProductRefs }), "Если designReference содержит английский visible text, не копируй его как текст или пиксели: сохрани только визуальную грамматику, а все заголовки, карточки, подписи, легенды и служебные ярлыки замени русским текстом из contentScript.", "SAFE ZONE REFERENCE: среди input images всегда есть role=safe_zone; это служебная 9:16 маска размещения, не дизайн, не фон, не палитра и не источник композиционного стиля.", "DESIGN REFERENCE остается главным источником визуального стиля: layout skeleton, ритм, типографика, палитра, плотность, формы карточек и композиционная идея.", "RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE: сначала воссоздай visual grammar дизайн-референса, затем remap/scale/shift важный контент внутрь белой области safe_zone.", ...socialSafeZonePixelRules, ...designReferenceFidelityRules, "Белая область safe_zone — единственное место для текста, карточек, номеров, продукта, символов, иконок и важных объектов; фиолетовую область не заполняй ничем смысловым.", "Не копируй цвета, прямоугольники или форму safe_zone маски в финальный дизайн; используй safe_zone только как placement mask only.", "Не заменяй дизайн-референс generic centered checklist, если выбранный референс не является чеклистом.", "Текст, логотипы, SKU, вкус, объем и название продукта, уже напечатанные на реальной упаковке из product reference, не переводить и не менять.", "Headline, subhead и points — финальный русский текстовый контракт.", "Стиль и layout grammar из designFormatBrief/designReference.", "Если formatType=ranking_leaderboard, финальный prompt обязан описывать leaderboard/top-chart skeleton: крупный верхний title, легенда/source bar, повторяемые ранговые колонки или rank cards, номера мест и короткие value labels; запрети превращение в белый checklist с иконками.", "Если productVisibilityDecision.shouldPassProductRefs=true, явно укажи использовать product reference как input image. Если false — явно запрети packshot/product reference.", "Если avatarSafeZone есть, оставь чистую зону под аватара.", "Отступы обязательны: весь смысловой текст и главный объект внутри центральной рабочей области, с заметным padding слева/справа, чистый правый rail под кнопки соцсетей и спокойная нижняя четверть под будущий видео-оверлей.", "Запрет CTA в сгенерированной картинке, но не блокируй будущий системный CTA overlay приложения.", "Запрет футера, дисклеймера и неуказанных claims; не добавляй новые логотипы, но не удаляй логотипы, уже напечатанные на реальной упаковке product reference.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
+      rules: ["Верни imagePromptPackage.prompt как структурированный Markdown с JSON-блоком prompt contract внутри.", "Промпт пишет нейросеть на основе данных ниже; не собирай его шаблонно.", "Включи vertical 9:16 infographic.", formatCurrentDatePrompt(), "Весь добавляемый редакционный текст инфографики строго на русском языке; не переводить текст реальной упаковки из product reference.", ...getImagePromptProductTextRules({ productVisualMode, shouldPassProductRefs }), "Если designReference содержит английский visible text, не копируй его как текст или пиксели: сохрани только визуальную грамматику, а все заголовки, карточки, подписи, легенды и служебные ярлыки замени русским текстом из contentScript.", "SAFE ZONE REFERENCE: среди input images всегда есть role=safe_zone; это служебная 9:16 маска размещения, не дизайн, не фон, не палитра и не источник композиционного стиля.", "DESIGN REFERENCE остается главным источником визуального стиля: layout skeleton, ритм, типографика, палитра, плотность, формы карточек и композиционная идея.", "RECREATE DESIGN REFERENCE INSIDE SAFE-ZONE: сначала воссоздай visual grammar дизайн-референса, затем remap/scale/shift важный контент внутрь белой области safe_zone.", ...socialSafeZonePixelRules, ...designReferenceFidelityRules, "Белая область safe_zone — единственное место для текста, карточек, номеров, продукта, символов, иконок и важных объектов; фиолетовую область не заполняй ничем смысловым.", "Не копируй цвета, прямоугольники или форму safe_zone маски в финальный дизайн; используй safe_zone только как placement mask only.", "Не заменяй дизайн-референс generic centered checklist, если выбранный референс не является чеклистом.", "Текст, логотипы, SKU, вкус, объем и название продукта, уже напечатанные на реальной упаковке из product reference, не переводить и не менять.", "Headline, subhead и points — финальный русский текстовый контракт.", "imagePromptPackage.prompt описывает стиль и композицию, но не придумывает и не переписывает visible text; не добавляй альтернативные headline, subhead или points вне финального текстового контракта.", "Стиль и layout grammar из designFormatBrief/designReference.", "Если formatType=ranking_leaderboard, финальный prompt обязан описывать leaderboard/top-chart skeleton: крупный верхний title, легенда/source bar, повторяемые ранговые колонки или rank cards, номера мест и короткие value labels; запрети превращение в белый checklist с иконками.", "Если productVisibilityDecision.shouldPassProductRefs=true, явно укажи использовать product reference как input image. Если false — явно запрети packshot/product reference.", "Если avatarSafeZone есть, оставь чистую зону под аватара.", "Отступы обязательны: весь смысловой текст и главный объект внутри центральной рабочей области, с заметным padding слева/справа, чистый правый rail под кнопки соцсетей и спокойная нижняя четверть под будущий видео-оверлей.", "Запрет CTA в сгенерированной картинке, но не блокируй будущий системный CTA overlay приложения.", "Запрет футера, дисклеймера и неуказанных claims; не добавляй новые логотипы, но не удаляй логотипы, уже напечатанные на реальной упаковке product reference.", "Не вставляй весь паспорт продукта. Возьми только факты, нужные для этой картинки.", modernImageFormatRule, oldFormatShellBan],
       productPassport,
       creativeBrief,
       contentScript: safetyReview?.safetyReview?.fixedContentScript?.headline ? safetyReview.safetyReview.fixedContentScript : contentScript,
@@ -359,7 +383,7 @@ function flattenCreativeTeamDraft(parts) {
   const contentScript = parts.contentScript.contentScript || parts.contentScript;
   const visualBrief = parts.visualBrief.visualBrief || parts.visualBrief;
   const safetyReview = parts.safetyReview.safetyReview || parts.safetyReview;
-  const imagePromptPackage = parts.imagePromptPackage.imagePromptPackage || parts.imagePromptPackage;
+  const imagePromptPackage = parts.imagePromptPackage?.imagePromptPackage || parts.imagePromptPackage || {};
   const fixedScript = safetyReview?.fixedContentScript?.headline ? safetyReview.fixedContentScript : contentScript;
   const finalViolations = getDesignTextContractViolations({ contentScript: fixedScript, designFormatBrief });
   const finalScript = fixedScript;

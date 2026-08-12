@@ -1,5 +1,25 @@
 const oldCountPattern = /(^|\s)[3-7]\s*(маркер|признак|пункт|симптом|ошиб|вещ|привыч|сигнал)/i;
 const topHeadlinePattern = /^(top|топ)(\s|\d|$)/i;
+const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|который|которая|которые|которое|потому|что|как|почему|это|плохой|плохая|плохое)$/i;
+const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
+
+export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
+  const headline = normalizeVisibleLine(contentScript.headline);
+  const subhead = normalizeVisibleLine(contentScript.subhead);
+  const points = getScriptPoints(contentScript).map(normalizeVisibleLine).filter(Boolean);
+  const violations = [];
+  const headlineWords = headline.split(/\s+/).filter(Boolean);
+
+  if (!headline) violations.push("headline_empty");
+  if (headline.length > 48) violations.push("headline_too_long");
+  if (headlineWords.length > 6) violations.push("headline_too_many_words");
+  if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
+  if (incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
+  if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
+  if ([headline, subhead, ...points].some((line) => /\uFFFD/.test(line))) violations.push("replacement_character");
+  if ([headline, subhead, ...points].some((line) => forbiddenVisiblePattern.test(line))) violations.push("forbidden_visible_copy");
+  return violations;
+}
 
 export function getDesignTextContractViolations({ contentScript = {}, designFormatBrief = {} } = {}) {
   if (designFormatBrief.formatType !== "ranking_leaderboard") return [];
@@ -48,4 +68,37 @@ function normalizePointText(point) {
     .replace(/^\s*\d+[\).:\-]?\s*/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeVisibleLine(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeVisibleWord(value) {
+  return String(value || "").toLowerCase().replace(/[^а-яa-z0-9ё-]/gi, "");
+}
+
+function hasAdjacentDuplicateWords(value) {
+  const words = normalizeVisibleLine(value).split(/\s+/).filter(Boolean);
+  return words.some((word, index) => index > 0 && normalizeVisibleWord(word) === normalizeVisibleWord(words[index - 1]));
+}
+
+function lastHeadlineWord(value) {
+  return normalizeVisibleWord(normalizeVisibleLine(value).split(/\s+/).at(-1));
+}
+
+function normalizeVisibleMeaningKey(value) {
+  return normalizeVisibleLine(value)
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^а-яa-z0-9]+/g, " ")
+    .split(" ")
+    .filter((word) => word.length > 2)
+    .join(" ");
+}
+
+function hasSameMeaning(left, right) {
+  const normalizedLeft = normalizeVisibleMeaningKey(left);
+  const normalizedRight = normalizeVisibleMeaningKey(right);
+  return Boolean(normalizedLeft && normalizedRight && (normalizedLeft === normalizedRight || normalizedLeft.includes(normalizedRight) || normalizedRight.includes(normalizedLeft)));
 }

@@ -40,7 +40,7 @@ export function normalizeAiBrief(draft = {}, diversitySlot = {}) {
     creativeBrief: cleanDraft.creativeBrief || null,
     avatarEmotionName: cleanDraft.avatarEmotionName || cleanDraft.creativeBrief?.avatarEmotionName || "",
     availableAvatarEmotions: Array.isArray(cleanDraft.availableAvatarEmotions) ? cleanDraft.availableAvatarEmotions : [],
-    contentScript: cleanDraft.contentScript || null,
+    contentScript: cleanDraft.contentScript ? { ...cleanDraft.contentScript, ...plan } : null,
     visualBrief: cleanDraft.visualBrief || null,
     imagePromptPackage: cleanDraft.imagePromptPackage || null,
     imagePromptContract: cleanDraft.imagePromptContract || null,

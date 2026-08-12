@@ -370,9 +370,9 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     productPassport: generationBrief.productPassport || null,
     designFormatBrief: generationBrief.designFormatBrief || null,
     creativeBrief: generationBrief.creativeBrief || null,
-    contentScript: generationBrief.contentScript
-      ? { ...generationBrief.contentScript, headline: aiContent?.headline || generationBrief.contentScript.headline }
-      : null,
+    contentScript: aiDepartmentMode
+      ? aiContent
+      : generationBrief.contentScript || null,
     visualBrief: generationBrief.visualBrief || null,
     imagePromptPackage: generationBrief.imagePromptPackage || null,
     topicCandidate,

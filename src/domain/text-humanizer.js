@@ -48,15 +48,15 @@ function normalizeHeadline(value, fallback, points = []) {
   const source = simplifyLine(stripTechnicalLabels(cleanText(value))) || simplifyLine(stripTechnicalLabels(cleanText(fallback)));
   if (!source) return "";
   if (isTechnicalHeadline(source)) return buildHeadlineFromPoints(points) || "Что проверить сегодня";
-  const cleaned = source
+  return source
     .replace(/как популярный миф мешает принятию решений:?\s*/i, "")
     .replace(/как простая метафора объясняет проблему:?\s*/i, "")
     .replace(/какая неочевидная ошибка портит результат:?\s*/i, "")
     .replace(/анализ состава:?\s*/i, "")
     .replace(/разбор состава:?\s*/i, "")
     .replace(/\s+/g, " ")
-    .trim();
-  return shortenHeadline(cleaned, points);
+    .trim()
+    .replace(/[.!?]+$/, "");
 }
 
 function normalizeSubhead(value, fallback, headline = "", points = []) {
@@ -113,43 +113,6 @@ function simplifyLine(value) {
     .replace(/актуальных условий платежа/gi, "текущих правил оплаты")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function shortenHeadline(value, points = []) {
-  const compact = removeWeakHeadlineShell(value);
-  const candidates = splitHeadlineCandidates(compact);
-  const best = candidates
-    .map((item) => trimHeadlineCandidate(item))
-    .filter(Boolean)
-    .sort((a, b) => scoreHeadlineCandidate(b, points) - scoreHeadlineCandidate(a, points))[0];
-  return best || buildHeadlineFromPoints(points) || compact;
-}
-
-function removeWeakHeadlineShell(value) {
-  return value
-    .replace(/^(популярное объяснение часто сбивает с толку|этот факт объясняет знакомое ощущение|один простой шаг часто меняет больше, чем кажется)\s*[:—-]\s*/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function splitHeadlineCandidates(value) {
-  const parts = value.split(/\s*[:;]\s*/).filter(Boolean);
-  return parts.length > 1 ? parts : [value];
-}
-
-function trimHeadlineCandidate(value) {
-  const words = value.replace(/[.!?]+$/g, "").split(/\s+/).filter(Boolean);
-  if (words.length <= 6 && value.length <= 48) return words.join(" ");
-  return words.slice(0, 6).join(" ");
-}
-
-function scoreHeadlineCandidate(value, points = []) {
-  const words = value.toLowerCase().split(/\s+/).filter(Boolean);
-  const pointText = points.join(" ").toLowerCase();
-  const linkedWords = words.filter((word) => word.length > 3 && pointText.includes(word)).length;
-  const lengthPenalty = Math.max(0, words.length - 5);
-  const weakPenalty = /^(это|один|популярное|знакомое|простое|простой)\b/i.test(value) ? 3 : 0;
-  return linkedWords * 2 + Math.min(words.length, 6) - lengthPenalty - weakPenalty;
 }
 
 function cleanText(value) {

@@ -23,7 +23,6 @@ test("semantic fallback raises life pain before product solution", () => {
   assert.match(text, /ситуац|привычк|ожидан|сценар|шаг|ритуал/);
   assert.doesNotMatch(text, /проверьте, что именно известно|действуйте только|вывод делайте/);
 });
-
 test("ai brief instructions demand shareable life facts", () => {
   const source = [
     readFileSync(new URL("../scripts/openrouter-api.mjs", import.meta.url), "utf8"),
@@ -49,7 +48,7 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /Запрещены старые оболочки тем/);
   assert.match(source, /читать дольше 5 секунд/);
   assert.match(source, /Продукт не должен быть в каждом посте/);
-  assert.match(source, /Headline максимум 6 слов/);
+  assert.match(source, /Headline: 3[–-]6 слов, максимум 48 символов/);
   assert.match(source, /Не смешивай в одной карточке оплату рекламного кабинета, ВПН, нейросети, поддержку и заявки/);
   assert.match(source, /senior SMM strategist/);
   assert.match(source, /viral content marketer 2026/);
@@ -419,7 +418,7 @@ test("humanizer rewrites technical composition hooks into useful daily pain", ()
   assert.match(text, /кожа|сухост|тонус|привычк|сегодня|обычном дне/i);
 });
 
-test("humanizer shortens overloaded headline shells before image prompt", () => {
+test("humanizer removes a technical shell without truncating the headline", () => {
   const plan = normalizeHumanizedPlan({
     headline: "Популярное объяснение часто сбивает с толку: пополнить рекламный кабинет.",
     subhead: "Покажите не шаги оплаты, а статусы заявки.",
