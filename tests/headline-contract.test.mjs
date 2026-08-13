@@ -8,7 +8,7 @@ import { parseJsonDraft } from "../scripts/openrouter-response.mjs";
 test("humanizer preserves meaning and leaves invalid headlines for contract rejection", () => {
   const duplicate = normalizeHumanizedPlan({ headline: "Шампунь. Шампунь", points: [] }, { headline: "Шампунь. Шампунь", points: [] });
   const incomplete = normalizeHumanizedPlan({ headline: "Кожа скрипит после душа? Это плохой", points: [] }, { headline: "Кожа скрипит после душа? Это плохой", points: [] });
-  const long = "Это многофункциональный несмываемый спрей на основе безопасных компонентов";
+  const long = "Это многофункциональный несмываемый спрей на основе безопасных компонентов для ежедневного ухода";
   const longPlan = normalizeHumanizedPlan({ headline: long, points: [] }, { headline: long, points: [] });
 
   assert.equal(duplicate.headline, "Шампунь. Шампунь");
@@ -22,7 +22,7 @@ test("humanizer preserves meaning and leaves invalid headlines for contract reje
 test("visible text contract rejects stale-looking headline copy", () => {
   assert.deepEqual(getVisibleTextContractViolations({
     contentScript: {
-      headline: "Это многофункциональный несмываемый спрей на основе безопасных компонентов",
+      headline: "Это многофункциональный несмываемый спрей на основе безопасных компонентов для ежедневного ухода",
       subhead: "Это многофункциональный несмываемый спрей",
       points: []
     }

@@ -12,7 +12,7 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
 
   if (!headline) violations.push("headline_empty");
   if (headline.length > 48) violations.push("headline_too_long");
-  if (headlineWords.length > 6) violations.push("headline_too_many_words");
+  if (headlineWords.length > 8) violations.push("headline_too_many_words");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
   if (incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");

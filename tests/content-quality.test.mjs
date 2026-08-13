@@ -48,7 +48,7 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /Запрещены старые оболочки тем/);
   assert.match(source, /читать дольше 5 секунд/);
   assert.match(source, /Продукт не должен быть в каждом посте/);
-  assert.match(source, /Headline: 3[–-]6 слов, максимум 48 символов/);
+  assert.match(source, /Headline: 5[–-]8 слов, максимум 48 символов/);
   assert.match(source, /Не смешивай в одной карточке оплату рекламного кабинета, ВПН, нейросети, поддержку и заявки/);
   assert.match(source, /senior SMM strategist/);
   assert.match(source, /viral content marketer 2026/);
@@ -237,7 +237,7 @@ test("image prompt forbids technical labels and repeated disclaimers", () => {
   assert.match(job.prompt, /СВЯЗЬ ПРОДУКТА С ТЕМОЙ/);
   assert.match(job.prompt, /ТОЧНОСТЬ ПРОДУКТА: форма, цвет, этикетка/);
   assert.match(job.prompt, /CTA НА ИЗОБРАЖЕНИИ ЗАПРЕЩЕН/);
-  assert.match(job.prompt, /КОРОТКИЙ ЗАГОЛОВОК/);
+  assert.match(job.prompt, /ЗАГОЛОВОК В БЕЗОПАСНОЙ ЗОНЕ/);
   assert.match(job.prompt, /ЛОГИКА ТЕКСТА/);
   assert.match(job.prompt, /РЕДАКЦИОННЫЙ СТАНДАРТ/);
   assert.match(job.prompt, /Только правдивая информация, реальные факты, без лжи/);
