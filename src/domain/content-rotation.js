@@ -38,6 +38,7 @@ export function createRecentJobDigest(existingJobs = []) {
     contentLayerId: job.contentLayerId || job.diversitySlot?.contentLayer?.id || "",
     contentLayerSubject: job.diversitySlot?.contentLayer?.subject || "",
     hookType: job.hookIntelligence?.hookType || "",
+    attentionFrame: job.attentionFrame || "",
     layoutType: job.layoutContentPlan?.layoutType || ""
   }));
 }

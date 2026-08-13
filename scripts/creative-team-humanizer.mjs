@@ -9,21 +9,23 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
       { role: "system", content: "Ты редактор массовых Reels-инфографик. Пиши по-русски, просто, живо и безопасно. Верни только JSON без markdown." },
       { role: "user", content: humanizeTextInstruction({ ...body, plan: basePlan, brief: draft, hookReference: draft.hookReference || draft.hookSet?.[0] || null }) }
     ]);
-    return withHumanizedPlan(draft, normalizeHumanizedPlan(parseJsonDraft(content), basePlan));
+    const parsed = parseJsonDraft(content);
+    return withHumanizedPlan(draft, normalizeHumanizedPlan(parsed, basePlan), parsed.attentionReview);
   } catch (error) {
     console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);
     return withHumanizedPlan(draft, normalizeHumanizedPlan(basePlan, basePlan));
   }
 }
 
-function withHumanizedPlan(draft, plan) {
+function withHumanizedPlan(draft, plan, attentionReview = draft.attentionReview || null) {
   return {
     ...draft,
     contentScript: plan,
     plan,
     aiPlan: plan,
     hook: normalizeHumanizedLine(draft.hook || draft.recommendedHook) || plan.headline,
-    topic: normalizeHumanizedLine(draft.topic || draft.creativeBrief?.topic) || plan.headline
+    topic: normalizeHumanizedLine(draft.topic || draft.creativeBrief?.topic) || plan.headline,
+    attentionReview
   };
 }
 

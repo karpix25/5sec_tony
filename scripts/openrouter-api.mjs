@@ -4,6 +4,7 @@ import { humanizeCreativeTeamDraft } from "./creative-team-humanizer.mjs";
 import { completeCreativeTeamImagePrompt } from "./creative-team-image-prompt.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
 import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
+import { validateHeadlineSafety } from "../src/domain/attention-frame.js";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -89,7 +90,7 @@ async function generateBrief(request, response) {
     });
     const humanizedDraft = await humanizeCreativeTeamDraft({
       token,
-      body: bodyWithReferenceImages,
+      body: { ...bodyWithReferenceImages, attentionFrame: draft.attentionFrame },
       draft,
       model: writingModel,
       callOpenRouter: callBriefOpenRouter,
@@ -103,7 +104,10 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    const textContractViolations = getVisibleTextContractViolations({ contentScript: finalDraft.contentScript });
+    const textContractViolations = [
+      ...getVisibleTextContractViolations({ contentScript: finalDraft.contentScript }),
+      ...validateHeadlineSafety(finalDraft.contentScript?.headline)
+    ];
     if (textContractViolations.length) {
       return sendJson(response, 422, {
         error: "Финальный текст инфографики не прошел проверку",
@@ -139,7 +143,10 @@ async function humanizeGenerationText(request, response) {
       { role: "system", content: "Ты редактор массовых Reels-инфографик. Пиши по-русски, просто, живо и безопасно. Верни только JSON без markdown." },
       { role: "user", content: humanizeTextInstruction(body) }
     ]);
-    return sendJson(response, 200, { model: writingModel, draft: parseJsonDraft(content) });
+    const draft = parseJsonDraft(content);
+    const violations = validateHeadlineSafety(draft.headline);
+    if (violations.length) return sendJson(response, 422, { error: "Заголовок не прошел AI-safe-zone проверку", code: "headline_safe_zone", violations });
+    return sendJson(response, 200, { model: writingModel, draft });
   } catch (error) {
     return sendJson(response, 502, { error: error.message || "OpenRouter text humanizer failed" });
   }

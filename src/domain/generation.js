@@ -230,6 +230,7 @@ export function createGenerationJob({ project, product, reference, character, au
     avatarSafeZone,
     hookSeed: brief.hookSeed || brief.sourceHook || "",
     attentionMap: brief.attentionMap || null,
+    attentionFrame: brief.attentionFrame || brief.attentionMap?.attentionFrame || "",
     creativeBrief: brief.creativeBrief || null,
     contentScript: brief.contentScript || null,
     visualBrief: brief.visualBrief || null,

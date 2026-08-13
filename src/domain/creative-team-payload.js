@@ -16,6 +16,7 @@ export function createCreativeTeamPayload(body = {}) {
     layoutContentPlan: sanitizeValue(body.layoutContentPlan || null),
     hookLibrary: sanitizeValue(body.hookLibrary || null),
     existingJobs: sanitizeValue(Array.isArray(body.existingJobs) ? body.existingJobs : []),
+    recentAttentionFrames: sanitizeValue(Array.isArray(body.recentAttentionFrames) ? body.recentAttentionFrames : []),
     availableAvatarEmotions: sanitizeValue(body.availableAvatarEmotions || []),
     diversitySlot: sanitizeValue(body.diversitySlot || null),
     topicCluster: sanitizeValue(body.topicCluster || null),
