@@ -25,7 +25,7 @@ const defaultBadgeStyle = {
 export function normalizeCtaOverlay(value = {}) {
   const mode = value.mode === "text" ? "text" : defaultCtaOverlay.mode;
   return {
-    enabled: value.enabled !== false,
+    enabled: normalizeCtaEnabled(value.enabled),
     mode,
     text: normalizeCtaText(value.text),
     x: clampCtaNumber(value.x, defaultCtaOverlay.x, 5, 95),
@@ -40,6 +40,12 @@ export function normalizeCtaOverlay(value = {}) {
     badge: value.badge || null,
     candidate: value.candidate || null
   };
+}
+
+function normalizeCtaEnabled(value) {
+  if (value === false || value === 0) return false;
+  if (typeof value === "string" && ["false", "0", "off", "no"].includes(value.trim().toLowerCase())) return false;
+  return true;
 }
 
 export function createCtaBadgeCandidate(input = {}) {

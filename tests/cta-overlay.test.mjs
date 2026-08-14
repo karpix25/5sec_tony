@@ -21,6 +21,13 @@ test("cta overlay defaults to enabled text", () => {
   assert.equal(overlay.prompt, "");
 });
 
+test("cta overlay preserves disabled state from form and persisted string values", () => {
+  assert.equal(normalizeCtaOverlay({ enabled: false }).enabled, false);
+  assert.equal(normalizeCtaOverlay({ enabled: "false" }).enabled, false);
+  assert.equal(normalizeCtaOverlay({ enabled: "0" }).enabled, false);
+  assert.equal(normalizeCtaOverlay({ enabled: "off" }).enabled, false);
+});
+
 test("cta badge candidate can be approved", () => {
   const candidate = createCtaBadgeCandidate({ text: "ЖМИ", prompt: "желтая плашка с черной рамкой" });
   const overlay = approveCtaBadgeCandidate({ mode: "text", text: "ЖМИ", prompt: candidate.prompt, candidate });

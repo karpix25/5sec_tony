@@ -126,10 +126,10 @@ export function createProjectCtaWorkflow({ getState, getProject, setState, saveP
     }
   };
 
-  function patchProject(projectId, updater) {
+  function patchProject(projectId, updater, options) {
     setState({
       projects: getState().projects.map((item) => item.id === projectId ? updater(item) : item)
-    });
+    }, options);
   }
 
   function patchProjectCtaCandidate(projectId, candidateId, updater) {
@@ -141,10 +141,12 @@ export function createProjectCtaWorkflow({ getState, getProject, setState, saveP
   }
 
   function commitProjectCtaOverlay(projectId, ctaOverlay, operation) {
-    if (typeof saveProjectPatchRemote === "function" && isRemoteReady?.()) {
-      return saveProjectPatchRemote(projectId, { ctaOverlay: normalizeCtaOverlay(ctaOverlay) }, operation);
+    const normalized = normalizeCtaOverlay(ctaOverlay);
+    const remoteReady = typeof saveProjectPatchRemote === "function" && isRemoteReady?.();
+    patchProject(projectId, (item) => ({ ...item, ctaOverlay: normalized }), remoteReady ? { skipRemoteSave: true } : undefined);
+    if (remoteReady) {
+      return saveProjectPatchRemote(projectId, { ctaOverlay: normalized }, operation);
     }
-    patchProject(projectId, (item) => ({ ...item, ctaOverlay: normalizeCtaOverlay(ctaOverlay) }));
     return getState().projects.find((item) => item.id === projectId) || null;
   }
 
