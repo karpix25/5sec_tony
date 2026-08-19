@@ -251,24 +251,7 @@ function matchAdminUserAction(method, pathname) {
 }
 
 function readJsonBody(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > 1024 * 1024) {
-        reject(new Error("Request body is too large"));
-        request.destroy?.();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
+  return readJsonRequest(request, { limitBytes: 1024 * 1024 });
 }
 
 function sendJson(response, status, payload) {
@@ -318,3 +301,4 @@ function getTelegramBotId(options = {}) {
   const token = options.botToken || process.env.TELEGRAM_BOT_TOKEN || "";
   return String(token).split(":")[0] || "";
 }
+import { readJsonRequest } from "../request-body.mjs";

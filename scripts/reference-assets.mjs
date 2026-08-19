@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { deflateSync } from "node:zlib";
 import { isMultipartRequest, readMultipartForm } from "./multipart-form.mjs";
+import { readJsonRequest } from "./request-body.mjs";
 import { isS3AssetStorageConfigured, uploadDataUrlToS3 } from "./s3-assets.mjs";
 
 const dataUrlPattern = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([a-z0-9+/=\s]+)$/i;
@@ -262,24 +263,7 @@ function isPublicHost(host) {
 }
 
 function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > 15 * 1024 * 1024) {
-        reject(new Error("Reference image request is too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
+  return readJsonRequest(request, { limitBytes: 15 * 1024 * 1024, tooLargeMessage: "Reference image request is too large" });
 }
 
 function sendJson(response, status, payload) {

@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { readJsonRequest } from "./request-body.mjs";
 
 const execFileAsync = promisify(execFile);
 const scrapeBaseUrl = "https://api.scrapecreators.com";
@@ -322,19 +323,7 @@ function parseJsonDraft(text) {
 }
 
 function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
+  return readJsonRequest(request);
 }
 
 function sendJson(response, status, payload) {

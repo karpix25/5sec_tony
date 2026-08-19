@@ -4,6 +4,7 @@ import { createProductPassportInput } from "../src/domain/product-passport-input
 import { callOpenRouter } from "./openrouter-api.mjs";
 import { parseJsonDraft } from "./openrouter-response.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
+import { readJsonRequest } from "./request-body.mjs";
 
 const writingModel = "google/gemini-3.1-flash-lite";
 
@@ -119,13 +120,7 @@ function designAnalysisInstruction(body) {
 }
 
 function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => { data += chunk; });
-    request.on("end", () => {
-      try { resolve(data ? JSON.parse(data) : {}); } catch (error) { reject(error); }
-    });
-  });
+  return readJsonRequest(request);
 }
 
 function sendJson(response, status, payload) {

@@ -42,6 +42,8 @@ async function saveRemoteProject(url, method, bodyPayload, baseUpdatedAt) {
     method,
     headers: { "Content-Type": "application/json" },
     body,
+    timeoutMs: 45000,
+    attempts: method === "POST" ? 1 : 2,
     keepalive: body.length < 60 * 1024
   });
   readProjectSyncPayload(response, payload);

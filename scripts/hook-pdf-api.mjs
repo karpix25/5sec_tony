@@ -93,24 +93,7 @@ function readPdfData(value = "") {
 }
 
 function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let body = "";
-    request.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > 25 * 1024 * 1024) {
-        reject(new Error("PDF слишком большой"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch {
-        reject(new Error("Некорректный JSON"));
-      }
-    });
-    request.on("error", reject);
-  });
+  return readJsonRequest(request, { limitBytes: 25 * 1024 * 1024, tooLargeMessage: "PDF слишком большой" });
 }
 
 function sendJson(response, status, payload) {
@@ -118,3 +101,4 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload));
   return true;
 }
+import { readJsonRequest } from "./request-body.mjs";

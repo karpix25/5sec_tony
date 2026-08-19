@@ -65,24 +65,7 @@ function getAudioMimeType(value) {
 }
 
 function readJson(request, maxBytes) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > maxBytes) {
-        reject(new Error("Audio asset request is too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
+  return readJsonRequest(request, { limitBytes: maxBytes, tooLargeMessage: "Audio asset request is too large" });
 }
 
 function sendJson(response, status, payload) {
@@ -90,3 +73,4 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload));
   return true;
 }
+import { readJsonRequest } from "./request-body.mjs";

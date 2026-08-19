@@ -31,6 +31,7 @@ import { createProductVisibilityDecision } from "./product-visibility-decision.j
 import { createPromptContract } from "./prompt-contract.js";
 import { createGenerationAiTrace } from "./generation-ai-trace.js";
 import { getGenerationInputReferences, getGenerationInputUrls } from "./generation-input-references.js";
+import { assertGenerationTextContract } from "./design-text-contract.js";
 import {
   getAiDepartmentContent,
   getAiDepartmentFormat,
@@ -177,6 +178,7 @@ function formatProductInsightPrompt(profile) {
 
 export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [], hookLibrary }) {
   const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
+  assertGenerationTextContract(brief.finalContent, hasAiDepartmentBrief(generationBrief));
   const avatarEmotion = resolveAvatarEmotionSelection({
     project,
     topic: brief.topic,
@@ -488,7 +490,6 @@ function pickFormat(project, reference) {
   if (/сравн/.test(source)) return "comparison";
   return reference?.layoutType || "checklist";
 }
-
 function firstLine(value) {
   return String(value || "").split(/\n/).map((item) => item.trim()).find(Boolean) || "";
 }

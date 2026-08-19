@@ -21,6 +21,14 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   return violations;
 }
 
+export function assertGenerationTextContract(contentScript = {}, enabled = true) {
+  if (!enabled) return;
+  const violations = getVisibleTextContractViolations({ contentScript });
+  if (violations.length) {
+    throw new Error(`Финальный текст AI-брифа не прошел проверку: ${violations.join(", ")}`);
+  }
+}
+
 export function getDesignTextContractViolations({ contentScript = {}, designFormatBrief = {} } = {}) {
   if (designFormatBrief.formatType !== "ranking_leaderboard") return [];
   const expectedCount = getRankingItemCount(designFormatBrief);

@@ -57,7 +57,9 @@ export async function saveRemoteState(state, baseUpdatedAt = "") {
   const { response, payload } = await fetchJsonWithRetry("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ state, baseUpdatedAt })
+    body: JSON.stringify({ state, baseUpdatedAt }),
+    timeoutMs: 60000,
+    attempts: 1
   });
   readStateSyncPayload(response, payload);
   return {

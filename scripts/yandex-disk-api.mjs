@@ -316,19 +316,7 @@ function dataUrlToBuffer(value) {
 }
 
 function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
+  return readJsonRequest(request);
 }
 
 function sendJson(response, status, payload) {
@@ -336,3 +324,4 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload));
   return true;
 }
+import { readJsonRequest } from "./request-body.mjs";

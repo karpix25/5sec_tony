@@ -24,9 +24,20 @@ export async function fetchJsonWithRetry(url, options = {}) {
 
 async function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) {
+      const timeoutError = new Error(`Request timed out after ${timeoutMs} ms`);
+      timeoutError.name = "TimeoutError";
+      throw timeoutError;
+    }
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
@@ -45,7 +56,9 @@ function shouldRetryResponse(response) {
 }
 
 export function isTransientFetchError(error) {
-  return error?.name === "AbortError" || /failed to fetch|network|load failed|fetch/i.test(String(error?.message || ""));
+  return error?.name === "AbortError"
+    || error?.name === "TimeoutError"
+    || /failed to fetch|network|load failed|fetch|timed out/i.test(String(error?.message || ""));
 }
 
 function isRetryableError(error) {

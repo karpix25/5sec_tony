@@ -13,6 +13,7 @@ import {
   toPublicServerJob
 } from "./server-job-runner.mjs";
 import { summarizeJobForLog, summarizeServerJobContext } from "./operation-logger.mjs";
+import { readJsonRequest } from "./request-body.mjs";
 
 const serverJobs = new Map();
 
@@ -224,13 +225,7 @@ async function enqueueServerJobLedger(record) {
 }
 
 function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => { data += chunk; });
-    request.on("end", () => {
-      try { resolve(data ? JSON.parse(data) : {}); } catch (error) { reject(error); }
-    });
-  });
+  return readJsonRequest(request);
 }
 
 function sendJson(response, status, payload) {

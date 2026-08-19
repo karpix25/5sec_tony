@@ -5,6 +5,7 @@ import { completeCreativeTeamImagePrompt } from "./creative-team-image-prompt.mj
 import { resolveImageInputUrls } from "./reference-assets.mjs";
 import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
 import { validateHeadlineSafety } from "../src/domain/attention-frame.js";
+import { readJsonRequest } from "./request-body.mjs";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -378,19 +379,7 @@ function describeOpenRouterTask(messages = []) {
 }
 
 function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
+  return readJsonRequest(request);
 }
 function sendJson(response, status, payload) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });

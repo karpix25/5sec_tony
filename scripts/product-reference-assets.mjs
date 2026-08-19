@@ -1,5 +1,6 @@
 import { appendProductReferenceToState } from "./media-state-store.mjs";
 import { isMultipartRequest, readMultipartForm } from "./multipart-form.mjs";
+import { readJsonRequest } from "./request-body.mjs";
 import { isS3AssetStorageConfigured, uploadDataUrlToS3 } from "./s3-assets.mjs";
 
 const imageDataUrlPattern = /^data:image\/[^;]+;base64,/i;
@@ -40,24 +41,7 @@ async function readProductReferenceBody(request) {
 }
 
 function readJson(request, maxBytes) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > maxBytes) {
-        reject(new Error("Product reference request is too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
+  return readJsonRequest(request, { limitBytes: maxBytes, tooLargeMessage: "Product reference request is too large" });
 }
 
 function sendJson(response, status, payload) {

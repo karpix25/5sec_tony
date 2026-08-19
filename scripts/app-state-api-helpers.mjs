@@ -71,24 +71,7 @@ export async function loadCurrentState(query, deps, key, options = {}) {
 }
 
 export function readJsonBody(request, { limitBytes = 1024 * 1024 } = {}) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    request.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > limitBytes) {
-        reject(new Error("Request body is too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
+  return readJsonRequest(request, { limitBytes });
 }
 
 export function sendJson(response, status, payload) {
@@ -103,3 +86,4 @@ export function sendJson(response, status, payload) {
 export function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+import { readJsonRequest } from "./request-body.mjs";
