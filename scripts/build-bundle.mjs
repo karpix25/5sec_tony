@@ -178,6 +178,7 @@ const files = [
   "src/ui/project.js",
   "src/ui/project-automation-controls.js",
   "src/ui/research.js",
+  "src/ui/queue-pagination.js",
   "src/ui/queue.js",
   "src/ui/yandex-folder-picker.js",
   "src/ui/url-navigation.js",

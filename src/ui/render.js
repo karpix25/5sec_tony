@@ -127,7 +127,7 @@ function renderOperationsPanel(state, context, operations = {}) {
         <div class="panel-head compact">
           <div><span class="eyebrow">${isGlobalReferenceTab(state) ? "Общая библиотека" : "Настройки"}</span><h2>${isGlobalReferenceTab(state) ? "Глобальные референсы" : "Настройки проекта"}</h2></div>
         </div>
-        ${isGlobalReferenceTab(state) ? renderGlobalReferencePanel(state, context, operations) : renderProjectSettingsTabs(state, context, operations)}
+        ${isGlobalReferenceTab(state) ? renderGlobalReferencePanel(state, context, operations) : renderProjectSettingsTabs(state, context, operations, options)}
         <small class="asset-summary">${context.project.references.length} рефов · ${context.project.characters.length} персонажей · ${context.audioLibrary.length} глобальных аудио</small>
       </div>
     </section>
@@ -138,7 +138,7 @@ function isGlobalReferenceTab(state) {
   return ["audio", "hooks"].includes(state.selectedProjectTab);
 }
 
-export function renderProjectSettingsTabs(state, context, operations = {}) {
+export function renderProjectSettingsTabs(state, context, operations = {}, options = {}) {
   const active = state.selectedProjectTab || "project";
   const automationState = getProjectAutomationState({ project: context.project, jobs: state.jobs });
   return `
@@ -156,7 +156,7 @@ export function renderProjectSettingsTabs(state, context, operations = {}) {
       ${active === "design" ? renderDesignSettings({ ...context, operations }) : ""}
       ${active === "avatars" ? renderAvatarSettings(context) : ""}
       ${active === "generation" ? renderStudioPanel(state, context) : ""}
-      ${active === "queue" ? renderQueuePanel(state, context) : ""}
+      ${active === "queue" ? renderQueuePanel(state, context, { pagination: options.pagination }) : ""}
     </div>
   `;
 }
@@ -325,7 +325,7 @@ function bindEvents(root, store, options = {}) {
   root.querySelectorAll("[data-advance]").forEach((button) => {
     button.addEventListener("click", () => store.advanceJob(button.dataset.advance));
   });
-  bindQueuePanelEvents(root, store);
+  bindQueuePanelEvents(root, store, { ...options, context: getContext(store.getState()) });
   root.querySelectorAll("[data-delete-project]").forEach((button) => {
     button.addEventListener("click", async () => {
       try {

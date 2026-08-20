@@ -4,6 +4,7 @@ import { humanizeProviderErrorMessage } from "../domain/provider-error-message.j
 import { escapeHtml } from "./infographic.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 import { renderJobAiTrace } from "./job-ai-trace.js";
+import { renderQueuePagination, renderQueuePaginationError } from "./queue-pagination.js";
 
 const queueStageLabels = {
   brief: "Готовим идею",
@@ -14,17 +15,19 @@ const queueStageLabels = {
   export: "Готово"
 };
 
-export function renderQueuePanel(state, context) {
+export function renderQueuePanel(state, context, options = {}) {
+  const pagination = options.pagination;
+  pagination?.ensure(context, getQueueProductFilter(state));
   return `
     <section class="embedded-panel queue-panel">
       ${renderQueuePanelHead(state, context)}
-      <div class="queue-filter-wrap">${renderQueueProductFilter(state, context)}</div>
-      <div class="queue-list">${renderQueueList(state, context)}</div>
+      <div class="queue-filter-wrap">${renderQueueProductFilter(state, context, pagination?.getState())}</div>
+      <div class="queue-list">${renderQueueList(state, context, pagination?.getState())}</div>
     </section>
   `;
 }
 
-export function updateQueuePanel(root, state, context, store) {
+export function updateQueuePanel(root, state, context, store, options = {}) {
   const panel = root.querySelector(".queue-panel");
   if (!panel) return false;
   const filter = panel.querySelector(".queue-filter-wrap");
@@ -32,20 +35,26 @@ export function updateQueuePanel(root, state, context, store) {
   if (!list) return false;
   const head = panel.querySelector(".queue-panel-head");
   if (head) head.outerHTML = renderQueuePanelHead(state, context);
-  if (filter) filter.innerHTML = renderQueueProductFilter(state, context);
-  list.innerHTML = renderQueueList(state, context);
-  bindQueuePanelEvents(root, store);
+  const pagination = options.pagination;
+  pagination?.ensure(context, getQueueProductFilter(state));
+  if (filter) filter.innerHTML = renderQueueProductFilter(state, context, pagination?.getState());
+  list.innerHTML = renderQueueList(state, context, pagination?.getState());
+  bindQueuePanelEvents(root, store, { ...options, context });
   return true;
 }
 
-function renderQueueProductFilter(state, context) {
+function renderQueueProductFilter(state, context, paginationState) {
   const filter = getQueueProductFilter(state);
   const projectJobs = getProjectQueueJobs(state, context);
   const currentProductJobs = projectJobs.filter((job) => job.productId === context.product?.id);
+  const currentCount = paginationState?.key && paginationState.filter === "current"
+    ? paginationState.total
+    : paginationState?.key ? paginationState.currentTotal : currentProductJobs.length;
+  const projectCount = paginationState?.key ? paginationState.allTotal : projectJobs.length;
   return `
     <div class="queue-filter" role="group" aria-label="Фильтр очереди по продукту">
-      ${renderQueueFilterButton("current", `Текущий продукт (${currentProductJobs.length})`, filter)}
-      ${renderQueueFilterButton("all", `Все продукты проекта (${projectJobs.length})`, filter)}
+      ${renderQueueFilterButton("current", `Текущий продукт (${currentCount})`, filter)}
+      ${renderQueueFilterButton("all", `Все продукты проекта (${projectCount})`, filter)}
     </div>
   `;
 }
@@ -64,14 +73,24 @@ function renderQueueFilterButton(value, label, selected) {
   return `<button class="queue-filter-btn ${value === selected ? "active" : ""}" data-queue-product-filter="${value}" type="button">${escapeHtml(label)}</button>`;
 }
 
-function renderQueueList(state, context) {
+function renderQueueList(state, context, paginationState) {
+  if (paginationState?.key) {
+    if (paginationState.error) return renderQueuePaginationError(paginationState.error);
+    if (paginationState.loading && !paginationState.jobs) return "<p class='empty'>Загрузка истории генераций…</p>";
+    const jobs = paginationState.jobs || [];
+    return `${renderQueueJobs(jobs, state)}${renderQueuePagination(paginationState)}`
+      || `<p class='empty'>${escapeHtml(getEmptyQueueMessage(state, context))}</p>`;
+  }
   const projectJobs = getVisibleQueueJobs(state, context);
-  const productNames = new Map((state.products || []).map((product) => [product.id, product.name]));
-  return projectJobs.map((job) => renderQueueJob(job, job.productName || productNames.get(job.productId))).join("")
-    || `<p class='empty'>${escapeHtml(getEmptyQueueMessage(state, context))}</p>`;
+  return renderQueueJobs(projectJobs, state) || `<p class='empty'>${escapeHtml(getEmptyQueueMessage(state, context))}</p>`;
 }
 
-export function bindQueuePanelEvents(root, store) {
+function renderQueueJobs(jobs, state) {
+  const productNames = new Map((state.products || []).map((product) => [product.id, product.name]));
+  return jobs.map((job) => renderQueueJob(job, job.productName || productNames.get(job.productId))).join("");
+}
+
+export function bindQueuePanelEvents(root, store, options = {}) {
   root.querySelectorAll("[data-queue-product-filter]:not([data-queue-bound])").forEach((button) => {
     button.dataset.queueBound = "true";
     button.addEventListener("click", () => store.selectQueueProductFilter?.(button.dataset.queueProductFilter));
@@ -83,6 +102,21 @@ export function bindQueuePanelEvents(root, store) {
   root.querySelectorAll("[data-retry-project]:not([data-queue-bound]), [data-retry-job]:not([data-queue-bound])").forEach((button) => {
     button.dataset.queueBound = "true";
     button.addEventListener("click", () => retryFailedJobs(button, store));
+  });
+  root.querySelectorAll("[data-queue-page]:not([data-queue-bound])").forEach((button) => {
+    button.dataset.queueBound = "true";
+    button.addEventListener("click", () => options.pagination?.goToPage(
+      Number(button.dataset.queuePage),
+      options.context,
+      getQueueProductFilter(store.getState?.() || {})
+    ));
+  });
+  root.querySelectorAll("[data-queue-page-retry]:not([data-queue-bound])").forEach((button) => {
+    button.dataset.queueBound = "true";
+    button.addEventListener("click", () => options.pagination?.refresh(
+      options.context,
+      getQueueProductFilter(store.getState?.() || {})
+    ));
   });
 }
 
@@ -438,7 +472,6 @@ function renderQueueLoader(failed, failMsg, pendingType = "image", job = null) {
     </div>
   `;
 }
-
 function getQueuePendingMessage(pendingType, job) {
   if (pendingType !== "video") {
     if (job?.queueStatus === "retrying") return "Предыдущая попытка завершилась ошибкой, запускаем повторно.";
@@ -449,7 +482,6 @@ function getQueuePendingMessage(pendingType, job) {
     ? "Картинка готова, сейчас собираем mp4 из картинки и аудио."
     : "Картинка готова, сейчас накладываем аватара и аудио.";
 }
-
 function isQueueJobReady(job) {
   if (isFinalVideoJob(job)) {
     return Boolean(job.finalVideoUrl) && ["review", "done"].includes(job.status);

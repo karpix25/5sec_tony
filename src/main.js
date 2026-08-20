@@ -8,6 +8,7 @@ import { getOpenMediaPreviewState, restoreMediaPreviewState } from "./ui/preview
 import { updateGenerationAutomationStats } from "./ui/generation-live.js";
 import { bindButtonDebug } from "./ui/button-debug.js";
 import { updateQueuePanel } from "./ui/queue.js";
+import { createQueuePagination } from "./ui/queue-pagination.js";
 import { captureTransientUiState, restoreTransientUiState } from "./ui/transient-ui-state.js";
 import { createAuthController } from "./ui/auth.js";
 import { renderStudioLoading } from "./ui/studio-loading.js";
@@ -22,6 +23,7 @@ let pendingState = null;
 let firstRenderReady = false;
 let initialPagePositionRestored = false;
 let stopUrlNavigationSync = null;
+const queuePagination = createQueuePagination({ onChange: () => renderAppSafely() });
 
 const auth = createAuthController({
   root: null,
@@ -89,7 +91,7 @@ function flushRender() {
   pendingFrame = 0;
   if (!needsFullRender) {
     const context = getContext(pendingState);
-    updateQueuePanel(root, pendingState, context, store);
+    updateQueuePanel(root, pendingState, context, store, { pagination: getQueuePagination() });
     updateGenerationAutomationStats(root, pendingState, context);
     return;
   }
@@ -102,7 +104,7 @@ function renderAppSafely() {
   const preview = getOpenMediaPreviewState(root);
   const transientUiState = captureTransientUiState(root);
   const pagePosition = initialPagePositionRestored ? capturePagePosition(window) : undefined;
-  renderApp(root, store, { auth, rerender: renderAppSafely });
+  renderApp(root, store, { auth, rerender: renderAppSafely, pagination: getQueuePagination() });
   restoreMediaPreviewState(root, preview);
   restoreTransientUiState(root, transientUiState);
   restorePagePosition(window, pagePosition);
@@ -111,6 +113,10 @@ function renderAppSafely() {
 
 function isJobsOnlyPatch(patch) {
   return Boolean(patch && Object.keys(patch).length === 1 && Array.isArray(patch.jobs));
+}
+
+function getQueuePagination() {
+  return store?.getPersistenceStatus?.().status === "local" ? null : queuePagination;
 }
 
 function requestRenderFrame(callback) {

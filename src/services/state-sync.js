@@ -17,8 +17,10 @@ export async function loadRemoteState() {
   };
 }
 
-export async function loadRemoteJobsPage(offset = 0, limit = 500) {
+export async function loadRemoteJobsPage(offset = 0, limit = 500, filters = {}) {
   const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (filters.projectId) query.set("projectId", filters.projectId);
+  if (filters.productId) query.set("productId", filters.productId);
   const { response, payload } = await fetchJsonWithRetry(`/api/state/jobs?${query}`, { method: "GET" });
   readStateSyncPayload(response, payload);
   return {

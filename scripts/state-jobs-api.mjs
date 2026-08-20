@@ -21,10 +21,15 @@ export function createStateJobsApiHandler(deps = {}) {
     if (!isConfigured()) return sendJson(response, 200, { jobs: [], disabled: true, hasMore: false });
     try {
       await ensureSchema(query);
-      const page = await loadPage(query, appStateKey, {
+      const pageOptions = {
         offset: readNumber(url.searchParams.get("offset"), 0),
         limit: readLimit(url.searchParams.get("limit"))
-      });
+      };
+      const projectId = url.searchParams.get("projectId") || "";
+      const productId = url.searchParams.get("productId") || "";
+      if (projectId) pageOptions.projectId = projectId;
+      if (productId) pageOptions.productId = productId;
+      const page = await loadPage(query, appStateKey, pageOptions);
       return sendJson(response, 200, { ...page, ...await loadMetadata(query, appStateKey) });
     } catch (error) {
       return sendJson(response, 500, { error: error.message || "Не удалось загрузить историю генераций" });
