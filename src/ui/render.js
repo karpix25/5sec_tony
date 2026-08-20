@@ -44,7 +44,7 @@ export function renderApp(root, store, options = {}) {
         ${renderSidebar(state, context, projectProducts)}
       <section class="workspace">
         ${renderHeader(context, persistenceStatus, options.auth)}
-        ${renderOperationsPanel(state, context, operations)}
+        ${renderOperationsPanel(state, context, operations, options)}
         ${renderWorkspaceAuthAdmin(options.auth)}
       </section>
     </main>
@@ -120,7 +120,7 @@ function renderHeader({ project }, persistenceStatus, auth) {
   `;
 }
 
-function renderOperationsPanel(state, context, operations = {}) {
+function renderOperationsPanel(state, context, operations = {}, options = {}) {
   return `
     <section class="panel ops-panel">
       <div class="ops-column assets-column">
