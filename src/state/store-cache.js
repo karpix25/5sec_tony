@@ -31,7 +31,7 @@ export function createStoreCache(normalize) {
     getPendingRemoteSaveHooks() {
       return {
         getPendingRemoteSave: () => readPendingRemoteSave(pendingRemoteSaveKey, storageVersion, normalize),
-        savePendingRemoteSave: (state, baseUpdatedAt) => savePendingRemoteSave(pendingRemoteSaveKey, storageVersion, state, baseUpdatedAt),
+        savePendingRemoteSave: (state, baseUpdatedAt, changedKeys) => savePendingRemoteSave(pendingRemoteSaveKey, storageVersion, state, baseUpdatedAt, changedKeys),
         clearPendingRemoteSave: () => clearPendingRemoteSave(pendingRemoteSaveKey)
       };
     },

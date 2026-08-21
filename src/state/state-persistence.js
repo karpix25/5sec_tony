@@ -35,6 +35,7 @@ export function createStatePersistence({
   let jobsRetryTimer = null;
   let jobsHydrationPromise = Promise.resolve();
   let resolveJobsHydration = null;
+  let pendingChangedKeys = new Set();
 
   async function hydrate() {
     if (hydratePromise) return hydratePromise;
@@ -81,10 +82,11 @@ export function createStatePersistence({
     return hydratePromise;
   }
 
-  function scheduleSave() {
+  function scheduleSave(changedKeys = []) {
     if (!hydrated) return;
+    changedKeys.forEach((key) => pendingChangedKeys.add(key));
     pendingSave = true;
-    savePendingRemoteSave?.(getState(), remoteUpdatedAt);
+    savePendingRemoteSave?.(getState(), remoteUpdatedAt, [...pendingChangedKeys]);
     if (!remoteJobsReady) {
       notifyStatus({ status: "loading", message: "Загружаем историю генераций перед сохранением" });
       return;
@@ -107,10 +109,12 @@ export function createStatePersistence({
     const stateToSave = getState();
     const baseUpdatedAt = remoteUpdatedAt;
     const baseState = remoteStateSnapshot;
+    const changedKeys = [...pendingChangedKeys];
+    pendingChangedKeys = new Set();
     let deferPendingSaveFlush = false;
     try {
-      savePendingRemoteSave?.(stateToSave, baseUpdatedAt);
-      const result = await saveRemoteState(stateToSave, baseUpdatedAt);
+      savePendingRemoteSave?.(stateToSave, baseUpdatedAt, changedKeys);
+      const result = await saveRemoteState(stateToSave, baseUpdatedAt, { changedKeys });
       if (result.disabled) {
         stopAutoRefresh();
         clearPendingRemoteSave?.();
@@ -125,14 +129,16 @@ export function createStatePersistence({
       }
     } catch (error) {
       if (error instanceof StateSyncConflictError || error?.conflict) {
+        pendingChangedKeys = new Set();
         await acceptRemoteConflict(error, { attemptedState: stateToSave, baseState });
         return;
       }
       if (isTransientFetchError(error)) {
-        scheduleTransientSaveRetry(stateToSave, baseUpdatedAt);
+        scheduleTransientSaveRetry(stateToSave, baseUpdatedAt, changedKeys);
         deferPendingSaveFlush = true;
         return;
       }
+      pendingChangedKeys = new Set([...changedKeys, ...pendingChangedKeys]);
       notifyStatus({ status: "error", message: error.message || "Ошибка сохранения в БД" });
     } finally {
       saveInFlight = false;
@@ -148,7 +154,7 @@ export function createStatePersistence({
     remoteStateSnapshot = nextState || getState();
     if (hadPendingSave) {
       pendingSave = true;
-      savePendingRemoteSave?.(getState(), remoteUpdatedAt);
+      savePendingRemoteSave?.(getState(), remoteUpdatedAt, [...pendingChangedKeys]);
       if (!saveInFlight && !timer) timer = setTimeout(flushSave, saveDelayMs);
       notifyStatus({
         status: "saving",
@@ -164,9 +170,10 @@ export function createStatePersistence({
     notifyStatus({ status: "saved", message: "Сохранено в БД", updatedAt: remoteUpdatedAt });
   }
 
-  function scheduleTransientSaveRetry(stateToSave, baseUpdatedAt) {
+  function scheduleTransientSaveRetry(stateToSave, baseUpdatedAt, changedKeys = []) {
+    pendingChangedKeys = new Set([...changedKeys, ...pendingChangedKeys]);
     pendingSave = true;
-    savePendingRemoteSave?.(stateToSave, baseUpdatedAt);
+    savePendingRemoteSave?.(stateToSave, baseUpdatedAt, [...pendingChangedKeys]);
     clearTimeout(timer);
     timer = setTimeout(flushSave, transientSaveRetryDelayMs);
     notifyStatus({
@@ -357,6 +364,7 @@ export function createStatePersistence({
       return false;
     }
     await replaceStateWhenSafe(pending.state);
+    pendingChangedKeys = new Set(pending.changedKeys || []);
     pendingSave = true;
     clearTimeout(timer);
     timer = setTimeout(flushSave, 0);

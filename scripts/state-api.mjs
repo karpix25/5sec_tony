@@ -138,7 +138,10 @@ async function handleSaveState(request, response, url, deps) {
         };
       }
       const audioLibraryChanged = hasAudioLibraryChanged(currentState, nextState);
-      const normalizedResult = await deps.saveNormalized(tx.query, appStateKey, nextState, { preserveCatalog: true });
+      const changedKeys = Array.isArray(body.changedKeys) ? body.changedKeys : [];
+      const saveOptions = { preserveCatalog: true };
+      if (changedKeys.includes("hookLibrary")) saveOptions.allowHookLibraryOverwrite = true;
+      const normalizedResult = await deps.saveNormalized(tx.query, appStateKey, nextState, saveOptions);
       const savedState = isPlainStateObject(normalizedResult) ? normalizedResult : nextState;
       await deps.touchAppStateMetadata(tx.query, appStateKey);
       if (audioLibraryChanged) await deps.markAudioUpdated({ query: tx.query, appStateKey });

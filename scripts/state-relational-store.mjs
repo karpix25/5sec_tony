@@ -84,14 +84,24 @@ export async function loadNormalizedState(query, appStateKey, options = {}) {
 
 export async function saveNormalizedState(query, appStateKey, state, options = {}) {
   const preserveCatalog = Boolean(options.preserveCatalog);
+  const allowHookLibraryOverwrite = Boolean(options.allowHookLibraryOverwrite);
   await ensureStateSchema(query);
   await lockAppStateMutation(query, appStateKey);
   const existingProjectsById = preserveCatalog ? new Map() : await loadExistingProjectsById(query, appStateKey);
   const existingJobsById = await loadExistingJobsById(query, appStateKey);
+  const existingHookLibrary = await loadHookLibrary(query, appStateKey);
   const normalizedState = prepareStateForRelationalSave(sanitizeTextTree(state), existingJobsById, existingProjectsById);
-  await clearNormalizedState(query, appStateKey, { preserveCatalog });
+  const shouldPersistHookLibrary = allowHookLibraryOverwrite || !existingHookLibrary.versions.length;
+  const hookLibrary = shouldPersistHookLibrary
+    ? normalizedState.hookLibrary || { activeVersionId: "", versions: [] }
+    : existingHookLibrary;
+  const stateToPersist = { ...normalizedState, hookLibrary };
+  await clearNormalizedState(query, appStateKey, {
+    preserveCatalog,
+    preserveHookLibrary: !shouldPersistHookLibrary
+  });
   if (preserveCatalog) await deleteCatalogTombstones(query, appStateKey, normalizedState);
-  await saveUiState(query, appStateKey, normalizedState);
+  await saveUiState(query, appStateKey, stateToPersist);
   if (!preserveCatalog) {
     await saveProjects(query, appStateKey, normalizedState.projects || []);
     await saveProducts(query, appStateKey, normalizedState.products || []);
@@ -99,10 +109,10 @@ export async function saveNormalizedState(query, appStateKey, state, options = {
   await saveJobs(query, appStateKey, normalizedState.jobs || [], existingJobsById);
   await saveGlobalAudio(query, appStateKey, normalizedState.audioLibrary || []);
   await syncAudioLibraryRefreshReminder(normalizedState.audioLibrary || [], { query, appStateKey });
-  await saveHookLibrary(query, appStateKey, normalizedState.hookLibrary || { activeVersionId: "", versions: [] });
+  if (shouldPersistHookLibrary) await saveHookLibrary(query, appStateKey, hookLibrary);
   await saveReelsResearch(query, appStateKey, normalizedState.reelsResearch);
   if (preserveCatalog) [normalizedState.projects, normalizedState.products] = await Promise.all([loadProjects(query, appStateKey), loadProducts(query, appStateKey)]);
-  return normalizedState;
+  return { ...stateToPersist, projects: normalizedState.projects, products: normalizedState.products };
 }
 
 export async function loadLegacyState(query, appStateKey) {
@@ -313,9 +323,11 @@ async function loadReelsResearch(query, appStateKey) {
 }
 
 async function clearNormalizedState(query, appStateKey, options = {}) {
-  await query("delete from studio_hook_items where app_state_key = $1", [appStateKey]);
-  await query("delete from studio_hook_versions where app_state_key = $1", [appStateKey]);
-  await query("delete from studio_hook_library_state where app_state_key = $1", [appStateKey]);
+  if (!options.preserveHookLibrary) {
+    await query("delete from studio_hook_items where app_state_key = $1", [appStateKey]);
+    await query("delete from studio_hook_versions where app_state_key = $1", [appStateKey]);
+    await query("delete from studio_hook_library_state where app_state_key = $1", [appStateKey]);
+  }
   await query("delete from studio_reels_research where app_state_key = $1", [appStateKey]);
   await query("delete from studio_global_audio_assets where app_state_key = $1", [appStateKey]);
   await query("delete from studio_jobs where app_state_key = $1", [appStateKey]);

@@ -178,6 +178,37 @@ test("catalog-preserving save returns the catalog that remains in postgres", asy
   assert.deepEqual(saved.products.map((product) => product.id), ["product-1", "product-2"]);
 });
 
+test("ordinary state saves cannot replace the existing hook library", async () => {
+  const db = createFakeRelationalStateDb();
+  const baseState = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: [],
+    hookLibrary: {
+      activeVersionId: "hooks-old",
+      versions: [{ id: "hooks-old", title: "Хуки 05.07.2026", status: "active", createdAt: "2026-07-05", hooks: [{ id: "hook-old", text: "Старый хук" }] }]
+    }
+  };
+  const newerState = {
+    ...baseState,
+    hookLibrary: {
+      activeVersionId: "hooks-new",
+      versions: [{ id: "hooks-new", title: "Хуки 21.08.2026", status: "active", createdAt: "2026-08-21", hooks: [{ id: "hook-new", text: "Новый хук" }] }]
+    }
+  };
+
+  await saveNormalizedState(db.query, "workspace-hooks", baseState);
+  const ordinarySave = await saveNormalizedState(db.query, "workspace-hooks", newerState);
+
+  assert.equal(ordinarySave.hookLibrary.activeVersionId, "hooks-old");
+  assert.equal((await loadNormalizedState(db.query, "workspace-hooks")).hookLibrary.activeVersionId, "hooks-old");
+
+  await saveNormalizedState(db.query, "workspace-hooks", newerState, { allowHookLibraryOverwrite: true });
+  assert.equal((await loadNormalizedState(db.query, "workspace-hooks")).hookLibrary.activeVersionId, "hooks-new");
+});
+
 test("save normalized state preserves server job lifecycle fields from stale client snapshots", async () => {
   const db = createFakeRelationalStateDb();
   const baseState = {

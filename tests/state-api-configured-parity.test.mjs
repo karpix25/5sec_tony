@@ -146,6 +146,48 @@ test("state api keeps protected jobs missing from stale snapshots", async () => 
   assert.equal(savedState.jobs[0].queueStatus, "queued");
 });
 
+test("state api does not let an ordinary project save replace hooks", async () => {
+  const baseUpdatedAt = "2026-08-21T10:00:00.000Z";
+  const db = createFakeRelationalStateDb({ updatedAt: baseUpdatedAt });
+  const baseState = {
+    selectedProjectId: "project-1",
+    selectedProductId: "product-1",
+    projects: [{ id: "project-1", name: "Project" }],
+    products: [{ id: "product-1", projectId: "project-1", name: "Product" }],
+    jobs: [],
+    hookLibrary: {
+      activeVersionId: "hooks-old",
+      versions: [{ id: "hooks-old", title: "Хуки 05.07.2026", status: "active", createdAt: "2026-07-05", hooks: [{ id: "hook-old", text: "Старый хук" }] }]
+    }
+  };
+  const staleHookState = {
+    ...baseState,
+    generationBrief: { topic: "Новая тема" },
+    hookLibrary: {
+      activeVersionId: "hooks-new",
+      versions: [{ id: "hooks-new", title: "Хуки 21.08.2026", status: "active", createdAt: "2026-08-21", hooks: [{ id: "hook-new", text: "Новый хук" }] }]
+    }
+  };
+  const handleStateApi = createRealStateHandler(db);
+
+  await saveNormalizedState(db.query, defaultAppStateKey, baseState);
+  await saveLegacyState(db.query, defaultAppStateKey, baseState);
+  db.setUpdatedAt(baseUpdatedAt);
+
+  const response = createJsonResponse();
+  await handleStateApi(
+    createJsonRequest("POST", { state: staleHookState, baseUpdatedAt, changedKeys: ["projects"] }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.parityOk, true);
+  const savedState = await loadNormalizedState(db.query, defaultAppStateKey);
+  assert.equal(savedState.generationBrief.topic, "Новая тема");
+  assert.equal(savedState.hookLibrary.activeVersionId, "hooks-old");
+});
+
 function createProjectState(jobs) {
   return {
     selectedProjectId: "project-1",

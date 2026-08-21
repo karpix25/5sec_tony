@@ -55,11 +55,12 @@ export class StateSyncConflictError extends Error {
   }
 }
 
-export async function saveRemoteState(state, baseUpdatedAt = "") {
+export async function saveRemoteState(state, baseUpdatedAt = "", options = {}) {
+  const changedKeys = Array.isArray(options.changedKeys) ? options.changedKeys : [];
   const { response, payload } = await fetchJsonWithRetry("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ state, baseUpdatedAt }),
+    body: JSON.stringify({ state, baseUpdatedAt, changedKeys }),
     timeoutMs: 60000,
     attempts: 1
   });

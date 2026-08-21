@@ -10,13 +10,15 @@ export function readPendingRemoteSave(storageKey, storageVersion, normalize) {
   if (!isPendingRemoteSave(pending)) return null;
   return {
     baseUpdatedAt: pending.baseUpdatedAt || "",
+    changedKeys: Array.isArray(pending.changedKeys) ? pending.changedKeys : [],
     state: typeof normalize === "function" ? normalize(pending.state) : pending.state
   };
 }
 
-export function savePendingRemoteSave(storageKey, storageVersion, state, baseUpdatedAt) {
+export function savePendingRemoteSave(storageKey, storageVersion, state, baseUpdatedAt, changedKeys = []) {
   return writeJsonStorage(storageKey, {
     baseUpdatedAt: baseUpdatedAt || "",
+    changedKeys: Array.isArray(changedKeys) ? changedKeys : [],
     state
   }, {
     version: storageVersion,

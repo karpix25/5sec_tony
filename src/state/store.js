@@ -54,7 +54,7 @@ export function createStore() {
     state = nextState;
     storeCache.persist(state);
     if (!options.skipRemoteSave && shouldScheduleRemoteSave(previousState, nextState, patch)) {
-      statePersistence?.scheduleSave();
+      statePersistence?.scheduleSave(Object.keys(patch));
     }
     subscribers.forEach((subscriber) => subscriber(state, patch));
   }
@@ -152,7 +152,7 @@ export function createStore() {
   const hydrationPromise = new Promise((resolve) => setTimeout(() => resolve(statePersistence.hydrate()), 0));
   hydrationPromise.then(() => {
     hydrationSettled = true;
-    if (hadLocalChangesBeforeHydrate) statePersistence.scheduleSave();
+    if (hadLocalChangesBeforeHydrate) statePersistence.scheduleSave([...preHydrationLocalKeys]);
     avatarWorkflow.resumeAvatarPolling();
     designReferenceWorkflow.resumeDesignReferencePolling();
     projectCtaWorkflow.resumeProjectCtaPolling();
