@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { ensureJobQueueSchema } from "./job-queue-schema.mjs";
 import { isPostgresConfigured, queryPostgres } from "./postgres-client.mjs";
-import { getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
+import { getJobQueueName, getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
 
 export async function checkJobQueueReadiness(options = {}) {
   loadEnvFile(options.envPath || ".env");
@@ -33,7 +33,7 @@ async function checkRedis(options) {
   if (!shouldUseBullMq(env)) return { name: "redis", ok: true, message: "inline mode; Redis is not required" };
   try {
     const { Queue } = await loadBullMq(options);
-    const queue = new Queue(env.JOB_QUEUE_NAME || "generation", { connection: getRedisConnection(env) });
+    const queue = new Queue(getJobQueueName(env), { connection: getRedisConnection(env) });
     await queue.waitUntilReady();
     const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed", "completed");
     await queue.close();

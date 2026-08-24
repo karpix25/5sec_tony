@@ -1,9 +1,14 @@
-const queueName = process.env.JOB_QUEUE_NAME || "generation";
+const queueVersion = "v2";
+
+export function getJobQueueName(env = process.env) {
+  return `${env.JOB_QUEUE_NAME || "generation"}-${queueVersion}`;
+}
 
 export async function dispatchJobToQueue(job, deps = {}) {
-  if (!shouldUseBullMq(deps.env || process.env)) return { mode: "inline", enqueued: false };
+  const env = deps.env || process.env;
+  if (!shouldUseBullMq(env)) return { mode: "inline", enqueued: false };
   const { Queue } = await loadBullMq(deps);
-  const queue = new Queue(queueName, { connection: getRedisConnection(deps.env || process.env) });
+  const queue = new Queue(getJobQueueName(env), { connection: getRedisConnection(env) });
   const jobId = toBullMqJobId(job.queueIdempotencyKey || job.id);
   const existing = await queue.getJob?.(jobId);
   if (existing) {

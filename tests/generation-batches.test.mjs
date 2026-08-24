@@ -106,7 +106,7 @@ test("backend generation batch creates server-owned brief jobs in state", async 
     ["running", "brief", true],
     ["running", "brief", true]
   ]);
-  assert.equal(result.jobs.every((job) => job.queueName === "generation-brief" && job.queueStatus === "queued"), true);
+  assert.equal(result.jobs.every((job) => job.queueName === "generation-brief-v2" && job.queueStatus === "queued"), true);
   assert.deepEqual(result.jobs.map((job) => job.productId), [selectedProduct.id, selectedProduct.id]);
   assert.deepEqual(result.jobs.map((job) => job.productName), [selectedProduct.name, selectedProduct.name]);
 });

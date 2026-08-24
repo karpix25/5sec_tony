@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { dispatchJobToQueue, getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
+import { dispatchJobToQueue, getJobQueueName, getRedisConnection, shouldUseBullMq } from "./job-queue-dispatcher.mjs";
 import { startBriefQueueWorker } from "./brief-queue.mjs";
 import { appendJobQueueEvent } from "./job-ledger-events.mjs";
 import { claimNextQueuedJob, claimQueuedJobById, findUndispatchedQueueJobs, markJobWorkerFailure, requeueExpiredJobLocks, touchJobWorkerLock } from "./job-ledger-store.mjs";
@@ -8,7 +8,7 @@ import { loadPersistedServerJob, loadPersistedServerJobContext, persistServerJob
 import { createResumedServerJobRecord, runServerJob } from "./server-job-runner.mjs";
 
 const workerId = process.env.JOB_WORKER_ID || `worker-${randomUUID()}`;
-const queueName = process.env.JOB_QUEUE_NAME || "generation";
+const queueName = getJobQueueName();
 
 export async function runPostgresWorkerOnce(deps = {}) {
   const claimed = await claimNextQueuedJob(workerId, deps);

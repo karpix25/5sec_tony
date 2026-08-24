@@ -6,7 +6,7 @@ import {
 } from "./job-queue-dispatcher.mjs";
 import { processBriefJob } from "./brief-job-processor.mjs";
 
-const defaultQueueName = "generation-brief";
+const defaultQueueName = "generation-brief-v2";
 
 export function getBriefQueueName(env = process.env) {
   return env.BRIEF_QUEUE_NAME || defaultQueueName;

@@ -114,7 +114,7 @@ test("brief queue uses a stable BullMQ id and does not duplicate active jobs", a
   const first = await enqueueBriefJob(job, { batchId: "batch-1", origin: "http://web" }, { env, BullMQ });
   const second = await enqueueBriefJob(job, { batchId: "batch-1", origin: "http://web" }, { env, BullMQ });
 
-  assert.equal(getBriefQueueName(env), "generation-brief");
+  assert.equal(getBriefQueueName(env), "generation-brief-v2");
   assert.equal(first.enqueued, true);
   assert.equal(second.existing, true);
   assert.equal(BullMQ.added.length, 1);
@@ -139,7 +139,7 @@ test("brief queue worker receives durable job payload through dependency injecti
     opts: { attempts: 3 }
   });
 
-  assert.equal(worker.name, "generation-brief");
+  assert.equal(worker.name, "generation-brief-v2");
   assert.equal(worker.options.concurrency, 2);
   assert.equal(seen.length, 1);
   assert.equal(seen[0].jobId, "job-brief-1");
