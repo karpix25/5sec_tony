@@ -80,10 +80,7 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    const textContractViolations = [
-      ...getVisibleTextContractViolations({ contentScript: finalDraft.contentScript }),
-      ...validateHeadlineSafety(finalDraft.contentScript?.headline)
-    ];
+    const textContractViolations = getVisibleTextContractViolations({ contentScript: finalDraft.contentScript });
     if (textContractViolations.length) {
       return sendJson(response, 422, {
         error: "Финальный текст инфографики не прошел проверку",

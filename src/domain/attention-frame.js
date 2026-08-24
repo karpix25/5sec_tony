@@ -8,7 +8,7 @@ export const ATTENTION_FRAMES = Object.freeze([
 ]);
 
 const frameRules = Object.freeze({
-  recognition: "Начни с узнаваемого бытового симптома: зритель должен сразу узнать себя.",
+  recognition: "Опирайся на узнаваемую бытовую ситуацию: зритель должен сразу узнать себя.",
   diagnostic: "Дай быструю проверку или признак, который можно мысленно сверить с собой.",
   contrast: "Покажи конфликт ожидания и реальности: кажется одно, но влияет другое.",
   loss: "Подсвети конкретную ошибку или потерю времени, денег, комфорта или результата.",
@@ -30,7 +30,7 @@ export function selectAttentionFrame({ recentFrames = [], existingJobs = [] } = 
 
 export function attentionFrameInstruction(frame) {
   const normalized = normalizeFrame(frame) || "recognition";
-  return `ATTENTION FRAME: ${normalized}. ${frameRules[normalized]} Не начинай каждый заголовок с «почему»: форма должна соответствовать ситуации.`;
+  return `ATTENTION FRAME: ${normalized}. ${frameRules[normalized]} Это смысловой угол, а не шаблон первой фразы. Не начинай каждый заголовок с «почему»: форма должна соответствовать ситуации.`;
 }
 
 export function getAttentionFrameRule(frame) {
@@ -42,9 +42,9 @@ export function validateHeadlineSafety(headline) {
   const words = text.split(/\s+/).filter(Boolean);
   const violations = [];
   if (!text) violations.push("headline_empty");
-  if (words.length < 5) violations.push("headline_too_few_words");
-  if (words.length > 8) violations.push("headline_too_many_words");
-  if (text.length > 48) violations.push("headline_too_long");
+  if (words.length < 3) violations.push("headline_too_few_words");
+  if (words.length > 6) violations.push("headline_too_many_words");
+  if (text.length > 34) violations.push("headline_too_long");
   if (/^(а|и|но|если|когда|который|которая|которые|потому|что|как|почему|это|просто)$/i.test(words.at(-1) || "")) {
     violations.push("headline_incomplete");
   }

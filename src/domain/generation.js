@@ -20,7 +20,6 @@ import { createUniqueJobId } from "./job-identity.js";
 import { getReferenceFormatSignal, resolveGenerationFormat, resolvePointCountForFormat } from "./reference-format.js";
 import { compactImagePromptSource, limitImagePrompt } from "./image-prompt-budget.js";
 import { buildCreativeTeamImagePrompt, getCreativeTeamProductVisualMode } from "./creative-team-image-prompt.js";
-import { normalizeAiHeadlineContent } from "./ai-headline-normalizer.js";
 import { formatPointCountInstruction, formatVisiblePointSource, getVisibleImagePoints } from "./visible-points.js";
 import { createAvatarReservedZone, formatAvatarReservedZonePrompt } from "./avatar-overlay-zone.js";
 import { formatCurrentDatePrompt } from "./current-date-context.js";
@@ -287,15 +286,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
       : resolveGenerationFormat({ reference, requestedFormat: generationBrief.format, candidateFormat: topicCandidate?.format, lockedFormat }),
     aiPlan: generationBrief.aiPlan || topicCandidatePlan || undefined
   };
-  const aiContent = aiDepartmentMode
-    ? normalizeAiHeadlineContent({
-        content: getAiDepartmentContent(generationBrief),
-        generationBrief,
-        existingJobs,
-        project,
-        product
-      })
-    : null;
+  const aiContent = aiDepartmentMode ? getAiDepartmentContent(generationBrief) : null;
   const meaning = aiDepartmentMode
     ? null
     : createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs });

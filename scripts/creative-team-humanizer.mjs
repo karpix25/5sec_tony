@@ -1,20 +1,30 @@
 import { normalizeHumanizedLine, normalizeHumanizedPlan } from "../src/domain/text-humanizer.js";
+import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
 import { humanizeTextInstruction } from "./creative-team-prompts.mjs";
 
 export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, model, callOpenRouter, parseJsonDraft }) {
-  const basePlan = getDraftPlan(draft);
-  if (!basePlan.headline && !basePlan.points.length) return draft;
-  try {
-    const content = await callOpenRouter(token, model, [
-      { role: "system", content: "Ты редактор массовых Reels-инфографик. Пиши по-русски, просто, живо и безопасно. Верни только JSON без markdown." },
-      { role: "user", content: humanizeTextInstruction({ ...body, plan: basePlan, brief: draft }) }
-    ]);
-    const parsed = parseJsonDraft(content);
-    return withHumanizedPlan(draft, normalizeHumanizedPlan(parsed, basePlan), parsed.attentionReview);
-  } catch (error) {
-    console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);
-    return withHumanizedPlan(draft, normalizeHumanizedPlan(basePlan, basePlan));
+  let currentDraft = draft;
+  let basePlan = getDraftPlan(currentDraft);
+  if (!basePlan.headline && !basePlan.points.length) return currentDraft;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const content = await callOpenRouter(token, model, [
+        { role: "system", content: "Ты редактор массовых Reels-инфографик. Пиши по-русски, просто, живо и безопасно. Верни только JSON без markdown." },
+        { role: "user", content: humanizeTextInstruction({ ...body, plan: basePlan, brief: currentDraft }) }
+      ]);
+      const parsed = parseJsonDraft(content);
+      const plan = normalizeHumanizedPlan(parsed, basePlan);
+      currentDraft = withHumanizedPlan(currentDraft, plan, parsed.attentionReview);
+      const violations = getVisibleTextContractViolations({ contentScript: plan });
+      if (!violations.length) return currentDraft;
+      body = { ...body, headlineViolations: violations };
+      basePlan = plan;
+    } catch (error) {
+      console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);
+      return withHumanizedPlan(currentDraft, normalizeHumanizedPlan(basePlan, basePlan));
+    }
   }
+  return currentDraft;
 }
 
 function withHumanizedPlan(draft, plan, attentionReview = draft.attentionReview || null) {

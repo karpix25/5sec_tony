@@ -14,8 +14,8 @@ test("humanizer preserves meaning and leaves invalid headlines for contract reje
   assert.equal(duplicate.headline, "Шампунь. Шампунь");
   assert.equal(incomplete.headline, "Кожа скрипит после душа? Это плохой");
   assert.equal(longPlan.headline, long);
-  assert.deepEqual(getVisibleTextContractViolations({ contentScript: duplicate }), ["headline_duplicate_word"]);
-  assert.deepEqual(getVisibleTextContractViolations({ contentScript: incomplete }), ["headline_incomplete"]);
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: duplicate }), ["headline_too_few_words", "headline_duplicate_word"]);
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: incomplete }), ["headline_too_long", "headline_incomplete"]);
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: longPlan }), ["headline_too_long", "headline_too_many_words"]);
 });
 

@@ -1,7 +1,5 @@
 import { getPatternInstruction, pickScenarioPattern } from "./creative-patterns.js";
-import { writeHookFromFormula } from "./hook-formula-writer.js";
 import { getProductContentFocus } from "./product-content-focus.js";
-import { getExplicitHeadline, isHeadlineLocked, resolveHeadlineFormula } from "./headline-diversity.js";
 
 export function createMeaningBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const pattern = generationBrief.meaningPattern || pickScenarioPattern({ project, existingJobs });
@@ -17,30 +15,7 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     project.projectTheme,
     product.name
   ]);
-  const headlineLocked = isHeadlineLocked(generationBrief);
-  const hookCandidate = headlineLocked && getExplicitHeadline(generationBrief)
-    ? getExplicitHeadline(generationBrief)
-    : generationBrief.hook
-      || adaptHook(pattern.hook, { project, product, angle });
-  const diversity = resolveHeadlineFormula({
-    headline: hookCandidate,
-    existingJobs,
-    recentFormulas: generationBrief.recentFormulas || generationBrief.recentHeadlineFormulas,
-    locked: headlineLocked
-  });
-  const hook = diversity.changed
-    ? writeHookFromFormula(hookCandidate, {
-        subject: angle,
-        object: angle,
-        problem: angle,
-        result: angle,
-        count: "5",
-        formula: diversity.formula,
-        existingJobs,
-        recentFormulas: diversity.history,
-        variantSeed: `${project?.id || ""} ${product?.id || ""} ${angle || ""} ${diversity.formula}`
-      })
-    : hookCandidate;
+  const hook = getManualHeadline(generationBrief) || generationBrief.hook || angle;
   return {
     pattern,
     topic: generationBrief.topic || adaptTopic(pattern.topic, { project, product, angle }),
@@ -93,24 +68,6 @@ export function scoreMeaningBrief({ brief, project }) {
 
 
 
-function adaptHook(template, { project, product, angle }) {
-  const subject = shortSubject(project, product, angle);
-  if (!template) return subject;
-  if (!subject) return template;
-  if (/норма|красн|флаг|ошиб|проверь|миф|почему|вещ|признак/i.test(template)) {
-    return writeHookFromFormula(template, {
-      subject,
-      object: subject,
-      problem: subject,
-      result: subject,
-      count: "5",
-      variantSeed: `${project?.id || ""} ${product?.id || ""} ${angle || ""}`
-    });
-  }
-  if (/это/i.test(template)) return template.replace(/это/i, subject);
-  return `${template}: ${subject}`;
-}
-
 function adaptTopic(template, { project, product, angle }) {
   const focus = getProductContentFocus({ project, product });
   const context = angle || focus.subject || project.projectTheme || product.name;
@@ -124,9 +81,10 @@ function adaptVisualObject(template, { product, project }) {
   return `${template}; главный объект — ${focus.subject || product.description || product.name}`;
 }
 
-function shortSubject(project, product, angle) {
-  const focus = getProductContentFocus({ project, product });
-  return firstAvailable([angle, focus.subject, project.niche, project.projectTheme, product.name]).split(/[,.]/)[0].slice(0, 80);
+function getManualHeadline(brief = {}) {
+  const isManual = brief.headlineLocked || brief.lockHeadline || brief.manualHeadline || brief.isManualHeadline
+    || brief.generationSource === "manual" || brief.source === "manual" || brief.manual === true;
+  return isManual ? String(brief.lockedHeadline || brief.manualHeadline || brief.headline || brief.hook || "").trim() : "";
 }
 
 function getUniversalDisclaimer(project) {

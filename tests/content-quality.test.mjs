@@ -48,7 +48,7 @@ test("ai brief instructions demand shareable life facts", () => {
   assert.match(source, /Запрещены старые оболочки тем/);
   assert.match(source, /читать дольше 5 секунд/);
   assert.match(source, /Продукт не должен быть в каждом посте/);
-  assert.match(source, /Headline: 5[–-]8 слов, максимум 48 символов/);
+  assert.match(source, /Headline: 3[–-]6 слов, максимум 34 символа/);
   assert.match(source, /Не смешивай в одной карточке оплату рекламного кабинета, ВПН, нейросети, поддержку и заявки/);
   assert.match(source, /senior SMM strategist/);
   assert.match(source, /viral content marketer 2026/);
