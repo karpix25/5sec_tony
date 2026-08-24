@@ -28,11 +28,15 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
 export function repairVisibleTextContract(contentScript = {}, options = {}) {
   const sourceHeadline = normalizeRepairLine(contentScript.headline);
   const fallbackHeadlines = Array.isArray(options.fallbackHeadlines) ? options.fallbackHeadlines : [];
-  const candidates = [sourceHeadline, ...fallbackHeadlines, contentScript.subhead, ...getScriptPoints(contentScript)]
-    .map(normalizeRepairLine)
+  const [sourceCandidate, ...sourceClauses] = createHeadlineCandidates(sourceHeadline);
+  const candidates = [
+    sourceCandidate,
+    ...fallbackHeadlines.flatMap(createHeadlineCandidates),
+    ...sourceClauses,
+    ...[contentScript.subhead, ...getScriptPoints(contentScript)].flatMap(createHeadlineCandidates)
+  ]
     .filter((line) => line && !looksLikeProductDump(line) && !forbiddenVisiblePattern.test(line));
   const headline = candidates.find(isValidHeadline)
-    || createProductFallbackHeadline(options.productName)
     || "Вот что важно знать";
   const points = getScriptPoints(contentScript)
     .map(normalizePointText)
@@ -119,21 +123,14 @@ function isValidHeadline(value) {
   return !getVisibleTextContractViolations({ contentScript: { headline: value } }).length;
 }
 
-function createProductFallbackHeadline(productName) {
-  const words = normalizeRepairLine(productName)
-    .replace(/["'«»„“]/g, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter((word) => !/[a-z]/i.test(word));
-  for (let count = Math.min(4, words.length); count >= 2; count -= 1) {
-    const candidate = `${words.slice(0, count).join(" ")}: главное`;
-    if (isValidHeadline(candidate)) return candidate;
-  }
-  if (words[0]) {
-    const candidate = `Главное про ${words[0]}`;
-    if (isValidHeadline(candidate)) return candidate;
-  }
-  return "";
+function createHeadlineCandidates(value) {
+  const headline = normalizeRepairLine(value);
+  if (!headline || numberedHeadlineFragmentPattern.test(headline)) return [headline];
+  const clauses = normalizeVisibleLine(value)
+    .split(/\s*(?:[.!?;]|:\s+|[—–]\s+)\s*/)
+    .map(normalizeRepairLine)
+    .filter(Boolean);
+  return [...new Set([headline, ...clauses])];
 }
 
 function looksLikeProductDump(value) {

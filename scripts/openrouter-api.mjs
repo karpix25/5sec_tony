@@ -116,7 +116,7 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    const safeDraft = repairCreativeTeamText(humanizedDraft, { productName: body.product?.name });
+    const safeDraft = repairCreativeTeamText(humanizedDraft);
     const finalDraft = await completeCreativeTeamImagePrompt({
       token,
       body: bodyWithReferenceImages,
@@ -125,7 +125,7 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    return sendJson(response, 200, { model: writingModel, draft: repairCreativeTeamText(finalDraft, { productName: body.product?.name }) });
+    return sendJson(response, 200, { model: writingModel, draft: repairCreativeTeamText(finalDraft) });
   } catch (error) {
     console.error("[openrouter:brief:error]", JSON.stringify({
       message: error.message || "OpenRouter request failed",
@@ -135,12 +135,11 @@ async function generateBrief(request, response) {
   }
 }
 
-function repairCreativeTeamText(draft = {}, options = {}) {
+function repairCreativeTeamText(draft = {}) {
   const contentScript = draft.contentScript || draft.plan || draft.aiPlan || {};
   const violations = getVisibleTextContractViolations({ contentScript });
   const repaired = repairVisibleTextContract(contentScript, {
-    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic],
-    productName: options.productName
+    fallbackHeadlines: [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
   });
   return {
     ...draft,

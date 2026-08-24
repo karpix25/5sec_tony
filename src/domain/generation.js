@@ -179,8 +179,7 @@ export function createGenerationJob({ project, product, reference, character, au
   const rawBrief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   const suppliedContent = generationBrief?.contentScript || generationBrief?.plan || generationBrief?.aiPlan;
   const finalContent = repairVisibleTextContract(suppliedContent || rawBrief.finalContent, {
-    fallbackHeadlines: [rawBrief.hook, rawBrief.topic],
-    productName: product.name
+    fallbackHeadlines: [rawBrief.creativeBrief?.hookPromise, rawBrief.hook, rawBrief.topic]
   });
   const brief = { ...rawBrief, hook: finalContent.headline, finalContent, aiPlan: finalContent, contentScript: finalContent };
   const avatarEmotion = resolveAvatarEmotionSelection({

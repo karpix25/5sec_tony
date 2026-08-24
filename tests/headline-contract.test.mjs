@@ -53,9 +53,18 @@ test("visible text repair has a deterministic last resort", () => {
 test("visible text repair never clips a numbered product dump into a headline", () => {
   const repaired = repairVisibleTextContract({
     headline: "Заблуждение про 1. снижение веса 2. очищение организма 3. повышение выносливости"
-  }, { productName: "Жидкий хлорофилл BBHERB" });
+  });
 
-  assert.equal(repaired.headline, "Жидкий хлорофилл: главное");
+  assert.equal(repaired.headline, "Вот что важно знать");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
+test("visible text repair takes a natural sentence from the creative hook", () => {
+  const repaired = repairVisibleTextContract({
+    headline: "Зубная паста укрепляющая; усиленная защита от кариеса"
+  }, { fallbackHeadlines: ["Чистишь зубы сразу после кофе? Ты их портишь"] });
+
+  assert.equal(repaired.headline, "Чистишь зубы сразу после кофе");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 

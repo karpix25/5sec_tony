@@ -21,17 +21,16 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
       basePlan = plan;
     } catch (error) {
       console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);
-      return repairDraft(currentDraft, basePlan, body);
+      return repairDraft(currentDraft, basePlan);
     }
   }
-  return repairDraft(currentDraft, basePlan, body);
+  return repairDraft(currentDraft, basePlan);
 }
 
-function repairDraft(draft, plan, body) {
+function repairDraft(draft, plan) {
   const violations = getVisibleTextContractViolations({ contentScript: plan });
   const repairedPlan = repairVisibleTextContract(plan, {
-    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic],
-    productName: body.product?.name
+    fallbackHeadlines: [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
   });
   return {
     ...withHumanizedPlan(draft, repairedPlan),
