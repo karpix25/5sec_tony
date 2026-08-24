@@ -2,19 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { projects, products } from "../src/domain/entities.js";
 import { createAutoGenerationBrief, createGenerationJob, createSemanticPlan } from "../src/domain/generation.js";
-import {
-  adaptHookFromReference,
-  applyHookDraft,
-  createHookDraft,
-  selectHookReference,
-  setHookVersionStatus,
-  toggleHookEnabled
-} from "../src/domain/hook-library.js";
 import { createMeaningBrief, scoreMeaningBrief } from "../src/domain/meaning-engine.js";
 import { renderAvatarSettings } from "../src/ui/avatar.js";
 import { renderDesignSettings } from "../src/ui/design.js";
 import { renderStudioPanel } from "../src/ui/generation.js";
-import { renderHooksPanel } from "../src/ui/hooks.js";
 import { renderProductSettings } from "../src/ui/product.js";
 import { renderProjectManagementSettings } from "../src/ui/project.js";
 import { renderQueuePanel } from "../src/ui/queue.js";
@@ -65,107 +56,6 @@ test("generation jobs rotate global meaning patterns", () => {
   assert.notEqual(first.meaningPatternId, second.meaningPatternId);
 }
 );
-
-test("hook library creates versioned reusable references", () => {
-  const draft = createHookDraft({
-    title: "Референсы желтой прессы",
-    text: "7 красных флагов [темы]\n7 красных флагов [темы]\nОшибка, которая стоит вам денег"
-  });
-
-  assert.equal(draft.hooks.length, 2);
-  assert.equal(draft.duplicateCount, 1);
-
-  const first = applyHookDraft({ versions: [] }, draft);
-  const second = applyHookDraft(first, createHookDraft({ title: "Новая версия", text: "Проверь это до оплаты" }));
-
-  assert.equal(second.versions[0].status, "active");
-  assert.equal(second.versions[1].status, "archive");
-  assert.equal(second.activeVersionId, second.versions[0].id);
-
-  const testing = setHookVersionStatus(second, second.versions[0].id, "test");
-  assert.equal(testing.activeVersionId, "");
-  assert.equal(testing.versions[0].status, "test");
-
-  const toggled = toggleHookEnabled(second, second.versions[0].hooks[0].id);
-  assert.equal(toggled.versions[0].hooks[0].enabled, false);
-});
-
-test("hook references adapt to project subject instead of being copied raw", () => {
-  const project = {
-    ...projects[0],
-    projectTheme: "оплата зарубежных сервисов рублями",
-    audiencePains: "банк отклоняет платеж, подписка сгорает"
-  };
-  const hook = { text: "7 красных флагов [темы]" };
-  const adapted = adaptHookFromReference(hook, { project, product: null, angle: "подписка не проходит" });
-
-  assert.match(adapted, /подписка не проходит/);
-  assert.doesNotMatch(adapted, /\[темы\]/);
-});
-
-test("hook references are selected randomly from eligible formulas", () => {
-  const hookLibrary = applyHookDraft({ versions: [] }, createHookDraft({ text: "Оказалось, это работает иначе\nПочему это кажется нормой\nЧто меняет результат утром" }));
-  const project = { ...projects[0], allowedTriggers: "" };
-  const first = selectHookReference({ hookLibrary, project, product: products[0], random: () => 0 });
-  const last = selectHookReference({ hookLibrary, project, product: products[0], random: () => 0.99 });
-
-  assert.notEqual(first.text, last.text);
-});
-
-test("hook adaptation writes about benefit context instead of product brand", () => {
-  const project = { ...projects[0], projectTheme: "утренняя wellness-рутина" };
-  const product = {
-    ...products[0],
-    name: "SONRE Хлорофилл",
-    offer: "поддержать привычку пить воду утром",
-    pains: ["скучный вкус воды"],
-    facts: ["ритуал проще соблюдать, когда вкус приятный"]
-  };
-  const adapted = adaptHookFromReference({ text: "7 красных флагов [темы]" }, { project, product, angle: "" });
-
-  assert.match(adapted, /вода|утр|привыч|ритуал|вкус/i);
-  assert.doesNotMatch(adapted, /SONRE|Хлорофилл/i);
-});
-
-test("pdf hook placeholders adapt to project context", () => {
-  const project = {
-    ...projects.find((item) => item.id === "ppm"),
-    projectTheme: "оплата зарубежных подписок"
-  };
-  const product = products.find((item) => item.id === "crosspay");
-  const hook = { text: "N вещей, которые я хотел бы знать до N лет. (Ниша, клиент)" };
-  const adapted = adaptHookFromReference(hook, { project, product, angle: "карта не проходит" });
-
-  assert.doesNotMatch(adapted, /\(Ниша, клиент\)|\bN\b/i);
-  assert.match(adapted, /карта не проходит|оплата зарубежных подписок/);
-});
-
-test("generic first-person hook gets rewritten into niche-specific hook", () => {
-  const project = {
-    ...projects.find((item) => item.id === "ppm"),
-    projectTheme: "оплата зарубежных подписок"
-  };
-  const product = products.find((item) => item.id === "crosspay");
-  const hook = { text: "Я (что-то сделал) с 5 (вещей) и это мой топ-5!" };
-  const adapted = adaptHookFromReference(hook, { project, product, angle: "карта не проходит" });
-
-  assert.doesNotMatch(adapted, /\(|\)|что-то|Я /i);
-  assert.doesNotMatch(adapted, /5 вещей|топ-5/i);
-  assert.match(adapted, /карта не проходит|оплата зарубежных подписок/i);
-});
-
-test("same hook template adapts differently for another niche", () => {
-  const project = {
-    ...projects.find((item) => item.id === "supplements"),
-    projectTheme: "вечерний wellness-ритуал"
-  };
-  const product = products.find((item) => item.id === "magnesium");
-  const hook = { text: "7 красных флагов [темы]" };
-  const adapted = adaptHookFromReference(hook, { project, product, angle: "тяжело уснуть" });
-
-  assert.match(adapted, /тяжело уснуть|вечерний wellness-ритуал/i);
-  assert.doesNotMatch(adapted, /\[темы\]/);
-});
 
 test("ai brief keeps the locked diversity slot topic", async () => {
   const previousFetch = globalThis.fetch;
@@ -240,37 +130,6 @@ test("ai brief can use generated topic for unlocked diversity slots", async () =
   } finally {
     globalThis.fetch = previousFetch;
   }
-});
-
-test("payment generation turns active hook references into headline and text plan", () => {
-  const hookLibrary = applyHookDraft({ versions: [] }, createHookDraft({ text: "7 красных флагов [темы]" }));
-  const project = { ...projects.find((item) => item.id === "ppm"), projectTheme: "оплата зарубежных сервисов" };
-  const product = products.find((item) => item.id === "crosspay");
-  const brief = createAutoGenerationBrief({ project, product, reference: project.references[0], hookLibrary });
-  const plan = createSemanticPlan({ project, product, brief });
-
-  assert.equal(brief.hookReference.text, "7 красных флагов [темы]");
-  assert.match(brief.hook, /7 .*?(сигнал|признак|детал|момент)/i);
-  assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
-  assert.equal(plan.headline, brief.finalContent.headline);
-  assert.match(plan.points.join(" "), /карта|сервис|сумм|статус|подтверждение/);
-});
-
-test("hook references override ai brief hook for final generation", () => {
-  const hookLibrary = applyHookDraft({ versions: [] }, createHookDraft({ text: "7 красных флагов [темы]" }));
-  const project = { ...projects.find((item) => item.id === "ppm"), projectTheme: "оплата зарубежных сервисов" };
-  const product = products.find((item) => item.id === "crosspay");
-  const brief = createAutoGenerationBrief({
-    project,
-    product,
-    reference: project.references[0],
-    generationBrief: { hook: "Бронь держат недолго: успейте проверить оплату", pointCount: "4" },
-    hookLibrary
-  });
-
-  assert.match(brief.hook, /7 .*?(сигнал|признак|детал|момент)/i);
-  assert.doesNotMatch(brief.hook.toLowerCase(), /красных флагов|по теме/);
-  assert.equal(brief.pointCount, "7");
 });
 
 test("humanized ai plan becomes final visible payment text", () => {
@@ -349,14 +208,6 @@ test("product settings keep the operator questionnaire compact", () => {
   assert.match(html, /Детализация физических свойств продукта/);
   assert.match(html, /Что нельзя обещать/);
   assert.doesNotMatch(html, /Боли аудитории|Желания аудитории|Смежные привычки|Контентная стратегия|Сценарные кластеры/);
-});
-
-test("hooks UI hides version workflow from the main operator surface", () => {
-  const html = renderHooksPanel();
-
-  assert.match(html, /Список хуков текстом/);
-  assert.match(html, /Использовать эти хуки/);
-  assert.doesNotMatch(html, /active|test|archive|Активная|Тестовая|Архивная|версия|версии|Название версии/i);
 });
 
 test("design references ask only for design extraction inputs", () => {

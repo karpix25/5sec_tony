@@ -1,6 +1,5 @@
 import { createContentSlot, createRecentJobDigest } from "../src/domain/content-rotation.js";
 import { createLayoutContentPlan } from "../src/domain/layout-content-planner.js";
-import { normalizeHookLibrary, selectHookReference } from "../src/domain/hook-library.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { createAvatarReservedZone } from "../src/domain/avatar-overlay-zone.js";
 import { createAvatarEmotionPromptContext } from "../src/domain/avatar-emotion.js";
@@ -15,9 +14,7 @@ import { normalizeAiBrief } from "../src/domain/ai-brief-normalizer.js";
 
 const maxBriefAttempts = 3;
 
-export async function generateServerAiBrief({ origin, project, product, reference, character, existingJobs, diversitySlot, hookLibrary }) {
-  const hookSeed = selectHookReference({ hookLibrary, project, product, existingJobs });
-  const hookDigest = createHookLibraryDigest(hookLibrary, hookSeed);
+export async function generateServerAiBrief({ origin, project, product, reference, character, existingJobs, diversitySlot }) {
   const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
   const rejectedJobs = [];
   let fallbackBrief = null;
@@ -25,13 +22,11 @@ export async function generateServerAiBrief({ origin, project, product, referenc
     const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
     const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs });
-    const topicClusterPlan = createTopicClusterPlan({ product, existingJobs: attemptExistingJobs });
+    const topicClusterPlan = createTopicClusterPlan({ project, product, existingJobs: attemptExistingJobs });
     const brief = await requestServerAiBrief(origin, {
       project,
       product,
       reference,
-      hookDigest,
-      hookSeed,
       productVisibilityDecision,
       topicClusterPlan,
       avatarSafeZone,
@@ -47,15 +42,13 @@ export async function generateServerAiBrief({ origin, project, product, referenc
   throw new Error("AI-бриф не подготовился");
 }
 
-async function requestServerAiBrief(origin, { project, product, reference, hookDigest, hookSeed, productVisibilityDecision, topicClusterPlan, avatarSafeZone, existingJobs, slot }) {
+async function requestServerAiBrief(origin, { project, product, reference, productVisibilityDecision, topicClusterPlan, avatarSafeZone, existingJobs, slot }) {
   const payload = await postJson(origin, "/api/generation/brief", createCreativeTeamPayload({
     project,
     product,
     reference,
     activeDesignReference: createDesignReferenceDigest(reference),
     layoutContentPlan: createLayoutContentPlan(reference),
-    hookLibrary: hookDigest,
-    hookSeed,
     productPassport: product?.aiPassport || null,
     designAnalysis: reference?.designAnalysis || null,
     productVisibilityDecision,
@@ -67,27 +60,6 @@ async function requestServerAiBrief(origin, { project, product, reference, hookD
     diversitySlot: slot
   }));
   return normalizeAiBrief(payload.draft || {}, slot);
-}
-
-function createHookLibraryDigest(hookLibrary, hookSeed = null) {
-  const library = normalizeHookLibrary(hookLibrary);
-  const active = library.versions.find((version) => version.id === library.activeVersionId)
-    || library.versions.find((version) => version.status === "active")
-    || library.versions[0];
-  return {
-    activeVersionId: active?.id || "",
-    title: active?.title || "",
-    seedHook: hookSeed || null,
-    hooks: (active?.hooks || [])
-      .filter((hook) => hook.enabled !== false && hook.text)
-      .slice(0, 80)
-      .map((hook) => ({
-        id: hook.id || "",
-        text: hook.text,
-        tags: hook.tags || [],
-        aggression: hook.aggression || ""
-      }))
-  };
 }
 
 function createDesignReferenceDigest(reference = {}) {

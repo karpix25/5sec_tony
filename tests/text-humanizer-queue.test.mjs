@@ -4,7 +4,7 @@ import { normalizeAiBrief } from "../src/domain/ai-brief-normalizer.js";
 import { createAutoGenerationBrief } from "../src/domain/generation.js";
 import { projects, products } from "../src/domain/entities.js";
 
-test("ai brief normalizer humanizes dry queue headlines and topics", () => {
+test("ai brief normalizer does not replace product copy with canned headlines", () => {
   const brief = normalizeAiBrief({
     topic: "Почему маска «съедает» объем: ошибка в распределении",
     hook: "Твоя маска крадет объем? Ошибка в нанесении",
@@ -15,9 +15,9 @@ test("ai brief normalizer humanizes dry queue headlines and topics", () => {
     }
   });
 
-  assert.equal(brief.hook, "Почему волосы теряют объем после маски");
-  assert.equal(brief.topic, "Маска утяжеляет волосы, если нанести ее не туда");
-  assert.equal(brief.aiPlan.headline, "Почему волосы теряют объем после маски");
+  assert.equal(brief.hook, "Твоя маска крадет объем? Ошибка в нанесении");
+  assert.equal(brief.topic, "Почему маска съедает объем: ошибка в распределении");
+  assert.equal(brief.aiPlan.headline, "Твоя маска крадет объем? Ошибка в нанесении");
 });
 
 test("generation brief keeps humanized content as queue title", () => {
@@ -37,6 +37,6 @@ test("generation brief keeps humanized content as queue title", () => {
     }
   });
 
-  assert.equal(brief.finalContent.headline, "Скрип кожи — не чистота");
-  assert.doesNotMatch(`${brief.topic} ${brief.hook} ${brief.finalContent.headline}`, /SOS|ошибка в распределении|крадет объем/i);
+  assert.equal(brief.finalContent.headline, "Почему скрип кожи — это тревожный знак, а не чистота");
+  assert.notEqual(brief.finalContent.headline, "Скрип кожи — не чистота");
 });

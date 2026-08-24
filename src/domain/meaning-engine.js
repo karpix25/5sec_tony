@@ -1,11 +1,9 @@
 import { getPatternInstruction, pickScenarioPattern } from "./creative-patterns.js";
-import { adaptHookFromReference, selectHookReference } from "./hook-library.js";
-import { createHookProductBridge } from "./hook-product-bridge.js";
 import { writeHookFromFormula } from "./hook-formula-writer.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 import { getExplicitHeadline, isHeadlineLocked, resolveHeadlineFormula } from "./headline-diversity.js";
 
-export function createMeaningBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
+export function createMeaningBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const pattern = generationBrief.meaningPattern || pickScenarioPattern({ project, existingJobs });
   const focus = getProductContentFocus({ project, product });
   const angle = firstAvailable([
@@ -19,27 +17,10 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     project.projectTheme,
     product.name
   ]);
-  const hookReference = generationBrief.hookReference || selectHookReference({
-    hookLibrary,
-    project,
-    product,
-    pattern,
-    slot: generationBrief.diversitySlot,
-    existingJobs
-  });
-  const referenceHook = hookReference ? adaptHookFromReference(hookReference, { project, product, angle }) : "";
-  const hookBridge = createHookProductBridge({
-    hookReference,
-    adaptedHook: referenceHook,
-    project,
-    product,
-    angle
-  });
   const headlineLocked = isHeadlineLocked(generationBrief);
   const hookCandidate = headlineLocked && getExplicitHeadline(generationBrief)
     ? getExplicitHeadline(generationBrief)
-    : referenceHook
-      || generationBrief.hook
+    : generationBrief.hook
       || adaptHook(pattern.hook, { project, product, angle });
   const diversity = resolveHeadlineFormula({
     headline: hookCandidate,
@@ -62,17 +43,14 @@ export function createMeaningBrief({ project, product, reference, generationBrie
     : hookCandidate;
   return {
     pattern,
-    hookReference,
-    topic: hookBridge?.topic || generationBrief.topic || adaptTopic(pattern.topic, { project, product, angle }),
+    topic: generationBrief.topic || adaptTopic(pattern.topic, { project, product, angle }),
     hook,
     format: generationBrief.format || pattern.format || reference?.layoutType || "story-card",
     visualObject: generationBrief.visualObject || adaptVisualObject(pattern.visualObject, { project, product }),
-    aiPlan: hookBridge?.aiPlan || null,
+    aiPlan: null,
     notes: [
       generationBrief.notes || "",
       `Creative Strategy Engine: ${pattern.id}`,
-      hookReference ? `Hook reference: ${hookReference.text}. Теги: ${(hookReference.tags || []).join(", ")}. Не копировать механически, адаптировать под тему.` : "",
-      hookBridge?.notes || "",
       getPatternInstruction(pattern)
     ].filter(Boolean).join(" ")
   };

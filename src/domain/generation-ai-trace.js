@@ -5,7 +5,7 @@ export function createGenerationAiTrace({ brief = {}, promptContract = {}, input
     designAnalysis: brief.designFormatBrief || null,
     topicCluster: brief.topicCluster || null,
     topicClusterPlan: brief.topicClusterPlan || null,
-    hookSeed: brief.hookSeed || brief.sourceHook || "",
+    selectedHook: brief.hook || brief.recommendedHook || brief.finalContent?.headline || "",
     attentionMap: brief.attentionMap || null,
     selectedAngle: brief.creativeBrief?.selectedAngle || brief.creativeBrief?.topic || brief.scrollStopperAngle || "",
     creativePost: {

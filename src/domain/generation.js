@@ -53,8 +53,8 @@ export { getGenerationInputReferences, getGenerationInputUrls };
 export function getProductsForProject(products, projectId) {
   return products.filter((product) => product.projectId === projectId);
 }
-export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [], hookLibrary }) {
-  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
+export function buildImagePrompt({ project, product, reference, character, generationBrief = {}, freePrompt, existingJobs = [] }) {
+  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   const inputReferences = getGenerationInputReferences({ reference, product, productVisibilityDecision: brief.productVisibilityDecision });
   const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
   const promptContract = generationBrief.promptContract || createPromptContract({ brief, reference, inputReferences, avatarSafeZone });
@@ -176,8 +176,8 @@ function formatProductInsightPrompt(profile) {
   ].filter(Boolean).join(" ");
 }
 
-export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [], hookLibrary }) {
-  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
+export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [] }) {
+  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   assertGenerationTextContract(brief.finalContent, hasAiDepartmentBrief(generationBrief));
   const avatarEmotion = resolveAvatarEmotionSelection({
     project,
@@ -191,7 +191,7 @@ export function createGenerationJob({ project, product, reference, character, au
   const avatarSafeZone = createAvatarReservedZone({ character: selectedCharacter, ctaOverlay: project?.ctaOverlay });
   const inputReferences = getGenerationInputReferences({ reference, product, productVisibilityDecision: brief.productVisibilityDecision });
   const promptContract = generationBrief?.promptContract || createPromptContract({ brief, reference, inputReferences, avatarSafeZone });
-  const prompt = buildImagePrompt({ project, product, reference, character: selectedCharacter, generationBrief: { ...brief, promptContract }, freePrompt, existingJobs, hookLibrary });
+  const prompt = buildImagePrompt({ project, product, reference, character: selectedCharacter, generationBrief: { ...brief, promptContract }, freePrompt, existingJobs });
   return {
     id: createUniqueJobId(existingJobs),
     createdAt: new Date().toISOString(),
@@ -230,7 +230,6 @@ export function createGenerationJob({ project, product, reference, character, au
     productVisualMode: brief.productVisualMode,
     productVisibilityDecision: brief.productVisibilityDecision,
     avatarSafeZone,
-    hookSeed: brief.hookSeed || brief.sourceHook || "",
     attentionMap: brief.attentionMap || null,
     attentionFrame: brief.attentionFrame || brief.attentionMap?.attentionFrame || "",
     creativeBrief: brief.creativeBrief || null,
@@ -257,13 +256,12 @@ function cleanDesignReferenceText(value) {
     .join(" ");
 }
 
-export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
+export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const aiDepartmentMode = hasAiDepartmentBrief(generationBrief);
   const slot = generationBrief.diversitySlot
     ? refreshContentSlotLayer(generationBrief.diversitySlot, { project, product, existingJobs })
     : createContentSlot({ project, product, existingJobs });
-  const hasHookReference = Boolean(generationBrief.hookReference);
-  const topicCandidate = !aiDepartmentMode && !hasHookReference && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
+  const topicCandidate = !aiDepartmentMode && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
     ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
     : null;
   const topicCandidatePlan = !generationBrief.aiPlan && topicCandidate
@@ -300,21 +298,20 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     : null;
   const meaning = aiDepartmentMode
     ? null
-    : createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs, hookLibrary });
+    : createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs });
   const scenario = generationBrief.topic ? "" : pickNextScenario({ project, product, existingJobs });
   const desire = firstLine(project.audienceDesires) || product.offer || product.name;
   const fact = firstListItem(product.facts) || product.description || project.projectTheme;
   const topic = aiDepartmentMode
     ? generationSeed.topic
-    : meaning.hookReference ? meaning.topic : generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
+    : generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
   const paymentHook = isPaymentProject(project, product) ? buildAutoHook({ project, product, topic, fact, desire, existingJobs }) : "";
-  const referenceHook = meaning?.hookReference ? meaning.hook : "";
   const hook = aiDepartmentMode
     ? generationSeed.hook
-    : referenceHook || generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
-  const hookPointCount = getHookPointCount(meaning?.hookReference?.text || hook);
+    : generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
+  const hookPointCount = getHookPointCount(hook);
   const profile = buildProductProfile({ project, product, insightMap: generationBrief.productInsightMap });
-  const hookIntelligence = createHookIntelligence(meaning?.hookReference?.text || hook);
+  const hookIntelligence = createHookIntelligence(hook);
   const layoutContentPlan = createLayoutContentPlan(reference, hookIntelligence);
   const format = generationSeed.format || meaning?.format || slot.format || pickFormat(project, reference);
   const semanticKey = generationBrief.semanticKey || slot.id;
@@ -362,7 +359,6 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     notes: generationBrief.notes || meaning?.notes || `Контентный слот: ${slot.angle || slot.id}. Автоматически собрать смыслы из проекта, ЦА, продукта и выбранного референса.`,
     semanticKey,
     meaningPatternId: meaning?.pattern?.id || "",
-    hookReference: meaning?.hookReference || generationBrief.hookReference || null,
     hookIntelligence,
     layoutContentPlan,
     creativeQuality,
@@ -393,7 +389,6 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     topicCluster: generationBrief.topicCluster || null,
     promptContract: generationBrief.promptContract || null,
     imagePromptContract: generationBrief.imagePromptContract || null,
-    hookSeed: generationBrief.hookSeed || generationBrief.sourceHook || "",
     attentionMap: generationBrief.attentionMap || null,
     qaReview: generationBrief.qaReview || null
   };

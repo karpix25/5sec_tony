@@ -85,16 +85,12 @@ test("image prompt includes hook intelligence and active design layout guidance"
   const project = projects.find((item) => item.id === "ppm");
   const product = products.find((item) => item.id === "crosspay");
   const reference = project.references.find((item) => item.id === "viral-pink-symptoms") || project.references[0];
-  const hookLibrary = {
-    activeVersionId: "v1",
-    versions: [{ id: "v1", status: "active", hooks: [{ id: "h1", text: "Оказалось, что я делал это неправильно всю жизнь!", enabled: true }] }]
-  };
   const job = createGenerationJob({
     project,
     product,
     reference,
     character: project.characters[0],
-    hookLibrary
+    generationBrief: { hook: "Оказалось, я проверял оплату слишком поздно" }
   });
   const prompt = job.prompt;
 
@@ -114,8 +110,7 @@ test("generation structure preview keeps payment prompt clean and product-specif
     project,
     product,
     reference: project.references[0],
-    existingJobs: [{ projectId: "ppm", title: "Когда подписка заканчивается сегодня" }],
-    hookLibrary: { active: [], versions: [] }
+    existingJobs: [{ projectId: "ppm", title: "Когда подписка заканчивается сегодня" }]
   });
   const text = `${preview.strategy.topic} ${preview.strategy.hook} ${preview.imagePrompt}`.toLowerCase();
 

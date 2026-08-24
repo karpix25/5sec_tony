@@ -18,7 +18,6 @@ export function createServerSelectionContext(state, selection = {}, productId = 
     character: isNoAvatarCharacterId(characterId) ? null : findById(project?.characters, characterId),
     audio: findById(state.audioLibrary, audioId),
     audioLibrary: state.audioLibrary || [],
-    hookLibrary: state.hookLibrary,
     generationBrief: state.generationBrief || {},
     freePrompt: selection.freePrompt ?? state.freePrompt ?? ""
   };

@@ -1,6 +1,7 @@
 import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { createDesignReferenceAnalysisInput } from "../src/domain/design-reference-analysis-input.js";
 import { createProductPassportInput } from "../src/domain/product-passport-input.js";
+import { createProductPassportShape, productWorldRules } from "../src/domain/product-world.js";
 import { callOpenRouter } from "./openrouter-api.mjs";
 import { parseJsonDraft } from "./openrouter-response.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
@@ -62,26 +63,11 @@ export function productPassportInstruction(body) {
       "Не анализируй визуал и не создавай visualIdentity.",
       "Фокус: что это, кому нужно, use cases, боли, желания, возражения, safe facts, allowed claims, forbidden claims.",
       "Не выдумывай состав, цифры, гарантии, лечение, финансовый или юридический результат.",
-      "Поля должны быть полезны для множества будущих тем, а не для одной картинки."
+      "Поля должны быть полезны для множества будущих тем, а не для одной картинки.",
+      ...productWorldRules
     ],
     output: {
-      productPassport: {
-        productName: "",
-        category: "",
-        plainDescription: "",
-        audience: [],
-        coreUseCases: [],
-        painSituations: [],
-        desires: [],
-        objections: [],
-        safeFacts: [],
-        allowedClaims: [],
-        forbiddenClaims: [],
-        contentTerritory: { directProductTopics: [], adjacentHelpfulTopics: [], unsafeTopics: [] },
-        productVisibilityRules: { showProductWhen: [], avoidProductWhen: [] },
-        tone: "",
-        openQuestions: []
-      }
+      productPassport: createProductPassportShape()
     },
     product: input.product
   });

@@ -7,7 +7,7 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
   try {
     const content = await callOpenRouter(token, model, [
       { role: "system", content: "Ты редактор массовых Reels-инфографик. Пиши по-русски, просто, живо и безопасно. Верни только JSON без markdown." },
-      { role: "user", content: humanizeTextInstruction({ ...body, plan: basePlan, brief: draft, hookReference: draft.hookReference || draft.hookSet?.[0] || null }) }
+      { role: "user", content: humanizeTextInstruction({ ...body, plan: basePlan, brief: draft }) }
     ]);
     const parsed = parseJsonDraft(content);
     return withHumanizedPlan(draft, normalizeHumanizedPlan(parsed, basePlan), parsed.attentionReview);

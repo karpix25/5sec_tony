@@ -1,7 +1,6 @@
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
-import { handleHookPdfApi } from "./hook-pdf-api.mjs";
 import { handleKieApi, loadEnvFile } from "./kie-api.mjs";
 import { handleOpenRouterApi } from "./openrouter-api.mjs";
 import { handleGenerationBatchesApi } from "./generation-batches-api.mjs";
@@ -45,7 +44,6 @@ const server = createServer(async (request, response) => {
   if (await handleHealthApi(request, response, url)) return;
   if (await handleAuthApi(request, response, url)) return;
   if (url.pathname.startsWith("/api/") && !await requireApprovedUser(request, response)) return;
-  if (await handleHookPdfApi(request, response, url)) return;
   if (await handleAudioAssetsApi(request, response, url)) return;
   if (await handleAudioLibraryApi(request, response, url)) return;
   if (await handleProductReferenceAssetsApi(request, response, url)) return;

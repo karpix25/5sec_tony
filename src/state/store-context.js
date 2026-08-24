@@ -19,7 +19,6 @@ export function getSelectionContext(state, getProject) {
     character: isNoAvatarCharacterId(selectedCharacterId) ? null : project.characters.find((item) => item.id === selectedCharacterId),
     audio: state.audioLibrary.find((item) => item.id === state.selectedAudioId),
     audioLibrary: state.audioLibrary,
-    hookLibrary: state.hookLibrary,
     reelsResearch: state.reelsResearch,
     generationBrief: ensureGenerationBrief(state.generationBrief),
     freePrompt: state.freePrompt
@@ -39,7 +38,6 @@ export function getSelectionSnapshotContext(state, selection = {}, getProject) {
     character: isNoAvatarCharacterId(selectedCharacterId) ? null : project.characters.find((item) => item.id === selectedCharacterId),
     audio: state.audioLibrary.find((item) => item.id === selection.audioId) || state.audioLibrary.find((item) => item.id === state.selectedAudioId),
     audioLibrary: state.audioLibrary,
-    hookLibrary: state.hookLibrary,
     reelsResearch: state.reelsResearch,
     generationBrief: ensureGenerationBrief(state.generationBrief),
     freePrompt: selection.freePrompt ?? state.freePrompt

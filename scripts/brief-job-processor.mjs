@@ -58,11 +58,10 @@ export async function prepareServerJob(jobId, origin, deps = {}) {
   const brief = await generateBrief({
     origin,
     ...context,
-    existingJobs,
-    hookLibrary: preparedState.hookLibrary
+    existingJobs
   });
   const job = {
-    ...createGenerationJob({ ...context, generationBrief: brief, existingJobs, hookLibrary: preparedState.hookLibrary }),
+    ...createGenerationJob({ ...context, generationBrief: brief, existingJobs }),
     id: jobId,
     createdAt: preparedPlaceholder.createdAt || new Date().toISOString(),
     serverBatchId: preparedPlaceholder.serverBatchId,

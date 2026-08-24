@@ -9,10 +9,6 @@ const bannedShells = /Почему цепляет|Миф:|Факт:|Рабочи
 test("ai curiosity plan reaches job, semantic plan and image prompt", () => {
   const project = projects.find((item) => item.id === "ppm");
   const product = products.find((item) => item.id === "crosspay");
-  const hookLibrary = {
-    activeVersionId: "v1",
-    versions: [{ id: "v1", status: "active", hooks: [{ id: "h1", text: "N причин проверить это заранее", enabled: true }] }]
-  };
   const generationBrief = {
     topic: "проверка причины отказа оплаты",
     hook: "Карта снова не проходит",
@@ -31,7 +27,7 @@ test("ai curiosity plan reaches job, semantic plan and image prompt", () => {
       disclaimer: ""
     }
   };
-  const job = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0], generationBrief, hookLibrary });
+  const job = createGenerationJob({ project, product, reference: project.references[0], character: project.characters[0], generationBrief });
   const semanticPlan = createSemanticPlan({ project, product, brief: job });
   const visibleText = `${job.title} ${semanticPlan.headline} ${semanticPlan.subhead} ${semanticPlan.points.join(" ")}`;
 

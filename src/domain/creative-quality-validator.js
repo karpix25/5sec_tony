@@ -91,7 +91,7 @@ function hasNovelty(text) {
 
 function hasHookFit(draft, hookIntelligence) {
   if (!hookIntelligence?.sourceHook) return true;
-  const sourceHook = String(draft.sourceHook || draft.hookReference?.text || "").trim();
+  const sourceHook = String(draft.sourceHook || draft.hook || draft.recommendedHook || "").trim();
   return sourceHook === hookIntelligence.sourceHook || Boolean(draft.hook || draft.adaptedHook);
 }
 

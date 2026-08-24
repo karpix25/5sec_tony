@@ -2,8 +2,8 @@ import { createAutoGenerationBrief, createSemanticPlan } from "./generation.js";
 import { buildProductProfile } from "./product-profile.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 
-export function createGenerationStrategy({ project, product, reference, generationBrief = {}, existingJobs = [], hookLibrary }) {
-  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs, hookLibrary });
+export function createGenerationStrategy({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
+  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   const semanticPlan = createSemanticPlan({ project, product, brief });
   const profile = buildProductProfile({ project, product, insightMap: brief.productInsightMap });
   const focus = getProductContentFocus({ project, product });

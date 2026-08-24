@@ -16,8 +16,8 @@ const clusterRules = [
   { id: "info-noise", label: "поиск актуальной информации", pattern: /информац|устар|шум|форум|блог|путевод|данн|актуаль/i }
 ];
 
-export function createTopicClusterPlan({ product, existingJobs = [] } = {}) {
-  const clusters = buildTopicClusters(product);
+export function createTopicClusterPlan({ project, product, existingJobs = [] } = {}) {
+  const clusters = buildTopicClusters(product, project);
   const recentJobs = existingJobs.slice(0, maxRecentJobs);
   const scored = clusters
     .map((cluster, index) => scoreCluster(cluster, recentJobs, index))
@@ -29,12 +29,20 @@ export function createTopicClusterPlan({ product, existingJobs = [] } = {}) {
   };
 }
 
-export function buildTopicClusters(product = {}) {
+export function buildTopicClusters(product = {}, project = {}) {
   const passport = normalizeProductAiPassport(product.aiPassport);
   const territory = passport.contentTerritory || {};
   const sources = [
-    ...itemsToClusterSources(territory.directProductTopics, "direct"),
+    ...itemsToClusterSources(project.keyScenarios, "brandScenario"),
+    ...itemsToClusterSources(project.audiencePains, "brandPain"),
+    ...itemsToClusterSources(project.audienceDesires, "brandDesire"),
+    ...itemsToClusterSources(territory.productWorld, "world"),
     ...itemsToClusterSources(territory.adjacentHelpfulTopics, "adjacent"),
+    ...itemsToClusterSources(territory.guidesAndRecommendations, "guide"),
+    ...itemsToClusterSources(territory.habitsAndMistakes, "habit"),
+    ...itemsToClusterSources(territory.lifestyleContexts, "lifestyle"),
+    ...itemsToClusterSources(project.projectTheme || project.niche, "brandTheme"),
+    ...itemsToClusterSources(territory.directProductTopics, "direct"),
     ...itemsToClusterSources(passport.safeFacts, "safeFact"),
     ...itemsToClusterSources(passport.coreUseCases, "useCase"),
     ...itemsToClusterSources(passport.painSituations, "pain"),
@@ -78,7 +86,12 @@ export function classifyTopicCluster(job = {}, clusters = []) {
 function scoreCluster(cluster, recentJobs, index) {
   const recentMatches = recentJobs.filter((job) => classifyTopicCluster(job, [cluster]) === cluster.id).length;
   const consecutiveMatches = countConsecutiveMatches(cluster, recentJobs);
-  const sourceBonus = cluster.sourceTypes.includes("adjacent") ? 3 : cluster.sourceTypes.includes("safeFact") ? 2 : 1;
+  const hasBrandContext = cluster.sourceTypes.some((type) => ["brandScenario", "brandPain", "brandDesire"].includes(type));
+  const hasAdjacentContext = cluster.sourceTypes.some((type) => ["adjacent", "guide", "habit", "lifestyle"].includes(type));
+  const sourceBonus = hasBrandContext
+    ? 5
+    : hasAdjacentContext ? 3
+    : cluster.sourceTypes.includes("safeFact") ? 2 : 1;
   return {
     ...cluster,
     score: 20 + sourceBonus - index - recentMatches * 5 - consecutiveMatches * 10,

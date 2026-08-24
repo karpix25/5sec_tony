@@ -42,5 +42,5 @@ test("creative team humanizer falls back to deterministic cleanup", async () => 
     parseJsonDraft: JSON.parse
   });
 
-  assert.equal(draft.contentScript.headline, "Почему волосы теряют объем после маски");
+  assert.equal(draft.contentScript.headline, "Твоя маска крадет объем? Ошибка в нанесении");
 });

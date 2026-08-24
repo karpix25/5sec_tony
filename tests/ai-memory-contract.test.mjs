@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  hasGenerationReadyProductPassport,
   hasUsefulDesignAnalysis,
   normalizeDesignAnalysis,
   normalizeProductAiPassport
@@ -45,6 +46,20 @@ test("product AI passport is semantic and drops visual identity", () => {
   assert.equal(passport.productName, "Хлорофилл");
   assert.deepEqual(passport.safeFacts, ["зеленый напиток"]);
   assert.equal(Object.hasOwn(passport, "visualIdentity"), false);
+});
+
+test("generation passport requires a broad product world", () => {
+  assert.equal(hasGenerationReadyProductPassport(product.aiPassport), false);
+  assert.equal(hasGenerationReadyProductPassport({
+    version: "product-passport-v2",
+    productName: "Шампунь",
+    safeFacts: ["мягко очищает волосы"],
+    contentTerritory: {
+      productWorld: "уход за волосами и кожей головы",
+      directProductTopics: ["очищение волос"],
+      adjacentHelpfulTopics: ["укладка и привычки ухода"]
+    }
+  }), true);
 });
 
 test("design analysis requires reusable visual grammar fields", () => {
@@ -141,8 +156,7 @@ test("generation job keeps prompt contract, trace and active product refs togeth
         productVisualMode: "exact-product",
         shouldPassProductRefs: true,
         reason: "test"
-      },
-      hookSeed: "Проверь это до покупки"
+      }
     },
     existingJobs: []
   });
@@ -151,7 +165,7 @@ test("generation job keeps prompt contract, trace and active product refs togeth
   assert.equal(job.inputRefs.some((item) => item.role === "product"), true);
   assert.equal(job.inputRefs.some((item) => item.role === "design"), true);
   assert.equal(job.promptContract.textContract.headline, "Проверь привычку");
-  assert.equal(job.aiTrace.hookSeed, "Проверь это до покупки");
+  assert.equal(job.aiTrace.selectedHook, "Проверь привычку");
   assert.equal(job.aiTrace.referencesSent.some((item) => item.role === "product"), true);
 });
 

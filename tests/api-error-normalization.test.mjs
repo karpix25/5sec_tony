@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateAiBrief } from "../src/services/brief-ai.js";
-import { extractHooksFromImage } from "../src/services/hook-ai.js";
 import { humanizeGenerationPlan } from "../src/services/text-humanizer.js";
 
 test("brief service surfaces plain-text API errors", async () => {
@@ -34,7 +33,7 @@ test("brief service surfaces non-json response text when browser json parsing fa
   }
 });
 
-test("brief service sends hook library and active design reference context", async () => {
+test("brief service sends product context without hook library", async () => {
   const previousFetch = globalThis.fetch;
   let requestBody = null;
   globalThis.fetch = async (_url, options) => {
@@ -46,14 +45,10 @@ test("brief service sends hook library and active design reference context", asy
       project: {},
       product: {},
       reference: { id: "viral-pink-symptoms", title: "Вирусная инфографика с glow-хуком", textDensity: "high" },
-      existingJobs: [{ title: "Старый", contentLayerId: "life-pain", diversitySlot: { contentLayer: { subject: "сон" } } }],
-      hookLibrary: {
-        activeVersionId: "v1",
-        versions: [{ id: "v1", status: "active", hooks: [{ id: "h1", text: "Оказалось, я делал это неправильно", enabled: true }] }]
-      }
+      existingJobs: [{ title: "Старый", contentLayerId: "life-pain", diversitySlot: { contentLayer: { subject: "сон" } } }]
     });
 
-    assert.equal(requestBody.hookLibrary.hooks[0].text, "Оказалось, я делал это неправильно");
+    assert.equal("hookLibrary" in requestBody, false);
     assert.equal(requestBody.activeDesignReference.title, "Вирусная инфографика с glow-хуком");
     assert.equal(requestBody.layoutContentPlan.layoutType, "symptoms-poster");
     assert.equal(requestBody.existingJobs[0].contentLayerId, "life-pain");
@@ -154,19 +149,6 @@ test("brief service strips base64 images from creative team payload", async () =
     assert.equal(requestBody.reference.imageUrl, "/api/reference-assets/ref-uploaded");
     assert.equal(requestBody.reference.hasImage, true);
     assert.equal(requestBody.product.references[0].imageData, undefined);
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-});
-
-test("hook service surfaces plain-text API errors", async () => {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: false, text: async () => "hooks backend unavailable" });
-  try {
-    await assert.rejects(
-      extractHooksFromImage({ imageData: "data:image/png;base64,abc", title: "Hooks" }),
-      /hooks backend unavailable/
-    );
   } finally {
     globalThis.fetch = previousFetch;
   }

@@ -186,7 +186,7 @@ function compactPromptContract(contract) {
 function compactAiTrace(trace) {
   if (!trace || typeof trace !== "object" || Array.isArray(trace)) return undefined;
   return removeEmptyFields({
-    ...pickFields(trace, ["version", "hookSeed", "selectedAngle"]),
+    ...pickFields(trace, ["version", "selectedHook", "selectedAngle"]),
     imagePromptContract: compactPromptContract(trace.imagePromptContract)
   });
 }

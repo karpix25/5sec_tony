@@ -6,8 +6,7 @@ export async function humanizeGenerationPlan({ project, product, brief, plan }) 
       project,
       product,
       brief,
-      plan,
-      hookReference: brief.hookReference || null
+      plan
     })
   });
   const payload = await readHumanizerPayload(response);

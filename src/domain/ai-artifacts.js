@@ -1,3 +1,5 @@
+import { productPassportVersion } from "./product-world.js";
+
 const dataImagePattern = /^data:image\/(?:png|jpe?g|webp);base64,/i;
 
 export function normalizeProductAiPassport(passport = null) {
@@ -52,6 +54,18 @@ export function normalizeDesignAnalysis(analysis = null) {
 export function hasUsefulProductPassport(passport) {
   const normalized = normalizeProductAiPassport(passport);
   return Boolean(normalized.productName || normalized.plainDescription || normalized.safeFacts?.length);
+}
+
+export function hasGenerationReadyProductPassport(passport) {
+  const normalized = normalizeProductAiPassport(passport);
+  const territory = normalized.contentTerritory || {};
+  return hasUsefulProductPassport(normalized)
+    && normalized.version === productPassportVersion
+    && Boolean(territory.productWorld)
+    && Array.isArray(territory.directProductTopics)
+    && territory.directProductTopics.length > 0
+    && Array.isArray(territory.adjacentHelpfulTopics)
+    && territory.adjacentHelpfulTopics.length > 0;
 }
 
 export function hasUsefulDesignAnalysis(analysis) {

@@ -23,6 +23,9 @@ export function assessAiBriefFreshness(brief, existingJobs = []) {
   const formula = findOverusedFormula(candidateText);
   if (formula) reasons.push(`слишком шаблонная формула: ${formula}`);
 
+  const repeatedOpening = findRepeatedHeadlineOpening(getBriefTitle(brief), existingJobs);
+  if (repeatedOpening) reasons.push(`повторяет начало недавнего заголовка: ${repeatedOpening}`);
+
   const duplicate = findDuplicateTopic(candidate, existingJobs);
   if (duplicate) reasons.push(`повторяет недавнюю тему: ${duplicate.title || duplicate.topic}`);
 
@@ -65,6 +68,22 @@ export function createFreshnessFallbackBrief(brief, rejectedJobs = []) {
 
 function findOverusedFormula(text) {
   return overusedFormulaPatterns.find((pattern) => pattern.test(text))?.source || "";
+}
+
+function findRepeatedHeadlineOpening(headline, existingJobs) {
+  const opening = getHeadlineOpening(headline);
+  if (!opening) return "";
+  const match = (existingJobs || []).slice(0, 8).find((job) => getHeadlineOpening(getJobTitle(job)) === opening);
+  return match ? opening : "";
+}
+
+function getHeadlineOpening(value) {
+  const words = normalizeFreshnessText(value).split(" ").filter(Boolean);
+  return words[0] === "почему" ? "почему" : words.slice(0, 2).join(" ");
+}
+
+function getJobTitle(job = {}) {
+  return job.title || job.finalContent?.headline || job.aiPlan?.headline || job.hook || "";
 }
 
 function findDuplicateTopic(candidate, existingJobs) {

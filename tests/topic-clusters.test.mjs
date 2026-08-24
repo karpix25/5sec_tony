@@ -52,6 +52,34 @@ test("topic cluster planner avoids an overused payment cluster", () => {
   assert.match(plan.selected.label, /культур|этикет|транспорт|гастро|подготов|турист|цифров|достопримеч/i);
 });
 
+test("same product category follows each brand context", () => {
+  const product = {
+    id: "shampoo",
+    name: "Шампунь",
+    aiPassport: {
+      version: "product-passport-v2",
+      productName: "Шампунь",
+      contentTerritory: {
+        productWorld: "уход за волосами и кожей головы",
+        directProductTopics: ["очищение волос"],
+        adjacentHelpfulTopics: ["укладка и ежедневный уход"]
+      }
+    }
+  };
+  const volumeBrand = createTopicClusterPlan({
+    project: { keyScenarios: "укладка быстро теряет объем", audiencePains: "волосы выглядят плоскими" },
+    product
+  });
+  const sensitiveBrand = createTopicClusterPlan({
+    project: { keyScenarios: "кожа головы реагирует на частое мытье", audiencePains: "после душа появляется дискомфорт" },
+    product
+  });
+
+  assert.match(volumeBrand.selected.label, /укладка|объем/i);
+  assert.match(sensitiveBrand.selected.label, /кожа головы|дискомфорт/i);
+  assert.notEqual(volumeBrand.selected.id, sensitiveBrand.selected.id);
+});
+
 test("server brief sends selected topic cluster to the ai departments", async () => {
   const previousFetch = globalThis.fetch;
   const bodies = [];

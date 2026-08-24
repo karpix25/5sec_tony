@@ -184,8 +184,8 @@ test("preview modal survives app rerenders during generation", () => {
   assert.match(mainSource, /isJobsOnlyPatch/);
   assert.match(mainSource, /requestRenderFrame/);
   assert.match(mainSource, /updateQueuePanel\(root, pendingState/);
-  assert.match(renderSource, /bindHooksEvents\(root,/);
-  assert.match(renderSource, /refresh: options\.rerender/);
+  assert.match(renderSource, /bindPreviewModalEvents\(root\)/);
+  assert.doesNotMatch(renderSource, /bindHooksEvents/);
   assert.match(queueSource, /bindQueuePanelEvents/);
   assert.match(queueSource, /renderQueueList/);
 });

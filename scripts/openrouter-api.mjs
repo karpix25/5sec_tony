@@ -30,32 +30,7 @@ export async function handleOpenRouterApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/generation/humanize") {
     return humanizeGenerationText(request, response);
   }
-  if (request.method === "POST" && url.pathname === "/api/hooks/extract") {
-    return extractHooks(request, response);
-  }
   return false;
-}
-
-async function extractHooks(request, response) {
-  try {
-    const token = process.env.OPENROUTER_API_KEY;
-    if (!token) return sendJson(response, 500, { error: "OPENROUTER_API_KEY is not configured" });
-    const body = await readJson(request);
-    if (!body.imageData) return sendJson(response, 400, { error: "Нужно загрузить скрин с хуками" });
-    const content = await callOpenRouter(token, visionModel, [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: hookExtractInstruction(body) },
-          { type: "image_url", image_url: { url: body.imageData } }
-        ]
-      }
-    ]);
-    const draft = parseJsonDraft(content);
-    return sendJson(response, 200, { model: visionModel, hooks: Array.isArray(draft.hooks) ? draft.hooks : [] });
-  } catch (error) {
-    return sendJson(response, 502, { error: error.message || "OpenRouter hook extraction failed" });
-  }
 }
 
 async function generateAudienceExpert(request, response) {
@@ -307,19 +282,6 @@ function projectFieldInstruction(body) {
   });
 }
 
-function hookExtractInstruction(body) {
-  return JSON.stringify({
-    task: "Извлеки со скрина только хуки, заголовки и короткие формулы начала ролика.",
-    title: body.title || "",
-    rules: [
-      "Пиши по-русски, если текст на русском; не переводи английские хуки без необходимости.",
-      "Не включай длинные абзацы, подписи интерфейса, даты, водяные знаки и имена аккаунтов.",
-      "Один элемент массива = один самостоятельный хук.",
-      "Сохраняй смысл, но исправляй явные OCR-ошибки."
-    ],
-    output: { hooks: ["короткий хук"] }
-  });
-}
 
 export async function callOpenRouter(token, model, messages, options = {}) {
   const timeoutMs = options.timeoutMs || defaultOpenRouterTimeoutMs;

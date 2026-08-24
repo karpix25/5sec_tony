@@ -1,26 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyHookDraft, createHookDraft } from "../src/domain/hook-library.js";
 import { mergeHydratedReferenceState, normalizePersistedReferenceState } from "../src/state/reference-libraries.js";
 
-test("normalize persisted reference state keeps hook library and research in stable shape", () => {
+test("legacy hook records are removed from active client state", () => {
   const state = normalizePersistedReferenceState({
-    hookLibrary: applyHookDraft({ versions: [] }, createHookDraft({ text: "Первый хук" })),
+    hookLibrary: legacyHookLibrary("Первый хук"),
     reelsResearch: {
       videos: [{ id: "1", account: "demo", topic: "Тема" }],
       summary: { hookPatterns: ["Миф -> факт"] }
     }
   });
 
-  assert.equal(state.hookLibrary.versions.length, 1);
-  assert.equal(state.hookLibrary.versions[0].hooks[0].text, "Первый хук");
+  assert.equal("hookLibrary" in state, false);
   assert.equal(state.reelsResearch.videos.length, 1);
   assert.deepEqual(state.reelsResearch.summary.hookPatterns, ["Миф -> факт"]);
 });
 
-test("hydrated remote state inherits legacy hook library and research when db is still empty", () => {
+test("hydration keeps research and drops archived hook data", () => {
   const localState = normalizePersistedReferenceState({
-    hookLibrary: applyHookDraft({ versions: [] }, createHookDraft({ text: "7 сигналов по теме" })),
+    hookLibrary: legacyHookLibrary("7 сигналов по теме"),
     reelsResearch: { videos: [{ id: "2", account: "demo", topic: "Сюжет" }], summary: {} }
   });
   const merged = mergeHydratedReferenceState({
@@ -28,6 +26,13 @@ test("hydrated remote state inherits legacy hook library and research when db is
     reelsResearch: null
   }, localState);
 
-  assert.equal(merged.hookLibrary.versions[0].hooks[0].text, "7 сигналов по теме");
+  assert.equal("hookLibrary" in merged, false);
   assert.equal(merged.reelsResearch.videos[0].topic, "Сюжет");
 });
+
+function legacyHookLibrary(text) {
+  return {
+    activeVersionId: "legacy-v1",
+    versions: [{ id: "legacy-v1", status: "archive", hooks: [{ id: "legacy-h1", text }] }]
+  };
+}

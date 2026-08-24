@@ -1,6 +1,6 @@
 import { createContentSlot, createRecentJobDigest } from "../domain/content-rotation.js";
 import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
-import { normalizeHookLibrary } from "../domain/hook-library.js";
+import { createTopicClusterPlan } from "../domain/topic-clusters.js";
 import { createAvatarEmotionPromptContext } from "../domain/avatar-emotion.js";
 import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
 import {
@@ -14,8 +14,7 @@ import { uploadReferenceAsset } from "./reference-assets.js";
 const briefAiDataImagePattern = /^data:image\/(?:png|jpe?g|webp);base64,/i;
 const maxBriefAiAttempts = 3;
 
-export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot, hookLibrary }) {
-  const hookDigest = createHookLibraryDigest(hookLibrary);
+export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot }) {
   const preparedReference = await ensureReferenceAssetUrl(reference);
   const activeDesignReference = createDesignReferenceDigest(preparedReference);
   const rejectedJobs = [];
@@ -29,7 +28,6 @@ export async function generateAiBrief({ project, product, reference, existingJob
       product,
       preparedReference,
       activeDesignReference,
-      hookDigest,
       existingJobs: attemptExistingJobs,
       slot
     });
@@ -45,7 +43,8 @@ export async function generateAiBrief({ project, product, reference, existingJob
   throw new Error("AI-бриф не подготовился");
 }
 
-async function requestAiBrief({ project, product, preparedReference, activeDesignReference, hookDigest, existingJobs, slot }) {
+async function requestAiBrief({ project, product, preparedReference, activeDesignReference, existingJobs, slot }) {
+  const topicClusterPlan = createTopicClusterPlan({ project, product, existingJobs });
   const response = await fetch("/api/generation/brief", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -55,7 +54,8 @@ async function requestAiBrief({ project, product, preparedReference, activeDesig
       reference: preparedReference,
       activeDesignReference,
       layoutContentPlan: createLayoutContentPlan(preparedReference),
-      hookLibrary: hookDigest,
+      topicClusterPlan,
+      topicCluster: topicClusterPlan.selected,
       existingJobs: createRecentJobDigest(existingJobs),
       availableAvatarEmotions: createAvatarEmotionPromptContext(project),
       diversitySlot: slot
@@ -70,26 +70,6 @@ async function ensureReferenceAssetUrl(reference = {}) {
   if (!briefAiDataImagePattern.test(String(reference.imageData || ""))) return reference;
   const uploaded = await uploadReferenceAsset({ imageData: reference.imageData, imageName: reference.imageName || reference.title || "design-reference" });
   return { ...reference, imageData: uploaded.url, imageUrl: uploaded.url };
-}
-
-function createHookLibraryDigest(hookLibrary) {
-  const library = normalizeHookLibrary(hookLibrary);
-  const active = library.versions.find((version) => version.id === library.activeVersionId)
-    || library.versions.find((version) => version.status === "active")
-    || library.versions[0];
-  return {
-    activeVersionId: active?.id || "",
-    title: active?.title || "",
-    hooks: (active?.hooks || [])
-      .filter((hook) => hook.enabled !== false && hook.text)
-      .slice(0, 80)
-      .map((hook) => ({
-        id: hook.id || "",
-        text: hook.text,
-        tags: hook.tags || [],
-        aggression: hook.aggression || ""
-      }))
-  };
 }
 
 function createDesignReferenceDigest(reference) {

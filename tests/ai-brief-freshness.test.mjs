@@ -36,3 +36,13 @@ test("ai brief freshness rejects overused copywriting formulas", () => {
   assert.equal(result.ok, false);
   assert.match(result.reasons.join(" "), /шаблонная формула/);
 });
+
+test("ai brief freshness rejects another headline starting with why", () => {
+  const result = assessAiBriefFreshness({
+    topic: "Вечерний уход после тренировки",
+    aiPlan: { headline: "Почему волосы путаются после спорта" }
+  }, [{ title: "Почему кожа головы быстрее жирнится" }]);
+
+  assert.equal(result.ok, false);
+  assert.match(result.reasons.join(" "), /повторяет начало недавнего заголовка: почему/);
+});

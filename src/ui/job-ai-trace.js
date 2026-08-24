@@ -8,7 +8,7 @@ export function renderJobAiTrace(job = {}) {
     <details class="job-ai-trace">
       <summary>AI trace</summary>
       <dl>
-        <div><dt>Hook seed</dt><dd>${escapeHtml(trace.hookSeed || job.hookSeed || "не указан")}</dd></div>
+        <div><dt>Выбранный хук</dt><dd>${escapeHtml(trace.selectedHook || job.title || "не указан")}</dd></div>
         <div><dt>Angle</dt><dd>${escapeHtml(trace.selectedAngle || job.creativeBrief?.topic || job.topic || "")}</dd></div>
         <div><dt>Product</dt><dd>${escapeHtml(formatProductDecision(job.productVisibilityDecision || contract.productVisibilityDecision))}</dd></div>
         <div><dt>Refs</dt><dd>${escapeHtml((job.inputRefs || []).map((item) => item.role).join(", ") || "нет")}</dd></div>

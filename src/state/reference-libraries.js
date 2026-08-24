@@ -1,48 +1,36 @@
 import { normalizeResearchResult } from "../domain/reels-research.js";
-import { createEmptyHookLibrary, normalizeHookLibrary } from "../domain/hook-library.js";
 import { readJsonStorage } from "../storage/json-storage.js";
 
-const hookStorageKey = "anton-hook-library";
-const hookStorageVersion = 1;
 const researchStorageKey = "anton-reels-research";
 const researchStorageVersion = 1;
 
 export function createPersistedReferenceState() {
   return {
-    hookLibrary: readLegacyHookLibrary(),
     reelsResearch: readLegacyResearch()
   };
 }
 
 export function normalizePersistedReferenceState(state = {}) {
-  return {
+  const normalized = {
     ...state,
-    hookLibrary: normalizeHookLibrary(state.hookLibrary),
     reelsResearch: hasResearchResult(state.reelsResearch)
       ? normalizeResearchResult(state.reelsResearch)
       : null
   };
+  delete normalized.hookLibrary;
+  return normalized;
 }
 
 export function mergeHydratedReferenceState(remoteState = {}, localState = {}) {
-  const remoteHookLibrary = normalizeHookLibrary(remoteState.hookLibrary);
-  const localHookLibrary = normalizeHookLibrary(localState.hookLibrary);
-  const useLocalHooks = !remoteHookLibrary.versions.length && localHookLibrary.versions.length;
   const remoteResearch = hasResearchResult(remoteState.reelsResearch) ? normalizeResearchResult(remoteState.reelsResearch) : null;
   const localResearch = hasResearchResult(localState.reelsResearch) ? normalizeResearchResult(localState.reelsResearch) : null;
 
-  return {
+  const merged = {
     ...remoteState,
-    hookLibrary: useLocalHooks ? localHookLibrary : remoteHookLibrary,
     reelsResearch: remoteResearch || localResearch || null
   };
-}
-
-function readLegacyHookLibrary() {
-  return normalizeHookLibrary(readJsonStorage(hookStorageKey, {
-    fallback: createEmptyHookLibrary(),
-    version: hookStorageVersion
-  }));
+  delete merged.hookLibrary;
+  return merged;
 }
 
 function readLegacyResearch() {

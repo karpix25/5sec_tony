@@ -1,6 +1,6 @@
 import {
+  hasGenerationReadyProductPassport,
   hasUsefulDesignAnalysis,
-  hasUsefulProductPassport,
   normalizeDesignAnalysis,
   normalizeProductAiPassport
 } from "../src/domain/ai-artifacts.js";
@@ -16,7 +16,7 @@ export async function ensureGenerationPreflight({ selection = {}, origin, deps =
   if (!context.reference) throw new Error("Дизайн-референс не выбран");
   assertPlayableAudioLibrary(context.audioLibrary);
 
-  const missingProducts = context.products.filter((product) => !hasUsefulProductPassport(product.aiPassport));
+  const missingProducts = context.products.filter((product) => !hasGenerationReadyProductPassport(product.aiPassport));
   const missingReference = !hasUsefulDesignAnalysis(context.reference.designAnalysis);
   if (!missingProducts.length && !missingReference) {
     return { state, createdProductPassports: 0, createdDesignAnalysis: false };
@@ -46,7 +46,7 @@ async function createMissingProductPassports({ products, project, origin, deps }
   const productPassports = new Map();
   for (const product of products) {
     const passport = normalizeProductAiPassport(await refreshProductPassport({ project, product, origin }));
-    if (!hasUsefulProductPassport(passport)) {
+    if (!hasGenerationReadyProductPassport(passport)) {
       throw new Error(`AI-карточка продукта "${product.name || product.id}" не создалась`);
     }
     productPassports.set(product.id, { ...passport, updatedAt: passport.updatedAt || new Date().toISOString() });

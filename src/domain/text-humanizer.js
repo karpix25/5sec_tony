@@ -3,7 +3,7 @@ import { stripUnicodeReplacementCharacters } from "./text-integrity.js";
 export function normalizeHumanizedPlan(draft, fallbackPlan, options = {}) {
   const points = normalizeHumanizerPoints(draft?.points, fallbackPlan.points);
   const lockedHeadline = cleanText(options.lockedHeadline);
-  const headline = lockedHeadline || normalizeHeadline(draft?.headline, fallbackPlan.headline, points);
+  const headline = lockedHeadline || normalizeHeadline(draft?.headline, fallbackPlan.headline);
   const subhead = normalizeSubhead(draft?.subhead, fallbackPlan.subhead, headline, points);
   return {
     headline,
@@ -44,10 +44,9 @@ function normalizeHumanizerPoints(points, fallbackPoints = []) {
     .slice(0, 6);
 }
 
-function normalizeHeadline(value, fallback, points = []) {
+function normalizeHeadline(value, fallback) {
   const source = simplifyLine(stripTechnicalLabels(cleanText(value))) || simplifyLine(stripTechnicalLabels(cleanText(fallback)));
   if (!source) return "";
-  if (isTechnicalHeadline(source)) return buildHeadlineFromPoints(points) || "Что проверить сегодня";
   return source
     .replace(/как популярный миф мешает принятию решений:?\s*/i, "")
     .replace(/как простая метафора объясняет проблему:?\s*/i, "")
@@ -63,7 +62,7 @@ function normalizeSubhead(value, fallback, headline = "", points = []) {
   const source = simplifyLine(stripTechnicalLabels(cleanText(value))) || simplifyLine(stripTechnicalLabels(cleanText(fallback)));
   if (!source) return "";
   if (/популярное объяснение|простая метафора|проблема часто скрывается/i.test(source)) {
-    return "Проверьте одну привычку, которую легко не заметить.";
+    return points.find((point) => !isSameMeaning(point, headline)) || source;
   }
   if (isSameMeaning(source, headline)) {
     return points.find((point) => !isSameMeaning(point, headline)) || "";
@@ -73,15 +72,7 @@ function normalizeSubhead(value, fallback, headline = "", points = []) {
 
 function simplifyLine(value) {
   return cleanText(value)
-    .replace(/твоя\s+маска\s+крад[её]т\s+объ[её]м\?\s*ошибка\s+в\s+нанесении/gi, "Почему волосы теряют объем после маски")
-    .replace(/почему\s+маска\s+[«"]?съедает[»"]?\s+объ[её]м:?\s*ошибка\s+в\s+распределении/gi, "Маска утяжеляет волосы, если нанести ее не туда")
-    .replace(/маска\s+[«"]?съедает[»"]?\s+объ[её]м:?\s*ошибка\s+в\s+распределении/gi, "Маска утяжеляет волосы, если нанести ее не туда")
-    .replace(/почему\s+[«"]?скрип[»"]?\s+кожи\s+[—-]\s+это\s+сигнал\s+SOS,\s+а\s+не\s+чистота/gi, "Скрип кожи — не чистота")
     .replace(/сигнал\s+SOS/gi, "тревожный знак")
-    .replace(/ошибка\s+в\s+распределении/gi, "нанесли не туда")
-    .replace(/ошибка\s+в\s+нанесении/gi, "нанесли не туда")
-    .replace(/съедает\s+объ[её]м/gi, "утяжеляет волосы")
-    .replace(/крад[её]т\s+объ[её]м/gi, "убирает объем")
     .replace(/популярное объяснение часто сбивает с толку:?\s*/gi, "")
     .replace(/этот факт объясняет знакомое ощущение:?\s*/gi, "")
     .replace(/один простой шаг часто меняет больше, чем кажется:?\s*/gi, "")
@@ -103,14 +94,6 @@ function simplifyLine(value) {
     .replace(/что болит/gi, "где болит в жизни")
     .replace(/что известно/gi, "что полезно знать")
     .replace(/обещаний, где легко потерять контроль/gi, "обещаний без деталей")
-    .replace(/счет оплачивают, не понимая срок и назначение/gi, "деньги уходят, а за что именно — непонятно")
-    .replace(/счет читается как чек-лист перед оплатой/gi, "понятно, кому и за что платите")
-    .replace(/передать данные без понятного процесса/gi, "отдать данные, не понимая следующий шаг")
-    .replace(/условия названы до запуска транзакции/gi, "сумму, сроки и правила называют заранее")
-    .replace(/комиссия и ограничения всплывают после согласия/gi, "доплаты и ограничения всплывают слишком поздно")
-    .replace(/не разобрать поля счета до перевода/gi, "оплатить счет, не проверив главное")
-    .replace(/платеж уходит не туда или требует долгих уточнений/gi, "потом приходится долго разбираться, куда ушли деньги")
-    .replace(/актуальных условий платежа/gi, "текущих правил оплаты")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -129,18 +112,6 @@ function stripTechnicalLabels(value) {
 
 function isEmptyBrandPoint(value) {
   return /^[A-ZА-ЯЁ0-9 -]{2,}\.?$/.test(value.trim());
-}
-
-function isTechnicalHeadline(value) {
-  return /разбор состава|анализ состава|простая метафора|популярный миф|неочевидная ошибка портит результат|что внутри и зачем/i.test(value);
-}
-
-function buildHeadlineFromPoints(points) {
-  const joined = points.join(" ").toLowerCase();
-  if (/сухост|тонус|кож/.test(joined)) return "Почему кожа быстро теряет тонус";
-  if (/сон|утр|устал|стресс/.test(joined)) return "Почему сон не дает сил";
-  if (/оплат|счет|карт|доступ/.test(joined)) return "Почему оплата срывается в последний момент";
-  return "";
 }
 
 function isDisclaimerPoint(value) {

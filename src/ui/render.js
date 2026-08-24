@@ -8,7 +8,6 @@ import { bindAiMemoryControls } from "./ai-memory-controls.js";
 import { renderDesignSettings } from "./design.js";
 import { bindGenerationPanelEvents, renderStudioPanel } from "./generation.js";
 import { bindProjectAutomationControls } from "./project-automation-controls.js";
-import { bindHooksEvents, renderHooksPanel } from "./hooks.js";
 import { escapeHtml } from "./infographic.js";
 import { renderCreateProjectModal, renderDeleteProjectModal, renderMediaPreviewModal } from "./modals.js";
 import { bindPreviewModalEvents } from "./preview-modal.js";
@@ -93,7 +92,6 @@ function renderGlobalReferenceNav(state) {
     <nav class="sidebar-nav" aria-label="Глобальные референсы">
       <span class="field-label">Глобальные референсы</span>
       ${sidebarNavButton("audio", "Аудио", active)}
-      ${sidebarNavButton("hooks", "Хуки", active)}
     </nav>
   `;
 }
@@ -135,7 +133,7 @@ function renderOperationsPanel(state, context, operations = {}, options = {}) {
 }
 
 function isGlobalReferenceTab(state) {
-  return ["audio", "hooks"].includes(state.selectedProjectTab);
+  return state.selectedProjectTab === "audio";
 }
 
 export function renderProjectSettingsTabs(state, context, operations = {}, options = {}) {
@@ -166,11 +164,9 @@ function renderGlobalReferencePanel(state, context, operations = {}) {
   return `
     <div class="settings-tabs" role="tablist" aria-label="Глобальные референсы">
       ${tabButton("audio", "Аудио", active)}
-      ${tabButton("hooks", "Хуки", active)}
     </div>
     <div class="settings-tab-panel">
       ${active === "audio" ? renderAudioSettings({ ...context, operations }) : ""}
-      ${active === "hooks" ? renderHooksPanel(state.hookLibrary) : ""}
     </div>
   `;
 }
@@ -401,7 +397,6 @@ function bindEvents(root, store, options = {}) {
     });
   });
   bindAvatarOverlayComposerEvents(root, store);
-  bindHooksEvents(root, { getLibrary: () => store.getState().hookLibrary, saveLibrary: (hookLibrary) => store.updateHookLibrary(hookLibrary), refresh: options.rerender || (() => renderApp(root, store, options)) });
 }
 
 function runStoreOperation(store, config, task) {

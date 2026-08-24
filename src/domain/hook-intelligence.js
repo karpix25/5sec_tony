@@ -72,13 +72,13 @@ export function formatHookIntelligencePrompt(intelligence) {
   if (!intelligence?.sourceHook) return "";
   return [
     "ВНУТРЕННЕЕ ПРАВИЛО ХУКА: это инструкция для смысла, не писать эти слова на изображении.",
-    `Исходный хук из библиотеки: ${intelligence.sourceHook}.`,
+    `Выбранный заголовок: ${intelligence.sourceHook}.`,
     `Тип хука: ${intelligence.hookType}.`,
     `Механика внимания: ${intelligence.attentionMechanism}.`,
     `Обещание зрителю: ${intelligence.hookPromise}.`,
     `Ожидаемая структура: ${intelligence.expectedStructure}.`,
     `Плохие адаптации: ${intelligence.badAdaptations.join("; ")}.`,
-    "Адаптируй хук по его психологии, а не механически подставляй название продукта."
+    "Сохрани механику внимания и раскрой обещание заголовка конкретным содержанием."
   ].join(" ");
 }
 

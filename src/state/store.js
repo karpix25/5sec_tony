@@ -264,9 +264,6 @@ export function createStore() {
     updateGenerationBrief(payload) {
       setState({ generationBrief: ensureGenerationBrief(payload) });
     },
-    updateHookLibrary(hookLibrary) {
-      setState({ hookLibrary });
-    },
     updateReelsResearch(reelsResearch) {
       setState({ reelsResearch });
     },
