@@ -3,7 +3,7 @@ import { humanizeTextInstruction, runCreativeTeamBrief } from "./creative-team-p
 import { humanizeCreativeTeamDraft } from "./creative-team-humanizer.mjs";
 import { completeCreativeTeamImagePrompt } from "./creative-team-image-prompt.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
-import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
+import { getVisibleTextContractViolations, repairVisibleTextContract } from "../src/domain/design-text-contract.js";
 import { validateHeadlineSafety } from "../src/domain/attention-frame.js";
 import { readJsonRequest } from "./request-body.mjs";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
@@ -72,23 +72,16 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
+    const safeDraft = repairCreativeTeamText(humanizedDraft);
     const finalDraft = await completeCreativeTeamImagePrompt({
       token,
       body: bodyWithReferenceImages,
-      draft: humanizedDraft,
+      draft: safeDraft,
       model: writingModel,
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    const textContractViolations = getVisibleTextContractViolations({ contentScript: finalDraft.contentScript });
-    if (textContractViolations.length) {
-      return sendJson(response, 422, {
-        error: "Финальный текст инфографики не прошел проверку",
-        code: "visible_text_contract",
-        violations: textContractViolations
-      });
-    }
-    return sendJson(response, 200, { model: writingModel, draft: finalDraft });
+    return sendJson(response, 200, { model: writingModel, draft: repairCreativeTeamText(finalDraft) });
   } catch (error) {
     console.error("[openrouter:brief:error]", JSON.stringify({
       message: error.message || "OpenRouter request failed",
@@ -96,6 +89,22 @@ async function generateBrief(request, response) {
     }));
     return sendJson(response, 502, { error: error.message || "OpenRouter request failed" });
   }
+}
+
+function repairCreativeTeamText(draft = {}) {
+  const contentScript = draft.contentScript || draft.plan || draft.aiPlan || {};
+  const violations = getVisibleTextContractViolations({ contentScript });
+  const repaired = repairVisibleTextContract(contentScript, {
+    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+  });
+  return {
+    ...draft,
+    hook: repaired.headline,
+    contentScript: repaired,
+    plan: repaired,
+    aiPlan: repaired,
+    textContractRecovery: violations.length ? { used: true, violations } : draft.textContractRecovery
+  };
 }
 
 async function attachDesignReferenceImageUrls(body, request) {

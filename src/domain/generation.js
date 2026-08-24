@@ -30,7 +30,7 @@ import { createProductVisibilityDecision } from "./product-visibility-decision.j
 import { createPromptContract } from "./prompt-contract.js";
 import { createGenerationAiTrace } from "./generation-ai-trace.js";
 import { getGenerationInputReferences, getGenerationInputUrls } from "./generation-input-references.js";
-import { assertGenerationTextContract } from "./design-text-contract.js";
+import { repairVisibleTextContract } from "./design-text-contract.js";
 import {
   getAiDepartmentContent,
   getAiDepartmentFormat,
@@ -176,8 +176,10 @@ function formatProductInsightPrompt(profile) {
 }
 
 export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [] }) {
-  const brief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
-  assertGenerationTextContract(brief.finalContent, hasAiDepartmentBrief(generationBrief));
+  const rawBrief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
+  const suppliedContent = generationBrief?.contentScript || generationBrief?.plan || generationBrief?.aiPlan;
+  const finalContent = repairVisibleTextContract(suppliedContent || rawBrief.finalContent, { fallbackHeadlines: [rawBrief.hook, rawBrief.topic, product.name] });
+  const brief = { ...rawBrief, hook: finalContent.headline, finalContent, aiPlan: finalContent, contentScript: finalContent };
   const avatarEmotion = resolveAvatarEmotionSelection({
     project,
     topic: brief.topic,

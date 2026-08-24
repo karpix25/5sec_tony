@@ -1,5 +1,5 @@
 import { normalizeHumanizedLine, normalizeHumanizedPlan } from "../src/domain/text-humanizer.js";
-import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
+import { getVisibleTextContractViolations, repairVisibleTextContract } from "../src/domain/design-text-contract.js";
 import { humanizeTextInstruction } from "./creative-team-prompts.mjs";
 
 export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, model, callOpenRouter, parseJsonDraft }) {
@@ -21,10 +21,21 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
       basePlan = plan;
     } catch (error) {
       console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);
-      return withHumanizedPlan(currentDraft, normalizeHumanizedPlan(basePlan, basePlan));
+      return repairDraft(currentDraft, basePlan);
     }
   }
-  return currentDraft;
+  return repairDraft(currentDraft, basePlan);
+}
+
+function repairDraft(draft, plan) {
+  const violations = getVisibleTextContractViolations({ contentScript: plan });
+  const repairedPlan = repairVisibleTextContract(plan, {
+    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+  });
+  return {
+    ...withHumanizedPlan(draft, repairedPlan),
+    textContractRecovery: { used: violations.length > 0, violations }
+  };
 }
 
 function withHumanizedPlan(draft, plan, attentionReview = draft.attentionReview || null) {

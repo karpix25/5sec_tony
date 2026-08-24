@@ -22,6 +22,26 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   return violations;
 }
 
+export function repairVisibleTextContract(contentScript = {}, options = {}) {
+  const sourceHeadline = normalizeRepairLine(contentScript.headline);
+  const fallbackHeadlines = Array.isArray(options.fallbackHeadlines) ? options.fallbackHeadlines : [];
+  const candidates = [sourceHeadline, ...fallbackHeadlines, contentScript.subhead, ...getScriptPoints(contentScript)]
+    .map(normalizeRepairLine)
+    .filter((line) => line && !looksLikeProductDump(line) && !forbiddenVisiblePattern.test(line));
+  const headline = candidates.find(isValidHeadline)
+    || candidates.map(createHeadlineCandidate).find(Boolean)
+    || "Вот что важно знать";
+  const points = getScriptPoints(contentScript)
+    .map(normalizePointText)
+    .map(normalizeRepairLine)
+    .filter((line) => line && !forbiddenVisiblePattern.test(line));
+  const rawSubhead = normalizeRepairLine(contentScript.subhead);
+  const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead)
+    ? rawSubhead
+    : points.find((point) => !hasSameMeaning(headline, point)) || "";
+  return { ...contentScript, headline, subhead, points };
+}
+
 export function assertGenerationTextContract(contentScript = {}, enabled = true) {
   if (!enabled) return;
   const violations = getVisibleTextContractViolations({ contentScript });
@@ -81,6 +101,38 @@ function normalizePointText(point) {
 
 function normalizeVisibleLine(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeRepairLine(value) {
+  return normalizeVisibleLine(value)
+    .replace(/\uFFFD/g, "")
+    .replace(/^[3-7]\s*(?:маркер\w*|признак\w*|пункт\w*|симптом\w*|ошиб\w*|вещ\w*|привыч\w*|сигнал\w*)\s*,?\s*(?:что\s+про|которые|что|про)?\s*/i, "")
+    .replace(/^[\s:—–-]+|[.!?\s]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function createHeadlineCandidate(value) {
+  const words = removeAdjacentDuplicateWords(normalizeRepairLine(value).split(/\s+/).filter(Boolean));
+  for (let start = 0; start < Math.min(words.length, 4); start += 1) {
+    for (let count = Math.min(6, words.length - start); count >= 3; count -= 1) {
+      const candidate = words.slice(start, start + count).join(" ");
+      if (!getVisibleTextContractViolations({ contentScript: { headline: candidate } }).length) return candidate;
+    }
+  }
+  return "";
+}
+
+function isValidHeadline(value) {
+  return !getVisibleTextContractViolations({ contentScript: { headline: value } }).length;
+}
+
+function removeAdjacentDuplicateWords(words) {
+  return words.filter((word, index) => index === 0 || normalizeVisibleWord(word) !== normalizeVisibleWord(words[index - 1]));
+}
+
+function looksLikeProductDump(value) {
+  return value.length > 90 || (value.match(/[.!?](?:\s|$)/g) || []).length > 1;
 }
 
 function normalizeVisibleWord(value) {

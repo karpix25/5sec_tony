@@ -2,23 +2,28 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { projects, products } from "../src/domain/entities.js";
 import { createAutoGenerationBrief, createGenerationJob } from "../src/domain/generation.js";
+import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
 
-test("AI generation cannot start with an oversized headline", () => {
+test("AI generation repairs an oversized headline instead of stopping", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
 
-  assert.throws(() => createGenerationJob({
+  const job = createGenerationJob({
     project,
     product,
     reference: project.references[0],
     generationBrief: {
+      creativeQuality: { curiosityScore: 8, warnings: [] },
       contentScript: {
         headline: "5 сигналов, что про высокая озировка хлорофилл 500мг на порции. Приятный мятный вкус. Есть мерный колпачок лучше узнать заранее",
         subhead: "",
         points: []
       }
     }
-  }), /Финальный текст AI-брифа не прошел проверку/);
+  });
+
+  assert.equal(job.title, "Вот что важно знать");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: job.finalContent }), []);
 });
 
 test("AI headline is not replaced with a canned formula after editorial review", () => {

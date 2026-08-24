@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { humanizeCreativeTeamDraft } from "../scripts/creative-team-humanizer.mjs";
+import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
 
 test("creative team humanizer rewrites final script before image prompt ownership", async () => {
   const calls = [];
@@ -63,5 +64,29 @@ test("creative team humanizer falls back to deterministic cleanup", async () => 
     parseJsonDraft: JSON.parse
   });
 
-  assert.equal(draft.contentScript.headline, "Твоя маска крадет объем? Ошибка в нанесении");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: draft.contentScript }), []);
+  assert.equal(draft.textContractRecovery.used, true);
+});
+
+test("creative team humanizer returns a safe result after two invalid rewrites", async () => {
+  const calls = [];
+  const productDump = `5 сигналов, что про ${"описание продукта ".repeat(20)}лучше узнать заранее`;
+  const draft = await humanizeCreativeTeamDraft({
+    token: "token",
+    model: "writer",
+    body: {},
+    draft: {
+      hook: "Скрабы не лечат гусиную кожу",
+      contentScript: { headline: productDump, subhead: "", points: ["Кислоты мягко обновляют кожу"] }
+    },
+    callOpenRouter: async () => {
+      calls.push(true);
+      return JSON.stringify({ headline: productDump, points: ["Кислоты мягко обновляют кожу"] });
+    },
+    parseJsonDraft: JSON.parse
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(draft.contentScript.headline, "Скрабы не лечат гусиную кожу");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: draft.contentScript }), []);
 });

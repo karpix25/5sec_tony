@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
+import { getVisibleTextContractViolations, repairVisibleTextContract } from "../src/domain/design-text-contract.js";
 import { normalizeHumanizedPlan } from "../src/domain/text-humanizer.js";
 import { completeCreativeTeamImagePrompt } from "../scripts/creative-team-image-prompt.mjs";
 import { parseJsonDraft } from "../scripts/openrouter-response.mjs";
@@ -27,6 +27,35 @@ test("visible text contract rejects stale-looking headline copy", () => {
       points: []
     }
   }), ["headline_too_long", "headline_too_many_words", "subhead_duplicates_headline"]);
+});
+
+test("visible text repair always returns a valid headline", () => {
+  const productDump = `5 сигналов, что про ${"полное описание продукта ".repeat(20)}лучше узнать заранее`;
+  const repaired = repairVisibleTextContract({
+    headline: productDump,
+    subhead: productDump,
+    points: ["Первый полезный факт", "Купите прямо сейчас"]
+  }, { fallbackHeadlines: ["Скрабы не лечат гусиную кожу"] });
+
+  assert.equal(repaired.headline, "Скрабы не лечат гусиную кожу");
+  assert.equal(repaired.subhead, "Первый полезный факт");
+  assert.deepEqual(repaired.points, ["Первый полезный факт"]);
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
+test("visible text repair has a deterministic last resort", () => {
+  const repaired = repairVisibleTextContract({ headline: "Шампунь", points: [] });
+
+  assert.equal(repaired.headline, "Вот что важно знать");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
+test("visible text repair prefers a natural fallback over a clipped headline", () => {
+  const repaired = repairVisibleTextContract({
+    headline: "Почему волосы теряют объем уже через пару часов после мытья"
+  }, { fallbackHeadlines: ["Объем исчезает не из-за шампуня"] });
+
+  assert.equal(repaired.headline, "Объем исчезает не из-за шампуня");
 });
 
 test("image prompt package is built from the humanized final headline", async () => {
