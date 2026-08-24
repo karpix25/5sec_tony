@@ -1,4 +1,5 @@
 import { normalizeProductAiPassport } from "./ai-artifacts.js";
+import { isEditorialTopicEligible } from "./editorial-topic-policy.js";
 
 const maxRecentJobs = 12;
 const maxClusters = 10;
@@ -43,11 +44,10 @@ export function buildTopicClusters(product = {}, project = {}) {
     ...itemsToClusterSources(territory.lifestyleContexts, "lifestyle"),
     ...itemsToClusterSources(project.projectTheme || project.niche, "brandTheme"),
     ...itemsToClusterSources(territory.directProductTopics, "direct"),
-    ...itemsToClusterSources(passport.safeFacts, "safeFact"),
     ...itemsToClusterSources(passport.coreUseCases, "useCase"),
     ...itemsToClusterSources(passport.painSituations, "pain"),
     ...itemsToClusterSources(passport.desires, "desire")
-  ];
+  ].filter((source) => isEditorialTopicEligible({ text: source.text, project, product }));
   const grouped = new Map();
   for (const source of sources) {
     const base = resolveClusterRule(source.text);

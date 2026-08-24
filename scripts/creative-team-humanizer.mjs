@@ -16,21 +16,22 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
       const plan = normalizeHumanizedPlan(parsed, basePlan);
       currentDraft = withHumanizedPlan(currentDraft, plan, parsed.attentionReview);
       const violations = getVisibleTextContractViolations({ contentScript: plan });
-      if (!violations.length) return currentDraft;
+      if (!violations.length && attempt > 0) return currentDraft;
       body = { ...body, headlineViolations: violations };
       basePlan = plan;
     } catch (error) {
       console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);
-      return repairDraft(currentDraft, basePlan);
+      return repairDraft(currentDraft, basePlan, body);
     }
   }
-  return repairDraft(currentDraft, basePlan);
+  return repairDraft(currentDraft, basePlan, body);
 }
 
-function repairDraft(draft, plan) {
+function repairDraft(draft, plan, body) {
   const violations = getVisibleTextContractViolations({ contentScript: plan });
   const repairedPlan = repairVisibleTextContract(plan, {
-    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic],
+    productName: body.product?.name
   });
   return {
     ...withHumanizedPlan(draft, repairedPlan),

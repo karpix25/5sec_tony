@@ -8,6 +8,7 @@ import { ensureRussianImagePromptGuard } from "../src/domain/language-policy.js"
 import { humanizeProviderErrorMessage } from "../src/domain/provider-error-message.js";
 import { buildGenerationYandexDiskFolder } from "../src/state/yandex-disk-paths.js";
 import { createOperationLogger, summarizeJobForLog } from "./operation-logger.mjs";
+import { reviewServerImageText } from "./server-image-text-review.mjs";
 
 const successStates = ["success", "succeeded", "completed", "complete"];
 const failStates = ["fail", "failed", "error"];
@@ -15,7 +16,6 @@ const primaryProvider = "gpt-image-2";
 const fallbackProvider = "nano-banana-2";
 const defaultYandexUploadRetryDelaysMs = [2000, 5000, 15000, 30000, 60000];
 const logger = createOperationLogger("server-job");
-
 export { logger as serverJobLogger };
 
 export async function runServerJob(record) {
@@ -30,7 +30,6 @@ export async function runServerJob(record) {
   await runServerFinalAssembly(record, image.imageUrl);
   logger.log("pipeline:done", { job: summarizeJobForLog(record.job) });
 }
-
 export async function resumeServerJob(record) {
   logger.log("resume:start", { job: summarizeJobForLog(record.job) });
   if (record.job.imageUrl) {
@@ -44,7 +43,6 @@ export async function resumeServerJob(record) {
   }
   throw new Error("Серверная задача была прервана до создания задачи картинки. Запустите генерацию заново.");
 }
-
 export async function patchServerJob(record, payload) {
   const previous = summarizeJobForLog(record.job);
   record.job = { ...record.job, ...normalizeQueuePatch(record.job, payload) };
@@ -129,6 +127,8 @@ async function pollServerImageTask(record, provider, taskId, startAttempt = 0) {
       failMsg: status.failMsg || ""
     });
     if (successStates.includes(status.state) && status.imageUrl) {
+      const textReview = await reviewServerImageText(record, status.imageUrl, { patchJob: (payload) => patchServerJob(record, payload) });
+      if (textReview.retry) return runServerImageGeneration(record, provider);
       await patchServerJob(record, {
         status: "running",
         stage: "assembly",

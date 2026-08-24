@@ -16,7 +16,7 @@ test("humanizer preserves meaning and leaves invalid headlines for contract reje
   assert.equal(longPlan.headline, long);
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: duplicate }), ["headline_too_few_words", "headline_duplicate_word"]);
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: incomplete }), ["headline_too_long", "headline_incomplete"]);
-  assert.deepEqual(getVisibleTextContractViolations({ contentScript: longPlan }), ["headline_too_long", "headline_too_many_words"]);
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: longPlan }), ["headline_too_long", "headline_too_many_words", "headline_product_dump"]);
 });
 
 test("visible text contract rejects stale-looking headline copy", () => {
@@ -26,7 +26,7 @@ test("visible text contract rejects stale-looking headline copy", () => {
       subhead: "Это многофункциональный несмываемый спрей",
       points: []
     }
-  }), ["headline_too_long", "headline_too_many_words", "subhead_duplicates_headline"]);
+  }), ["headline_too_long", "headline_too_many_words", "headline_product_dump", "subhead_duplicates_headline"]);
 });
 
 test("visible text repair always returns a valid headline", () => {
@@ -48,6 +48,21 @@ test("visible text repair has a deterministic last resort", () => {
 
   assert.equal(repaired.headline, "Вот что важно знать");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
+test("visible text repair never clips a numbered product dump into a headline", () => {
+  const repaired = repairVisibleTextContract({
+    headline: "Заблуждение про 1. снижение веса 2. очищение организма 3. повышение выносливости"
+  }, { productName: "Жидкий хлорофилл BBHERB" });
+
+  assert.equal(repaired.headline, "Жидкий хлорофилл: главное");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
+test("visible text contract rejects broken numbered headline fragments", () => {
+  assert.deepEqual(getVisibleTextContractViolations({
+    contentScript: { headline: "Заблуждение про 1. 6." }
+  }), ["headline_numbered_fragment"]);
 });
 
 test("visible text repair prefers a natural fallback over a clipped headline", () => {

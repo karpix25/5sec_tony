@@ -22,7 +22,7 @@ test("AI generation repairs an oversized headline instead of stopping", () => {
     }
   });
 
-  assert.equal(job.title, "Вот что важно знать");
+  assert.equal(job.title, `${product.name}: главное`);
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: job.finalContent }), []);
 });
 

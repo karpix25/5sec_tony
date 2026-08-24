@@ -25,7 +25,7 @@ test("creative team humanizer rewrites final script before image prompt ownershi
     parseJsonDraft: JSON.parse
   });
 
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(draft.contentScript.headline, "Маска крадет объем волос");
   assert.equal(draft.plan.points.length, 2);
   assert.match(calls[0].text, /Перепиши финальный текст/);

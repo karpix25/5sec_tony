@@ -178,7 +178,10 @@ function formatProductInsightPrompt(profile) {
 export function createGenerationJob({ project, product, reference, character, audio, generationBrief, freePrompt, existingJobs = [] }) {
   const rawBrief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   const suppliedContent = generationBrief?.contentScript || generationBrief?.plan || generationBrief?.aiPlan;
-  const finalContent = repairVisibleTextContract(suppliedContent || rawBrief.finalContent, { fallbackHeadlines: [rawBrief.hook, rawBrief.topic, product.name] });
+  const finalContent = repairVisibleTextContract(suppliedContent || rawBrief.finalContent, {
+    fallbackHeadlines: [rawBrief.hook, rawBrief.topic],
+    productName: product.name
+  });
   const brief = { ...rawBrief, hook: finalContent.headline, finalContent, aiPlan: finalContent, contentScript: finalContent };
   const avatarEmotion = resolveAvatarEmotionSelection({
     project,

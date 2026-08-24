@@ -6,6 +6,7 @@ import { resolveImageInputUrls } from "./reference-assets.mjs";
 import { getVisibleTextContractViolations, repairVisibleTextContract } from "../src/domain/design-text-contract.js";
 import { validateHeadlineSafety } from "../src/domain/attention-frame.js";
 import { readJsonRequest } from "./request-body.mjs";
+import { reviewRenderedImageText } from "../src/domain/image-text-contract.js";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -13,6 +14,7 @@ const designReferenceModel = writingModel;
 const defaultOpenRouterTimeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 120000);
 const briefOpenRouterTimeoutMs = Number(process.env.OPENROUTER_BRIEF_TIMEOUT_MS || 45000);
 const productVisionTimeoutMs = Number(process.env.PRODUCT_VISION_TIMEOUT_MS || 180000);
+const imageTextReviewTimeoutMs = Number(process.env.OPENROUTER_IMAGE_TEXT_REVIEW_TIMEOUT_MS || 45000);
 
 export async function handleOpenRouterApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/products/analyze") {
@@ -30,7 +32,49 @@ export async function handleOpenRouterApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/generation/humanize") {
     return humanizeGenerationText(request, response);
   }
+  if (request.method === "POST" && url.pathname === "/api/generation/image-text-review") {
+    return reviewGenerationImageText(request, response);
+  }
   return false;
+}
+
+async function reviewGenerationImageText(request, response) {
+  try {
+    const token = process.env.OPENROUTER_API_KEY;
+    if (!token) return sendJson(response, 500, { error: "OPENROUTER_API_KEY is not configured" });
+    const body = await readJson(request);
+    const imageUrl = String(body.imageUrl || "").trim();
+    if (!/^https:\/\//i.test(imageUrl)) return sendJson(response, 400, { error: "imageUrl must be https" });
+    const expected = body.contentScript && typeof body.contentScript === "object" ? body.contentScript : {};
+    const content = await callOpenRouter(token, visionModel, [{
+      role: "user",
+      content: [
+        { type: "text", text: imageTextReviewInstruction(expected) },
+        { type: "image_url", image_url: { url: imageUrl } }
+      ]
+    }], { timeoutMs: imageTextReviewTimeoutMs });
+    const observed = parseJsonDraft(content);
+    return sendJson(response, 200, reviewRenderedImageText(expected, observed));
+  } catch (error) {
+    return sendJson(response, 502, { error: error.message || "Image text review failed" });
+  }
+}
+
+function imageTextReviewInstruction(expected) {
+  return JSON.stringify({
+    task: "Считай редакционный текст с инфографики и верни его без исправлений. Игнорируй логотип, бренд и мелкий текст, напечатанный на реальной упаковке продукта.",
+    expectedText: {
+      headline: expected.headline || "",
+      subhead: expected.subhead || "",
+      points: Array.isArray(expected.points) ? expected.points : []
+    },
+    output: { headline: "", subhead: "", points: [], typos: [] },
+    rules: [
+      "Верни только JSON без markdown.",
+      "Перепиши видимый редакционный текст ровно так, как он нарисован, включая ошибки.",
+      "В typos перечисли обрезанные, нечитаемые или явно искаженные слова."
+    ]
+  });
 }
 
 async function generateAudienceExpert(request, response) {
@@ -72,7 +116,7 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    const safeDraft = repairCreativeTeamText(humanizedDraft);
+    const safeDraft = repairCreativeTeamText(humanizedDraft, { productName: body.product?.name });
     const finalDraft = await completeCreativeTeamImagePrompt({
       token,
       body: bodyWithReferenceImages,
@@ -81,7 +125,7 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    return sendJson(response, 200, { model: writingModel, draft: repairCreativeTeamText(finalDraft) });
+    return sendJson(response, 200, { model: writingModel, draft: repairCreativeTeamText(finalDraft, { productName: body.product?.name }) });
   } catch (error) {
     console.error("[openrouter:brief:error]", JSON.stringify({
       message: error.message || "OpenRouter request failed",
@@ -91,11 +135,12 @@ async function generateBrief(request, response) {
   }
 }
 
-function repairCreativeTeamText(draft = {}) {
+function repairCreativeTeamText(draft = {}, options = {}) {
   const contentScript = draft.contentScript || draft.plan || draft.aiPlan || {};
   const violations = getVisibleTextContractViolations({ contentScript });
   const repaired = repairVisibleTextContract(contentScript, {
-    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+    fallbackHeadlines: [draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic],
+    productName: options.productName
   });
   return {
     ...draft,

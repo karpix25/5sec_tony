@@ -2,6 +2,7 @@ const oldCountPattern = /(^|\s)[3-7]\s*(маркер|признак|пункт|�
 const topHeadlinePattern = /^(top|топ)(\s|\d|$)/i;
 const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|который|которая|которые|которое|потому|что|как|почему|это|плохой|плохая|плохое)$/i;
 const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
+const numberedHeadlineFragmentPattern = /(?:^|\s)\d{1,2}\s*[.)](?=\s|$)|^заблуждени[ея]\s+про\s+\d/i;
 
 export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   const headline = normalizeVisibleLine(contentScript.headline);
@@ -14,6 +15,8 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   if (headline.length > 34) violations.push("headline_too_long");
   if (headlineWords.length < 3) violations.push("headline_too_few_words");
   if (headlineWords.length > 6) violations.push("headline_too_many_words");
+  if (looksLikeProductDump(headline)) violations.push("headline_product_dump");
+  if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
   if (incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
@@ -29,7 +32,7 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
     .map(normalizeRepairLine)
     .filter((line) => line && !looksLikeProductDump(line) && !forbiddenVisiblePattern.test(line));
   const headline = candidates.find(isValidHeadline)
-    || candidates.map(createHeadlineCandidate).find(Boolean)
+    || createProductFallbackHeadline(options.productName)
     || "Вот что важно знать";
   const points = getScriptPoints(contentScript)
     .map(normalizePointText)
@@ -112,27 +115,30 @@ function normalizeRepairLine(value) {
     .trim();
 }
 
-function createHeadlineCandidate(value) {
-  const words = removeAdjacentDuplicateWords(normalizeRepairLine(value).split(/\s+/).filter(Boolean));
-  for (let start = 0; start < Math.min(words.length, 4); start += 1) {
-    for (let count = Math.min(6, words.length - start); count >= 3; count -= 1) {
-      const candidate = words.slice(start, start + count).join(" ");
-      if (!getVisibleTextContractViolations({ contentScript: { headline: candidate } }).length) return candidate;
-    }
-  }
-  return "";
-}
-
 function isValidHeadline(value) {
   return !getVisibleTextContractViolations({ contentScript: { headline: value } }).length;
 }
 
-function removeAdjacentDuplicateWords(words) {
-  return words.filter((word, index) => index === 0 || normalizeVisibleWord(word) !== normalizeVisibleWord(words[index - 1]));
+function createProductFallbackHeadline(productName) {
+  const words = normalizeRepairLine(productName)
+    .replace(/["'«»„“]/g, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((word) => !/[a-z]/i.test(word));
+  for (let count = Math.min(4, words.length); count >= 2; count -= 1) {
+    const candidate = `${words.slice(0, count).join(" ")}: главное`;
+    if (isValidHeadline(candidate)) return candidate;
+  }
+  if (words[0]) {
+    const candidate = `Главное про ${words[0]}`;
+    if (isValidHeadline(candidate)) return candidate;
+  }
+  return "";
 }
 
 function looksLikeProductDump(value) {
-  return value.length > 90 || (value.match(/[.!?](?:\s|$)/g) || []).length > 1;
+  const words = normalizeVisibleLine(value).split(/\s+/).filter(Boolean);
+  return value.length > 90 || (words.length > 10 && (value.match(/[.!?](?:\s|$)/g) || []).length > 1);
 }
 
 function normalizeVisibleWord(value) {

@@ -80,6 +80,32 @@ test("same product category follows each brand context", () => {
   assert.notEqual(volumeBrand.selected.id, sensitiveBrand.selected.id);
 });
 
+test("product evidence about packaging does not become an automatic content topic", () => {
+  const plan = createTopicClusterPlan({
+    project: { projectTheme: "здоровые пищевые привычки" },
+    product: {
+      name: "Жидкий хлорофилл",
+      description: "напиток с мятой",
+      aiPassport: {
+        version: "product-passport-v2",
+        productName: "Жидкий хлорофилл",
+        category: "нутрицевтик",
+        safeFacts: ["Упаковка оснащена защитной мембраной"],
+        coreUseCases: ["утренний ритуал с водой"],
+        contentTerritory: {
+          productWorld: "ежедневные wellness-привычки",
+          directProductTopics: ["качество упаковки и документы", "вкус и ежедневный ритуал"],
+          adjacentHelpfulTopics: ["водный баланс"]
+        }
+      }
+    }
+  });
+
+  const text = plan.available.map((cluster) => `${cluster.label} ${cluster.description}`).join(" ");
+  assert.doesNotMatch(text, /упаков|мембран|документ/i);
+  assert.match(text, /ритуал|водн|wellness/i);
+});
+
 test("server brief sends selected topic cluster to the ai departments", async () => {
   const previousFetch = globalThis.fetch;
   const bodies = [];
