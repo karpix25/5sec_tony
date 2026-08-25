@@ -181,6 +181,39 @@ test("cosmetic copy cannot assert an unsupported cause with iz-za", () => {
   assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Масло для волос" } }), ["headline:unsupported_causal_certainty"]);
 });
 
+test("claim contract rejects invented skin explanations and product forms", () => {
+  const cosmetic = { product: { name: "Сыворотка для лица", description: "Сыворотка с гиалуроновой кислотой" } };
+  const content = {
+    headline: "Кожа не стареет, а хочет пить",
+    points: [
+      "Стянутость означает, что защитный барьер ослаблен",
+      "Гиалурону нужна влага, чтобы работать",
+      "Крем идеально ложится и не скатывается"
+    ]
+  };
+  const violations = getUnsupportedClaimViolations(content, cosmetic);
+  assert.ok(violations.includes("headline:unsupported_skin_mechanism"));
+  assert.ok(violations.includes("points[0]:unsupported_skin_mechanism"));
+  assert.ok(violations.includes("points[1]:unsupported_skin_mechanism"));
+  assert.ok(violations.includes("points[2]:unsupported_cosmetic_effect"));
+
+  assert.deepEqual(getUnsupportedClaimViolations({
+    headline: "Таблетки могут не работать",
+    points: ["Жидкий концентрат комфортно усваивается"]
+  }, { product: { name: "Жидкий хлорофилл" } }), [
+    "headline:unsupported_product_form",
+    "points[0]:unsupported_wellness_mechanism",
+    "points[0]:unsupported_product_form"
+  ]);
+});
+
+test("claim contract rejects invented quantified comparisons", () => {
+  assert.deepEqual(getUnsupportedClaimViolations({
+    headline: "Твоя сумочка не резиновая",
+    points: ["Прокладки занимают в три раза меньше места"]
+  }, { product: { name: "Ультратонкие прокладки" } }), ["points[0]:unsupported_quantified_comparison"]);
+});
+
 test("claim contract rejects an unsupported body damage metaphor", () => {
   const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
 

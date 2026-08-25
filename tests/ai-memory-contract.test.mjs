@@ -149,7 +149,7 @@ test("generation job keeps prompt contract, trace and active product refs togeth
     generationBrief: {
       productPassport: product.aiPassport,
       designFormatBrief: { formatType: "checklist_cards" },
-      contentScript: { headline: "Проверь эту привычку", subhead: "одна строка", points: ["Вода утром"] },
+      contentScript: { headline: "Проверь эту привычку заранее", subhead: "одна строка", points: ["Вода утром"] },
       visualBrief: { productUsage: "exact_product" },
       creativeQuality,
       productVisibilityDecision: {
@@ -164,8 +164,8 @@ test("generation job keeps prompt contract, trace and active product refs togeth
   assert.equal(job.productVisibilityDecision.shouldPassProductRefs, true);
   assert.equal(job.inputRefs.some((item) => item.role === "product"), true);
   assert.equal(job.inputRefs.some((item) => item.role === "design"), true);
-  assert.equal(job.promptContract.textContract.headline, "Проверь эту привычку");
-  assert.equal(job.aiTrace.selectedHook, "Проверь эту привычку");
+  assert.equal(job.promptContract.textContract.headline, "Проверь эту привычку заранее");
+  assert.equal(job.aiTrace.selectedHook, "Проверь эту привычку заранее");
   assert.equal(job.aiTrace.referencesSent.some((item) => item.role === "product"), true);
 });
 

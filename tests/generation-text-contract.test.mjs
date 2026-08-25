@@ -15,7 +15,7 @@ test("AI generation repairs an oversized headline instead of stopping", () => {
     generationBrief: {
       creativeQuality: { curiosityScore: 8, warnings: [] },
       contentScript: {
-        headline: "5 сигналов, что про высокая озировка хлорофилл 500мг на порции. Приятный мятный вкус. Есть мерный колпачок лучше узнать заранее",
+        headline: "5 сигналов, что про высокая озировка хлорофилл 500мг на порции. Мята меняет привычный вкус. Есть мерный колпачок лучше узнать заранее",
         subhead: "",
         points: []
       },
@@ -23,7 +23,7 @@ test("AI generation repairs an oversized headline instead of stopping", () => {
     }
   });
 
-  assert.equal(job.title, "Приятный мятный вкус");
+  assert.equal(job.title, "Мята меняет привычный вкус");
   assert.equal(job.topicCluster.id, "daily-routine");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: job.finalContent }), []);
 });

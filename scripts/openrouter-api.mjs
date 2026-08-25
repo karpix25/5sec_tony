@@ -7,6 +7,7 @@ import { getVisibleTextContractViolations, repairVisibleTextContract } from "../
 import { validateHeadlineSafety } from "../src/domain/attention-frame.js";
 import { readJsonRequest } from "./request-body.mjs";
 import { reviewRenderedImageText } from "../src/domain/image-text-contract.js";
+import { getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -116,7 +117,7 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    const safeDraft = repairCreativeTeamText(humanizedDraft);
+    const safeDraft = repairCreativeTeamText(humanizedDraft, bodyWithReferenceImages);
     const finalDraft = await completeCreativeTeamImagePrompt({
       token,
       body: bodyWithReferenceImages,
@@ -125,7 +126,7 @@ async function generateBrief(request, response) {
       callOpenRouter: callBriefOpenRouter,
       parseJsonDraft
     });
-    return sendJson(response, 200, { model: writingModel, draft: repairCreativeTeamText(finalDraft) });
+    return sendJson(response, 200, { model: writingModel, draft: repairCreativeTeamText(finalDraft, bodyWithReferenceImages) });
   } catch (error) {
     console.error("[openrouter:brief:error]", JSON.stringify({
       message: error.message || "OpenRouter request failed",
@@ -135,11 +136,16 @@ async function generateBrief(request, response) {
   }
 }
 
-function repairCreativeTeamText(draft = {}) {
+function repairCreativeTeamText(draft = {}, body = {}) {
   const contentScript = draft.contentScript || draft.plan || draft.aiPlan || {};
-  const violations = getVisibleTextContractViolations({ contentScript });
-  const repaired = repairVisibleTextContract(contentScript, {
-    fallbackHeadlines: [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+  const claimContext = { project: body.project, product: body.product, productPassport: draft.productPassport || body.product?.aiPassport };
+  const claimSafeContent = repairUnsupportedClaims(contentScript, claimContext);
+  const violations = getVisibleTextContractViolations({ contentScript: claimSafeContent, product: body.product });
+  const fallbackHeadlines = [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+    .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
+  const repaired = repairVisibleTextContract(claimSafeContent, {
+    product: body.product,
+    fallbackHeadlines
   });
   return {
     ...draft,

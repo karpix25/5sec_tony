@@ -160,8 +160,8 @@ test("brief processor promotes a placeholder to a generation job", async () => {
       briefInputs.push(input);
       return {
         topic: "Серверная тема",
-        hook: "Серверный хук готов",
-        aiPlan: { headline: "Серверный хук готов", subhead: "", points: ["Пункт"] }
+        hook: "Серверный хук уже готов",
+        aiPlan: { headline: "Серверный хук уже готов", subhead: "", points: ["Пункт"] }
       };
     },
     postServerJob: async ({ job }) => {
@@ -183,7 +183,7 @@ test("brief processor promotes a placeholder to a generation job", async () => {
   assert.equal(job.queueName, "generation");
   assert.equal(job.queueStatus, "queued");
   assert.equal(job.queueIdempotencyKey, "generation:job-brief-test");
-  assert.equal(job.title, "Серверный хук готов");
+  assert.equal(job.title, "Серверный хук уже готов");
   assert.deepEqual(briefInputs[0].diversitySlot, reservedSlot);
 
   await processBriefJob({ jobId: "job-brief-test", batchId: "batch-brief-test", origin: "http://127.0.0.1:4173", deps });

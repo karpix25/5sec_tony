@@ -18,7 +18,7 @@ test("creative team humanizer rewrites final script before image prompt ownershi
     callOpenRouter: async (_token, model, messages) => {
       calls.push({ model, text: messages[1].content });
       return JSON.stringify({
-        headline: "Маска крадет объем волос",
+        headline: "Маска попала прямо на корни",
         subhead: "Проверьте, куда попадает средство",
         points: ["Корни лучше не перегружать", "Длине достаточно небольшого количества"]
       });
@@ -27,7 +27,7 @@ test("creative team humanizer rewrites final script before image prompt ownershi
   });
 
   assert.equal(calls.length, 2);
-  assert.equal(draft.contentScript.headline, "Маска крадет объем волос");
+  assert.equal(draft.contentScript.headline, "Маска попала прямо на корни");
   assert.equal(draft.plan.points.length, 2);
   assert.match(calls[0].text, /Перепиши финальный текст/);
 });
@@ -43,14 +43,14 @@ test("creative team humanizer proofreads a repaired headline", async () => {
       calls.push(messages[1].content);
       return JSON.stringify(calls.length === 1
         ? { headline: "Почему волосы теряют естественный объем после маски", points: ["Пункт"] }
-        : { headline: "Маска крадет объем волос", points: ["Пункт"] });
+        : { headline: "Маска попала прямо на корни", points: ["Пункт"] });
     },
     parseJsonDraft: JSON.parse
   });
 
   assert.equal(calls.length, 3);
   assert.match(calls[1], /headline_too_long/);
-  assert.equal(draft.contentScript.headline, "Маска крадет объем волос");
+  assert.equal(draft.contentScript.headline, "Маска попала прямо на корни");
 });
 
 test("creative team humanizer proofreads repaired medical causes without stopping generation", async () => {
