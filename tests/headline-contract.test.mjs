@@ -171,6 +171,16 @@ test("visible text contract rejects filler points and mismatched numbered promis
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
+test("visible text contract counts promises written as Russian words", () => {
+  const contentScript = {
+    headline: "Три ошибки в выборе одежды",
+    points: ["Первая ошибка", "Вторая ошибка", "Третья ошибка", "Лишний рекламный пункт"]
+  };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_count_mismatch"));
+  assert.notEqual(repairVisibleTextContract(contentScript).headline, contentScript.headline);
+});
+
 test("visible text contract rejects clipped and artificial number openings", () => {
   for (const headline of ["ки в сочетании ухода", "Почему 16 лет в лаборатории"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_broken_start"));

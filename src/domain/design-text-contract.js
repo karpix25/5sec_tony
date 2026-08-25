@@ -7,7 +7,8 @@ const weakHeadlineShellPattern = /^(?:почему\s+|скрип\s+|не\s+пр�
 const headlineJargonPattern = /эргономик|оптимизац|(?:^|\s)функционал(?:\s|$)|синерг|ресурс(?:ы|ами)?\s+организма/i;
 const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])/i;
 const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
-const promisedItemCountPattern = /\b([2-9])\s+(?:способ|совет|причин|шаг|правил|ошиб|привыч|факт|признак|вариант)[а-яё]*/i;
+const promisedItemCountPattern = /(?:^|\s)(2|два|две|3|три|4|четыре|5|пять|6|шесть|7|семь|8|восемь|9|девять)\s+(?:способ|совет|причин|шаг|правил|ошиб|привыч|факт|признак|вариант)[а-яё]*/i;
+const promisedItemCountValues = { "2": 2, два: 2, две: 2, "3": 3, три: 3, "4": 4, четыре: 4, "5": 5, пять: 5, "6": 6, шесть: 6, "7": 7, семь: 7, "8": 8, восемь: 8, "9": 9, девять: 9 };
 const genericPointPattern = /^(?:смотрите на состав|сверяйте обещания|оценивайте комфорт|следуйте инструкции)(?:\s|$)/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
@@ -202,14 +203,14 @@ function hasOrphanMeasurement(value) {
 
 function getPromisedItemCount(value) {
   const match = String(value || "").match(promisedItemCountPattern);
-  return match ? Number(match[1]) : 0;
+  return match ? promisedItemCountValues[match[1].toLowerCase()] || 0 : 0;
 }
 
 function removeMismatchedCountPromise(value, pointCount) {
   const promised = getPromisedItemCount(value);
   if (!promised || promised === pointCount) return value;
   return normalizeRepairLine(String(value).replace(
-    new RegExp(`(?:[?!.,:;—–-]\\s*)?\\b${promised}\\s+(?:способ|совет|причин|шаг|правил|ошиб|привыч|факт|признак|вариант)[а-яё]*.*$`, "i"),
+    /(?:^|[?!.,:;—–-]\s*|\s+)(?:2|два|две|3|три|4|четыре|5|пять|6|шесть|7|семь|8|восемь|9|девять)\s+(?:способ|совет|причин|шаг|правил|ошиб|привыч|факт|признак|вариант)[а-яё]*.*$/i,
     ""
   ));
 }
