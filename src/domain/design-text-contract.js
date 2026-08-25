@@ -37,6 +37,10 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (drySpecificationHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (bareInstructionHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (headlineJargonPattern.test(headline)) violations.push("headline_weak_shell");
+  if (headlineWords.length === 3
+    && !/[?!:—–-]/.test(headline)
+    && !/(?:^|\s)(?:не|без|зря|слишком|даже|уже|снова|вместо|против|до|после|через|из)(?:\s|$)/i.test(headline)
+    && !violations.includes("headline_weak_shell")) violations.push("headline_weak_shell");
   if (hasBrokenHeadlineStart(headline)) violations.push("headline_broken_start");
   if ([subhead, ...points].some(hasBrokenLineStart)) violations.push("broken_line_start");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
