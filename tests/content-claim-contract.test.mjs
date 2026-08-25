@@ -56,3 +56,29 @@ test("claim contract rejects an unsupported harm claim", () => {
   const content = { headline: "Дезодорант вредит вашей коже", points: ["Проверьте состав"] };
   assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Минеральный дезодорант" } }), ["headline:unsupported_effect"]);
 });
+
+test("claim contract rejects invented dental damage mechanisms", () => {
+  const content = {
+    headline: "Скрип зубов — это микроцарапины",
+    points: [
+      "Абразивы работают как наждачка и стирают эмаль",
+      "Пятна от кофе растворяются без трения"
+    ]
+  };
+  const dentalProduct = { product: { name: "Зубная паста", description: "Паста с папаином для бережного удаления налета" } };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, dentalProduct), [
+    "headline:unsupported_physical_damage",
+    "points[0]:unsupported_physical_damage",
+    "points[1]:unsupported_physical_damage"
+  ]);
+  assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, dentalProduct), dentalProduct), []);
+});
+
+test("claim contract rejects an unsupported body damage metaphor", () => {
+  const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Жидкий хлорофилл" } }), [
+    "headline:unsupported_physical_damage"
+  ]);
+});

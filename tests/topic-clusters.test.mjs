@@ -52,32 +52,54 @@ test("topic cluster planner avoids an overused payment cluster", () => {
   assert.match(plan.selected.label, /культур|этикет|транспорт|гастро|подготов|турист|цифров|достопримеч/i);
 });
 
-test("same product category follows each brand context", () => {
-  const product = {
+test("same product category follows each product-scoped brand passport", () => {
+  const createProduct = (productWorld, directProductTopics, adjacentHelpfulTopics) => ({
     id: "shampoo",
     name: "Шампунь",
     aiPassport: {
       version: "product-passport-v2",
       productName: "Шампунь",
       contentTerritory: {
-        productWorld: "уход за волосами и кожей головы",
-        directProductTopics: ["очищение волос"],
-        adjacentHelpfulTopics: ["укладка и ежедневный уход"]
+        productWorld,
+        directProductTopics,
+        adjacentHelpfulTopics
       }
     }
-  };
+  });
   const volumeBrand = createTopicClusterPlan({
-    project: { keyScenarios: "укладка быстро теряет объем", audiencePains: "волосы выглядят плоскими" },
-    product
+    project: { keyScenarios: "кожа головы реагирует на частое мытье" },
+    product: createProduct("объем волос и стойкость укладки", ["почему укладка быстро теряет объем"], ["укладка и ежедневный уход"])
   });
   const sensitiveBrand = createTopicClusterPlan({
-    project: { keyScenarios: "кожа головы реагирует на частое мытье", audiencePains: "после душа появляется дискомфорт" },
-    product
+    project: { keyScenarios: "укладка быстро теряет объем" },
+    product: createProduct("комфорт чувствительной кожи головы", ["дискомфорт после частого мытья"], ["мягкий уход за кожей головы"])
   });
 
   assert.match(volumeBrand.selected.label, /укладка|объем/i);
-  assert.match(sensitiveBrand.selected.label, /кожа головы|дискомфорт/i);
+  assert.match(sensitiveBrand.selected.label, /кож[а-яё]*\s+голов|дискомфорт/i);
   assert.notEqual(volumeBrand.selected.id, sensitiveBrand.selected.id);
+});
+
+test("ready product passport ignores stale project scenarios from a sibling product", () => {
+  const plan = createTopicClusterPlan({
+    project: { keyScenarios: "Говядина — кормление собаки", audiencePains: "Собака стала вялой" },
+    product: {
+      id: "cat-food",
+      name: "Корм для кошек",
+      aiPassport: {
+        version: "product-passport-v2",
+        productName: "Корм для кошек 7+",
+        contentTerritory: {
+          productWorld: "уход за возрастной кошкой",
+          directProductTopics: ["питание кошки после 7 лет"],
+          adjacentHelpfulTopics: ["как заметить снижение активности кошки"]
+        }
+      }
+    }
+  });
+
+  assert.doesNotMatch(plan.available.map((cluster) => cluster.label).join(" "), /собак|говядин/i);
+  assert.match(plan.selected.label, /кошк/i);
 });
 
 test("product evidence about packaging does not become an automatic content topic", () => {

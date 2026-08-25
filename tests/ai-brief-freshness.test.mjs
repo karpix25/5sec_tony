@@ -79,3 +79,19 @@ test("freshness fallback returns a result without another repeated why opening",
   assert.equal(fallback.contentScript.headline, "Кожа горит от новых кремов");
   assert.equal(fallback.aiPlan.headline, "Кожа горит от новых кремов");
 });
+
+test("freshness fallback replaces any repeated opening with a useful line from the brief", () => {
+  const brief = {
+    hook: "Диван не спасает ноги",
+    topic: "Как снять усталость после рабочего дня",
+    contentScript: {
+      headline: "Диван не спасает ноги",
+      subhead: "Стопы гудят после рабочего дня",
+      points: ["Ролики разминают стопы"]
+    }
+  };
+  const fallback = createFreshnessFallbackBrief(brief, [{ topic: "Причина: повторяет начало недавнего заголовка: диван не" }]);
+
+  assert.equal(fallback.hook, "Стопы гудят после рабочего дня");
+  assert.equal(fallback.contentScript.headline, "Стопы гудят после рабочего дня");
+});

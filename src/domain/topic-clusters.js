@@ -1,4 +1,4 @@
-import { normalizeProductAiPassport } from "./ai-artifacts.js";
+import { hasGenerationReadyProductPassport, normalizeProductAiPassport } from "./ai-artifacts.js";
 import { selectRecentJobs } from "./content-rotation.js";
 import { isEditorialTopicEligible } from "./editorial-topic-policy.js";
 import { isTravelContentProject } from "./project-content-intent.js";
@@ -36,21 +36,25 @@ export function buildTopicClusters(product = {}, project = {}) {
   const passport = normalizeProductAiPassport(product.aiPassport);
   const useTravelRules = isTravelContentProject(project, product);
   const territory = passport.contentTerritory || {};
-  const sources = [
-    ...itemsToClusterSources(project.keyScenarios, "brandScenario"),
-    ...itemsToClusterSources(project.audiencePains, "brandPain"),
-    ...itemsToClusterSources(project.audienceDesires, "brandDesire"),
+  const productSources = [
     ...itemsToClusterSources(territory.productWorld, "world"),
     ...itemsToClusterSources(territory.adjacentHelpfulTopics, "adjacent"),
     ...itemsToClusterSources(territory.guidesAndRecommendations, "guide"),
     ...itemsToClusterSources(territory.habitsAndMistakes, "habit"),
     ...itemsToClusterSources(territory.lifestyleContexts, "lifestyle"),
-    ...itemsToClusterSources(project.projectTheme || project.niche, "brandTheme"),
     ...itemsToClusterSources(territory.directProductTopics, "direct"),
     ...itemsToClusterSources(passport.coreUseCases, "useCase"),
     ...itemsToClusterSources(passport.painSituations, "pain"),
     ...itemsToClusterSources(passport.desires, "desire")
-  ].filter((source) => isEditorialTopicEligible({ text: source.text, project, product }));
+  ];
+  const brandSources = [
+    ...itemsToClusterSources(project.keyScenarios, "brandScenario"),
+    ...itemsToClusterSources(project.audiencePains, "brandPain"),
+    ...itemsToClusterSources(project.audienceDesires, "brandDesire"),
+    ...itemsToClusterSources(project.projectTheme || project.niche, "brandTheme")
+  ];
+  const sources = (hasGenerationReadyProductPassport(product.aiPassport) ? productSources : [...brandSources, ...productSources])
+    .filter((source) => isEditorialTopicEligible({ text: source.text, project, product }));
   const grouped = new Map();
   for (const source of sources) {
     const base = resolveClusterRule(source.text, useTravelRules);

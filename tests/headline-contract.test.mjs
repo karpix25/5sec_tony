@@ -80,6 +80,7 @@ test("visible text contract rejects generic and broken editorial shells", () => 
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Это не норма" } }).includes("headline_weak_shell"));
+  assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Это не работает" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Ваш детокс — это просто маркетинг" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Скрип кожи — это не чистота" } }).includes("headline_weak_shell"));
 });

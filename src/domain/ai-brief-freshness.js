@@ -1,4 +1,5 @@
 import { selectRecentJobs } from "./content-rotation.js";
+import { repairVisibleTextContract } from "./design-text-contract.js";
 
 const freshnessStopWords = new Set([
   "а", "без", "бы", "в", "вам", "ваш", "ваша", "ваше", "ваши", "все", "для",
@@ -78,23 +79,40 @@ export function createFreshnessFallbackBrief(brief, rejectedJobs = []) {
 
 function createFreshHeadlineFallback(brief, rejectedJobs) {
   const headline = getBriefTitle(brief);
-  const whyWasRepeated = rejectedJobs.some((job) => /повторяет начало недавнего заголовка:\s*почему/i.test(job.topic || ""));
-  if (!whyWasRepeated || !/^почему\s+/i.test(headline)) return "";
-  const statement = headline.replace(/^почему\s+/i, "").trim();
-  return statement ? statement[0].toLocaleUpperCase("ru-RU") + statement.slice(1) : "";
+  const repeatedOpenings = getRejectedHeadlineOpenings(rejectedJobs);
+  if (!repeatedOpenings.length) return "";
+  if (repeatedOpenings.includes("почему") && /^почему\s+/i.test(headline)) {
+    const statement = headline.replace(/^почему\s+/i, "").trim();
+    if (statement) return statement[0].toLocaleUpperCase("ru-RU") + statement.slice(1);
+  }
+  const plan = brief.finalContent || brief.contentScript || brief.plan || brief.aiPlan || {};
+  const candidates = [brief.creativeBrief?.hookPromise, plan.subhead, ...(Array.isArray(plan.points) ? plan.points : []), brief.topic];
+  for (const candidate of candidates) {
+    const repaired = repairVisibleTextContract({ headline: candidate, points: [] }).headline;
+    if (repaired === "Сначала проверь способ применения" || repaired === headline) continue;
+    if (!repeatedOpenings.includes(getHeadlineOpening(repaired))) return repaired;
+  }
+  return "";
 }
 
 function replaceBriefHeadline(brief, headline) {
   const replacePlan = (plan) => plan && typeof plan === "object" ? { ...plan, headline } : plan;
   return {
     ...brief,
-    hook: /^почему\s+/i.test(brief.hook || "") ? headline : brief.hook,
+    hook: headline,
     headline,
     plan: replacePlan(brief.plan),
     aiPlan: replacePlan(brief.aiPlan),
     contentScript: replacePlan(brief.contentScript),
     finalContent: replacePlan(brief.finalContent)
   };
+}
+
+function getRejectedHeadlineOpenings(rejectedJobs) {
+  return [...new Set(rejectedJobs.flatMap((job) => {
+    const matches = String(job.topic || "").matchAll(/повторяет начало недавнего заголовка:\s*([^;.]+)/gi);
+    return [...matches].map((match) => normalizeFreshnessText(match[1]));
+  }).filter(Boolean))];
 }
 
 function findOverusedFormula(text) {
