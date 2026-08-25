@@ -107,7 +107,7 @@ test("visible text contract rejects broken numbered headline fragments", () => {
 });
 
 test("visible text contract rejects generic and broken editorial shells", () => {
-  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Ошибки при сушке феном", "Не просто увлажнение", "Мягкий вкус мяты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Ошибки при сушке феном", "Не просто увлажнение", "Мягкий вкус мяты", "Скрип зубов — не признак чистоты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
@@ -122,6 +122,13 @@ test("visible text repair capitalizes a lowercase headline", () => {
 
   assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_lowercase_start"));
   assert.equal(repairVisibleTextContract(contentScript).headline, "Перекармливание из жалости");
+});
+
+test("visible text repair removes all-caps shouting", () => {
+  const contentScript = { headline: "ПАСТА НЕ ДОЛЖНА ЖЕЧЬ", points: [] };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_all_caps"));
+  assert.equal(repairVisibleTextContract(contentScript).headline, "Паста не должна жечь");
 });
 
 test("visible text contract removes measurement units without a number", () => {
