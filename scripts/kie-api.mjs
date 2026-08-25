@@ -3,32 +3,39 @@ import { ensureRussianAvatarVideoPromptGuard, ensureRussianImagePromptGuard } fr
 import { resolveImageInputUrls, summarizeInputRefs } from "./reference-assets.mjs";
 import { isS3AssetStorageConfigured, uploadRemoteAssetToS3 } from "./s3-assets.mjs";
 
+const imageGenerationBodyLimitBytes = 20 * 1024 * 1024;
+
 export async function handleKieApi(request, response, url) {
-  if (request.method === "POST" && url.pathname === "/api/avatars/generate") {
-    return createAvatarTask(request, response);
-  }
+  try {
+    if (request.method === "POST" && url.pathname === "/api/avatars/generate") {
+      return await createAvatarTask(request, response);
+    }
 
-  if (request.method === "GET" && url.pathname === "/api/avatars/status") {
-    return getAvatarTask(response, url.searchParams.get("taskId"));
-  }
+    if (request.method === "GET" && url.pathname === "/api/avatars/status") {
+      return await getAvatarTask(response, url.searchParams.get("taskId"));
+    }
 
-  if (request.method === "POST" && url.pathname === "/api/images/generate") {
-    return createAvatarTask(request, response, { applyRussianImageGuard: true });
-  }
+    if (request.method === "POST" && url.pathname === "/api/images/generate") {
+      return await createAvatarTask(request, response, { applyRussianImageGuard: true });
+    }
 
-  if (request.method === "GET" && url.pathname === "/api/images/status") {
-    return getAvatarTask(response, url.searchParams.get("taskId"));
-  }
+    if (request.method === "GET" && url.pathname === "/api/images/status") {
+      return await getAvatarTask(response, url.searchParams.get("taskId"));
+    }
 
-  if (request.method === "POST" && url.pathname === "/api/avatar-videos/generate") {
-    return createAvatarVideoTask(request, response);
-  }
+    if (request.method === "POST" && url.pathname === "/api/avatar-videos/generate") {
+      return await createAvatarVideoTask(request, response);
+    }
 
-  if (request.method === "GET" && url.pathname === "/api/avatar-videos/status") {
-    return getAvatarVideoTask(response, url.searchParams.get("taskId"));
-  }
+    if (request.method === "GET" && url.pathname === "/api/avatar-videos/status") {
+      return await getAvatarVideoTask(response, url.searchParams.get("taskId"));
+    }
 
-  return false;
+    return false;
+  } catch (error) {
+    const status = error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 502;
+    return sendJson(response, status, { error: error.message || "Kie.ai request failed" });
+  }
 }
 
 export function loadEnvFile() {
@@ -277,7 +284,7 @@ function getKieErrorMessage(payload, fallback) {
 }
 
 function readJson(request) {
-  return readJsonRequest(request);
+  return readJsonRequest(request, { limitBytes: imageGenerationBodyLimitBytes, tooLargeMessage: "Image generation request is too large" });
 }
 
 function sendJson(response, status, payload) {

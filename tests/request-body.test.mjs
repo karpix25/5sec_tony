@@ -13,3 +13,13 @@ test("readJsonRequest preserves Cyrillic split across request chunks", async () 
   request.emit("end");
   assert.deepEqual(await resultPromise, { text: "мощная и понятная нагрузка" });
 });
+
+test("readJsonRequest rejects an oversized body without destroying the request", async () => {
+  const request = new EventEmitter();
+  let resumed = false;
+  request.resume = () => { resumed = true; };
+  const resultPromise = readJsonRequest(request, { limitBytes: 4 });
+  request.emit("data", Buffer.from("12345"));
+  await assert.rejects(resultPromise, (error) => error.code === "REQUEST_BODY_TOO_LARGE");
+  assert.equal(resumed, true);
+});

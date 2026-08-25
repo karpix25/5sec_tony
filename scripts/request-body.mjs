@@ -2,17 +2,23 @@ export function readJsonRequest(request, { limitBytes = 1024 * 1024, tooLargeMes
   return new Promise((resolve, reject) => {
     const chunks = [];
     let total = 0;
+    let rejectedForSize = false;
     request.on("data", (chunk) => {
+      if (rejectedForSize) return;
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       total += buffer.length;
       if (total > limitBytes) {
-        reject(new Error(tooLargeMessage));
-        request.destroy();
+        rejectedForSize = true;
+        const error = new Error(tooLargeMessage);
+        error.code = "REQUEST_BODY_TOO_LARGE";
+        reject(error);
+        request.resume?.();
         return;
       }
       chunks.push(buffer);
     });
     request.on("end", () => {
+      if (rejectedForSize) return;
       try {
         const data = Buffer.concat(chunks).toString("utf8");
         resolve(data ? JSON.parse(data) : {});

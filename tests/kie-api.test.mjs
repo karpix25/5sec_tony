@@ -62,6 +62,21 @@ test("avatars api keeps avatar prompt without final image text guard", async () 
   }
 });
 
+test("images api returns 413 instead of rejecting the web request on oversized input", async () => {
+  const previousKey = process.env.KIE_API_KEY;
+  process.env.KIE_API_KEY = "test-token";
+  try {
+    const response = await callKieApi("/api/images/generate", {
+      prompt: "тест",
+      inputUrls: [`data:image/png;base64,${"A".repeat(20 * 1024 * 1024)}`]
+    });
+    assert.equal(response.status, 413);
+    assert.match(response.payload.error, /too large/i);
+  } finally {
+    restoreEnv("KIE_API_KEY", previousKey);
+  }
+});
+
 async function callKieApi(pathname, payload) {
   const request = Readable.from([JSON.stringify(payload)]);
   request.method = "POST";
