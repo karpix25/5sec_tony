@@ -283,6 +283,19 @@ test("wellness copy cannot disguise internal effects as daily support", () => {
   assert.equal(repaired.points.at(-1), "Продукт содержит натуральный ароматизатор мяты");
 });
 
+test("wellness copy cannot invent brain and habit mechanisms", () => {
+  const wellness = { product: { name: "Жидкий хлорофилл" }, productPassport: { category: "БАД" } };
+  const content = {
+    headline: "Мозг быстро устает от обычной воды",
+    points: ["Мозг саботирует процесс", "Привычка не закрепляется без удовольствия"]
+  };
+
+  const violations = getUnsupportedClaimViolations(content, wellness);
+  assert.ok(violations.includes("headline:unsupported_wellness_mechanism"));
+  assert.ok(violations.includes("points[0]:unsupported_wellness_mechanism"));
+  assert.ok(violations.includes("points[1]:unsupported_causal_certainty"));
+});
+
 test("wellness copy cannot revive digestion and internal freshness angles", () => {
   const wellness = {
     product: { name: "Жидкий хлорофилл" },
