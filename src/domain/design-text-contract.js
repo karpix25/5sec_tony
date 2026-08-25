@@ -9,10 +9,12 @@ const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])
 const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
 const promisedItemCountPattern = /(?:^|\s)(2|два|две|3|три|4|четыре|5|пять|6|шесть|7|семь|8|восемь|9|девять)\s+(?:способ|совет|причин|шаг|правил|ошиб|привыч|факт|признак|вариант)[а-яё]*/i;
 const promisedItemCountValues = { "2": 2, два: 2, две: 2, "3": 3, три: 3, "4": 4, четыре: 4, "5": 5, пять: 5, "6": 6, шесть: 6, "7": 7, семь: 7, "8": 8, восемь: 8, "9": 9, девять: 9 };
-const genericPointPattern = /^(?:смотрите на состав|сверяйте обещания|оценивайте комфорт|следуйте инструкции)(?:\s|$)/i;
+const genericPointPattern = /(?:^|[—–,:;]\s*)(?:смотрите на состав|сверяйте обещания|оценивайте комфорт|проверьте комфорт|следуйте инструкции)(?:\s|$)/i;
 const abstractBenefitHeadlinePattern = /^(?:комфорт|уверенность|забота|свежесть|баланс|гармония|л[её]гкость)\s+(?:в|для|на)\s+(?:движени|кажд|повседнев|ритм|жизн|рутин|уход)/i;
 const drySpecificationHeadlinePattern = /(?:толщин|объ[её]м|вес|длин|размер|содержание)[а-яё]*\s+(?:издели[а-яё]*\s+)?(?:составля|равн|весит|содержит|имеет)[а-яё]*\s+\d/i;
 const bareInstructionHeadlinePattern = /^[А-ЯЁ][а-яё-]{2,}(?:ть|ться)\s+[^?!]+$/;
+const signalListPromisePattern = /(?:признак|сигнал)[а-яё]*/i;
+const productFeaturePointPattern = /^(?:содержит|формула|в\s+составе)(?:\s|$)|(?:^|\s)(?:в\s+составе|благодаря|помогает|поддерживает|обеспечивает)(?:\s|$)/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
 export function getVisibleTextContractViolations({ contentScript = {}, product = {} } = {}) {
@@ -44,6 +46,7 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   const promisedItemCount = getPromisedItemCount(headline);
   if (promisedItemCount && promisedItemCount !== points.length) violations.push("headline_count_mismatch");
   if (points.some((point) => genericPointPattern.test(point))) violations.push("generic_point");
+  if (signalListPromisePattern.test(`${headline} ${subhead}`) && points.some((point) => productFeaturePointPattern.test(point))) violations.push("point_breaks_list_promise");
   if ([headline, subhead, ...points].some((line) => /\uFFFD/.test(line))) violations.push("replacement_character");
   if ([headline, subhead, ...points].some((line) => forbiddenVisiblePattern.test(line))) violations.push("forbidden_visible_copy");
   if ([headline, subhead, ...points].some(hasOrphanMeasurement)) violations.push("orphan_measurement");
@@ -51,10 +54,13 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
 }
 
 export function repairVisibleTextContract(contentScript = {}, options = {}) {
-  const points = getScriptPoints(contentScript)
+  let points = getScriptPoints(contentScript)
     .map(normalizePointText)
     .map(normalizeRepairLine)
     .filter((line) => line && !genericPointPattern.test(line) && !forbiddenVisiblePattern.test(line) && !hasOrphanMeasurement(line));
+  if (signalListPromisePattern.test(`${contentScript.headline || ""} ${contentScript.subhead || ""}`)) {
+    points = points.filter((line) => !productFeaturePointPattern.test(line));
+  }
   const sourceHeadline = removeMismatchedCountPromise(normalizeRepairLine(contentScript.headline), points.length);
   const fallbackHeadlines = Array.isArray(options.fallbackHeadlines) ? options.fallbackHeadlines : [];
   const [sourceCandidate, ...sourceClauses] = createHeadlineCandidates(sourceHeadline);

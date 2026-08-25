@@ -197,6 +197,18 @@ test("visible text contract removes a subhead repeated in the points", () => {
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
+test("visible text contract keeps promised signals separate from product facts", () => {
+  const contentScript = {
+    headline: "Кошка 7+ ленится? Это не характер",
+    subhead: "Признаки, которые нельзя списывать на возраст",
+    points: ["Стала реже прыгать на полки", "Содержит 61% животного белка", "Grandin помогает держать форму благодаря L-карнитину"]
+  };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("point_breaks_list_promise"));
+  assert.deepEqual(repairVisibleTextContract(contentScript).points, ["Стала реже прыгать на полки"]);
+  assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Кошка стала меньше играть", points: ["Стала осторожнее при движении — проверьте комфорт питания"] } }).includes("generic_point"));
+});
+
 test("visible text contract catches a synonym-heavy subhead repeat", () => {
   const contentScript = {
     headline: "Превращают расслабление в пытку",
