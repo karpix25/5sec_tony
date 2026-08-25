@@ -171,6 +171,32 @@ test("non-travel products never receive travel topic clusters", () => {
   assert.ok(plan.available.every((cluster) => !clusterRulesForTest.has(cluster.id)));
 });
 
+test("cosmetic clusters exclude diagnoses and systemic skin causes", () => {
+  const plan = createTopicClusterPlan({
+    product: {
+      id: "acid-shower-gel",
+      name: "Гель для душа с кислотами",
+      aiPassport: {
+        version: "product-passport-v2",
+        productName: "Гель для душа с кислотами",
+        contentTerritory: {
+          productWorld: "бережный уход за кожей тела",
+          directProductTopics: ["мягкое очищение кожи"],
+          adjacentHelpfulTopics: [
+            "что такое гиперкератоз",
+            "влияние питания и образа жизни на кожу",
+            "комфорт кожи после душа"
+          ]
+        }
+      }
+    }
+  });
+
+  const topics = plan.available.map((cluster) => cluster.label).join(" ");
+  assert.doesNotMatch(topics, /гиперкерат|питани|образ.{0,12}жизн/i);
+  assert.match(topics, /очищ|комфорт|уход/i);
+});
+
 const clusterRulesForTest = new Set([
   "payment-services", "culture-etiquette", "local-habits", "sights-routes", "transport-logistics",
   "food-gastro", "climate-season", "trip-prep", "digital-travel", "info-noise"
