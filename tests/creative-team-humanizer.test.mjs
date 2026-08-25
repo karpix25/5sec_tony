@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { humanizeCreativeTeamDraft } from "../scripts/creative-team-humanizer.mjs";
+import { humanizeTextInstruction } from "../scripts/creative-team-prompts.mjs";
 import { getUnsupportedClaimViolations } from "../src/domain/content-claim-contract.js";
 import { getVisibleTextContractViolations } from "../src/domain/design-text-contract.js";
 
@@ -30,6 +31,14 @@ test("creative team humanizer rewrites final script before image prompt ownershi
   assert.equal(draft.contentScript.headline, "Маска попала прямо на корни");
   assert.equal(draft.plan.points.length, 2);
   assert.match(calls[0].text, /Перепиши финальный текст/);
+});
+
+test("creative team humanizer receives the operator restrictions directly", () => {
+  const instruction = JSON.parse(humanizeTextInstruction({
+    product: { name: "Маска для волос", forbidden: ["Не обещать лечение"] }
+  }));
+
+  assert.deepEqual(instruction.operatorProductContext.hardRestrictions, ["Не обещать лечение"]);
 });
 
 test("creative team humanizer proofreads a repaired headline", async () => {

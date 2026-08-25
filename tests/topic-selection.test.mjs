@@ -26,6 +26,21 @@ test("topic selection picks a fresh product-related topic", () => {
   assert.match(topic.productRelation, /менструац/i);
 });
 
+test("topic selection does not turn a compactness fact into a bag topic", () => {
+  const topic = selectTopicSelection({
+    product: { ...pads, description: "Средства гигиены во время менструации в индивидуальной упаковке для сумки" },
+    topicMap: {
+      topicMap: [
+        { id: "bag", theme: "Порядок в сумке", situation: "Вещи теряются среди мелочей", productRelation: "Прокладка в индивидуальной упаковке помещается в сумку" },
+        { id: "comfort", theme: "Комфорт в первые дни", situation: "Обычный день требует больше внимания к себе", productRelation: "Тема связана с использованием средств гигиены во время менструации" }
+      ]
+    },
+    random: () => 0
+  });
+
+  assert.equal(topic.id, "comfort");
+});
+
 test("topic selection skips a recent duplicate before choosing randomly", () => {
   const topic = selectTopicSelection({
     product: pads,
@@ -59,4 +74,26 @@ test("topic selection rejects unsupported claims and always returns a fallback",
     productRelation: "прямая тема продукта",
     fallback: true
   });
+});
+
+test("topic selection rejects cosmetic treatment angles before the script stage", () => {
+  const showerGel = {
+    id: "shower-gel",
+    name: "Гель для душа с кислотами",
+    description: "Гель для ежедневного очищения кожи тела",
+    pains: ["Хочется мягкого очищения после душа"],
+    facts: ["Содержит AHA и BHA кислоты"]
+  };
+  const topic = selectTopicSelection({
+    product: showerGel,
+    topicMap: {
+      topicMap: [
+        { id: "pimples", theme: "Прыщи после зала", situation: "После тренировки появляются высыпания", productRelation: "Гель лечит высыпания" },
+        { id: "shower", theme: "Мягкое очищение после душа", situation: "Кожа реагирует на слишком агрессивное очищение", productRelation: "Гель помогает сделать ежедневный уход мягче" }
+      ]
+    },
+    random: () => 0
+  });
+
+  assert.equal(topic.id, "shower");
 });

@@ -361,6 +361,21 @@ test("creative team brief runner executes role chain and flattens legacy fields"
 
   assert.equal(calls.length, 9);
   const passportPrompt = JSON.parse(calls[0].content);
+  const expectedOperatorContext = {
+    source: "operator_product_fields",
+    primaryPurpose: {
+      productName: products[0].name,
+      description: products[0].description,
+      audienceTasks: products[0].pains
+    },
+    supportingFacts: {
+      offer: products[0].offer,
+      competitorProblems: products[0].facts,
+      allowed: []
+    },
+    physicalProperties: products[0].components,
+    hardRestrictions: products[0].forbidden
+  };
   assert.equal(draft.productPassport.productName, "Магний");
   assert.equal(draft.designFormatBrief.formatType, "ranking_leaderboard");
   assert.equal(draft.topic, "Вечерняя рутина");
@@ -401,6 +416,9 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.equal(Object.hasOwn(passportPrompt, "reference"), false);
   assert.equal(Object.hasOwn(passportPrompt.product, "references"), false);
   assert.doesNotMatch(calls[0].content, /reference-assets|designReference|avatar|imageUrl|imageData/i);
+  for (const callIndex of [0, 2, 3, 4, 5, 6, 7, 8]) {
+    assert.deepEqual(JSON.parse(calls[callIndex].content).operatorProductContext, expectedOperatorContext);
+  }
 });
 
 test("creative team runner records leaderboard text contract issues without writing replacement copy", async () => {

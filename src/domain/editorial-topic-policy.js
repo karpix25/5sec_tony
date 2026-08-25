@@ -2,7 +2,7 @@ const operationalSideTopicPattern = /упаковк|мембран|вскрыт|
 const wellnessContextPattern = /бад|wellness|нутрицевт|хлорофилл|добавк/i;
 const unsafeWellnessTopicPattern = /детокс|токсин|похуд|микробиом|кишеч|жкт|вздут|пищевар|аппетит|самочувств|кож|запах|дезодор|иммун|окислительн|клет|кислород|митохондр|организм/i;
 const cosmeticContextPattern = /космет|уход.{0,16}кож|кож.{0,16}уход|гель.{0,12}душ|скраб|крем|сыворот|дезодорант/i;
-const unsafeCosmeticTopicPattern = /гиперкерат|дермат|экзем|псориаз|акне|диагноз|гормон|микробиом|бактери|стресс|недосып|питани.{0,24}кож|образ.{0,16}жизн.{0,24}кож/i;
+const unsafeCosmeticTopicPattern = /гиперкерат|дермат|экзем|псориаз|акне|прыщ|высыпани|диагноз|гормон|микробиом|бактери|стресс|недосып|питани.{0,24}кож|образ.{0,16}жизн.{0,24}кож/i;
 
 export const editorialTopicRules = [
   "Safe facts подтверждают выбранную тему, но сами по себе не становятся темой публикации.",
@@ -17,7 +17,11 @@ export function isEditorialTopicEligible({ text, project = {}, product = {} } = 
   if (wellnessContextPattern.test(context) && unsafeWellnessTopicPattern.test(topic)) return false;
   if (cosmeticContextPattern.test(context) && unsafeCosmeticTopicPattern.test(topic)) return false;
   if (!operationalSideTopicPattern.test(topic)) return true;
-  return operationalSideTopicPattern.test(context);
+  return operationalSideTopicPattern.test(getOperationalCategoryContext(project, product));
+}
+
+function getOperationalCategoryContext(project, product) {
+  return [product.name, project.niche, project.projectTheme].filter(Boolean).join(" ");
 }
 
 function getProductCategoryContext(project, product) {

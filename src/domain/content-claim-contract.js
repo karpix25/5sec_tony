@@ -56,10 +56,7 @@ export function getClaimEvidence({ product = {}, productPassport = {} } = {}) {
     product.allowed,
     product.physicalProperties
   ]);
-  const evidence = direct.length > 1 ? direct : uniqueLines([
-    ...direct,
-    ...collectLines([productPassport.plainDescription, productPassport.safeFacts, productPassport.allowedClaims])
-  ]);
+  const evidence = direct;
   if (!isSensitiveConsumerHealthContext({ product, productPassport })) return evidence;
   return evidence.filter((line) => !lineHasStrictClaim(line));
 }
@@ -77,14 +74,10 @@ export function getUnsupportedClaimViolations(contentScript = {}, context = {}) 
 }
 
 export function repairUnsupportedClaims(contentScript = {}, context = {}) {
-  const passportLines = collectLines([
-    context.productPassport?.plainDescription,
-    context.productPassport?.safeFacts,
-    context.productPassport?.allowedClaims
-  ]);
   const productName = normalizeForMatch(context.product?.name);
-  const candidates = uniqueLines(passportLines)
+  const candidates = uniqueLines(getClaimEvidence(context))
     .filter((line) => normalizeForMatch(line) !== productName)
+    .filter(isReadableOperatorEvidence)
     .filter((line) => isEditorialTopicEligible({ text: line, project: context.project, product: context.product }))
     .filter((line) => line.length >= 18 && line.length <= 120);
   const used = new Set(getVisibleLines(contentScript)
@@ -140,6 +133,14 @@ function collectLines(value) {
 
 function uniqueLines(lines) {
   return [...new Map(lines.map((line) => [normalizeForMatch(line), line])).values()];
+}
+
+function isReadableOperatorEvidence(line) {
+  const acceptedShortWords = new Set(["а", "в", "и", "к", "на", "не", "но", "от", "по", "при", "для", "или", "без"]);
+  const suspiciousShortWords = normalizeForMatch(line)
+    .split(" ")
+    .filter((word) => word.length <= 3 && !acceptedShortWords.has(word));
+  return suspiciousShortWords.length < 2;
 }
 
 function normalizeForMatch(value) {

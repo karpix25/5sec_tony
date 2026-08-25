@@ -51,7 +51,7 @@ test("claim repair never copies typos from the raw product form", () => {
     points: ["Трение — главная причина ломкости"]
   }, typoContext);
 
-  assert.deepEqual(repaired.points, ["Масло для ухода за сухими кончиками волос"]);
+  assert.deepEqual(repaired.points, []);
   assert.doesNotMatch(repaired.points.join(" "), /жжоба|волс/);
 });
 
@@ -324,7 +324,7 @@ test("wellness copy cannot revive digestion and internal freshness angles", () =
   assert.ok(violations.includes("points[1]:unsupported_wellness_mechanism"));
 });
 
-test("claim repair skips packaging and certificates for a non-operational product", () => {
+test("claim repair never restores facts generated only by the AI passport", () => {
   const context = {
     product: { name: "Жидкий хлорофилл" },
     productPassport: {
@@ -341,7 +341,7 @@ test("claim repair skips packaging and certificates for a non-operational produc
     points: ["Хлорофилл поддерживает работу ЖКТ"]
   }, context);
 
-  assert.deepEqual(repaired.points, ["Продукт содержит натуральный ароматизатор мяты"]);
+  assert.deepEqual(repaired.points, []);
 });
 
 test("claim repair drops unsafe points instead of inserting editorial filler", () => {

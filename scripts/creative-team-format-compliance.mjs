@@ -1,4 +1,6 @@
-export function formatComplianceInstruction({ commonRules, productPassport, creativeBrief, contentScript, designFormatBrief }) {
+import { operatorProductContextRules } from "../src/domain/operator-product-context.js";
+
+export function formatComplianceInstruction({ commonRules, productPassport, operatorProductContext, creativeBrief, contentScript, designFormatBrief }) {
   return JSON.stringify({
     task: "Проверь, совпадает ли contentScript со структурой designFormatBrief, и исправь его до visual/art этапов.",
     role: "Ты format compliance editor: не придумываешь новую идею, а приводишь текст к макету дизайн-референса.",
@@ -16,6 +18,7 @@ export function formatComplianceInstruction({ commonRules, productPassport, crea
       }
     },
     rules: [
+      ...operatorProductContextRules,
       "Главный критерий: текст должен подходить в слоты designFormatBrief, а не повторять старую форму темы.",
       "Если formatType=ranking_leaderboard, сценарий обязан быть top-chart/leaderboard: headline начинается с ТОП, subhead похож на legend/source strip, points это 8-12 очень коротких ranked items.",
       "Если входной текст похож на checklist, 4-6 маркеров, диагностическую карточку или список симптомов, перепакуй его в рейтинг признаков, ситуаций, ошибок или критериев.",
@@ -25,6 +28,7 @@ export function formatComplianceInstruction({ commonRules, productPassport, crea
       "Если формат уже совпадает, верни тот же текст без изменений."
     ],
     productPassport,
+    operatorProductContext,
     creativeBrief,
     designFormatBrief,
     contentScript
