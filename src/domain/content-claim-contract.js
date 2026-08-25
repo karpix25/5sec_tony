@@ -4,8 +4,9 @@ const unsupportedClaimPatterns = [
   ["medical_treatment", /(?<!не )(?<![а-яё])леч(?:ит|ат|ить|ение|ебн|ащ)|терап|диагноз|лекарств/iu],
   ["medical_mechanism", /кровообращ|микроциркуля|лимф|гормон|инсулин|холестерин|давлени|метабол|обмен веществ|нагрузк.{0,24}(?:сустав|шею|спин|мышц)/iu],
   ["disease_or_pathogen", /воспален|инфекц|бактери|вирус|грибок|грибк|паразит/iu],
+  ["skin_harm_or_treatment", /(?:кожа|кожу).{0,20}(?:горит|травм|раздраж|воспал|аллерг|зуд|жжен|покраснен)|(?:аллерг|раздраж|воспал|зуд|жжен|покраснен)|(?:травмиру|провоциру|вызыва).{0,24}(?:кож|аллерг|раздраж|воспал|зуд|жжен|покраснен)|успокаива.{0,16}кож/iu],
   ["detox_or_weight", /токсин|детокс|очища.{0,12}организм|сжига.{0,12}жир|похуд/iu],
-  ["wellness_mechanism", /организм|клет|жкт|кишеч|адаптац|накопительн|дезодор|запах.{0,16}(?:тела|изнутри|изо рта)|внутренн.{0,16}(?:состояни|свежест|чистот)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
+  ["wellness_mechanism", /организм|клет|жкт|кишеч|адаптац|накопительн|дезодор(?:ир|ант.{0,16}не\s+справл)|запах.{0,16}(?:тела|изнутри|изо рта)|внутренн.{0,16}(?:состояни|свежест|чистот)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
   ["therapeutic_effect", /мышц.{0,20}(?:не\s+отдых|напряж|зажим)|(?:снима|устраня|разгоня|возвращ).{0,24}(?:зажим|напряж|тяжест|л[её]гкост)|помога.{0,28}(?:расслаб|восстанов)|подогрев.{0,40}(?:расслаб|восстанов)|глубок.{0,16}расслаб|эффективн.{0,16}восстанов/iu],
   ["physical_damage", /микротрещ|микроцарап|микроразрыв|разрыв.{0,12}кутик|уби(?:ть|ва[а-яё]*).{0,16}(?:эмал|кож|волос|зуб)|созда[а-яё]*.{0,16}трени|царап|стира.{0,16}эмал|истонч|шероховат|наждач|поврежд|ржаве|пятн.{0,20}раствор|растворя.{0,20}(?:пятн|нал[её]т)/iu],
   ["causal_certainty", /(?:главн|скрыт|прям).{0,16}причин|напрямую\s+влияет|зависит\s+от|указывает\s+на.{0,20}дефицит|требу(?:ет|ют).{0,24}(?:белк|жирн|витамин|минерал)|связан.{0,24}(?:дискомфорт|проблем|наруш|бол)/iu],
@@ -16,6 +17,7 @@ const strictWellnessClaims = new Set([
   "medical_treatment",
   "medical_mechanism",
   "disease_or_pathogen",
+  "skin_harm_or_treatment",
   "detox_or_weight",
   "wellness_mechanism",
   "therapeutic_effect",
@@ -58,7 +60,7 @@ export function getClaimEvidence({ product = {}, productPassport = {} } = {}) {
 
 export function getUnsupportedClaimViolations(contentScript = {}, context = {}) {
   const evidenceText = normalizeForMatch(getClaimEvidence(context).join(" "));
-  const strictClaims = isWellnessContext(context) ? strictWellnessClaims : new Set();
+  const strictClaims = isSensitiveConsumerHealthContext(context) ? strictWellnessClaims : new Set();
   return getVisibleLines(contentScript).flatMap(({ field, text }) => unsupportedClaimPatterns
     .filter(([id, pattern]) => {
       const claims = getClaimMatches(text, pattern);
@@ -145,8 +147,8 @@ function getClaimMatches(value, pattern, excludeNegated = false) {
     .filter(Boolean);
 }
 
-function isWellnessContext({ project = {}, product = {}, productPassport = {} } = {}) {
-  return /бад|wellness|нутрицевт|хлорофилл|добавк|массаж|роликов.{0,12}(?:стоп|ног)|подогрев.{0,12}(?:стоп|ног)/iu.test(normalizeForMatch([
+function isSensitiveConsumerHealthContext({ project = {}, product = {}, productPassport = {} } = {}) {
+  return /бад|wellness|нутрицевт|хлорофилл|добавк|массаж|роликов.{0,12}(?:стоп|ног)|подогрев.{0,12}(?:стоп|ног)|дезодорант|скраб|крем|сыворотк|космет|уход.{0,12}кож|кож.{0,12}уход/iu.test(normalizeForMatch([
     project.name,
     project.niche,
     project.projectTheme,

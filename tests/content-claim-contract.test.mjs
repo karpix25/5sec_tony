@@ -259,3 +259,33 @@ test("massage devices cannot invent muscle diagnoses or therapeutic effects", ()
   ]);
   assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, massageContext), massageContext), []);
 });
+
+test("cosmetics cannot invent skin diagnoses or treatment advice", () => {
+  const cosmeticContext = {
+    product: {
+      name: "Минеральный дезодорант",
+      description: "Спрей с ароматом ванили и мяты"
+    }
+  };
+  const content = {
+    headline: "Кожа горит после депиляции",
+    subhead: "Как убрать раздражение и вернуть комфорт",
+    points: [
+      "Скраб в день бритья травмирует кожу",
+      "Спирт вызывает жжение",
+      "Отдушки провоцируют аллергию",
+      "Игнорирование зуда ведет к воспалению",
+      "Спрей мягко успокаивает кожу"
+    ]
+  };
+
+  const violations = getUnsupportedClaimViolations(content, cosmeticContext);
+  assert.ok(violations.includes("headline:unsupported_skin_harm_or_treatment"));
+  assert.ok(violations.includes("subhead:unsupported_skin_harm_or_treatment"));
+  assert.ok(violations.includes("points[0]:unsupported_skin_harm_or_treatment"));
+  assert.ok(violations.includes("points[1]:unsupported_skin_harm_or_treatment"));
+  assert.ok(violations.includes("points[2]:unsupported_skin_harm_or_treatment"));
+  assert.ok(violations.includes("points[3]:unsupported_skin_harm_or_treatment"));
+  assert.ok(violations.includes("points[4]:unsupported_skin_harm_or_treatment"));
+  assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, cosmeticContext), cosmeticContext), []);
+});
