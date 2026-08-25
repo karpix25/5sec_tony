@@ -6,8 +6,9 @@ import { getClaimEvidence, getUnsupportedClaimViolations, repairUnsupportedClaim
 export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, model, callOpenRouter, parseJsonDraft }) {
   let currentDraft = draft;
   let basePlan = getDraftPlan(currentDraft);
+  let proofreadRequested = false;
   if (!basePlan.headline && !basePlan.points.length) return currentDraft;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const claimContext = { project: body.project, product: body.product, productPassport: currentDraft.productPassport || body.product?.aiPassport };
       const content = await callOpenRouter(token, model, [
@@ -19,13 +20,15 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
       currentDraft = withHumanizedPlan(currentDraft, plan, parsed.attentionReview);
       const violations = getVisibleTextContractViolations({ contentScript: plan, product: body.product });
       const contentClaimViolations = getUnsupportedClaimViolations(plan, claimContext);
-      if (!violations.length && !contentClaimViolations.length && attempt === 1) return currentDraft;
+      const valid = !violations.length && !contentClaimViolations.length;
+      if (valid && (proofreadRequested || attempt === 2)) return currentDraft;
       body = {
         ...body,
         headlineViolations: violations,
         contentClaimViolations,
-        finalProofreadRequired: !violations.length && !contentClaimViolations.length
+        finalProofreadRequired: valid
       };
+      proofreadRequested = valid;
       basePlan = plan;
     } catch (error) {
       console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);

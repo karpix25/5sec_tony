@@ -125,7 +125,7 @@ function normalizeVisibleLine(value) {
 function normalizeRepairLine(value) {
   let clean = normalizeVisibleLine(value)
     .replace(/\uFFFD/g, "")
-    .replace(/^[3-7]\s*(?:маркер\w*|признак\w*|пункт\w*|симптом\w*|ошиб\w*|вещ\w*|привыч\w*|сигнал\w*)\s*,?\s*(?:что\s+про|которые|что|про)?\s*/i, "")
+    .replace(/^[3-7]\s*(?:маркер[а-яё]*|признак[а-яё]*|пункт[а-яё]*|симптом[а-яё]*|ошиб[а-яё]*|вещ[а-яё]*|привыч[а-яё]*|сигнал[а-яё]*)\s*,?\s*(?:что\s+про|которые|что|про)?\s*/i, "")
     .replace(/^[\s:—–-]+|[.!?\s]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -196,6 +196,7 @@ function hasOrphanMeasurement(value) {
 function hasBrokenHeadlineStart(value) {
   const text = normalizeVisibleLine(value);
   if (/^почему\s+\d+(?:[.,]\d+)?\s+(?:лет|год|дн|час)/i.test(text)) return true;
+  if (/^(?:нехватки|недостатка|ошибок|признаков|маркеров|вещей|способов)(?:\s|$)/i.test(text)) return true;
   return hasBrokenLineStart(text);
 }
 

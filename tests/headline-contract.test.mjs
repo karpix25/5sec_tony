@@ -163,6 +163,15 @@ test("visible text repair prefers a natural fallback over a clipped headline", (
   assert.equal(repaired.headline, "Объем исчезает не из-за шампуня");
 });
 
+test("visible text repair never leaves a Russian suffix after removing a list shell", () => {
+  const repaired = repairVisibleTextContract({
+    headline: "3 признака нехватки влаги в волосах"
+  }, { fallbackHeadlines: ["Волосам не хватает влаги"] });
+
+  assert.equal(repaired.headline, "Волосам не хватает влаги");
+  assert.doesNotMatch(repaired.headline, /^А нехватки/i);
+});
+
 test("image prompt package is built from the humanized final headline", async () => {
   const calls = [];
   const draft = await completeCreativeTeamImagePrompt({

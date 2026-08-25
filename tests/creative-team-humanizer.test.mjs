@@ -32,7 +32,7 @@ test("creative team humanizer rewrites final script before image prompt ownershi
   assert.match(calls[0].text, /Перепиши финальный текст/);
 });
 
-test("creative team humanizer retries a headline that will not fit", async () => {
+test("creative team humanizer proofreads a repaired headline", async () => {
   const calls = [];
   const draft = await humanizeCreativeTeamDraft({
     token: "token",
@@ -48,12 +48,12 @@ test("creative team humanizer retries a headline that will not fit", async () =>
     parseJsonDraft: JSON.parse
   });
 
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.match(calls[1], /headline_too_long/);
   assert.equal(draft.contentScript.headline, "Маска крадет объем волос");
 });
 
-test("creative team humanizer retries invented medical causes without stopping generation", async () => {
+test("creative team humanizer proofreads repaired medical causes without stopping generation", async () => {
   const calls = [];
   const draft = await humanizeCreativeTeamDraft({
     token: "token",
@@ -72,7 +72,7 @@ test("creative team humanizer retries invented medical causes without stopping g
     parseJsonDraft: JSON.parse
   });
 
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.match(calls[1], /unsupported_effect/);
   assert.deepEqual(draft.contentScript.points, ["Легкий крем быстро впитывается"]);
 });
@@ -93,7 +93,7 @@ test("creative team humanizer falls back to deterministic cleanup", async () => 
   assert.equal(draft.textContractRecovery.used, true);
 });
 
-test("creative team humanizer returns a safe result after two invalid rewrites", async () => {
+test("creative team humanizer returns a safe result after three invalid rewrites", async () => {
   const calls = [];
   const productDump = `5 сигналов, что про ${"описание продукта ".repeat(20)}лучше узнать заранее`;
   const draft = await humanizeCreativeTeamDraft({
@@ -111,7 +111,7 @@ test("creative team humanizer returns a safe result after two invalid rewrites",
     parseJsonDraft: JSON.parse
   });
 
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.equal(draft.contentScript.headline, "Скрабы не лечат гусиную кожу");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: draft.contentScript }), []);
 });
