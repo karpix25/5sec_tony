@@ -47,8 +47,7 @@ const contentLayers = [
 ];
 
 export function createContentLayer({ project, product, existingJobs = [] }) {
-  const used = new Set(existingJobs.map((job) => job.contentLayerId || job.diversitySlot?.contentLayer?.id || ""));
-  const layer = contentLayers.find((item) => !used.has(item.id)) || contentLayers[existingJobs.length % contentLayers.length];
+  const layer = pickLeastRecentLayer(existingJobs);
   const subject = getLayerSubject(project, product, existingJobs);
   return {
     ...layer,
@@ -63,6 +62,25 @@ export function createContentLayer({ project, product, existingJobs = [] }) {
       "Продукт показывать как возможный следующий шаг, а не как единственную тему."
     ].join(" ")
   };
+}
+
+function pickLeastRecentLayer(existingJobs) {
+  const recentLayerIds = existingJobs
+    .map((job, index) => ({
+      id: job.contentLayerId || job.diversitySlot?.contentLayer?.id || "",
+      index,
+      createdAt: Date.parse(job.createdAt || "") || 0
+    }))
+    .sort((left, right) => right.createdAt - left.createdAt || right.index - left.index)
+    .map((item) => item.id)
+    .filter(Boolean);
+  return contentLayers.reduce((oldest, layer) => {
+    const layerIndex = recentLayerIds.indexOf(layer.id);
+    const oldestIndex = recentLayerIds.indexOf(oldest.id);
+    if (layerIndex < 0) return oldestIndex < 0 ? oldest : layer;
+    if (oldestIndex < 0) return oldest;
+    return layerIndex > oldestIndex ? layer : oldest;
+  }, contentLayers[0]);
 }
 
 export function getContentLayerInstruction(layer) {
