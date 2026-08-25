@@ -222,6 +222,25 @@ test("wellness copy cannot disguise internal effects as daily support", () => {
   assert.equal(repaired.points.at(-1), "Продукт содержит натуральный ароматизатор мяты");
 });
 
+test("wellness copy cannot revive digestion and internal freshness angles", () => {
+  const wellness = {
+    product: { name: "Жидкий хлорофилл" },
+    productPassport: { category: "БАД" }
+  };
+  const content = {
+    headline: "Внешние средства маскируют запах",
+    points: [
+      "Тяжесть после еды и вздутие говорят, что пищеварению нужна поддержка",
+      "Хлорофилл помогает поддерживать свежесть изнутри"
+    ]
+  };
+
+  const violations = getUnsupportedClaimViolations(content, wellness);
+  assert.ok(violations.includes("headline:unsupported_wellness_mechanism"));
+  assert.ok(violations.includes("points[0]:unsupported_wellness_mechanism"));
+  assert.ok(violations.includes("points[1]:unsupported_wellness_mechanism"));
+});
+
 test("claim repair skips packaging and certificates for a non-operational product", () => {
   const context = {
     product: { name: "Жидкий хлорофилл" },

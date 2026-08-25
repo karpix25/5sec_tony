@@ -29,7 +29,7 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (hasBrokenHeadlineStart(headline)) violations.push("headline_broken_start");
   if ([subhead, ...points].some(hasBrokenLineStart)) violations.push("broken_line_start");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
-  if (incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
+  if (/[,;:—–-]$/.test(headline) || incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
   if ([headline, subhead, ...points].some((line) => /\uFFFD/.test(line))) violations.push("replacement_character");
   if ([headline, subhead, ...points].some((line) => forbiddenVisiblePattern.test(line))) violations.push("forbidden_visible_copy");
