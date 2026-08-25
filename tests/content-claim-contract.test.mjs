@@ -303,6 +303,17 @@ test("pet advice cannot turn a visible change into a nutrient diagnosis", () => 
   ]);
 });
 
+test("pet advice cannot invent a calorie rule from lower activity", () => {
+  const content = {
+    headline: "Комфорт возрастной кошки",
+    points: ["Меньше движения — значит, нужно меньше калорий в порции"]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, {
+    product: { name: "Корм для возрастных кошек", description: "Полнорационный сухой корм" }
+  }), ["points[0]:unsupported_invented_diet_advice"]);
+});
+
 test("massage devices cannot invent muscle diagnoses or therapeutic effects", () => {
   const massageContext = {
     product: {

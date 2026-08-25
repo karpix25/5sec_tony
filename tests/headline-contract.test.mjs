@@ -125,6 +125,7 @@ test("visible text contract rejects generic and broken editorial shells", () => 
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Это не работает" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Ваш детокс — это просто маркетинг" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Скрип кожи — это не чистота" } }).includes("headline_weak_shell"));
+  assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Комфорт в движении" } }).includes("headline_weak_shell"));
 });
 
 test("visible text repair capitalizes a lowercase headline", () => {
