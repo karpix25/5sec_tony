@@ -326,3 +326,22 @@ test("cosmetics cannot invent skin diagnoses or treatment advice", () => {
   assert.ok(violations.includes("points[4]:unsupported_skin_harm_or_treatment"));
   assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, cosmeticContext), cosmeticContext), []);
 });
+
+test("cosmetics cannot invent a numeric replacement comparison", () => {
+  const cosmeticContext = {
+    product: {
+      name: "Минеральный дезодорант",
+      description: "Универсальный спрей с алунитом"
+    }
+  };
+  const content = {
+    headline: "Один флакон вместо пяти",
+    subhead: "Спрей заменяет гору косметики",
+    points: ["Подходит для нескольких бытовых сценариев"]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, cosmeticContext), [
+    "headline:unsupported_invented_comparison",
+    "subhead:unsupported_invented_comparison"
+  ]);
+});
