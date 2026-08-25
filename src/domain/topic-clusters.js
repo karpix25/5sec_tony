@@ -21,7 +21,7 @@ export function createTopicClusterPlan({ project, product, existingJobs = [] } =
   const clusters = buildTopicClusters(product, project);
   const recentJobs = existingJobs.slice(0, maxRecentJobs);
   const scored = clusters
-    .map((cluster, index) => scoreCluster(cluster, recentJobs, index))
+    .map((cluster, index) => scoreCluster(cluster, recentJobs, index, product?.id))
     .sort((left, right) => right.score - left.score);
   return {
     selected: scored[0] || null,
@@ -83,8 +83,9 @@ export function classifyTopicCluster(job = {}, clusters = []) {
   return matched?.id || "";
 }
 
-function scoreCluster(cluster, recentJobs, index) {
+function scoreCluster(cluster, recentJobs, index, productId) {
   const recentMatches = recentJobs.filter((job) => classifyTopicCluster(job, [cluster]) === cluster.id).length;
+  const recentProductMatches = recentJobs.filter((job) => job.productId === productId && classifyTopicCluster(job, [cluster]) === cluster.id).length;
   const consecutiveMatches = countConsecutiveMatches(cluster, recentJobs);
   const hasBrandContext = cluster.sourceTypes.some((type) => ["brandScenario", "brandPain", "brandDesire"].includes(type));
   const hasAdjacentContext = cluster.sourceTypes.some((type) => ["adjacent", "guide", "habit", "lifestyle"].includes(type));
@@ -94,10 +95,11 @@ function scoreCluster(cluster, recentJobs, index) {
     : cluster.sourceTypes.includes("safeFact") ? 2 : 1;
   return {
     ...cluster,
-    score: 20 + sourceBonus - index - recentMatches * 5 - consecutiveMatches * 10,
+    score: 20 + sourceBonus - index - recentMatches * 5 - recentProductMatches * 20 - consecutiveMatches * 10,
     recentMatches,
+    recentProductMatches,
     consecutiveMatches,
-    cooldown: consecutiveMatches >= 2 || recentMatches >= 3
+    cooldown: recentProductMatches >= 1 || consecutiveMatches >= 2 || recentMatches >= 3
   };
 }
 

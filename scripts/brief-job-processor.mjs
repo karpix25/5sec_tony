@@ -58,7 +58,8 @@ export async function prepareServerJob(jobId, origin, deps = {}) {
   const brief = await generateBrief({
     origin,
     ...context,
-    existingJobs
+    existingJobs,
+    diversitySlot: preparedPlaceholder.diversitySlot || null
   });
   const job = {
     ...createGenerationJob({ ...context, generationBrief: brief, existingJobs }),

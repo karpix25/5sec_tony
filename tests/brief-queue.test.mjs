@@ -151,13 +151,19 @@ test("brief queue worker receives durable job payload through dependency injecti
 
 test("brief processor promotes a placeholder to a generation job", async () => {
   const state = createState();
+  const reservedSlot = { id: "decision-check", contentLayer: { id: "daily-hack" } };
+  state.jobs[0].diversitySlot = reservedSlot;
   const calls = [];
+  const briefInputs = [];
   const deps = createStateDeps(state, {
-    generateServerAiBrief: async () => ({
-      topic: "Серверная тема",
-      hook: "Серверный хук готов",
-      aiPlan: { headline: "Серверный хук готов", subhead: "", points: ["Пункт"] }
-    }),
+    generateServerAiBrief: async (input) => {
+      briefInputs.push(input);
+      return {
+        topic: "Серверная тема",
+        hook: "Серверный хук готов",
+        aiPlan: { headline: "Серверный хук готов", subhead: "", points: ["Пункт"] }
+      };
+    },
     postServerJob: async ({ job }) => {
       calls.push(job);
       return { job };
@@ -178,6 +184,7 @@ test("brief processor promotes a placeholder to a generation job", async () => {
   assert.equal(job.queueStatus, "queued");
   assert.equal(job.queueIdempotencyKey, "generation:job-brief-test");
   assert.equal(job.title, "Серверный хук готов");
+  assert.deepEqual(briefInputs[0].diversitySlot, reservedSlot);
 
   await processBriefJob({ jobId: "job-brief-test", batchId: "batch-brief-test", origin: "http://127.0.0.1:4173", deps });
   assert.equal(calls.length, 1);

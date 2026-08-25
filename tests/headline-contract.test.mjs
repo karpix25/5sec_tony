@@ -80,6 +80,19 @@ test("visible text contract rejects generic and broken editorial shells", () => 
   }
 });
 
+test("visible text contract removes measurement units without a number", () => {
+  const contentScript = { headline: "Проверь дозировку заранее", points: ["мг хлорофилла в порции", "500 мг хлорофилла в порции"] };
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("orphan_measurement"));
+  assert.deepEqual(repairVisibleTextContract(contentScript).points, ["500 мг хлорофилла в порции"]);
+});
+
+test("visible text contract rejects clipped and artificial number openings", () => {
+  for (const headline of ["ки в сочетании ухода", "Почему 16 лет в лаборатории"]) {
+    assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_broken_start"));
+  }
+  assert.ok(!getVisibleTextContractViolations({ contentScript: { headline: "С 16 лет меняется уход" } }).includes("headline_broken_start"));
+});
+
 test("visible text repair prefers a natural fallback over a clipped headline", () => {
   const repaired = repairVisibleTextContract({
     headline: "Почему волосы теряют объем уже через пару часов после мытья"

@@ -51,3 +51,8 @@ test("claim contract does not mistake ordinary or negative wording for treatment
   };
   assert.deepEqual(getUnsupportedClaimViolations(content, {}), []);
 });
+
+test("claim contract rejects an unsupported harm claim", () => {
+  const content = { headline: "Дезодорант вредит вашей коже", points: ["Проверьте состав"] };
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Минеральный дезодорант" } }), ["headline:unsupported_effect"]);
+});

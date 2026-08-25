@@ -4,6 +4,9 @@ const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|кот
 const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
 const numberedHeadlineFragmentPattern = /(?:^|\s)\d{1,2}\s*[.)](?=\s|$)|^заблуждени[ея]\s+про\s+\d/i;
 const weakHeadlineShellPattern = /^(?:вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт))/i;
+const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])/i;
+const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
+const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
 export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   const headline = normalizeVisibleLine(contentScript.headline);
@@ -19,11 +22,13 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   if (looksLikeProductDump(headline)) violations.push("headline_product_dump");
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
+  if (hasBrokenHeadlineStart(headline)) violations.push("headline_broken_start");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
   if (incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
   if ([headline, subhead, ...points].some((line) => /\uFFFD/.test(line))) violations.push("replacement_character");
   if ([headline, subhead, ...points].some((line) => forbiddenVisiblePattern.test(line))) violations.push("forbidden_visible_copy");
+  if ([headline, subhead, ...points].some(hasOrphanMeasurement)) violations.push("orphan_measurement");
   return violations;
 }
 
@@ -43,7 +48,7 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
   const points = getScriptPoints(contentScript)
     .map(normalizePointText)
     .map(normalizeRepairLine)
-    .filter((line) => line && !forbiddenVisiblePattern.test(line));
+    .filter((line) => line && !forbiddenVisiblePattern.test(line) && !hasOrphanMeasurement(line));
   const rawSubhead = normalizeRepairLine(contentScript.subhead);
   const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead)
     ? rawSubhead
@@ -103,7 +108,7 @@ function normalizePointText(point) {
     ? [point.title, point.label, point.text, point.caption].filter(Boolean).join(" ")
     : String(point || "");
   return value
-    .replace(/^\s*\d+[\).:\-]?\s*/g, "")
+    .replace(/^\s*\d{1,2}(?:[\).:\-]\s*|\s+(?=[А-ЯЁ]))/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -151,6 +156,17 @@ function hasAdjacentDuplicateWords(value) {
 
 function lastHeadlineWord(value) {
   return normalizeVisibleWord(normalizeVisibleLine(value).split(/\s+/).at(-1));
+}
+
+function hasOrphanMeasurement(value) {
+  return orphanMeasurementPattern.test(String(value || "")) && !supportedMeasurementPattern.test(String(value || ""));
+}
+
+function hasBrokenHeadlineStart(value) {
+  const text = normalizeVisibleLine(value);
+  if (/^почему\s+\d+(?:[.,]\d+)?\s+(?:лет|год|дн|час)/i.test(text)) return true;
+  const firstWord = normalizeVisibleWord(text.split(/\s+/)[0]);
+  return firstWord.length > 0 && firstWord.length <= 2 && !validShortHeadlineStarts.has(firstWord);
 }
 
 function normalizeVisibleMeaningKey(value) {

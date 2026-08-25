@@ -106,6 +106,18 @@ test("product evidence about packaging does not become an automatic content topi
   assert.match(text, /ритуал|водн|wellness/i);
 });
 
+test("same product does not reuse its last topic cluster", () => {
+  const product = createTravelProduct();
+  const first = createTopicClusterPlan({ product });
+  const second = createTopicClusterPlan({
+    product,
+    existingJobs: [{ productId: product.id, topicCluster: { label: first.selected.label } }]
+  });
+
+  assert.notEqual(second.selected.id, first.selected.id);
+  assert.equal(second.available.find((cluster) => cluster.id === first.selected.id).cooldown, true);
+});
+
 test("server brief sends selected topic cluster to the ai departments", async () => {
   const previousFetch = globalThis.fetch;
   const bodies = [];
