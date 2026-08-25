@@ -13,7 +13,7 @@ import { isJsonDraftFormatError } from "./openrouter-response.mjs";
 import { attentionFrameInstruction, selectAttentionFrame } from "../src/domain/attention-frame.js";
 import { createProductPassportShape, productWorldRules } from "../src/domain/product-world.js";
 import { editorialTopicRules } from "../src/domain/editorial-topic-policy.js";
-
+import { claimEvidenceRules, getClaimEvidence } from "../src/domain/content-claim-contract.js";
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
   ...ruTextEditorialRules,
@@ -44,7 +44,8 @@ const commonRoleRules = [
   "Финальная самопроверка маркетолога: короткий конкретный заголовок, связанные блоки, полезный смысл без покупки, нет запрещенных обещаний.",
   "Тон может быть триггерный, актуальный, спорный, но не порочащий репутацию автора. Правда, реальные факты, без лжи.",
   "Спорность строить через честный конфликт: популярное обещание против реальной привычки, ожидание против ограничений, тренд против здравого смысла, громкий совет против проверяемой детали.",
-  "Не делай утверждения, которые нельзя защитить фактами."
+  "Не делай утверждения, которые нельзя защитить фактами.",
+  ...claimEvidenceRules
 ];
 
 const roleSystemPrompt = "Ты senior-участник AI-креативной команды. Пиши по-русски. Верни только JSON без markdown.";
@@ -53,7 +54,6 @@ const designReferenceFidelityRules = [
   "DESIGN REFERENCE FIDELITY GATE: перед финальным рендером сравни prompt с designReference; если не узнается тот же skeleton, palette, typography hierarchy, card rhythm and object geometry, перепиши prompt ближе к референсу.",
   "Сохраняй macro-layout дизайн-референса: крупные зоны, направление чтения, повторяемые формы, пропорции блоков, декоративный язык и визуальный вес. Не подменяй funnel/chart/poster/comparison/card grid обычным generic checklist."
 ];
-
 export async function runCreativeTeamBrief({ token, body, model, referenceModel, callOpenRouter, parseJsonDraft, deferImagePromptPackage = false }) {
   body = createCreativeTeamPayload(body);
   const attentionFrame = selectAttentionFrame({ recentFrames: body.recentAttentionFrames, existingJobs: body.existingJobs });
@@ -95,7 +95,6 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
       });
   return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript: finalScript, formatCompliance, textContractViolations: [...new Set([...contractViolations, ...safetyContractViolations])], visualBrief, safetyReview: finalSafetyReview, imagePromptPackage, body, attentionFrame });
 }
-
 export async function createCreativeTeamImagePromptPackage({ token, model, callOpenRouter, parseJsonDraft, body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief }) {
   return runRole({
     token,
@@ -115,6 +114,7 @@ export function humanizeTextInstruction(body) {
     rules: [
       "Сохрани исходный смысл и сценарий; не меняй тему на другую.",
       "Если previousHeadlineViolations не пуст, предыдущий заголовок отклонен. Исправь все перечисленные нарушения, а не возвращай ту же фразу.",
+      "Если contentClaimViolations не пуст, предыдущий текст содержит неподтвержденные утверждения. Удали их или замени только фактами из claimEvidence.",
       formatCurrentDatePrompt(),
       "Все поля headline, subhead, points, cta и disclaimer пиши только на русском; английские слова и латиницу переводи на русский, кроме официальных названий брендов и сервисов.",
       "CTA не нужен: верни cta пустой строкой и убери любые 'узнайте', 'сохраните', 'закажите', 'в описании', 'в профиле' из текста.",
@@ -134,12 +134,15 @@ export function humanizeTextInstruction(body) {
       "Анкета product — источник истины. Не добавляй свойства, обещания, формат, состав, объем, дозировку, бренд или упаковку, которых нет в product.",
       "Поля forbidden, restrictions и contentRestrictions — внутренние стоп-правила. Не превращай их в visible copy, points, CTA, disclaimer, футер, сноску или нижнюю строку.",
       "Не добавляй новые цифры, комиссии, гарантии, юридические факты, обход правил, диагнозы или финансовые обещания.",
+      ...claimEvidenceRules,
       ...ruTextEditorialRules
     ],
     project: body.project,
     product: body.product,
     basePlan: body.plan,
     brief: body.brief,
+    claimEvidence: body.claimEvidence || getClaimEvidence({ product: body.product, productPassport: body.brief?.productPassport }),
+    contentClaimViolations: body.contentClaimViolations || [],
     restrictions: { project: body.project?.restrictions || body.project?.contentRestrictions || "", productForbidden: body.product?.forbidden || [] }
   });
 }
@@ -195,6 +198,7 @@ function productPassportInstruction(body) {
         "Внеси что это за продукт, кому он нужен, какие ситуации закрывает, боли, желания, возражения, safe facts и forbidden claims.",
         "Не добавляй visualIdentity и не диктуй визуальный стиль продукта: визуал берется из product reference только когда продукт активен в кадре.",
         "Не расширяй продукт типовыми обещаниями ниши.",
+        "safeFacts и allowedClaims заполняй только точными фактами или аккуратными перефразировками исходного product. Если подтверждения нет — не добавляй claim.",
         "Используй только данные product. Дизайн-референсы, аватары, ссылки, изображения и контекст проекта здесь запрещены.",
         ...productWorldRules
       ],
@@ -320,7 +324,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, 
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], attentionFrame, invisibleNotes: { hookPayoff: "", productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), "Headline: 3–6 слов, максимум 34 символа. Он должен звучать естественно и целиком помещаться в две крупные строки. Если recommendedHook длиннее — перепиши его целиком без потери смысла; не обрезай готовую фразу по словам.", "Не выходи из безопасной зоны ради механического сохранения hook: смысл сохраняется через полную переформулировку.", "Прочитай headline вслух: если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: добавляет новую причину или деталь конфликта, а не повторяет headline.", "Первые 1-2 points закрывают recommendedPayoffQuestion выбранного hookSet.", "Каждый point добавляет новый факт, причину, наблюдение или действие; не пересказывай соседний point другими словами.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Чередуй ритм: короткий тезис, конкретное объяснение, практический вывод. Не начинай все points одинаково.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в productPassport.", "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: [attentionFrameInstruction(attentionFrame), "Headline: 3–6 слов, максимум 34 символа. Он должен звучать естественно и целиком помещаться в две крупные строки. Если recommendedHook длиннее — перепиши его целиком без потери смысла; не обрезай готовую фразу по словам.", "Не выходи из безопасной зоны ради механического сохранения hook: смысл сохраняется через полную переформулировку.", "Прочитай headline вслух: если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: добавляет новую причину или деталь конфликта, а не повторяет headline.", "Первые 1-2 points закрывают recommendedPayoffQuestion выбранного hookSet.", "Каждый point добавляет новый факт, причину, наблюдение или действие; не пересказывай соседний point другими словами.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Чередуй ритм: короткий тезис, конкретное объяснение, практический вывод. Не начинай все points одинаково.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в исходном product.", ...claimEvidenceRules, "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       projectContext: body.project,
       creativeBrief,
@@ -353,10 +357,11 @@ function safetyEditorInstruction(body, productPassport, creativeBrief, contentSc
   return JSON.stringify(basePayload(
     "Проверь паспорт, сценарий и visual brief перед финальным промптом.",
     "Ты safety editor для рекламного и образовательного контента.",
-    { safetyReview: { generationAllowed: true, issues: [], fixedContentScript: { headline: "", subhead: "", points: [] }, fixedVisualBrief: {}, finalWarnings: [] } },
+    { safetyReview: { generationAllowed: true, issues: [], fixedContentScript: { headline: "", subhead: "", points: [""] }, fixedVisualBrief: {}, finalWarnings: [] } },
     {
-      rules: ["Найди выдуманные факты, запрещенные promises, медицинские, финансовые и юридические гарантии, токсичные формулировки, CTA/футеры/дисклеймеры и несоответствие продукта визуалу.", ...hookPayoffRules, "Если headline обещает одно, а points раскрывают другое, исправь fixedContentScript без смены темы.", "Если риск можно исправить, верни исправленную версию.", "Если риск критичный, generationAllowed=false."],
+      rules: ["Найди выдуманные факты, запрещенные promises, медицинские, финансовые и юридические гарантии, токсичные формулировки, CTA/футеры/дисклеймеры и несоответствие продукта визуалу.", ...claimEvidenceRules, ...hookPayoffRules, "fixedContentScript.points всегда массив строк, не массив объектов и не таблица JSON.", "Если headline обещает одно, а points раскрывают другое, исправь fixedContentScript без смены темы.", "Исправляя риск, не добавляй новых причин, механизмов или свойств: используй только claimEvidence и безопасные действия из product.", "Если данных мало, сократи текст до подтвержденных фактов и наблюдений; generationAllowed оставь true.", "Если риск можно исправить, верни исправленную версию."],
       productPassport,
+      claimEvidence: getClaimEvidence({ product: body.product, productPassport: productPassport.productPassport || productPassport }),
       creativeBrief,
       contentScript,
       visualBrief,

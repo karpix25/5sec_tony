@@ -46,7 +46,7 @@ test("visible text repair always returns a valid headline", () => {
 test("visible text repair has a deterministic last resort", () => {
   const repaired = repairVisibleTextContract({ headline: "Шампунь", points: [] });
 
-  assert.equal(repaired.headline, "Вот что важно знать");
+  assert.equal(repaired.headline, "Эту деталь легко упустить");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
@@ -55,7 +55,7 @@ test("visible text repair never clips a numbered product dump into a headline", 
     headline: "Заблуждение про 1. снижение веса 2. очищение организма 3. повышение выносливости"
   });
 
-  assert.equal(repaired.headline, "Вот что важно знать");
+  assert.equal(repaired.headline, "Эту деталь легко упустить");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
@@ -72,6 +72,12 @@ test("visible text contract rejects broken numbered headline fragments", () => {
   assert.deepEqual(getVisibleTextContractViolations({
     contentScript: { headline: "Заблуждение про 1. 6." }
   }), ["headline_numbered_fragment"]);
+});
+
+test("visible text contract rejects generic and broken editorial shells", () => {
+  for (const headline of ["Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+    assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
+  }
 });
 
 test("visible text repair prefers a natural fallback over a clipped headline", () => {

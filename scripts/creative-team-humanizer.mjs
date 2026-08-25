@@ -1,6 +1,7 @@
 import { normalizeHumanizedLine, normalizeHumanizedPlan } from "../src/domain/text-humanizer.js";
 import { getVisibleTextContractViolations, repairVisibleTextContract } from "../src/domain/design-text-contract.js";
 import { humanizeTextInstruction } from "./creative-team-prompts.mjs";
+import { getClaimEvidence, getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
 
 export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, model, callOpenRouter, parseJsonDraft }) {
   let currentDraft = draft;
@@ -8,28 +9,31 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
   if (!basePlan.headline && !basePlan.points.length) return currentDraft;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
+      const claimContext = { product: body.product, productPassport: currentDraft.productPassport || body.product?.aiPassport };
       const content = await callOpenRouter(token, model, [
         { role: "system", content: "Ты редактор массовых Reels-инфографик. Пиши по-русски, просто, живо и безопасно. Верни только JSON без markdown." },
-        { role: "user", content: humanizeTextInstruction({ ...body, plan: basePlan, brief: currentDraft }) }
+        { role: "user", content: humanizeTextInstruction({ ...body, plan: basePlan, brief: currentDraft, claimEvidence: getClaimEvidence(claimContext) }) }
       ]);
       const parsed = parseJsonDraft(content);
       const plan = normalizeHumanizedPlan(parsed, basePlan);
       currentDraft = withHumanizedPlan(currentDraft, plan, parsed.attentionReview);
       const violations = getVisibleTextContractViolations({ contentScript: plan });
-      if (!violations.length && attempt > 0) return currentDraft;
-      body = { ...body, headlineViolations: violations };
+      const contentClaimViolations = getUnsupportedClaimViolations(plan, claimContext);
+      if (!violations.length && !contentClaimViolations.length) return currentDraft;
+      body = { ...body, headlineViolations: violations, contentClaimViolations };
       basePlan = plan;
     } catch (error) {
       console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);
-      return repairDraft(currentDraft, basePlan);
+      return repairDraft(currentDraft, basePlan, body);
     }
   }
-  return repairDraft(currentDraft, basePlan);
+  return repairDraft(currentDraft, basePlan, body);
 }
 
-function repairDraft(draft, plan) {
+function repairDraft(draft, plan, body = {}) {
   const violations = getVisibleTextContractViolations({ contentScript: plan });
-  const repairedPlan = repairVisibleTextContract(plan, {
+  const safePlan = repairUnsupportedClaims(plan, { product: body.product, productPassport: draft.productPassport || body.product?.aiPassport });
+  const repairedPlan = repairVisibleTextContract(safePlan, {
     fallbackHeadlines: [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
   });
   return {

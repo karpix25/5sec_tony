@@ -3,6 +3,7 @@ const topHeadlinePattern = /^(top|топ)(\s|\d|$)/i;
 const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|который|которая|которые|которое|потому|что|как|почему|это|плохой|плохая|плохое)$/i;
 const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
 const numberedHeadlineFragmentPattern = /(?:^|\s)\d{1,2}\s*[.)](?=\s|$)|^заблуждени[ея]\s+про\s+\d/i;
+const weakHeadlineShellPattern = /^(?:вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт))/i;
 
 export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   const headline = normalizeVisibleLine(contentScript.headline);
@@ -17,6 +18,7 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   if (headlineWords.length > 6) violations.push("headline_too_many_words");
   if (looksLikeProductDump(headline)) violations.push("headline_product_dump");
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
+  if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
   if (incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
@@ -37,7 +39,7 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
   ]
     .filter((line) => line && !looksLikeProductDump(line) && !forbiddenVisiblePattern.test(line));
   const headline = candidates.find(isValidHeadline)
-    || "Вот что важно знать";
+    || "Эту деталь легко упустить";
   const points = getScriptPoints(contentScript)
     .map(normalizePointText)
     .map(normalizeRepairLine)

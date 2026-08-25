@@ -25,7 +25,7 @@ test("creative team humanizer rewrites final script before image prompt ownershi
     parseJsonDraft: JSON.parse
   });
 
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 1);
   assert.equal(draft.contentScript.headline, "Маска крадет объем волос");
   assert.equal(draft.plan.points.length, 2);
   assert.match(calls[0].text, /Перепиши финальный текст/);
@@ -50,6 +50,30 @@ test("creative team humanizer retries a headline that will not fit", async () =>
   assert.equal(calls.length, 2);
   assert.match(calls[1], /headline_too_long/);
   assert.equal(draft.contentScript.headline, "Маска крадет объем волос");
+});
+
+test("creative team humanizer retries invented medical causes without stopping generation", async () => {
+  const calls = [];
+  const draft = await humanizeCreativeTeamDraft({
+    token: "token",
+    model: "writer",
+    body: { product: { name: "Крем для век", description: "Легкий крем с пептидами", facts: ["Быстро впитывается"] } },
+    draft: {
+      productPassport: { contentTerritory: { adjacentHelpfulTopics: ["Гаджеты и мимика глаз"] } },
+      contentScript: { headline: "Лицо устает к обеду", points: ["Быстро впитывается"] }
+    },
+    callOpenRouter: async (_token, _model, messages) => {
+      calls.push(messages[1].content);
+      return JSON.stringify(calls.length === 1
+        ? { headline: "Лицо устает к обеду", points: ["Гаджеты обезвоживают кожу вокруг глаз"] }
+        : { headline: "Лицо устает к обеду", points: ["Легкий крем быстро впитывается"] });
+    },
+    parseJsonDraft: JSON.parse
+  });
+
+  assert.equal(calls.length, 2);
+  assert.match(calls[1], /unsupported_effect/);
+  assert.deepEqual(draft.contentScript.points, ["Легкий крем быстро впитывается"]);
 });
 
 test("creative team humanizer falls back to deterministic cleanup", async () => {
