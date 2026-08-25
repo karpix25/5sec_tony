@@ -214,6 +214,16 @@ test("claim contract rejects invented quantified comparisons", () => {
   }, { product: { name: "Ультратонкие прокладки" } }), ["points[0]:unsupported_quantified_comparison"]);
 });
 
+test("claim contract rejects invented usage numbers", () => {
+  assert.deepEqual(getUnsupportedClaimViolations({
+    headline: "Хватит 2–3 капель",
+    points: ["Дайте средству впитаться 1–2 минуты"]
+  }, { product: { name: "Масло для волос" } }), [
+    "headline:unsupported_numeric_detail",
+    "points[0]:unsupported_numeric_detail"
+  ]);
+});
+
 test("claim contract rejects an unsupported body damage metaphor", () => {
   const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
 
@@ -408,7 +418,8 @@ test("massage devices cannot invent muscle diagnoses or therapeutic effects", ()
     "headline:unsupported_therapeutic_effect",
     "points[0]:unsupported_therapeutic_effect",
     "points[1]:unsupported_therapeutic_effect",
-    "points[2]:unsupported_therapeutic_effect"
+    "points[2]:unsupported_therapeutic_effect",
+    "points[2]:unsupported_numeric_detail"
   ]);
   assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, massageContext), massageContext), []);
 });

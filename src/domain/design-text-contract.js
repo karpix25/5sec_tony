@@ -15,6 +15,7 @@ const drySpecificationHeadlinePattern = /(?:толщин|объ[её]м|вес|�
 const bareInstructionHeadlinePattern = /^[А-ЯЁ][а-яё-]{2,}(?:ть|ться)\s+[^?!]+$/;
 const focusedListPromisePattern = /(?:признак|сигнал|схем|шаг|переход)[а-яё]*/i;
 const productFeaturePointPattern = /^(?:содержит|формула|в\s+составе)(?:\s|$)|(?:^|\s)(?:в\s+составе|благодаря|помогает|поддерживает|обеспечивает)(?:\s|$)/i;
+const genericFallbackHeadlinePattern = /^сначала\s+проверь\s+способ\s+применения$/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
 export function getVisibleTextContractViolations({ contentScript = {}, product = {} } = {}) {
@@ -36,6 +37,7 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (abstractBenefitHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (drySpecificationHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (bareInstructionHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
+  if (genericFallbackHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (headlineJargonPattern.test(headline)) violations.push("headline_weak_shell");
   if (headlineWords.length === 3
     && !/[?!:—–-]/.test(headline)
@@ -76,7 +78,7 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
   ]
     .filter((line) => line && !looksLikeProductDump(line, options.product) && !forbiddenVisiblePattern.test(line));
   const headline = candidates.find((line) => isValidHeadline(line, options.product))
-    || "Сначала проверь способ применения";
+    || createProductFallbackHeadline(options.product);
   const rawSubhead = normalizeRepairLine(contentScript.subhead);
   const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead) && !points.some((point) => hasSameMeaning(rawSubhead, point))
     ? rawSubhead
@@ -163,6 +165,21 @@ function isAllCapsHeadline(value) {
 
 function isValidHeadline(value, product) {
   return !getVisibleTextContractViolations({ contentScript: { headline: value }, product }).length;
+}
+
+function createProductFallbackHeadline(product = {}) {
+  const words = normalizeVisibleLine(product.name)
+    .replace(/[«»"'()]/g, " ")
+    .split(/\s+/)
+    .map(normalizeVisibleWord)
+    .filter(Boolean);
+  const subject = words.find((word) => word.length >= 4
+    && !/^(?:для|при|или|без|под|над|между)$/i.test(word)
+    && !/(?:ый|ий|ой|ая|яя|ое|ее|ые|ие|ого|его|ому|ему|ую|юю|ым|им|ых|их)$/i.test(word));
+  if (!subject) return "Не спеши с выбором вслепую";
+  const label = subject[0].toLocaleUpperCase("ru-RU") + subject.slice(1);
+  const candidate = `${label}: не спеши с выбором`;
+  return isValidHeadline(candidate, product) ? candidate : "Не спеши с выбором вслепую";
 }
 
 function createHeadlineCandidates(value) {
