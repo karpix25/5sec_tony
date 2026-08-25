@@ -121,6 +121,7 @@ test("claim contract rejects an unsupported body damage metaphor", () => {
   const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
 
   assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Жидкий хлорофилл" } }), [
+    "headline:unsupported_wellness_mechanism",
     "headline:unsupported_physical_damage"
   ]);
 });
@@ -142,10 +143,33 @@ test("wellness source claims do not authorize detox and internal deodorant copy"
   };
 
   assert.deepEqual(getUnsupportedClaimViolations(content, wellness), [
+    "headline:unsupported_wellness_mechanism",
     "points[0]:unsupported_detox_or_weight",
+    "points[0]:unsupported_wellness_mechanism",
     "points[0]:unsupported_causal_certainty",
+    "points[1]:unsupported_wellness_mechanism",
     "points[1]:unsupported_effect"
   ]);
+});
+
+test("wellness copy cannot disguise internal effects as daily support", () => {
+  const wellness = {
+    product: { name: "Жидкий хлорофилл" },
+    productPassport: { category: "БАД" }
+  };
+  const content = {
+    headline: "Сначала проверь способ применения",
+    points: [
+      "Организму нужно время для адаптации",
+      "Дезодорирующий эффект заметен через две недели",
+      "Клеткам нужна поддержка ресурсами каждый день",
+      "Продукт содержит натуральный ароматизатор мяты"
+    ]
+  };
+
+  const repaired = repairUnsupportedClaims(content, wellness);
+  assert.deepEqual(getUnsupportedClaimViolations(repaired, wellness), []);
+  assert.equal(repaired.points.at(-1), "Продукт содержит натуральный ароматизатор мяты");
 });
 
 test("adjacent pet advice cannot invent a physical cause", () => {

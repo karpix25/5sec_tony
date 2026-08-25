@@ -3,6 +3,7 @@ const unsupportedClaimPatterns = [
   ["medical_mechanism", /кровообращ|микроциркуля|лимф|гормон|инсулин|холестерин|давлени|метабол|обмен веществ|нагрузк.{0,24}(?:сустав|шею|спин|мышц)/iu],
   ["disease_or_pathogen", /воспален|инфекц|бактери|вирус|грибок|грибк|паразит/iu],
   ["detox_or_weight", /токсин|детокс|очища.{0,12}организм|сжига.{0,12}жир|похуд/iu],
+  ["wellness_mechanism", /организм|клет|адаптац|накопительн|дезодор|запах.{0,16}(?:тела|изнутри|изо рта)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
   ["physical_damage", /микротрещ|микроцарап|микроразрыв|разрыв.{0,12}кутик|царап|стира.{0,16}эмал|истонч|шероховат|наждач|поврежд|ржаве|пятн.{0,20}раствор|растворя.{0,20}(?:пятн|нал[её]т)/iu],
   ["causal_certainty", /(?:главн|скрыт|прям).{0,16}причин|напрямую\s+влияет|зависит\s+от|связан.{0,24}(?:дискомфорт|проблем|наруш|бол)/iu],
   ["effect", /обезвож|нормализ|стимулир|блокир|нейтрализ|избав|убира(?:ет|ют|ется)|гарантир|навсегда|мгновенн|бодр|энергич|(?<!без)вред/iu]
@@ -13,6 +14,7 @@ const strictWellnessClaims = new Set([
   "medical_mechanism",
   "disease_or_pathogen",
   "detox_or_weight",
+  "wellness_mechanism",
   "causal_certainty",
   "effect"
 ]);
@@ -90,7 +92,7 @@ export function repairUnsupportedClaims(contentScript = {}, context = {}) {
   const points = asPointLines(contentScript.points).map((point) => lineHasUnsupportedClaim(point, context) ? nextCandidate() : point);
   return {
     ...contentScript,
-    headline: lineHasUnsupportedClaim(contentScript.headline, context) ? "Что важно знать заранее" : contentScript.headline,
+    headline: lineHasUnsupportedClaim(contentScript.headline, context) ? "" : contentScript.headline,
     subhead: lineHasUnsupportedClaim(contentScript.subhead, context) ? "" : contentScript.subhead,
     points
   };

@@ -3,7 +3,7 @@ const topHeadlinePattern = /^(top|топ)(\s|\d|$)/i;
 const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|который|которая|которые|которое|потому|что|как|почему|это|плохой|плохая|плохое)$/i;
 const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|показываем|покажите|визуализ|→|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
 const numberedHeadlineFragmentPattern = /(?:^|\s)\d{1,2}\s*[.)](?=\s|$)|^заблуждени[ея]\s+про\s+\d/i;
-const weakHeadlineShellPattern = /^(?:почему\s+|(?:вы|ты)\s+(?:это|их|его|е[её])(?:\s|$)|вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт)|эту\s+деталь\s+(?:легко\s+)?(?:упустить|не\s+заметить)|это\s+не\s+(?:норма|работает)$|скрип\s+кожи(?:\s|$|[—–-])|(?:ваш|твой)\s+.+?\s+(?:—\s*)?это\s+(?:просто\s+)?маркетинг$)/i;
+const weakHeadlineShellPattern = /^(?:почему\s+|не\s+просто\s+|(?:мягкий|приятный|натуральный|свежий|л[её]гкий)\s+(?:вкус|аромат|состав|текстура)(?:\s|$)|(?:ошибки|советы|правила|основы|особенности|признаки|гайд|чек-?лист)\s+(?:при|для|по|о|в)(?:\s|$)|(?:вы|ты)\s+(?:это|их|его|е[её])(?:\s|$)|вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт)|эту\s+деталь\s+(?:легко\s+)?(?:упустить|не\s+заметить)|это\s+не\s+(?:норма|работает)$|скрип\s+кожи(?:\s|$|[—–-])|(?:ваш|твой)\s+.+?\s+(?:—\s*)?это\s+(?:просто\s+)?маркетинг$)/i;
 const headlineJargonPattern = /эргономик|оптимизац|(?:^|\s)функционал(?:\s|$)|синерг|ресурс(?:ы|ами)?\s+организма/i;
 const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])/i;
 const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
@@ -20,6 +20,7 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (headline.length > 34) violations.push("headline_too_long");
   if (headlineWords.length < 3) violations.push("headline_too_few_words");
   if (headlineWords.length > 6) violations.push("headline_too_many_words");
+  if (/^[а-яё]/.test(headline)) violations.push("headline_lowercase_start");
   if (looksLikeProductDump(headline, product)) violations.push("headline_product_dump");
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
@@ -43,7 +44,7 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
     sourceCandidate,
     ...fallbackHeadlines.flatMap(createHeadlineCandidates),
     ...sourceClauses,
-    ...[contentScript.subhead, ...getScriptPoints(contentScript)].flatMap(createHeadlineCandidates)
+    ...[contentScript.subhead, ...getScriptPoints(contentScript).map(normalizePointText)].flatMap(createHeadlineCandidates)
   ]
     .filter((line) => line && !looksLikeProductDump(line, options.product) && !forbiddenVisiblePattern.test(line));
   const headline = candidates.find((line) => isValidHeadline(line, options.product))
@@ -121,12 +122,13 @@ function normalizeVisibleLine(value) {
 }
 
 function normalizeRepairLine(value) {
-  return normalizeVisibleLine(value)
+  const clean = normalizeVisibleLine(value)
     .replace(/\uFFFD/g, "")
     .replace(/^[3-7]\s*(?:маркер\w*|признак\w*|пункт\w*|симптом\w*|ошиб\w*|вещ\w*|привыч\w*|сигнал\w*)\s*,?\s*(?:что\s+про|которые|что|про)?\s*/i, "")
     .replace(/^[\s:—–-]+|[.!?\s]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
+  return /^[а-яё]/.test(clean) ? clean[0].toLocaleUpperCase("ru-RU") + clean.slice(1) : clean;
 }
 
 function isValidHeadline(value, product) {
@@ -144,7 +146,10 @@ function createHeadlineCandidates(value) {
     .split(/\s+(?:и|но|а)\s+/i)
     .map(normalizeRepairLine)
     .filter(Boolean));
-  return [...new Set([headline, ...clauses, ...shortClauses])];
+  const compactClauses = clauses
+    .map((clause) => normalizeRepairLine(clause.replace(/^(?:продукт|средство|формула)\s+(?:содержит|включает)\s+/i, "")))
+    .filter(Boolean);
+  return [...new Set([headline, ...clauses, ...shortClauses, ...compactClauses])];
 }
 
 function looksLikeProductDump(value, product = {}) {

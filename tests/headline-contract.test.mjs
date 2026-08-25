@@ -91,6 +91,15 @@ test("visible text repair shortens a natural point instead of using a generic fa
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
+test("visible text repair can build a headline from a structured point", () => {
+  const repaired = repairVisibleTextContract({
+    headline: "Что важно знать заранее",
+    points: [{ title: "Продукт содержит", text: "натуральный ароматизатор мяты" }]
+  });
+
+  assert.equal(repaired.headline, "Натуральный ароматизатор мяты");
+});
+
 test("visible text contract rejects broken numbered headline fragments", () => {
   assert.deepEqual(getVisibleTextContractViolations({
     contentScript: { headline: "Заблуждение про 1. 6." }
@@ -98,7 +107,7 @@ test("visible text contract rejects broken numbered headline fragments", () => {
 });
 
 test("visible text contract rejects generic and broken editorial shells", () => {
-  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Ошибки при сушке феном", "Не просто увлажнение", "Мягкий вкус мяты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
@@ -106,6 +115,13 @@ test("visible text contract rejects generic and broken editorial shells", () => 
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Это не работает" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Ваш детокс — это просто маркетинг" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Скрип кожи — это не чистота" } }).includes("headline_weak_shell"));
+});
+
+test("visible text repair capitalizes a lowercase headline", () => {
+  const contentScript = { headline: "перекармливание из жалости", points: [] };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_lowercase_start"));
+  assert.equal(repairVisibleTextContract(contentScript).headline, "Перекармливание из жалости");
 });
 
 test("visible text contract removes measurement units without a number", () => {
