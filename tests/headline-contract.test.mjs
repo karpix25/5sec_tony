@@ -75,7 +75,7 @@ test("visible text contract rejects broken numbered headline fragments", () => {
 });
 
 test("visible text contract rejects generic and broken editorial shells", () => {
-  for (const headline of ["Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+  for (const headline of ["Почему внешние средства", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
