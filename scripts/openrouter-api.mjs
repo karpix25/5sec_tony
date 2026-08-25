@@ -141,7 +141,15 @@ function repairCreativeTeamText(draft = {}, body = {}) {
   const claimContext = { project: body.project, product: body.product, productPassport: draft.productPassport || body.product?.aiPassport };
   const claimSafeContent = repairUnsupportedClaims(contentScript, claimContext);
   const violations = getVisibleTextContractViolations({ contentScript: claimSafeContent, product: body.product });
-  const fallbackHeadlines = [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+  const fallbackHeadlines = [
+    draft.topicSelection?.situation,
+    draft.topicSelection?.theme,
+    draft.creativeBrief?.hookPromise,
+    draft.hook,
+    draft.recommendedHook,
+    draft.topic,
+    draft.creativeBrief?.topic
+  ]
     .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
   const repaired = repairVisibleTextContract(claimSafeContent, {
     product: body.product,

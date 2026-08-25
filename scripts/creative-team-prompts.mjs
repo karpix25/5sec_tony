@@ -15,7 +15,7 @@ import { attentionFrameInstruction, selectAttentionFrame } from "../src/domain/a
 import { createProductPassportShape, productWorldRules } from "../src/domain/product-world.js";
 import { editorialTopicRules } from "../src/domain/editorial-topic-policy.js";
 import { claimEvidenceRules, getClaimEvidence } from "../src/domain/content-claim-contract.js";
-import { selectTopicSelection } from "../src/domain/topic-selection.js";
+import { assessTopicMapQuality, selectTopicSelection } from "../src/domain/topic-selection.js";
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
   ...ruTextEditorialRules,
@@ -52,6 +52,7 @@ const commonRoleRules = [
 
 const roleSystemPrompt = "Ты senior-участник AI-креативной команды. Пиши по-русски. Верни только JSON без markdown.";
 const maxRoleJsonAttempts = 3;
+const maxTopicMapAttempts = 3;
 const designReferenceFidelityRules = [
   "DESIGN REFERENCE FIDELITY GATE: перед финальным рендером сравни prompt с designReference; если не узнается тот же skeleton, palette, typography hierarchy, card rhythm and object geometry, перепиши prompt ближе к референсу.",
   "Сохраняй macro-layout дизайн-референса: крупные зоны, направление чтения, повторяемые формы, пропорции блоков, декоративный язык и визуальный вес. Не подменяй funnel/chart/poster/comparison/card grid обычным generic checklist."
@@ -67,8 +68,7 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
     ? { designFormatBrief: normalizeDesignAnalysis(body.designAnalysis || body.activeDesignReference?.designAnalysis || body.reference.designAnalysis) }
     : await runRole({ token, model: referenceModel || model, callOpenRouter, parseJsonDraft, instruction: designFormatBriefInstruction(body, productPassport), imageUrls: body.designReferenceImageUrls });
   const normalizedDesignFormatBrief = resolveDesignFormatBrief(designFormatBrief.designFormatBrief || designFormatBrief, body);
-  const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport, designFormatBrief, attentionFrame) });
-  const topicSelection = selectTopicSelection({ topicMap: attentionMap.attentionMap || attentionMap, project: body.project, product: body.product, existingJobs: body.existingJobs });
+  const { attentionMap, topicSelection } = await createApprovedTopicMap({ token, model, callOpenRouter, parseJsonDraft, body, productPassport, designFormatBrief, attentionFrame });
   const selectedBody = { ...body, topicSelection, diversitySlot: { id: body.diversitySlot?.id || "", format: body.diversitySlot?.format || "" } };
   const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(selectedBody, productPassport, attentionMap, designFormatBrief, attentionFrame) });
   const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(selectedBody, productPassport, creativeBrief, designFormatBrief, attentionFrame) });
@@ -257,18 +257,34 @@ function designFormatBriefInstruction(body, productPassport) {
   ));
 }
 
-function attentionMapInstruction(body, productPassport, designFormatBrief, attentionFrame) {
+async function createApprovedTopicMap({ token, model, callOpenRouter, parseJsonDraft, body, productPassport, designFormatBrief, attentionFrame }) {
+  let previousTopicMapFeedback = [];
+  for (let attempt = 0; attempt < maxTopicMapAttempts; attempt += 1) {
+    const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport, designFormatBrief, attentionFrame, previousTopicMapFeedback) });
+    const topicMap = attentionMap.attentionMap || attentionMap;
+    const quality = assessTopicMapQuality({ topicMap, project: body.project, product: body.product });
+    const topicSelection = selectTopicSelection({ topicMap, project: body.project, product: body.product, existingJobs: body.existingJobs });
+    if (!quality.needsRetry) return { attentionMap, topicSelection };
+    if (attempt === maxTopicMapAttempts - 1) {
+      return { attentionMap, topicSelection: selectTopicSelection({ topicMap: [], project: body.project, product: body.product, existingJobs: body.existingJobs }) };
+    }
+    previousTopicMapFeedback = quality.feedback;
+  }
+}
+
+function attentionMapInstruction(body, productPassport, designFormatBrief, attentionFrame, previousTopicMapFeedback = []) {
   return JSON.stringify(basePayload(
     "Создай свежую карту смежных тем для одного продукта.",
     "Ты audience strategist для коротких соцсетей.",
-    { attentionMap: { attentionFrame, topicMap: [{ id: "", theme: "", situation: "", productRelation: "" }], primaryAudienceTensions: [], anglesToAvoid: [] } },
+    { attentionMap: { attentionFrame, topicMap: [{ id: "", theme: "", situation: "", productRelation: "", audienceSegment: "", awarenessStage: "recognition|problem|need|solution|choice|objection|conversion", contentGoal: "reach|save|follow|compare|lead", evidenceIds: [] }], primaryAudienceTensions: [], anglesToAvoid: [] } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "Верни 6-8 разных тем: прямые сценарии продукта, ошибки применения, привычки, выбор, простые гайды и близкие жизненные ситуации.", "theme — короткая тема, не готовый headline и не вопрос. situation — одна узнаваемая бытовая ситуация. productRelation — одно ясное предложение, почему эта тема естественно связана с задачей продукта.", "Не подменяй товар чужой категорией: не добавляй сумки, поездки, доставку, упаковку, документы или другие случайные сюжеты, если они не относятся к продукту напрямую.", "Не придумывай лечение, диагнозы, причины для здоровья, эффекты или свойства продукта.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии: выводи карту из фактов продукта и контекста бренда."],
+      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "Верни 6-8 разных тем: прямые сценарии продукта, ошибки применения, привычки, выбор, простые гайды и близкие жизненные ситуации.", "theme — короткая тема, не готовый headline и не вопрос. situation — одна узнаваемая бытовая ситуация. productRelation — одно ясное предложение, почему эта тема естественно связана с задачей продукта.", "Не подменяй товар чужой категорией: не добавляй сумки, поездки, доставку, упаковку, документы или другие случайные сюжеты, если они не относятся к продукту напрямую.", "Не придумывай лечение, диагнозы, причины для здоровья, эффекты или свойства продукта.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии: выводи карту из фактов продукта и контекста бренда.", ...(previousTopicMapFeedback.length ? ["Предыдущая карта отклонена. Исправь все причины ниже и не повторяй эти углы."] : [])],
       productPassport,
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,
       designFormatBrief,
-      recentJobs: (body.existingJobs || []).slice(0, 30)
+      recentJobs: (body.existingJobs || []).slice(0, 30),
+      previousTopicMapFeedback
     }
   ));
 }
@@ -279,7 +295,7 @@ function creativeBriefInstruction(body, productPassport, attentionMap, designFor
     "Ты creative director.",
     { creativeBrief: { topic: "", coreIdea: "", hookPromise: "", viewerTakeaway: "", productBridge: "", whyNow: "", avatarEmotionName: "", avoidRepeating: [], formatIntent: "checklist|comparison|myth_vs_reality|mistake_check|mini_diagnostic|saveable_note" } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "Идея понятна за 1 секунду.", "Тема обязана раскрывать topicSelection. Не заменяй ее другой, более драматичной темой.", "Позиционирование, аудитория, тон и сценарии бренда из projectContext должны менять угол даже у товаров одной категории.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", "Если productVisibilityDecision активен, учитывай product reference как реальный объект в кадре; если нет — не строь идею вокруг упаковки.", "Если avatarSafeZone активен, оставь место под будущий видео-аватар.", "avatarEmotionName выбирай только точным значением name из availableAvatarEmotions. Не придумывай эмоции. Если ни одна не подходит — верни пустую строку.", "Если designFormatBrief задает сильную структуру, выбирай идею, которая естественно ложится в эту структуру.", `Допустимые форматы: ${modernFormatOptions}.`],
+      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "Идея понятна за 1 секунду.", "Тема обязана раскрывать topicSelection. Не заменяй ее другой, более драматичной темой.", "Используй audienceSegment, awarenessStage, contentGoal и evidenceIds из topicSelection как смысловые ограничения, а не как видимый текст.", "Позиционирование, аудитория, тон и сценарии бренда из projectContext должны менять угол даже у товаров одной категории.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", "Если productVisibilityDecision активен, учитывай product reference как реальный объект в кадре; если нет — не строь идею вокруг упаковки.", "Если avatarSafeZone активен, оставь место под будущий видео-аватар.", "avatarEmotionName выбирай только точным значением name из availableAvatarEmotions. Не придумывай эмоции. Если ни одна не подходит — верни пустую строку.", "Если designFormatBrief задает сильную структуру, выбирай идею, которая естественно ложится в эту структуру.", `Допустимые форматы: ${modernFormatOptions}.`],
       topicSelection: body.topicSelection,
       availableAvatarEmotions: body.availableAvatarEmotions || [],
       productPassport,
@@ -300,7 +316,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, designFor
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], attentionFrame, invisibleNotes: { hookPayoff: "", productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "topicSelection задает смысл. Напиши headline сам, не копируй тему дословно и не меняй ее на другую.", "Headline: 3–6 слов, максимум 34 символа. Одна законченная разговорная фраза про наблюдаемую ситуацию; без двух склеенных мыслей, метафор и рекламных оборотов.", "Прочитай headline вслух: если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: добавляет новую причину или деталь конфликта, а не повторяет headline.", "Первые 1-2 points сразу раскрывают выбранную тему.", "Каждый point добавляет новый факт, причину, наблюдение или действие; не пересказывай соседний point другими словами.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в исходном product.", ...claimEvidenceRules, "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "topicSelection задает смысл. Напиши headline сам, не копируй тему дословно и не меняй ее на другую.", "Учитывай audienceSegment, awarenessStage, contentGoal и evidenceIds из topicSelection при выборе акцента и глубины.", "Headline: 3–6 слов, максимум 34 символа. Одна законченная разговорная фраза про наблюдаемую ситуацию; без двух склеенных мыслей, метафор и рекламных оборотов.", "Прочитай headline вслух: если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: добавляет новую причину или деталь конфликта, а не повторяет headline.", "Первые 1-2 points сразу раскрывают выбранную тему.", "Каждый point добавляет новый факт, причину, наблюдение или действие; не пересказывай соседний point другими словами.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в исходном product.", ...claimEvidenceRules, "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,

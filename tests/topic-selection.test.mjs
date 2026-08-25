@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectTopicSelection } from "../src/domain/topic-selection.js";
+import { assessTopicMapQuality, selectTopicSelection } from "../src/domain/topic-selection.js";
 
 const pads = {
   id: "pads",
@@ -96,4 +96,46 @@ test("topic selection rejects cosmetic treatment angles before the script stage"
   });
 
   assert.equal(topic.id, "shower");
+});
+
+test("topic map quality asks for a retry when wellness angles are medical", () => {
+  const quality = assessTopicMapQuality({
+    project: { niche: "БАДы" },
+    product: { name: "Жидкий хлорофилл", description: "Добавка для ежедневного ритуала" },
+    topicMap: {
+      topicMap: [
+        { id: "swelling", theme: "Утренние отёки", situation: "Лицо выглядит припухшим", productRelation: "Добавка помогает убрать отёки" },
+        { id: "digestion", theme: "Тяжесть после еды", situation: "После ужина нет комфорта", productRelation: "Хлорофилл помогает пищеварению" }
+      ]
+    }
+  });
+
+  assert.equal(quality.needsRetry, true);
+  assert.equal(quality.eligible.length, 0);
+  assert.match(quality.feedback.join(" "), /Утренние отёки/);
+  assert.match(quality.feedback.join(" "), /медицинское или неподтверждённое/);
+});
+
+test("topic selection keeps editorial matrix metadata without affecting dedupe", () => {
+  const topic = selectTopicSelection({
+    product: pads,
+    topicMap: { topicMap: [
+      {
+        id: "choice",
+        theme: "Комфорт в первые дни",
+        situation: "Обычный день требует больше внимания к себе",
+        productRelation: "Тема связана с использованием средств гигиены во время менструации",
+        audienceSegment: "женщина перед покупкой",
+        awarenessStage: "choice",
+        contentGoal: "compare",
+        evidenceIds: ["fact-period-use", "fact-material"]
+      }
+    ] },
+    random: () => 0
+  });
+
+  assert.equal(topic.audienceSegment, "женщина перед покупкой");
+  assert.equal(topic.awarenessStage, "choice");
+  assert.equal(topic.contentGoal, "compare");
+  assert.deepEqual(topic.evidenceIds, ["fact-period-use", "fact-material"]);
 });

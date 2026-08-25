@@ -63,7 +63,7 @@ test("visible text repair always returns a valid headline", () => {
 test("visible text repair has a deterministic last resort", () => {
   const repaired = repairVisibleTextContract({ headline: "Шампунь", points: [] });
 
-  assert.equal(repaired.headline, "Не спеши с выбором вслепую");
+  assert.equal(repaired.headline, "Шампунь: что проверить");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
@@ -72,7 +72,7 @@ test("visible text repair never clips a numbered product dump into a headline", 
     headline: "Заблуждение про 1. снижение веса 2. очищение организма 3. повышение выносливости"
   });
 
-  assert.equal(repaired.headline, "Не спеши с выбором вслепую");
+  assert.equal(repaired.headline, "Продукт: что проверить");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
@@ -109,7 +109,7 @@ test("visible text repair uses the product in its last-resort headline", () => {
     product: { name: "Увлажняющий солнцезащитный крем для лица" }
   });
 
-  assert.equal(repaired.headline, "Крем: не спеши с выбором");
+  assert.equal(repaired.headline, "Крем: что проверить");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
@@ -141,6 +141,31 @@ test("visible text contract rejects generic and broken editorial shells", () => 
   for (const headline of ["Как помочь питомцу", "Собака берет гранулу", "Кожа теряет влагу"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
+});
+
+test("visible text contract requires literal headlines instead of metaphors", () => {
+  for (const headline of [
+    "Список дел перед сном крадет ваш отдых",
+    "Вечерний стоп-сигнал для мозга",
+    "Магний как якорь привычки"
+  ]) {
+    assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_ambiguous"));
+  }
+
+  for (const headline of [
+    "Список дел перед сном мешает хорошо спать",
+    "Как сделать прием витаминов привычкой",
+    "3 признака, что коже нужно увлажнение"
+  ]) {
+    assert.ok(!getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_ambiguous"));
+  }
+});
+
+test("visible text contract rejects a headline without context", () => {
+  const contentScript = { headline: "Не спеши с выбором вслепую", points: [] };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_context_missing"));
+  assert.equal(repairVisibleTextContract(contentScript, { product: { name: "Пептидная сыворотка" } }).headline, "Сыворотка: что проверить");
 });
 
 test("visible text repair capitalizes a lowercase headline", () => {

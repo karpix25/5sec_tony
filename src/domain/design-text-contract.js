@@ -4,6 +4,7 @@ const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|кот
 const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|показываем|покажите|визуализ|→|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
 const numberedHeadlineFragmentPattern = /(?:^|\s)\d{1,2}\s*[.)](?=\s|$)|^заблуждени[ея]\s+про\s+\d/i;
 const weakHeadlineShellPattern = /^(?:почему\s+|превраща(?:ют|ет)\s+|скрип\s+|тревожн(?:ый|ая|ое|ые)\s+(?:знак|сигнал)(?:\s+для)?|(?:spf|спф)\s+\d+\s+(?:в|на|для)(?:\s|$)|не\s+просто\s+|весь\s+секрет\s+(?:в|во)(?:\s|$)|(?:это|этот|эта|эти)\s+|(?:вы|ты)\s+зря\s+(?:тратите|покупаете)(?:\s|$)|подходит\s+для(?:\s|$)|(?:произвед|сделан|разработан)[а-яё]*\s+(?:в|из)(?:\s|$)|ошибка\s+(?:в|для|при)(?:\s|$)|(?:в|на|при|для|по)\s+(?:гигиене|уходе|составе|применении|рутине|использовании)(?:\s|$)|(?:содержит|содержат|в\s+составе|обогащ[её]н(?:а|о|ы)?|формула\s+с|с\s+(?:ароматом|вкусом))(?:\s|$)|(?:мягкий|приятный|натуральный|свежий|л[её]гкий)\s+(?:вкус|аромат(?:изатор)?|состав|текстура)(?:\s|$)|(?:ошибки|советы|правила|основы|особенности|признаки|гайд|чек-?лист)\s+(?:при|для|по|о|в)(?:\s|$)|(?:вы|ты)\s+(?:это|их|его|е[её])(?:\s|$)|вот\s+(?:что|почему)|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт)|эту\s+деталь\s+(?:легко\s+)?(?:упустить|не\s+заметить)|это\s+не\s+(?:норма|работает)$|не\s+[а-яё-]+(?:\s+(?:о|об|про)\s+[а-яё-]+)?$|(?:ваш|твой)\s+.+?\s+(?:—\s*)?это\s+(?:просто\s+)?маркетинг$)/i;
+const metaphorHeadlinePattern = /(?:^|[^а-яё])(?:крад[её]т|стоп[-\s]сигнал|якорь|ресурс(?:ы|ами)?\s+организма|сигнал\s+для\s+(?:мозга|организма))(?=$|[^а-яё])/i;
 const headlineJargonPattern = /эргономик|оптимизац|(?:^|\s)функционал(?:\s|$)|синерг|ресурс(?:ы|ами)?\s+организма/i;
 const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])/i;
 const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
@@ -16,6 +17,7 @@ const bareInstructionHeadlinePattern = /^[А-ЯЁ][а-яё-]{2,}(?:ть|ться
 const focusedListPromisePattern = /(?:признак|сигнал|схем|шаг|переход)[а-яё]*/i;
 const productFeaturePointPattern = /^(?:содержит|формула|в\s+составе)(?:\s|$)|(?:^|\s)(?:в\s+составе|благодаря|помогает|поддерживает|обеспечивает)(?:\s|$)/i;
 const genericFallbackHeadlinePattern = /^сначала\s+проверь\s+способ\s+применения$/i;
+const contextFreeHeadlinePattern = /^(?:не\s+спеши\s+с\s+выбором(?:\s+вслепую)?|выбирай\s+с\s+умом|сделай\s+правильный\s+выбор|не\s+ошибись\s+с\s+выбором|пора\s+менять\s+привычки|всё\s+дело\s+в\s+привычке)$/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
 export function getVisibleTextContractViolations({ contentScript = {}, product = {} } = {}) {
@@ -34,10 +36,12 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (looksLikeProductDump(headline, product)) violations.push("headline_product_dump");
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
+  if (metaphorHeadlinePattern.test(headline)) violations.push("headline_ambiguous");
   if (abstractBenefitHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (drySpecificationHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (bareInstructionHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (genericFallbackHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
+  if (contextFreeHeadlinePattern.test(headline)) violations.push("headline_context_missing");
   if (headlineJargonPattern.test(headline)) violations.push("headline_weak_shell");
   if (headlineWords.length === 3
     && !/[?!:—–-]/.test(headline)
@@ -71,14 +75,14 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
   const fallbackHeadlines = Array.isArray(options.fallbackHeadlines) ? options.fallbackHeadlines : [];
   const [sourceCandidate, ...sourceClauses] = createHeadlineCandidates(sourceHeadline);
   const candidates = [
-    sourceCandidate,
     ...fallbackHeadlines.flatMap(createHeadlineCandidates),
+    sourceCandidate,
     ...sourceClauses,
     ...[contentScript.subhead, ...getScriptPoints(contentScript).map(normalizePointText)].flatMap(createHeadlineCandidates)
   ]
     .filter((line) => line && !looksLikeProductDump(line, options.product) && !forbiddenVisiblePattern.test(line));
   const headline = candidates.find((line) => isValidHeadline(line, options.product))
-    || createProductFallbackHeadline(options.product);
+    || createProductFallbackHeadline(options.product, sourceHeadline);
   const rawSubhead = normalizeRepairLine(contentScript.subhead);
   const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead) && !points.some((point) => hasSameMeaning(rawSubhead, point))
     ? rawSubhead
@@ -167,8 +171,9 @@ function isValidHeadline(value, product) {
   return !getVisibleTextContractViolations({ contentScript: { headline: value }, product }).length;
 }
 
-function createProductFallbackHeadline(product = {}) {
-  const words = normalizeVisibleLine(product.name)
+function createProductFallbackHeadline(product = {}, sourceHeadline = "") {
+  const fallbackSource = product.name || (!looksLikeProductDump(sourceHeadline) ? sourceHeadline : "");
+  const words = normalizeVisibleLine(fallbackSource)
     .replace(/[«»"'()]/g, " ")
     .split(/\s+/)
     .map(normalizeVisibleWord)
@@ -176,10 +181,10 @@ function createProductFallbackHeadline(product = {}) {
   const subject = words.find((word) => word.length >= 4
     && !/^(?:для|при|или|без|под|над|между)$/i.test(word)
     && !/(?:ый|ий|ой|ая|яя|ое|ее|ые|ие|ого|его|ому|ему|ую|юю|ым|им|ых|их)$/i.test(word));
-  if (!subject) return "Не спеши с выбором вслепую";
+  if (!subject) return "Продукт: что проверить";
   const label = subject[0].toLocaleUpperCase("ru-RU") + subject.slice(1);
-  const candidate = `${label}: не спеши с выбором`;
-  return isValidHeadline(candidate, product) ? candidate : "Не спеши с выбором вслепую";
+  const candidate = `${label}: что проверить`;
+  return isValidHeadline(candidate, product) ? candidate : "Продукт: что проверить";
 }
 
 function createHeadlineCandidates(value) {
@@ -223,7 +228,8 @@ function looksLikeProductNameLine(value, product) {
   const headlineWords = headline.split(" ").filter(Boolean);
   if (!productWords.some((word) => headlineWords.includes(word)) || headlineWords.length > 4) return false;
   const hasConflict = /(?:^|\s)(?:не|без|зря|слишком|ошиб|риск)(?:\s|$)/i.test(headline);
-  const hasPredicate = headlineWords.some((word) => /[а-яё]{3,}(?:ет|ёт|ит|ат|ят|ут|ют|ется|ится|ался|илась|лись)$/i.test(word));
+  const hasPredicate = headlineWords.some((word) => /[а-яё]{3,}(?:ет|ёт|ит|ат|ят|ут|ют|ется|ится|ался|илась|лись)$/i.test(word))
+    || /(?:что|как)\s+[а-яё-]+(?:ть|ться)(?:$|[^а-яё])/i.test(value);
   return !hasConflict && !hasPredicate;
 }
 

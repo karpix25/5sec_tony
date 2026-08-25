@@ -14,3 +14,8 @@ test("headline safety rejects instead of rewriting a bad AI headline", () => {
   assert.deepEqual(validateHeadlineSafety(headline), ["headline_incomplete"]);
   assert.equal(validateHeadlineSafety("Кожа скрипит после душа").length, 0);
 });
+
+test("headline safety rejects metaphorical copy", () => {
+  assert.ok(validateHeadlineSafety("Список дел крадет ваш отдых").includes("headline_ambiguous"));
+  assert.equal(validateHeadlineSafety("Что перед сном мешает хорошо спать").length, 0);
+});

@@ -62,6 +62,56 @@ test("creative team humanizer proofreads a repaired headline", async () => {
   assert.equal(draft.contentScript.headline, "Маска попала прямо на корни");
 });
 
+test("creative team humanizer rewrites metaphorical headlines into literal ones", async () => {
+  const calls = [];
+  const draft = await humanizeCreativeTeamDraft({
+    token: "token",
+    model: "writer",
+    body: {},
+    draft: {
+      contentScript: {
+        headline: "Список дел перед сном крадет ваш отдых",
+        subhead: "Что мешает хорошо спать",
+        points: ["Рабочие задачи в голове", "Телефон перед сном", "Позднее планирование"]
+      }
+    },
+    callOpenRouter: async (_token, _model, messages) => {
+      calls.push(messages[1].content);
+      return JSON.stringify(calls.length === 1
+        ? { headline: "Список дел перед сном крадет ваш отдых", subhead: "Что мешает хорошо спать", points: ["Рабочие задачи в голове", "Телефон перед сном", "Позднее планирование"] }
+        : { headline: "Что перед сном мешает хорошо спать", subhead: "Три привычки не дают вовремя расслабиться", points: ["Рабочие задачи в голове", "Телефон перед сном", "Позднее планирование"] });
+    },
+    parseJsonDraft: JSON.parse
+  });
+
+  assert.equal(calls.length, 3);
+  assert.match(calls[1], /headline_ambiguous/);
+  assert.equal(draft.contentScript.headline, "Что перед сном мешает хорошо спать");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: draft.contentScript }), []);
+});
+
+test("creative team humanizer keeps a clear adjacent topic without forcing the product name", async () => {
+  const draft = await humanizeCreativeTeamDraft({
+    token: "token",
+    model: "writer",
+    body: {
+      topicSelection: {
+        theme: "Ошибки в выборе косметики",
+        situation: "Много банок в ванной"
+      }
+    },
+    draft: {
+      product: { name: "Пептидная сыворотка" },
+      contentScript: { headline: "Не спеши с выбором вслепую", points: [] }
+    },
+    callOpenRouter: async () => JSON.stringify({ headline: "Не спеши с выбором вслепую", points: [] }),
+    parseJsonDraft: JSON.parse
+  });
+
+  assert.equal(draft.contentScript.headline, "Много банок в ванной");
+  assert.doesNotMatch(draft.contentScript.headline, /сыворотка/i);
+});
+
 test("creative team humanizer proofreads repaired medical causes without stopping generation", async () => {
   const calls = [];
   const draft = await humanizeCreativeTeamDraft({

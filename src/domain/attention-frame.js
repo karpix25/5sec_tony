@@ -1,3 +1,5 @@
+import { getVisibleTextContractViolations } from "./design-text-contract.js";
+
 export const ATTENTION_FRAMES = Object.freeze([
   "recognition",
   "diagnostic",
@@ -48,7 +50,9 @@ export function validateHeadlineSafety(headline) {
   if (/^(а|и|но|если|когда|который|которая|которые|потому|что|как|почему|это|просто)$/i.test(words.at(-1) || "")) {
     violations.push("headline_incomplete");
   }
-  return violations;
+  const literalViolations = getVisibleTextContractViolations({ contentScript: { headline: text } })
+    .filter((violation) => violation === "headline_ambiguous");
+  return [...new Set([...violations, ...literalViolations])];
 }
 
 function normalizeFrame(value) {

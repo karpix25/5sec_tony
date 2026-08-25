@@ -4,6 +4,16 @@ import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/gener
 import { projects, products } from "../src/domain/entities.js";
 import { runCreativeTeamBrief } from "../scripts/creative-team-prompts.mjs";
 import { parseJsonDraft } from "../scripts/openrouter-response.mjs";
+
+function completeTopicMap(topic) {
+  return { attentionMap: { topicMap: [
+    topic,
+    { id: `${topic.id}-routine`, theme: "Вечерняя привычка", situation: "День заканчивается без паузы", productRelation: "Тема связана с привычным сценарием использования продукта" },
+    { id: `${topic.id}-pause`, theme: "Короткая пауза", situation: "В рутине не остаётся места для себя", productRelation: "Тема связана с привычным сценарием использования продукта" },
+    { id: `${topic.id}-order`, theme: "Ритуал без суеты", situation: "Простые действия постоянно откладываются", productRelation: "Тема связана с привычным сценарием использования продукта" }
+  ] } };
+}
+
 test("creative team image prompt package and script are authoritative", () => {
   const project = projects[0];
   const product = products.find((item) => item.projectId === project.id);
@@ -301,7 +311,7 @@ test("creative team retries a malformed role JSON draft before failing the brief
     "Конечно, вот черновик без JSON",
     { productPassport: { productName: "Шиммер", safeFacts: ["косметический продукт"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "checklist_cards", structureName: "Checklist" } },
-    { attentionMap: { topicMap: [{ id: "patches", theme: "Патчи скатываются", situation: "Утром все идет не по плану", productRelation: "Тема связана с привычкой наносить патчи" }] } },
+    completeTopicMap({ id: "patches", theme: "Патчи скатываются", situation: "Утром все идет не по плану", productRelation: "Тема связана с привычкой наносить патчи" }),
     { creativeBrief: { topic: "Почему патчи скатываются", formatIntent: "saveable_note", productBridge: "шиммер уместен как мягкий косметический контекст" } },
     { contentScript: { headline: "Патчи скатываются не просто так", subhead: "Причина часто в слое ухода", points: ["Крем оставляет пленку", "Консилер снижает сцепление", "Кожа слишком влажная", "Патч не успевает лечь"] } },
     { formatCompliance: { formatMatched: true, issues: [], fixedContentScript: {}, finalRules: [] } },
@@ -332,7 +342,7 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   const responses = [
     { productPassport: { productName: "Магний", safeFacts: ["вечерний формат"], forbiddenClaims: ["лечит сон"] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", structureName: "Рейтинг привычек", layoutSlots: [{ id: "item", role: "rank_card", textCapacity: "short" }] } },
-    { attentionMap: { topicMap: [{ id: "evening", theme: "Вечерняя рутина", situation: "Вечером не остается сил на привычный ритуал", productRelation: "Тема связана с вечерним форматом продукта" }] } },
+    completeTopicMap({ id: "evening", theme: "Вечерняя рутина", situation: "Вечером не остается сил на привычный ритуал", productRelation: "Тема связана с вечерним форматом продукта" }),
     { creativeBrief: { topic: "Почему вечерняя рутина срывается", formatIntent: "saveable_note", productBridge: "продукт уместен как часть рутины" } },
     { contentScript: { headline: "Ритуал срывается вечером", subhead: "Причина часто в ожиданиях", points: ["Сначала уберите шум", "Проверьте привычку"] } },
     { formatCompliance: { formatMatched: false, issues: ["Нужно больше rank cards"], fixedContentScript: { headline: "ТОП вечерних сбоев", subhead: "Ритуалы | проверь привычки", points: ["1: Шум", "2: Экран", "3: Кофе", "4: Поздний ужин", "5: Свет", "6: Стресс", "7: Режим", "8: Телефон"] }, finalRules: [] } },
@@ -378,8 +388,8 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   };
   assert.equal(draft.productPassport.productName, "Магний");
   assert.equal(draft.designFormatBrief.formatType, "ranking_leaderboard");
-  assert.equal(draft.topic, "Вечерняя рутина");
-  assert.deepEqual(draft.topicSelection, { id: "evening", theme: "Вечерняя рутина", situation: "Вечером не остается сил на привычный ритуал", productRelation: "Тема связана с вечерним форматом продукта" });
+  assert.match(draft.topic, /Вечерняя|Короткая пауза|Ритуал без суеты/);
+  assert.equal(draft.topicSelection.fallback, undefined);
   assert.equal(draft.hook, "ТОП вечерних сбоев");
   assert.equal(Object.hasOwn(draft, "hookSet"), false);
   assert.equal(draft.plan.headline, "ТОП вечерних сбоев");
@@ -425,7 +435,7 @@ test("creative team runner records leaderboard text contract issues without writ
   const responses = [
     { productPassport: { productName: "Хлорофилл", safeFacts: ["напиток"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", textContract: { preferredItems: 10 }, structureName: "Top chart" } },
-    { attentionMap: { topicMap: [{ id: "ritual", theme: "Вечерний ритуал", situation: "День заканчивается без паузы", productRelation: "Тема связана с вечерним форматом продукта" }] } },
+    completeTopicMap({ id: "ritual", theme: "Вечерний ритуал", situation: "День заканчивается без паузы", productRelation: "Тема связана с вечерним форматом продукта" }),
     { creativeBrief: { topic: "Усталость или сигнал организма", formatIntent: "saveable_note", productBridge: "мягкий wellness-сигнал" } },
     { contentScript: { headline: "Усталость или сигнал организма?", subhead: "5 маркеров, что пора пересмотреть привычки", points: ["Кожа стала тусклой", "Энергия падает к 16:00", "Трудности с концентрацией", "Сложно пить воду", "Тяжелый подъем"] } },
     { formatCompliance: { formatMatched: true, issues: [], fixedContentScript: {}, finalRules: [] } },
@@ -459,7 +469,7 @@ test("creative team runner records leaderboard contract issues after safety edit
   const responses = [
     { productPassport: { productName: "Хлорофилл", safeFacts: ["напиток"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", textContract: { preferredItems: 12 }, structureName: "Top chart" } },
-    { attentionMap: { topicMap: [{ id: "ritual", theme: "Вечерний ритуал", situation: "День заканчивается без паузы", productRelation: "Тема связана с вечерним форматом продукта" }] } },
+    completeTopicMap({ id: "ritual", theme: "Вечерний ритуал", situation: "День заканчивается без паузы", productRelation: "Тема связана с вечерним форматом продукта" }),
     { creativeBrief: { topic: "Усталость или сигнал организма", formatIntent: "saveable_note", productBridge: "мягкий wellness-сигнал" } },
     { contentScript: { headline: "ТОП 12 сигналов", subhead: "Маркеры дня | проверь привычки", points: ["1: Вода", "2: Сон", "3: Свет", "4: Экран", "5: Завтрак", "6: Движение", "7: Режим", "8: Фокус", "9: Пауза", "10: Вкус", "11: Комфорт", "12: Ритуал"] } },
     { formatCompliance: { formatMatched: true, issues: [], fixedContentScript: {}, finalRules: [] } },

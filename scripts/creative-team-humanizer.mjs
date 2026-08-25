@@ -42,7 +42,15 @@ function repairDraft(draft, plan, body = {}) {
   const violations = getVisibleTextContractViolations({ contentScript: plan, product: body.product });
   const claimContext = { project: body.project, product: body.product, productPassport: draft.productPassport || body.product?.aiPassport };
   const safePlan = repairUnsupportedClaims(plan, claimContext);
-  const fallbackHeadlines = [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+  const fallbackHeadlines = [
+    body.topicSelection?.situation,
+    body.topicSelection?.theme,
+    draft.creativeBrief?.hookPromise,
+    draft.hook,
+    draft.recommendedHook,
+    draft.topic,
+    draft.creativeBrief?.topic
+  ]
     .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
   const repairedPlan = repairVisibleTextContract(safePlan, {
     product: body.product,
