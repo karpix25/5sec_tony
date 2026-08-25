@@ -117,7 +117,7 @@ test("visible text contract rejects a headline ending with punctuation that prom
 });
 
 test("visible text contract rejects generic and broken editorial shells", () => {
-  for (const headline of ["Почему внешние средства", "Вот почему это происходит", "Вы их буквально ломаете", "Вы зря тратите свои деньги", "Это ошибка, которая портит эмаль", "Весь секрет в форме частиц", "Подходит для людей с брекетами", "Произведено в России", "Сделано в России", "Исправляем эргономику питания", "Ошибки при сушке феном", "Ошибка в вечерней рутине", "В гигиене подростка", "Не просто увлажнение", "Мягкий вкус мяты", "Натуральный ароматизатор мяты", "Содержит гидроксиапатит и ксилит", "В составе масло ши", "Формула с пантенолом", "С ароматом свежей мяты", "Скрип зубов — не признак чистоты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+  for (const headline of ["Почему внешние средства", "Вот почему это происходит", "Превращают расслабление в пытку", "Вы их буквально ломаете", "Вы зря тратите свои деньги", "Это ошибка, которая портит эмаль", "Весь секрет в форме частиц", "Подходит для людей с брекетами", "Произведено в России", "Сделано в России", "Исправляем эргономику питания", "Ошибки при сушке феном", "Ошибка в вечерней рутине", "В гигиене подростка", "Не просто увлажнение", "Мягкий вкус мяты", "Натуральный ароматизатор мяты", "Содержит гидроксиапатит и ксилит", "В составе масло ши", "Формула с пантенолом", "С ароматом свежей мяты", "Скрип зубов — не признак чистоты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
@@ -193,6 +193,16 @@ test("visible text contract removes a subhead repeated in the points", () => {
   const repaired = repairVisibleTextContract(contentScript);
   assert.equal(repaired.subhead, "");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
+test("visible text contract catches a synonym-heavy subhead repeat", () => {
+  const contentScript = {
+    headline: "Превращают расслабление в пытку",
+    subhead: "Превращают отдых в пытку",
+    points: []
+  };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("subhead_duplicates_headline"));
 });
 
 test("visible text contract rejects clipped and artificial number openings", () => {

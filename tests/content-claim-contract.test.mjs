@@ -357,6 +357,21 @@ test("massage devices cannot invent muscle diagnoses or therapeutic effects", ()
   assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, massageContext), massageContext), []);
 });
 
+test("massage devices cannot invent pain and protective spasms from misuse", () => {
+  const massageContext = { product: { name: "Перкуссионный массажер" } };
+  const content = {
+    headline: "Превращают расслабление в пытку",
+    points: [
+      "Воздействие на костные выступы вызывает резкую боль",
+      "Максимальная скорость провоцирует защитный спазм",
+      "Жесткая насадка на чувствительной шее создает дискомфорт"
+    ]
+  };
+
+  const violations = getUnsupportedClaimViolations(content, massageContext);
+  assert.equal(violations.filter((item) => item.includes("unsupported_device_misuse_harm")).length, 3);
+});
+
 test("cosmetics cannot invent skin diagnoses or treatment advice", () => {
   const cosmeticContext = {
     product: {
