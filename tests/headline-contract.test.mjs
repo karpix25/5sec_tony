@@ -16,7 +16,7 @@ test("humanizer preserves meaning and leaves invalid headlines for contract reje
   assert.equal(longPlan.headline, long);
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: duplicate }), ["headline_too_few_words", "headline_duplicate_word"]);
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: incomplete }), ["headline_too_long", "headline_incomplete"]);
-  assert.deepEqual(getVisibleTextContractViolations({ contentScript: longPlan }), ["headline_too_long", "headline_too_many_words", "headline_product_dump"]);
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: longPlan }), ["headline_too_long", "headline_too_many_words", "headline_product_dump", "headline_weak_shell"]);
 });
 
 test("visible text contract rejects stale-looking headline copy", () => {
@@ -26,7 +26,7 @@ test("visible text contract rejects stale-looking headline copy", () => {
       subhead: "Это многофункциональный несмываемый спрей",
       points: []
     }
-  }), ["headline_too_long", "headline_too_many_words", "headline_product_dump", "subhead_duplicates_headline"]);
+  }), ["headline_too_long", "headline_too_many_words", "headline_product_dump", "headline_weak_shell", "subhead_duplicates_headline"]);
 });
 
 test("visible text contract rejects a product name instead of a headline", () => {
@@ -107,7 +107,7 @@ test("visible text contract rejects broken numbered headline fragments", () => {
 });
 
 test("visible text contract rejects generic and broken editorial shells", () => {
-  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Ошибки при сушке феном", "Ошибка в вечерней рутине", "В гигиене подростка", "Не просто увлажнение", "Мягкий вкус мяты", "Натуральный ароматизатор мяты", "Содержит гидроксиапатит и ксилит", "В составе масло ши", "Формула с пантенолом", "С ароматом свежей мяты", "Скрип зубов — не признак чистоты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Вы зря тратите свои деньги", "Это ошибка, которая портит эмаль", "Подходит для людей с брекетами", "Исправляем эргономику питания", "Ошибки при сушке феном", "Ошибка в вечерней рутине", "В гигиене подростка", "Не просто увлажнение", "Мягкий вкус мяты", "Натуральный ароматизатор мяты", "Содержит гидроксиапатит и ксилит", "В составе масло ши", "Формула с пантенолом", "С ароматом свежей мяты", "Скрип зубов — не признак чистоты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
