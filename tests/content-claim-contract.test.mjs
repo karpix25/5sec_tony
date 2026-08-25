@@ -186,3 +186,18 @@ test("adjacent pet advice cannot invent a physical cause", () => {
     "points[1]:unsupported_causal_certainty"
   ]);
 });
+
+test("pet advice cannot turn a visible change into a nutrient diagnosis", () => {
+  const content = {
+    headline: "Шерсть стала тусклой",
+    points: [
+      "Тусклая шерсть часто указывает на дефицит качественного белка",
+      "Возрастные изменения требуют качественного белка"
+    ]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Корм для кошек" } }), [
+    "points[0]:unsupported_causal_certainty",
+    "points[1]:unsupported_causal_certainty"
+  ]);
+});
