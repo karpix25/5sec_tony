@@ -234,3 +234,28 @@ test("pet advice cannot turn a visible change into a nutrient diagnosis", () => 
     "points[1]:unsupported_causal_certainty"
   ]);
 });
+
+test("massage devices cannot invent muscle diagnoses or therapeutic effects", () => {
+  const massageContext = {
+    product: {
+      name: "Массажер для стоп",
+      description: "Роликовый массажер с мягким подогревом"
+    }
+  };
+  const content = {
+    headline: "Мышцы не отдыхают",
+    points: [
+      "Ролики мягко снимают зажимы",
+      "Подогрев помогает мышцам быстрее расслабиться",
+      "15 минут превращают вечер в эффективное восстановление"
+    ]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, massageContext), [
+    "headline:unsupported_therapeutic_effect",
+    "points[0]:unsupported_therapeutic_effect",
+    "points[1]:unsupported_therapeutic_effect",
+    "points[2]:unsupported_therapeutic_effect"
+  ]);
+  assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, massageContext), massageContext), []);
+});
