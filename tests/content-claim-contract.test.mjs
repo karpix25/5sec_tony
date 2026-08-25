@@ -114,6 +114,30 @@ test("claim contract rejects violent dental hooks and invented friction", () => 
   ]);
 });
 
+test("dental products cannot invent systemic microbiome effects", () => {
+  const dentalContext = {
+    product: {
+      name: "Зубная паста для брекетов",
+      description: "Паста с гидроксиапатитом и ксилитом"
+    }
+  };
+  const content = {
+    headline: "Микробы во рту влияют на тело",
+    subhead: "Чистка меняет ваше самочувствие",
+    points: [
+      "Рот — главные ворота для бактерий",
+      "Паста снижает бактериальную нагрузку"
+    ]
+  };
+
+  const violations = getUnsupportedClaimViolations(content, dentalContext);
+  assert.ok(violations.includes("headline:unsupported_disease_or_pathogen"));
+  assert.ok(violations.includes("subhead:unsupported_wellness_mechanism"));
+  assert.ok(violations.includes("points[0]:unsupported_disease_or_pathogen"));
+  assert.ok(violations.includes("points[1]:unsupported_disease_or_pathogen"));
+  assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, dentalContext), dentalContext), []);
+});
+
 test("claim contract rejects invented microdamage and absolute causes", () => {
   const content = {
     headline: "Волосы ломаются при расчесывании",
