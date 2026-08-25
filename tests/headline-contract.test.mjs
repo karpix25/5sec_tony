@@ -40,6 +40,10 @@ test("visible text contract rejects a product name instead of a headline", () =>
     contentScript: { headline: "Хлорофилл не заменит воду" },
     product: { name: "Жидкий хлорофилл" }
   }).includes("headline_product_dump"));
+  assert.ok(getVisibleTextContractViolations({
+    contentScript: { headline: "ARSEVA Pro Max" },
+    product: { name: "Массажер для ног", aiPassport: { productName: "Массажер для ног ARSEVA Pro Max" } }
+  }).includes("headline_product_dump"));
 });
 
 test("visible text repair always returns a valid headline", () => {

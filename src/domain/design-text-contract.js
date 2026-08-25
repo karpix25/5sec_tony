@@ -167,7 +167,9 @@ function looksLikeProductDump(value, product = {}) {
 }
 
 function looksLikeProductNameLine(value, product) {
-  const productWords = normalizeVisibleMeaningKey(product?.name).split(" ").filter((word) => word.length > 4);
+  const productWords = [product?.name, product?.aiPassport?.productName]
+    .flatMap((name) => normalizeVisibleMeaningKey(name).split(" "))
+    .filter((word) => word.length > 4);
   const headline = normalizeVisibleMeaningKey(value);
   const headlineWords = headline.split(" ").filter(Boolean);
   if (!productWords.some((word) => headlineWords.includes(word)) || headlineWords.length > 4) return false;
