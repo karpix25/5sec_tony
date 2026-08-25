@@ -57,8 +57,10 @@ export function createRejectedBriefJob(brief, freshness) {
 }
 
 export function createFreshnessFallbackBrief(brief, rejectedJobs = []) {
+  const fallbackHeadline = createFreshHeadlineFallback(brief, rejectedJobs);
+  const repairedBrief = fallbackHeadline ? replaceBriefHeadline(brief, fallbackHeadline) : brief;
   return {
-    ...brief,
+    ...repairedBrief,
     qualityWarnings: [
       ...(brief.qualityWarnings || []),
       "AI-бриф принят после freshness retry, чтобы не блокировать генерацию."
@@ -71,6 +73,27 @@ export function createFreshnessFallbackBrief(brief, rejectedJobs = []) {
         .filter(Boolean)
         .slice(-3)
     }
+  };
+}
+
+function createFreshHeadlineFallback(brief, rejectedJobs) {
+  const headline = getBriefTitle(brief);
+  const whyWasRepeated = rejectedJobs.some((job) => /повторяет начало недавнего заголовка:\s*почему/i.test(job.topic || ""));
+  if (!whyWasRepeated || !/^почему\s+/i.test(headline)) return "";
+  const statement = headline.replace(/^почему\s+/i, "").trim();
+  return statement ? statement[0].toLocaleUpperCase("ru-RU") + statement.slice(1) : "";
+}
+
+function replaceBriefHeadline(brief, headline) {
+  const replacePlan = (plan) => plan && typeof plan === "object" ? { ...plan, headline } : plan;
+  return {
+    ...brief,
+    hook: /^почему\s+/i.test(brief.hook || "") ? headline : brief.hook,
+    headline,
+    plan: replacePlan(brief.plan),
+    aiPlan: replacePlan(brief.aiPlan),
+    contentScript: replacePlan(brief.contentScript),
+    finalContent: replacePlan(brief.finalContent)
   };
 }
 

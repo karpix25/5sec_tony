@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assessAiBriefFreshness, createRejectedBriefJob } from "../src/domain/ai-brief-freshness.js";
+import { assessAiBriefFreshness, createFreshnessFallbackBrief, createRejectedBriefJob } from "../src/domain/ai-brief-freshness.js";
 
 test("ai brief freshness rejects repeated generated themes", () => {
   const result = assessAiBriefFreshness({
@@ -65,4 +65,17 @@ test("rejected briefs reserve their slot and topic cluster for the next retry", 
   assert.equal(rejected.semanticKey, "expectation-gap");
   assert.equal(rejected.contentLayerId, "daily-habit");
   assert.equal(rejected.topicCluster.id, "layering");
+});
+
+test("freshness fallback returns a result without another repeated why opening", () => {
+  const brief = {
+    hook: "Почему кожа горит от новых кремов",
+    contentScript: { headline: "Почему кожа горит от новых кремов", points: ["Проверьте состав"] },
+    aiPlan: { headline: "Почему кожа горит от новых кремов", points: ["Проверьте состав"] }
+  };
+  const fallback = createFreshnessFallbackBrief(brief, [{ topic: "Причина: повторяет начало недавнего заголовка: почему" }]);
+
+  assert.equal(fallback.hook, "Кожа горит от новых кремов");
+  assert.equal(fallback.contentScript.headline, "Кожа горит от новых кремов");
+  assert.equal(fallback.aiPlan.headline, "Кожа горит от новых кремов");
 });

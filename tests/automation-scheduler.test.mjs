@@ -67,6 +67,7 @@ test("scheduler dispatches batches through the backend HTTP boundary by default"
   };
   try {
     const result = await runAutomationSchedulerOnce({
+      now: getMiddayTodayMs(),
       env: strictQueueEnv,
       deps: { updateGenerationState: stateStore.updateGenerationState }
     });
