@@ -46,7 +46,7 @@ test("hook producer varies mechanisms and avoids question monoculture", () => {
 
   assert.match(source, /Все 5 вариантов должны использовать разные механики/);
   assert.match(source, /Не более одного варианта может быть вопросом/);
-  assert.match(source, /«почему» допустимо максимум в одном варианте/i);
+  assert.match(source, /ни один вариант не начинается со слова «почему»/i);
   assert.match(source, /конкретике, свежести, ясному конфликту и сильному payoff/);
   assert.match(source, /Каждый point добавляет новый факт, причину, наблюдение или действие/);
 });

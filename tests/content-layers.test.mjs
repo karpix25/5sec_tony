@@ -22,3 +22,29 @@ test("content layer uses the least recent option after every layer has history",
   assert.equal(first.id, "myth-to-life");
   assert.equal(second.id, "useful-fact");
 });
+
+test("ready passport keeps layer subjects clean and product scoped", () => {
+  const product = {
+    name: "Масло для волос",
+    pains: ["несколько кпель на вю длину"],
+    aiPassport: {
+      version: "product-passport-v2",
+      productName: "Масло для волос",
+      contentTerritory: {
+        productWorld: "уход за волосами",
+        habitsAndMistakes: ["Слишком много масла на корнях"],
+        directProductTopics: ["Дозировка масла без жирности"],
+        adjacentHelpfulTopics: ["Подготовка волос к горячей укладке"]
+      }
+    }
+  };
+  const first = createContentLayer({ project: projects[0], product, existingJobs: [] });
+  const second = createContentLayer({
+    project: projects[0],
+    product,
+    existingJobs: [{ createdAt: "2026-08-25T01:00:00.000Z", diversitySlot: { contentLayer: { subject: first.subject } } }]
+  });
+
+  assert.equal(first.subject, "Слишком много масла на корнях");
+  assert.equal(second.subject, "Подготовка волос к горячей укладке");
+});

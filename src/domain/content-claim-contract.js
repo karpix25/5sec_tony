@@ -1,11 +1,21 @@
 const unsupportedClaimPatterns = [
   ["medical_treatment", /(?<!не )(?<![а-яё])леч(?:ит|ат|ить|ение|ебн|ащ)|терап|диагноз|лекарств/iu],
-  ["medical_mechanism", /кровообращ|микроциркуля|лимф|гормон|инсулин|холестерин|давлени|метабол|обмен веществ/iu],
+  ["medical_mechanism", /кровообращ|микроциркуля|лимф|гормон|инсулин|холестерин|давлени|метабол|обмен веществ|нагрузк.{0,24}(?:сустав|шею|спин|мышц)/iu],
   ["disease_or_pathogen", /воспален|инфекц|бактери|вирус|грибок|грибк|паразит/iu],
   ["detox_or_weight", /токсин|детокс|очища.{0,12}организм|сжига.{0,12}жир|похуд/iu],
-  ["physical_damage", /микротрещ|микроцарап|царап|стира.{0,16}эмал|истонч|шероховат|наждач|поврежд|ржаве|пятн.{0,20}раствор|растворя.{0,20}(?:пятн|нал[её]т)/iu],
-  ["effect", /обезвож|нормализ|стимулир|блокир|избав|убира(?:ет|ют|ется)|гарантир|навсегда|мгновенн|бодр|энергич|(?<!без)вред/iu]
+  ["physical_damage", /микротрещ|микроцарап|микроразрыв|разрыв.{0,12}кутик|царап|стира.{0,16}эмал|истонч|шероховат|наждач|поврежд|ржаве|пятн.{0,20}раствор|растворя.{0,20}(?:пятн|нал[её]т)/iu],
+  ["causal_certainty", /(?:главн|скрыт|прям).{0,16}причин|напрямую\s+влияет|зависит\s+от|связан.{0,24}(?:дискомфорт|проблем|наруш|бол)/iu],
+  ["effect", /обезвож|нормализ|стимулир|блокир|нейтрализ|избав|убира(?:ет|ют|ется)|гарантир|навсегда|мгновенн|бодр|энергич|(?<!без)вред/iu]
 ];
+
+const strictWellnessClaims = new Set([
+  "medical_treatment",
+  "medical_mechanism",
+  "disease_or_pathogen",
+  "detox_or_weight",
+  "causal_certainty",
+  "effect"
+]);
 
 const safeFallbackPoints = [
   "Смотрите на состав и способ применения",
@@ -42,19 +52,24 @@ export function getClaimEvidence({ product = {}, productPassport = {} } = {}) {
 
 export function getUnsupportedClaimViolations(contentScript = {}, context = {}) {
   const evidenceText = normalizeForMatch(getClaimEvidence(context).join(" "));
+  const strictClaims = isWellnessContext(context) ? strictWellnessClaims : new Set();
   return getVisibleLines(contentScript).flatMap(({ field, text }) => unsupportedClaimPatterns
-    .filter(([, pattern]) => {
+    .filter(([id, pattern]) => {
       const claims = getClaimMatches(text, pattern);
       const supported = new Set(getClaimMatches(evidenceText, pattern, true));
-      return claims.some((claim) => !supported.has(claim));
+      return claims.length > 0 && (strictClaims.has(id) || claims.some((claim) => !supported.has(claim)));
     })
     .map(([id]) => `${field}:unsupported_${id}`));
 }
 
 export function repairUnsupportedClaims(contentScript = {}, context = {}) {
-  const evidence = getClaimEvidence(context);
+  const passportLines = collectLines([
+    context.productPassport?.plainDescription,
+    context.productPassport?.safeFacts,
+    context.productPassport?.allowedClaims
+  ]);
   const productName = normalizeForMatch(context.product?.name);
-  const candidates = uniqueLines([...evidence, ...safeFallbackPoints])
+  const candidates = uniqueLines([...passportLines, ...safeFallbackPoints])
     .filter((line) => normalizeForMatch(line) !== productName)
     .filter((line) => line.length >= 18 && line.length <= 120);
   const used = new Set(getVisibleLines(contentScript)
@@ -121,4 +136,16 @@ function getClaimMatches(value, pattern, excludeNegated = false) {
     .filter((match) => !excludeNegated || !/(?:^|\s)(?:без|не|от)\s*$/u.test(text.slice(Math.max(0, match.index - 8), match.index)))
     .map((match) => normalizeForMatch(match[0]))
     .filter(Boolean);
+}
+
+function isWellnessContext({ project = {}, product = {}, productPassport = {} } = {}) {
+  return /бад|wellness|нутрицевт|хлорофилл|добавк/iu.test(normalizeForMatch([
+    project.name,
+    project.niche,
+    project.projectTheme,
+    product.name,
+    product.description,
+    productPassport.category,
+    productPassport.plainDescription
+  ].filter(Boolean).join(" ")));
 }

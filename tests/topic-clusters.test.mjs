@@ -128,6 +128,30 @@ test("product evidence about packaging does not become an automatic content topi
   assert.match(text, /ритуал|водн|wellness/i);
 });
 
+test("wellness clusters exclude detox and body-mechanism topics", () => {
+  const plan = createTopicClusterPlan({
+    product: {
+      id: "chlorophyll",
+      name: "Жидкий хлорофилл",
+      aiPassport: {
+        version: "product-passport-v2",
+        productName: "Жидкий хлорофилл",
+        category: "БАД",
+        contentTerritory: {
+          productWorld: "культура внутренней чистоты организма",
+          habitsAndMistakes: ["привычка добавлять напиток в воду"],
+          directProductTopics: ["механизмы детоксикации организма", "роль мяты во вкусе напитка"],
+          adjacentHelpfulTopics: ["связь микробиома и кожи", "водный баланс в течение дня"]
+        }
+      }
+    }
+  });
+
+  const text = plan.available.map((cluster) => cluster.label).join(" ");
+  assert.doesNotMatch(text, /детокс|организм|микробиом|кож/i);
+  assert.match(text, /мят|водн|напит/i);
+});
+
 test("non-travel products never receive travel topic clusters", () => {
   const plan = createTopicClusterPlan({
     project: { projectTheme: "уход за кожей тела" },
@@ -170,6 +194,39 @@ test("same product does not reuse its last topic cluster", () => {
 
   assert.notEqual(second.selected.id, first.selected.id);
   assert.equal(second.available.find((cluster) => cluster.id === first.selected.id).cooldown, true);
+});
+
+test("shared category words do not put every product cluster on cooldown", () => {
+  const product = {
+    id: "hair-oil",
+    name: "Масло для волос",
+    aiPassport: {
+      version: "product-passport-v2",
+      productName: "Масло для волос",
+      contentTerritory: {
+        productWorld: "осознанный уход за волосами",
+        directProductTopics: ["дозировка масла без жирности"],
+        adjacentHelpfulTopics: [
+          "основы правильного расчесывания для предотвращения ломкости",
+          "подготовка волос к горячей укладке"
+        ]
+      }
+    }
+  };
+  const first = createTopicClusterPlan({ product });
+  const second = createTopicClusterPlan({
+    product,
+    existingJobs: [{
+      productId: product.id,
+      title: "Расчесывание без лишнего натяжения",
+      topic: "Основы правильного расчесывания для предотвращения ломкости",
+      topicCluster: first.selected,
+      createdAt: "2026-08-25T01:00:00.000Z"
+    }]
+  });
+
+  assert.notEqual(second.selected.id, first.selected.id);
+  assert.ok(second.available.some((cluster) => !cluster.cooldown));
 });
 
 test("server brief sends selected topic cluster to the ai departments", async () => {

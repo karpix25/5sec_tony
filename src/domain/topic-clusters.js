@@ -138,7 +138,9 @@ function clusterMatchesText(cluster, normalizedText) {
   if (normalizeClusterText(cluster.label) && normalizedText.includes(normalizeClusterText(cluster.label))) return true;
   return cluster.includeTerms.some((term) => {
     const normalizedTerm = normalizeClusterText(term);
-    return normalizedTerm.split(" ").some((word) => word.length > 4 && normalizedText.includes(word));
+    if (normalizedText.includes(normalizedTerm)) return true;
+    const words = [...new Set(normalizedTerm.split(" ").filter((word) => word.length > 4))];
+    return words.length > 1 && words.filter((word) => normalizedText.includes(word)).length >= 2;
   });
 }
 

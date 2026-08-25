@@ -1,5 +1,7 @@
 import { getProductContentFocus } from "./product-content-focus.js";
 import { formatBenefitEcosystemInstruction, getBenefitEcosystemSubjects } from "./benefit-ecosystem.js";
+import { hasGenerationReadyProductPassport, normalizeProductAiPassport } from "./ai-artifacts.js";
+import { isEditorialTopicEligible } from "./editorial-topic-policy.js";
 
 const contentLayers = [
   {
@@ -65,22 +67,8 @@ export function createContentLayer({ project, product, existingJobs = [] }) {
 }
 
 function pickLeastRecentLayer(existingJobs) {
-  const recentLayerIds = existingJobs
-    .map((job, index) => ({
-      id: job.contentLayerId || job.diversitySlot?.contentLayer?.id || "",
-      index,
-      createdAt: Date.parse(job.createdAt || "") || 0
-    }))
-    .sort((left, right) => right.createdAt - left.createdAt || right.index - left.index)
-    .map((item) => item.id)
-    .filter(Boolean);
-  return contentLayers.reduce((oldest, layer) => {
-    const layerIndex = recentLayerIds.indexOf(layer.id);
-    const oldestIndex = recentLayerIds.indexOf(oldest.id);
-    if (layerIndex < 0) return oldestIndex < 0 ? oldest : layer;
-    if (oldestIndex < 0) return oldest;
-    return layerIndex > oldestIndex ? layer : oldest;
-  }, contentLayers[0]);
+  const recentLayerIds = selectRecentValues(existingJobs, (job) => job.contentLayerId || job.diversitySlot?.contentLayer?.id || "");
+  return pickLeastRecentValue(contentLayers, recentLayerIds, (layer) => layer.id);
 }
 
 export function getContentLayerInstruction(layer) {
@@ -96,7 +84,8 @@ export function getContentLayerInstruction(layer) {
 
 function getLayerSubject(project, product, existingJobs) {
   const focus = getProductContentFocus({ project, product });
-  const subjects = uniqueLayerSubjects([
+  const passportSubjects = getPassportLayerSubjects(product, project);
+  const rawSubjects = [
     ...layerListItems(product.pains),
     ...layerListItems(project.keyScenarios),
     ...focus.list,
@@ -106,14 +95,46 @@ function getLayerSubject(project, product, existingJobs) {
     product.offer,
     project.projectTheme,
     product.name
-  ]);
+  ];
+  const subjects = uniqueLayerSubjects(passportSubjects.length ? passportSubjects : rawSubjects);
   const fallback = subjects[0] || "жизненная ситуация аудитории";
-  const usedSubjects = new Set(existingJobs
-    .map((job) => normalizeLayerSubject(job.diversitySlot?.contentLayer?.subject || ""))
-    .filter(Boolean));
-  return subjects.find((subject) => !usedSubjects.has(normalizeLayerSubject(subject)))
-    || subjects[existingJobs.length % subjects.length]
-    || fallback;
+  const recentSubjects = selectRecentValues(existingJobs, (job) => normalizeLayerSubject(job.diversitySlot?.contentLayer?.subject || ""));
+  return pickLeastRecentValue(subjects, recentSubjects, normalizeLayerSubject) || fallback;
+}
+
+function getPassportLayerSubjects(product = {}, project = {}) {
+  if (!hasGenerationReadyProductPassport(product.aiPassport)) return [];
+  const passport = normalizeProductAiPassport(product.aiPassport);
+  const territory = passport.contentTerritory || {};
+  return [
+    territory.habitsAndMistakes,
+    territory.guidesAndRecommendations,
+    territory.adjacentHelpfulTopics,
+    territory.lifestyleContexts,
+    territory.directProductTopics,
+    passport.painSituations,
+    passport.desires,
+    passport.coreUseCases,
+    passport.safeFacts
+  ].flatMap(layerListItems).filter((text) => isEditorialTopicEligible({ text, project, product }));
+}
+
+function selectRecentValues(existingJobs, getValue) {
+  return existingJobs
+    .map((job, index) => ({ value: getValue(job), index, createdAt: Date.parse(job.createdAt || "") || 0 }))
+    .sort((left, right) => right.createdAt - left.createdAt || right.index - left.index)
+    .map((item) => item.value)
+    .filter(Boolean);
+}
+
+function pickLeastRecentValue(items, recentValues, getValue = (item) => item) {
+  return items.reduce((oldest, item) => {
+    const itemIndex = recentValues.indexOf(getValue(item));
+    const oldestIndex = recentValues.indexOf(getValue(oldest));
+    if (itemIndex < 0) return oldestIndex < 0 ? oldest : item;
+    if (oldestIndex < 0) return oldest;
+    return itemIndex > oldestIndex ? item : oldest;
+  }, items[0]);
 }
 
 function uniqueLayerSubjects(items) {

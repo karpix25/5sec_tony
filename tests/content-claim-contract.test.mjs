@@ -36,6 +36,26 @@ test("claim contract rejects medical mechanisms invented from an adjacent topic"
   assert.deepEqual(getUnsupportedClaimViolations(repaired, context), []);
 });
 
+test("claim repair never copies typos from the raw product form", () => {
+  const typoContext = {
+    product: {
+      name: "Масло для волос",
+      description: "масл жжоба дл сух волс наносит на концы"
+    },
+    productPassport: {
+      plainDescription: "Масло для ухода за сухими кончиками волос",
+      safeFacts: ["Наносится на сухие кончики волос"]
+    }
+  };
+  const repaired = repairUnsupportedClaims({
+    headline: "Волосы ломаются при расчесывании",
+    points: ["Трение — главная причина ломкости"]
+  }, typoContext);
+
+  assert.deepEqual(repaired.points, ["Масло для ухода за сухими кончиками волос"]);
+  assert.doesNotMatch(repaired.points.join(" "), /жжоба|волс/);
+});
+
 test("claim contract permits a risky term when the product explicitly supports it", () => {
   const supported = {
     product: { description: "Средство помогает нормализовать жирность кожи головы." }
@@ -82,10 +102,63 @@ test("claim contract rejects invented dental damage mechanisms", () => {
   assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, dentalProduct), dentalProduct), []);
 });
 
+test("claim contract rejects invented microdamage and absolute causes", () => {
+  const content = {
+    headline: "Волосы ломаются при расчесывании",
+    points: [
+      "Натяжение приводит к микроразрывам кутикулы",
+      "Трение — главная причина ломкости"
+    ]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Масло для волос" } }), [
+    "points[0]:unsupported_physical_damage",
+    "points[1]:unsupported_causal_certainty"
+  ]);
+});
+
 test("claim contract rejects an unsupported body damage metaphor", () => {
   const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
 
   assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Жидкий хлорофилл" } }), [
     "headline:unsupported_physical_damage"
+  ]);
+});
+
+test("wellness source claims do not authorize detox and internal deodorant copy", () => {
+  const wellness = {
+    product: {
+      name: "Жидкий хлорофилл",
+      description: "Помогает очищать организм от токсинов и нейтрализовать запахи"
+    },
+    productPassport: { category: "БАД" }
+  };
+  const content = {
+    headline: "Дезодорант не справляется",
+    points: [
+      "Накопление токсинов напрямую влияет на запах тела",
+      "Хлорофилл помогает нейтрализовать запахи изнутри"
+    ]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, wellness), [
+    "points[0]:unsupported_detox_or_weight",
+    "points[0]:unsupported_causal_certainty",
+    "points[1]:unsupported_effect"
+  ]);
+});
+
+test("adjacent pet advice cannot invent a physical cause", () => {
+  const content = {
+    headline: "Кошка стала меньше есть",
+    points: [
+      "Низкая миска создает лишнюю нагрузку на шею и суставы",
+      "Отказ от еды часто связан с физическим дискомфортом"
+    ]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Корм для кошек" } }), [
+    "points[0]:unsupported_medical_mechanism",
+    "points[1]:unsupported_causal_certainty"
   ]);
 });

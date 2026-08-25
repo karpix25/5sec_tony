@@ -1,14 +1,15 @@
 const oldCountPattern = /(^|\s)[3-7]\s*(маркер|признак|пункт|симптом|ошиб|вещ|привыч|сигнал)/i;
 const topHeadlinePattern = /^(top|топ)(\s|\d|$)/i;
 const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|который|которая|которые|которое|потому|что|как|почему|это|плохой|плохая|плохое)$/i;
-const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
+const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|показываем|покажите|визуализ|→|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
 const numberedHeadlineFragmentPattern = /(?:^|\s)\d{1,2}\s*[.)](?=\s|$)|^заблуждени[ея]\s+про\s+\d/i;
-const weakHeadlineShellPattern = /^(?:почему\s+|вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт)|эту\s+деталь\s+(?:легко\s+)?(?:упустить|не\s+заметить)|это\s+не\s+(?:норма|работает)$|скрип\s+кожи(?:\s|$|[—–-])|(?:ваш|твой)\s+.+?\s+(?:—\s*)?это\s+(?:просто\s+)?маркетинг$)/i;
+const weakHeadlineShellPattern = /^(?:почему\s+|(?:вы|ты)\s+(?:это|их|его|е[её])(?:\s|$)|вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт)|эту\s+деталь\s+(?:легко\s+)?(?:упустить|не\s+заметить)|это\s+не\s+(?:норма|работает)$|скрип\s+кожи(?:\s|$|[—–-])|(?:ваш|твой)\s+.+?\s+(?:—\s*)?это\s+(?:просто\s+)?маркетинг$)/i;
+const headlineJargonPattern = /эргономик|оптимизац|(?:^|\s)функционал(?:\s|$)|синерг|ресурс(?:ы|ами)?\s+организма/i;
 const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])/i;
 const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
-export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
+export function getVisibleTextContractViolations({ contentScript = {}, product = {} } = {}) {
   const headline = normalizeVisibleLine(contentScript.headline);
   const subhead = normalizeVisibleLine(contentScript.subhead);
   const points = getScriptPoints(contentScript).map(normalizeVisibleLine).filter(Boolean);
@@ -19,9 +20,10 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   if (headline.length > 34) violations.push("headline_too_long");
   if (headlineWords.length < 3) violations.push("headline_too_few_words");
   if (headlineWords.length > 6) violations.push("headline_too_many_words");
-  if (looksLikeProductDump(headline)) violations.push("headline_product_dump");
+  if (looksLikeProductDump(headline, product)) violations.push("headline_product_dump");
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
+  if (headlineJargonPattern.test(headline)) violations.push("headline_weak_shell");
   if (hasBrokenHeadlineStart(headline)) violations.push("headline_broken_start");
   if ([subhead, ...points].some(hasBrokenLineStart)) violations.push("broken_line_start");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
@@ -43,8 +45,8 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
     ...sourceClauses,
     ...[contentScript.subhead, ...getScriptPoints(contentScript)].flatMap(createHeadlineCandidates)
   ]
-    .filter((line) => line && !looksLikeProductDump(line) && !forbiddenVisiblePattern.test(line));
-  const headline = candidates.find(isValidHeadline)
+    .filter((line) => line && !looksLikeProductDump(line, options.product) && !forbiddenVisiblePattern.test(line));
+  const headline = candidates.find((line) => isValidHeadline(line, options.product))
     || "Сначала проверь способ применения";
   const points = getScriptPoints(contentScript)
     .map(normalizePointText)
@@ -127,8 +129,8 @@ function normalizeRepairLine(value) {
     .trim();
 }
 
-function isValidHeadline(value) {
-  return !getVisibleTextContractViolations({ contentScript: { headline: value } }).length;
+function isValidHeadline(value, product) {
+  return !getVisibleTextContractViolations({ contentScript: { headline: value }, product }).length;
 }
 
 function createHeadlineCandidates(value) {
@@ -138,12 +140,28 @@ function createHeadlineCandidates(value) {
     .split(/\s*(?:[.!?;]|:\s+|[—–]\s+)\s*/)
     .map(normalizeRepairLine)
     .filter(Boolean);
-  return [...new Set([headline, ...clauses])];
+  const shortClauses = clauses.flatMap((clause) => clause
+    .split(/\s+(?:и|но|а)\s+/i)
+    .map(normalizeRepairLine)
+    .filter(Boolean));
+  return [...new Set([headline, ...clauses, ...shortClauses])];
 }
 
-function looksLikeProductDump(value) {
+function looksLikeProductDump(value, product = {}) {
   const words = normalizeVisibleLine(value).split(/\s+/).filter(Boolean);
-  return value.length > 90 || (words.length > 10 && (value.match(/[.!?](?:\s|$)/g) || []).length > 1);
+  return value.length > 90
+    || (words.length > 10 && (value.match(/[.!?](?:\s|$)/g) || []).length > 1)
+    || looksLikeProductNameLine(value, product);
+}
+
+function looksLikeProductNameLine(value, product) {
+  const productWords = normalizeVisibleMeaningKey(product?.name).split(" ").filter((word) => word.length > 4);
+  const headline = normalizeVisibleMeaningKey(value);
+  const headlineWords = headline.split(" ").filter(Boolean);
+  if (!productWords.some((word) => headlineWords.includes(word)) || headlineWords.length > 4) return false;
+  const hasConflict = /(?:^|\s)(?:не|без|зря|слишком|ошиб|риск)(?:\s|$)/i.test(headline);
+  const hasPredicate = headlineWords.some((word) => /[а-яё]{3,}(?:ет|ёт|ит|ат|ят|ут|ют|ется|ится|ался|илась|лись)$/i.test(word));
+  return !hasConflict && !hasPredicate;
 }
 
 function normalizeVisibleWord(value) {

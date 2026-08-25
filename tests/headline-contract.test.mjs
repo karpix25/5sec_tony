@@ -29,6 +29,19 @@ test("visible text contract rejects stale-looking headline copy", () => {
   }), ["headline_too_long", "headline_too_many_words", "headline_product_dump", "subhead_duplicates_headline"]);
 });
 
+test("visible text contract rejects a product name instead of a headline", () => {
+  const violations = getVisibleTextContractViolations({
+    contentScript: { headline: "Хлорофилл с мятой" },
+    product: { name: "Жидкий хлорофилл" }
+  });
+
+  assert.ok(violations.includes("headline_product_dump"));
+  assert.ok(!getVisibleTextContractViolations({
+    contentScript: { headline: "Хлорофилл не заменит воду" },
+    product: { name: "Жидкий хлорофилл" }
+  }).includes("headline_product_dump"));
+});
+
 test("visible text repair always returns a valid headline", () => {
   const productDump = `5 сигналов, что про ${"полное описание продукта ".repeat(20)}лучше узнать заранее`;
   const repaired = repairVisibleTextContract({
@@ -68,6 +81,16 @@ test("visible text repair takes a natural sentence from the creative hook", () =
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
+test("visible text repair shortens a natural point instead of using a generic fallback", () => {
+  const repaired = repairVisibleTextContract({
+    headline: "Шампунь",
+    points: ["Сухие пряди теряют эластичность и легче рвутся при расчесывании"]
+  });
+
+  assert.equal(repaired.headline, "Сухие пряди теряют эластичность");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
 test("visible text contract rejects broken numbered headline fragments", () => {
   assert.deepEqual(getVisibleTextContractViolations({
     contentScript: { headline: "Заблуждение про 1. 6." }
@@ -75,7 +98,7 @@ test("visible text contract rejects broken numbered headline fragments", () => {
 });
 
 test("visible text contract rejects generic and broken editorial shells", () => {
-  for (const headline of ["Почему внешние средства", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
@@ -89,6 +112,16 @@ test("visible text contract removes measurement units without a number", () => {
   const contentScript = { headline: "Проверь дозировку заранее", points: ["мг хлорофилла в порции", "500 мг хлорофилла в порции"] };
   assert.ok(getVisibleTextContractViolations({ contentScript }).includes("orphan_measurement"));
   assert.deepEqual(repairVisibleTextContract(contentScript).points, ["500 мг хлорофилла в порции"]);
+});
+
+test("visible text contract removes internal production directions", () => {
+  const contentScript = {
+    headline: "Кошка стала меньше играть",
+    points: ["Мало мяса → показываем 61% белка", "Проверьте привычный рацион"]
+  };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("forbidden_visible_copy"));
+  assert.deepEqual(repairVisibleTextContract(contentScript).points, ["Проверьте привычный рацион"]);
 });
 
 test("visible text contract rejects clipped and artificial number openings", () => {
