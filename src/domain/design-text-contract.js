@@ -3,7 +3,7 @@ const topHeadlinePattern = /^(top|топ)(\s|\d|$)/i;
 const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|который|которая|которые|которое|потому|что|как|почему|это|плохой|плохая|плохое)$/i;
 const forbiddenVisiblePattern = /подпишись|подписывайся|купите|закажите|в\s+(?:профиле|описании)|не\s+является\s+лекар|проконсультируйтесь|дисклеймер/i;
 const numberedHeadlineFragmentPattern = /(?:^|\s)\d{1,2}\s*[.)](?=\s|$)|^заблуждени[ея]\s+про\s+\d/i;
-const weakHeadlineShellPattern = /^(?:вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт)|эту\s+деталь\s+(?:легко\s+)?(?:упустить|не\s+заметить)|это\s+не\s+норма$)/i;
+const weakHeadlineShellPattern = /^(?:вот\s+что|разбираемся|миф(?:ы)?\s+(?:о|про)|что\s+важно\s+знать|важн(?:ый|ые)\s+факт|полезн(?:ый|ые)\s+(?:совет|факт)|эту\s+деталь\s+(?:легко\s+)?(?:упустить|не\s+заметить)|это\s+не\s+норма$|(?:ваш|твой)\s+.+?\s+(?:—\s*)?это\s+(?:просто\s+)?маркетинг$)/i;
 const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])/i;
 const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
@@ -23,6 +23,7 @@ export function getVisibleTextContractViolations({ contentScript = {} } = {}) {
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
   if (hasBrokenHeadlineStart(headline)) violations.push("headline_broken_start");
+  if ([subhead, ...points].some(hasBrokenLineStart)) violations.push("broken_line_start");
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
   if (incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
@@ -165,8 +166,13 @@ function hasOrphanMeasurement(value) {
 function hasBrokenHeadlineStart(value) {
   const text = normalizeVisibleLine(value);
   if (/^почему\s+\d+(?:[.,]\d+)?\s+(?:лет|год|дн|час)/i.test(text)) return true;
+  return hasBrokenLineStart(text);
+}
+
+function hasBrokenLineStart(value) {
+  const text = normalizeVisibleLine(value);
   const firstWord = normalizeVisibleWord(text.split(/\s+/)[0]);
-  return firstWord.length > 0 && firstWord.length <= 2 && !validShortHeadlineStarts.has(firstWord);
+  return firstWord.length > 0 && !/^\d+$/.test(firstWord) && firstWord.length <= 2 && !validShortHeadlineStarts.has(firstWord);
 }
 
 function normalizeVisibleMeaningKey(value) {

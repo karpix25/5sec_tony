@@ -113,6 +113,7 @@ export function humanizeTextInstruction(body) {
     output: { headline: "сильный заголовок, 3–6 слов и максимум 34 символа; законченная естественная фраза", subhead: "одна простая строка, почему это знакомо в жизни", points: ["4-6 смысловых блоков, каждый 6-14 слов: мини-заголовок + короткое объяснение"], attentionReview: { contextClearIn2Seconds: true, plainLanguage: true, painSpecific: true, soundsNatural: true, productConnectionClear: true, headlineComplete: true, spellingChecked: true, topicIsUseful: true, reason: "" }, cta: "всегда пустая строка", disclaimer: "всегда пустая строка; нижние защитные подписи, футеры и сноски запрещены" },
     rules: [
       "Сохрани исходный смысл и сценарий; не меняй тему на другую.",
+      ...(body.finalProofreadRequired ? ["Это отдельная финальная корректура. Не копируй опечатки и обрубки из анкеты или предыдущего текста: исправь пропущенные и переставленные буквы, окончания, согласование и начало каждой строки, сохранив смысл и подтвержденные факты."] : []),
       "Если previousHeadlineViolations не пуст, предыдущий заголовок отклонен. Исправь все перечисленные нарушения, а не возвращай ту же фразу.",
       "Если contentClaimViolations не пуст, предыдущий текст содержит неподтвержденные утверждения. Удали их или замени только фактами из claimEvidence.",
       formatCurrentDatePrompt(),

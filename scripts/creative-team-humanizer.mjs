@@ -19,8 +19,13 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
       currentDraft = withHumanizedPlan(currentDraft, plan, parsed.attentionReview);
       const violations = getVisibleTextContractViolations({ contentScript: plan });
       const contentClaimViolations = getUnsupportedClaimViolations(plan, claimContext);
-      if (!violations.length && !contentClaimViolations.length) return currentDraft;
-      body = { ...body, headlineViolations: violations, contentClaimViolations };
+      if (!violations.length && !contentClaimViolations.length && attempt === 1) return currentDraft;
+      body = {
+        ...body,
+        headlineViolations: violations,
+        contentClaimViolations,
+        finalProofreadRequired: !violations.length && !contentClaimViolations.length
+      };
       basePlan = plan;
     } catch (error) {
       console.warn(`[creative-team:humanizer:fallback] ${error.message || error}`);

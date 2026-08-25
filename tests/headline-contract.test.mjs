@@ -80,6 +80,7 @@ test("visible text contract rejects generic and broken editorial shells", () => 
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Это не норма" } }).includes("headline_weak_shell"));
+  assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Ваш детокс — это просто маркетинг" } }).includes("headline_weak_shell"));
 });
 
 test("visible text contract removes measurement units without a number", () => {
@@ -93,6 +94,7 @@ test("visible text contract rejects clipped and artificial number openings", () 
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_broken_start"));
   }
   assert.ok(!getVisibleTextContractViolations({ contentScript: { headline: "С 16 лет меняется уход" } }).includes("headline_broken_start"));
+  assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Уход начинается вечером", subhead: "ек, которые мешают комфорту" } }).includes("broken_line_start"));
 });
 
 test("visible text repair prefers a natural fallback over a clipped headline", () => {
