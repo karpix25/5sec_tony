@@ -94,10 +94,10 @@ test("visible text repair shortens a natural point instead of using a generic fa
 test("visible text repair can build a headline from a structured point", () => {
   const repaired = repairVisibleTextContract({
     headline: "Что важно знать заранее",
-    points: [{ title: "Продукт содержит", text: "натуральный ароматизатор мяты" }]
+    points: [{ title: "Мята меняет", text: "вкус напитка" }]
   });
 
-  assert.equal(repaired.headline, "Натуральный ароматизатор мяты");
+  assert.equal(repaired.headline, "Мята меняет вкус напитка");
 });
 
 test("visible text contract rejects broken numbered headline fragments", () => {
@@ -107,7 +107,7 @@ test("visible text contract rejects broken numbered headline fragments", () => {
 });
 
 test("visible text contract rejects generic and broken editorial shells", () => {
-  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Ошибки при сушке феном", "Не просто увлажнение", "Мягкий вкус мяты", "Скрип зубов — не признак чистоты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
+  for (const headline of ["Почему внешние средства", "Вы их буквально ломаете", "Исправляем эргономику питания", "Ошибки при сушке феном", "Не просто увлажнение", "Мягкий вкус мяты", "Натуральный ароматизатор мяты", "Скрип зубов — не признак чистоты", "Вот что важно знать", "Разбираемся, чего не хватает", "Миф о том, что натуральный состав"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
   }
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Эту деталь легко упустить" } }).includes("headline_weak_shell"));

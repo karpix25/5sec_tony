@@ -163,6 +163,7 @@ test("wellness copy cannot disguise internal effects as daily support", () => {
       "Организму нужно время для адаптации",
       "Дезодорирующий эффект заметен через две недели",
       "Клеткам нужна поддержка ресурсами каждый день",
+      "Хлорофилл поддерживает работу ЖКТ и внутреннее состояние",
       "Продукт содержит натуральный ароматизатор мяты"
     ]
   };
@@ -170,6 +171,26 @@ test("wellness copy cannot disguise internal effects as daily support", () => {
   const repaired = repairUnsupportedClaims(content, wellness);
   assert.deepEqual(getUnsupportedClaimViolations(repaired, wellness), []);
   assert.equal(repaired.points.at(-1), "Продукт содержит натуральный ароматизатор мяты");
+});
+
+test("claim repair skips packaging and certificates for a non-operational product", () => {
+  const context = {
+    product: { name: "Жидкий хлорофилл" },
+    productPassport: {
+      category: "БАД",
+      safeFacts: [
+        "Упаковка оснащена защитной термомембраной",
+        "Продукт имеет СГР, выданное в РФ",
+        "Продукт содержит натуральный ароматизатор мяты"
+      ]
+    }
+  };
+  const repaired = repairUnsupportedClaims({
+    headline: "Свежесть изнутри",
+    points: ["Хлорофилл поддерживает работу ЖКТ"]
+  }, context);
+
+  assert.deepEqual(repaired.points, ["Продукт содержит натуральный ароматизатор мяты"]);
 });
 
 test("adjacent pet advice cannot invent a physical cause", () => {

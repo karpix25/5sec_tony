@@ -1,9 +1,11 @@
+import { isEditorialTopicEligible } from "./editorial-topic-policy.js";
+
 const unsupportedClaimPatterns = [
   ["medical_treatment", /(?<!не )(?<![а-яё])леч(?:ит|ат|ить|ение|ебн|ащ)|терап|диагноз|лекарств/iu],
   ["medical_mechanism", /кровообращ|микроциркуля|лимф|гормон|инсулин|холестерин|давлени|метабол|обмен веществ|нагрузк.{0,24}(?:сустав|шею|спин|мышц)/iu],
   ["disease_or_pathogen", /воспален|инфекц|бактери|вирус|грибок|грибк|паразит/iu],
   ["detox_or_weight", /токсин|детокс|очища.{0,12}организм|сжига.{0,12}жир|похуд/iu],
-  ["wellness_mechanism", /организм|клет|адаптац|накопительн|дезодор|запах.{0,16}(?:тела|изнутри|изо рта)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
+  ["wellness_mechanism", /организм|клет|жкт|кишеч|адаптац|накопительн|дезодор|запах.{0,16}(?:тела|изнутри|изо рта)|внутренн.{0,16}(?:состояни|свежест|чистот)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
   ["physical_damage", /микротрещ|микроцарап|микроразрыв|разрыв.{0,12}кутик|царап|стира.{0,16}эмал|истонч|шероховат|наждач|поврежд|ржаве|пятн.{0,20}раствор|растворя.{0,20}(?:пятн|нал[её]т)/iu],
   ["causal_certainty", /(?:главн|скрыт|прям).{0,16}причин|напрямую\s+влияет|зависит\s+от|указывает\s+на.{0,20}дефицит|требу(?:ет|ют).{0,24}(?:белк|жирн|витамин|минерал)|связан.{0,24}(?:дискомфорт|проблем|наруш|бол)/iu],
   ["effect", /обезвож|нормализ|стимулир|блокир|нейтрализ|избав|убира(?:ет|ют|ется)|гарантир|навсегда|мгновенн|бодр|энергич|(?<!без)вред/iu]
@@ -73,6 +75,7 @@ export function repairUnsupportedClaims(contentScript = {}, context = {}) {
   const productName = normalizeForMatch(context.product?.name);
   const candidates = uniqueLines([...passportLines, ...safeFallbackPoints])
     .filter((line) => normalizeForMatch(line) !== productName)
+    .filter((line) => isEditorialTopicEligible({ text: line, project: context.project, product: context.product }))
     .filter((line) => line.length >= 18 && line.length <= 120);
   const used = new Set(getVisibleLines(contentScript)
     .filter(({ text }) => !lineHasUnsupportedClaim(text, context))
