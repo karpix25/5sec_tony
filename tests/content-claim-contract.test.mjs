@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
+import { getClaimEvidence, getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
 
 const context = {
   product: {
@@ -162,6 +162,19 @@ test("wellness source claims do not authorize detox and internal deodorant copy"
     "points[1]:unsupported_wellness_mechanism",
     "points[1]:unsupported_effect"
   ]);
+});
+
+test("wellness evidence excludes unsafe source promises before prompting", () => {
+  const evidence = getClaimEvidence({
+    product: {
+      name: "Жидкий хлорофилл",
+      description: "Хлорофилл с натуральным ароматизатором мяты",
+      offer: ["Помогает контролировать аппетит", "Способствует улучшению самочувствия", "Произведено в России"]
+    },
+    productPassport: { category: "БАД" }
+  });
+
+  assert.deepEqual(evidence, ["Жидкий хлорофилл", "Хлорофилл с натуральным ароматизатором мяты", "Произведено в России"]);
 });
 
 test("wellness copy cannot disguise internal effects as daily support", () => {

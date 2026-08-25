@@ -6,7 +6,7 @@ const unsupportedClaimPatterns = [
   ["disease_or_pathogen", /воспален|инфекц|бактери|вирус|грибок|грибк|паразит/iu],
   ["skin_harm_or_treatment", /(?:кожа|кожу).{0,20}(?:горит|травм|раздраж|воспал|аллерг|зуд|жжен|покраснен)|(?:аллерг|раздраж|воспал|зуд|жжен|покраснен)|(?:травмиру|провоциру|вызыва).{0,24}(?:кож|аллерг|раздраж|воспал|зуд|жжен|покраснен)|успокаива.{0,16}кож/iu],
   ["detox_or_weight", /токсин|детокс|очища.{0,12}организм|сжига.{0,12}жир|похуд/iu],
-  ["wellness_mechanism", /организм|клет|жкт|кишеч|адаптац|накопительн|дезодор(?:ир|ант.{0,16}не\s+справл)|запах.{0,16}(?:тела|изнутри|изо рта)|внутренн.{0,16}(?:состояни|свежест|чистот)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
+  ["wellness_mechanism", /организм|клет|жкт|кишеч|аппетит|самочувств|адаптац|накопительн|дезодор(?:ир|ант.{0,16}не\s+справл)|запах.{0,16}(?:тела|изнутри|изо рта)|внутренн.{0,16}(?:состояни|свежест|чистот)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
   ["therapeutic_effect", /мышц.{0,20}(?:не\s+отдых|напряж|зажим)|(?:снима|устраня|разгоня|возвращ).{0,24}(?:зажим|напряж|тяжест|л[её]гкост)|помога.{0,28}(?:расслаб|восстанов)|подогрев.{0,40}(?:расслаб|восстанов)|глубок.{0,16}расслаб|эффективн.{0,16}восстанов/iu],
   ["physical_damage", /микротрещ|микроцарап|микроразрыв|разрыв.{0,12}кутик|уби(?:ть|ва[а-яё]*).{0,16}(?:эмал|кож|волос|зуб)|созда[а-яё]*.{0,16}трени|царап|стира.{0,16}эмал|истонч|шероховат|наждач|поврежд|ржаве|пятн.{0,20}раствор|растворя.{0,20}(?:пятн|нал[её]т)/iu],
   ["causal_certainty", /(?:главн|скрыт|прям).{0,16}причин|напрямую\s+влияет|зависит\s+от|указывает\s+на.{0,20}дефицит|требу(?:ет|ют).{0,24}(?:белк|жирн|витамин|минерал)|связан.{0,24}(?:дискомфорт|проблем|наруш|бол)/iu],
@@ -51,11 +51,12 @@ export function getClaimEvidence({ product = {}, productPassport = {} } = {}) {
     product.allowed,
     product.physicalProperties
   ]);
-  if (direct.length > 1) return direct;
-  return uniqueLines([
+  const evidence = direct.length > 1 ? direct : uniqueLines([
     ...direct,
     ...collectLines([productPassport.plainDescription, productPassport.safeFacts, productPassport.allowedClaims])
   ]);
+  if (!isSensitiveConsumerHealthContext({ product, productPassport })) return evidence;
+  return evidence.filter((line) => !lineHasStrictClaim(line));
 }
 
 export function getUnsupportedClaimViolations(contentScript = {}, context = {}) {
@@ -145,6 +146,11 @@ function getClaimMatches(value, pattern, excludeNegated = false) {
     .filter((match) => !excludeNegated || !/(?:^|\s)(?:без|не|от)\s*$/u.test(text.slice(Math.max(0, match.index - 8), match.index)))
     .map((match) => normalizeForMatch(match[0]))
     .filter(Boolean);
+}
+
+function lineHasStrictClaim(value) {
+  const normalized = normalizeForMatch(value);
+  return unsupportedClaimPatterns.some(([id, pattern]) => strictWellnessClaims.has(id) && pattern.test(normalized));
 }
 
 function isSensitiveConsumerHealthContext({ project = {}, product = {}, productPassport = {} } = {}) {
