@@ -11,6 +11,8 @@ const promisedItemCountPattern = /(?:^|\s)(2|два|две|3|три|4|четыр
 const promisedItemCountValues = { "2": 2, два: 2, две: 2, "3": 3, три: 3, "4": 4, четыре: 4, "5": 5, пять: 5, "6": 6, шесть: 6, "7": 7, семь: 7, "8": 8, восемь: 8, "9": 9, девять: 9 };
 const genericPointPattern = /^(?:смотрите на состав|сверяйте обещания|оценивайте комфорт|следуйте инструкции)(?:\s|$)/i;
 const abstractBenefitHeadlinePattern = /^(?:комфорт|уверенность|забота|свежесть|баланс|гармония|л[её]гкость)\s+(?:в|для|на)\s+(?:движени|кажд|повседнев|ритм|жизн|рутин|уход)/i;
+const drySpecificationHeadlinePattern = /(?:толщин|объ[её]м|вес|длин|размер|содержание)[а-яё]*\s+(?:издели[а-яё]*\s+)?(?:составля|равн|весит|содержит|имеет)[а-яё]*\s+\d/i;
+const bareInstructionHeadlinePattern = /^[А-ЯЁ][а-яё-]{2,}(?:ть|ться)\s+[^?!]+$/;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
 export function getVisibleTextContractViolations({ contentScript = {}, product = {} } = {}) {
@@ -30,6 +32,8 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
   if (abstractBenefitHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
+  if (drySpecificationHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
+  if (bareInstructionHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (headlineJargonPattern.test(headline)) violations.push("headline_weak_shell");
   if (hasBrokenHeadlineStart(headline)) violations.push("headline_broken_start");
   if ([subhead, ...points].some(hasBrokenLineStart)) violations.push("broken_line_start");
