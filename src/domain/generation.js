@@ -224,6 +224,7 @@ export function createGenerationJob({ project, product, reference, character, au
     finalVideoHasAudio: false,
     yandexDiskRequired: Boolean(project.yandexDiskFolder),
     topic: brief.topic,
+    topicCluster: brief.topicCluster || null,
     semanticKey: brief.semanticKey,
     meaningPatternId: brief.meaningPatternId,
     hookIntelligence: brief.hookIntelligence,

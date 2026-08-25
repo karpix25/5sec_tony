@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createDailyUsageDate } from "../src/domain/daily-usage.js";
 import { products } from "../src/domain/entities.js";
 import { getProjectAutomationState, normalizeProjectAutomation } from "../src/domain/project-automation.js";
 import { createStore } from "../src/state/store.js";
@@ -418,21 +419,15 @@ test("store updates project daily limit and resets daily usage", () => {
 });
 
 function getTodayDateString() {
-  return formatDateString(new Date());
+  return createDailyUsageDate();
 }
 
 function getYesterdayDateString() {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  return formatDateString(date);
+  return createDailyUsageDate(new Date(Date.now() - 86_400_000));
 }
 
 function getMiddayTodayMs() {
   return Date.parse(`${getTodayDateString()}T12:00:00.000Z`);
-}
-
-function formatDateString(date) {
-  return date.toISOString().slice(0, 10);
 }
 
 function createAutomationRunnerStore(project) {

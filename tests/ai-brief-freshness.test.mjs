@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assessAiBriefFreshness } from "../src/domain/ai-brief-freshness.js";
+import { assessAiBriefFreshness, createRejectedBriefJob } from "../src/domain/ai-brief-freshness.js";
 
 test("ai brief freshness rejects repeated generated themes", () => {
   const result = assessAiBriefFreshness({
@@ -45,4 +45,20 @@ test("ai brief freshness rejects another headline starting with why", () => {
 
   assert.equal(result.ok, false);
   assert.match(result.reasons.join(" "), /повторяет начало недавнего заголовка: почему/);
+});
+
+test("rejected briefs reserve their slot and topic cluster for the next retry", () => {
+  const brief = {
+    topic: "Ваш крем не работает",
+    aiPlan: { headline: "Ваш крем не работает" },
+    semanticKey: "expectation-gap",
+    contentLayerId: "daily-habit",
+    diversitySlot: { id: "expectation-gap", contentLayer: { id: "daily-habit" } },
+    topicCluster: { id: "layering", label: "порядок нанесения" }
+  };
+  const rejected = createRejectedBriefJob(brief, assessAiBriefFreshness(brief, [{ title: "Почему ваш крем не работает" }]));
+
+  assert.equal(rejected.semanticKey, "expectation-gap");
+  assert.equal(rejected.contentLayerId, "daily-habit");
+  assert.equal(rejected.topicCluster.id, "layering");
 });

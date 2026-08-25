@@ -18,11 +18,13 @@ test("AI generation repairs an oversized headline instead of stopping", () => {
         headline: "5 сигналов, что про высокая озировка хлорофилл 500мг на порции. Приятный мятный вкус. Есть мерный колпачок лучше узнать заранее",
         subhead: "",
         points: []
-      }
+      },
+      topicCluster: { id: "daily-routine", label: "ежедневная привычка" }
     }
   });
 
   assert.equal(job.title, "Приятный мятный вкус");
+  assert.equal(job.topicCluster.id, "daily-routine");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: job.finalContent }), []);
 });
 

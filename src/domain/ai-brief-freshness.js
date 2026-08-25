@@ -44,6 +44,10 @@ export function createRejectedBriefJob(brief, freshness) {
     id: `rejected-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     title: `ОТКЛОНЕНО: ${title}`,
     topic: `${topic}. Причина: ${(freshness.reasons || []).join("; ")}`,
+    semanticKey: brief.semanticKey || brief.diversitySlot?.id || "",
+    contentLayerId: brief.contentLayerId || brief.diversitySlot?.contentLayer?.id || "",
+    diversitySlot: brief.diversitySlot || null,
+    topicCluster: brief.topicCluster || null,
     hookIntelligence: { hookType: "rejected-duplicate" }
   };
 }

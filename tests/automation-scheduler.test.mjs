@@ -6,6 +6,7 @@ import { claimAutomationDispatches } from "../scripts/automation/scheduler-plann
 import { buildAutomationBatchSelection } from "../scripts/automation/automation-selection.mjs";
 import { isStaleBriefPlaceholder } from "../scripts/automation/stale-brief-jobs.mjs";
 import { tryLockAutomationScheduler } from "../scripts/automation/scheduler-lock.mjs";
+import { createDailyUsageDate } from "../src/domain/daily-usage.js";
 
 const strictQueueEnv = {
   JOB_QUEUE_MODE: "bullmq",
@@ -462,7 +463,7 @@ function createProject(id, overrides = {}) {
 }
 
 function getTodayDateString() {
-  return new Date().toISOString().slice(0, 10);
+  return createDailyUsageDate();
 }
 
 function getMiddayTodayMs() {
