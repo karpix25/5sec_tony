@@ -1,3 +1,5 @@
+import { selectRecentJobs } from "./content-rotation.js";
+
 const freshnessStopWords = new Set([
   "а", "без", "бы", "в", "вам", "ваш", "ваша", "ваше", "ваши", "все", "для",
   "до", "его", "ее", "если", "есть", "за", "и", "из", "или", "как", "когда",
@@ -23,10 +25,11 @@ export function assessAiBriefFreshness(brief, existingJobs = []) {
   const formula = findOverusedFormula(candidateText);
   if (formula) reasons.push(`слишком шаблонная формула: ${formula}`);
 
-  const repeatedOpening = findRepeatedHeadlineOpening(getBriefTitle(brief), existingJobs);
+  const recentJobs = selectRecentJobs(existingJobs, 30);
+  const repeatedOpening = findRepeatedHeadlineOpening(getBriefTitle(brief), recentJobs);
   if (repeatedOpening) reasons.push(`повторяет начало недавнего заголовка: ${repeatedOpening}`);
 
-  const duplicate = findDuplicateTopic(candidate, existingJobs);
+  const duplicate = findDuplicateTopic(candidate, recentJobs);
   if (duplicate) reasons.push(`повторяет недавнюю тему: ${duplicate.title || duplicate.topic}`);
 
   return {
@@ -42,6 +45,7 @@ export function createRejectedBriefJob(brief, freshness) {
   const topic = freshness.candidateTopic || getBriefTopic(brief) || title;
   return {
     id: `rejected-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    createdAt: new Date().toISOString(),
     title: `ОТКЛОНЕНО: ${title}`,
     topic: `${topic}. Причина: ${(freshness.reasons || []).join("; ")}`,
     semanticKey: brief.semanticKey || brief.diversitySlot?.id || "",

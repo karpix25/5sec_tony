@@ -32,9 +32,12 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
 
 function repairDraft(draft, plan, body = {}) {
   const violations = getVisibleTextContractViolations({ contentScript: plan });
-  const safePlan = repairUnsupportedClaims(plan, { product: body.product, productPassport: draft.productPassport || body.product?.aiPassport });
+  const claimContext = { product: body.product, productPassport: draft.productPassport || body.product?.aiPassport };
+  const safePlan = repairUnsupportedClaims(plan, claimContext);
+  const fallbackHeadlines = [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+    .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
   const repairedPlan = repairVisibleTextContract(safePlan, {
-    fallbackHeadlines: [draft.creativeBrief?.hookPromise, draft.hook, draft.recommendedHook, draft.topic, draft.creativeBrief?.topic]
+    fallbackHeadlines
   });
   return {
     ...withHumanizedPlan(draft, repairedPlan),

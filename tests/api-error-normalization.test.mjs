@@ -81,8 +81,8 @@ test("brief service retries stale ai topics before accepting a fresh brief", asy
 
     assert.equal(brief.topic, "Почему вечерняя усталость начинается еще днем");
     assert.equal(bodies.length, 3);
-    assert.match(bodies[1].existingJobs.at(-1).title, /ОТКЛОНЕНО/);
-    assert.match(bodies[2].existingJobs.at(-1).topic, /шаблонная формула/);
+    assert.ok(bodies[1].existingJobs.some((job) => /ОТКЛОНЕНО/.test(job.title)));
+    assert.ok(bodies[2].existingJobs.some((job) => /шаблонная формула/.test(job.topic)));
   } finally {
     globalThis.fetch = previousFetch;
   }

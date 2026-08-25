@@ -106,12 +106,44 @@ test("product evidence about packaging does not become an automatic content topi
   assert.match(text, /ритуал|водн|wellness/i);
 });
 
+test("non-travel products never receive travel topic clusters", () => {
+  const plan = createTopicClusterPlan({
+    project: { projectTheme: "уход за кожей тела" },
+    product: {
+      id: "body-gel",
+      name: "Гель для душа с кислотами",
+      aiPassport: {
+        contentTerritory: {
+          productWorld: "ритуал ухода за кожей",
+          adjacentHelpfulTopics: ["способ применения кислот", "привычки после душа"]
+        }
+      }
+    }
+  });
+
+  assert.ok(plan.available.length > 0);
+  assert.ok(plan.available.every((cluster) => !clusterRulesForTest.has(cluster.id)));
+});
+
+const clusterRulesForTest = new Set([
+  "payment-services", "culture-etiquette", "local-habits", "sights-routes", "transport-logistics",
+  "food-gastro", "climate-season", "trip-prep", "digital-travel", "info-noise"
+]);
+
 test("same product does not reuse its last topic cluster", () => {
   const product = createTravelProduct();
   const first = createTopicClusterPlan({ product });
+  const staleJobs = Array.from({ length: 12 }, (_, index) => ({
+    productId: `other-${index}`,
+    title: "Старая тема",
+    createdAt: `2026-08-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`
+  }));
   const second = createTopicClusterPlan({
     product,
-    existingJobs: [{ productId: product.id, topicCluster: { label: first.selected.label } }]
+    existingJobs: [
+      ...staleJobs,
+      { productId: product.id, topicCluster: { label: first.selected.label }, createdAt: "2026-08-24T00:00:00.000Z" }
+    ]
   });
 
   assert.notEqual(second.selected.id, first.selected.id);

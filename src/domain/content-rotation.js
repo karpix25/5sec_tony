@@ -29,7 +29,7 @@ function pickContentSlots(project, product) {
 }
 
 export function createRecentJobDigest(existingJobs = []) {
-  return existingJobs.slice(0, 30).map((job) => ({
+  return selectRecentJobs(existingJobs, 30).map((job) => ({
     title: job.title || "",
     topic: job.topic || "",
     semanticKey: job.semanticKey || "",
@@ -41,6 +41,14 @@ export function createRecentJobDigest(existingJobs = []) {
     attentionFrame: job.attentionFrame || "",
     layoutType: job.layoutContentPlan?.layoutType || ""
   }));
+}
+
+export function selectRecentJobs(existingJobs = [], limit = existingJobs.length) {
+  return existingJobs
+    .map((job, index) => ({ job, index, createdAt: Date.parse(job.createdAt || "") || 0 }))
+    .sort((left, right) => right.createdAt - left.createdAt || right.index - left.index)
+    .slice(0, limit)
+    .map(({ job }) => job);
 }
 
 function enrichSlotWithLayer(slot, { project, product, existingJobs }) {

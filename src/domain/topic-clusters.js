@@ -1,5 +1,7 @@
 import { normalizeProductAiPassport } from "./ai-artifacts.js";
+import { selectRecentJobs } from "./content-rotation.js";
 import { isEditorialTopicEligible } from "./editorial-topic-policy.js";
+import { isTravelContentProject } from "./project-content-intent.js";
 
 const maxRecentJobs = 12;
 const maxClusters = 10;
@@ -19,7 +21,7 @@ const clusterRules = [
 
 export function createTopicClusterPlan({ project, product, existingJobs = [] } = {}) {
   const clusters = buildTopicClusters(product, project);
-  const recentJobs = existingJobs.slice(0, maxRecentJobs);
+  const recentJobs = selectRecentJobs(existingJobs, maxRecentJobs);
   const scored = clusters
     .map((cluster, index) => scoreCluster(cluster, recentJobs, index, product?.id))
     .sort((left, right) => right.score - left.score);
@@ -32,6 +34,7 @@ export function createTopicClusterPlan({ project, product, existingJobs = [] } =
 
 export function buildTopicClusters(product = {}, project = {}) {
   const passport = normalizeProductAiPassport(product.aiPassport);
+  const useTravelRules = isTravelContentProject(project, product);
   const territory = passport.contentTerritory || {};
   const sources = [
     ...itemsToClusterSources(project.keyScenarios, "brandScenario"),
@@ -50,7 +53,7 @@ export function buildTopicClusters(product = {}, project = {}) {
   ].filter((source) => isEditorialTopicEligible({ text: source.text, project, product }));
   const grouped = new Map();
   for (const source of sources) {
-    const base = resolveClusterRule(source.text);
+    const base = resolveClusterRule(source.text, useTravelRules);
     const existing = grouped.get(base.id) || {
       id: base.id,
       label: base.label,
@@ -116,8 +119,8 @@ function itemsToClusterSources(items = [], type) {
   return clusterAsArray(items).map((text) => ({ text, type }));
 }
 
-function resolveClusterRule(text) {
-  return clusterRules.find((rule) => rule.pattern.test(text)) || {
+function resolveClusterRule(text, useTravelRules) {
+  return (useTravelRules ? clusterRules.find((rule) => rule.pattern.test(text)) : null) || {
     id: `product-${stableSlug(text)}`,
     label: text,
     pattern: /$^/
