@@ -153,6 +153,24 @@ test("claim contract rejects invented microdamage and absolute causes", () => {
   ]);
 });
 
+test("cosmetic advice cannot invent mechanisms for external factors", () => {
+  const hairContext = {
+    product: { name: "Масло для волос", description: "Масло для ухода за длиной волос" }
+  };
+  const content = {
+    headline: "Волосы как проволока? Дело в воде",
+    points: [
+      "Жесткая вода вымывает липиды и делает волосы сухими",
+      "Жесткость воды провоцирует пушистость"
+    ]
+  };
+
+  const violations = getUnsupportedClaimViolations(content, hairContext);
+  assert.ok(violations.includes("headline:unsupported_causal_certainty"));
+  assert.ok(violations.includes("points[0]:unsupported_external_causal_mechanism"));
+  assert.ok(violations.includes("points[1]:unsupported_external_causal_mechanism"));
+});
+
 test("claim contract rejects an unsupported body damage metaphor", () => {
   const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
 
