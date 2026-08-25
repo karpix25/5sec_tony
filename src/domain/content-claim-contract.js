@@ -43,7 +43,11 @@ export function getClaimEvidence({ product = {}, productPassport = {} } = {}) {
 export function getUnsupportedClaimViolations(contentScript = {}, context = {}) {
   const evidenceText = normalizeForMatch(getClaimEvidence(context).join(" "));
   return getVisibleLines(contentScript).flatMap(({ field, text }) => unsupportedClaimPatterns
-    .filter(([, pattern]) => pattern.test(normalizeForMatch(text)) && !pattern.test(evidenceText))
+    .filter(([, pattern]) => {
+      const claims = getClaimMatches(text, pattern);
+      const supported = new Set(getClaimMatches(evidenceText, pattern, true));
+      return claims.some((claim) => !supported.has(claim));
+    })
     .map(([id]) => `${field}:unsupported_${id}`));
 }
 
@@ -108,4 +112,13 @@ function uniqueLines(lines) {
 
 function normalizeForMatch(value) {
   return String(value || "").toLocaleLowerCase("ru-RU").replace(/ё/g, "е").replace(/[^a-zа-я0-9]+/giu, " ").trim();
+}
+
+function getClaimMatches(value, pattern, excludeNegated = false) {
+  const text = normalizeForMatch(value);
+  const matcher = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`);
+  return [...text.matchAll(matcher)]
+    .filter((match) => !excludeNegated || !/(?:^|\s)(?:без|не|от)\s*$/u.test(text.slice(Math.max(0, match.index - 8), match.index)))
+    .map((match) => normalizeForMatch(match[0]))
+    .filter(Boolean);
 }

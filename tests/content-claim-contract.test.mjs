@@ -57,6 +57,13 @@ test("claim contract rejects an unsupported harm claim", () => {
   assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Минеральный дезодорант" } }), ["headline:unsupported_effect"]);
 });
 
+test("another supported effect does not authorize an unsupported harm claim", () => {
+  const content = { headline: "Обычная паста вредит эмали", points: ["Проверьте состав"] };
+  const product = { description: "Ксилит блокирует рост бактерий. Формула защищает эмаль от повреждений." };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product }), ["headline:unsupported_effect"]);
+});
+
 test("claim contract rejects invented dental damage mechanisms", () => {
   const content = {
     headline: "Скрип зубов — это микроцарапины",
