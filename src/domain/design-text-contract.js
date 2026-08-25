@@ -36,6 +36,7 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
   if (/[,;:—–-]$/.test(headline) || incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
+  if (subhead && points.some((point) => hasSameMeaning(subhead, point))) violations.push("subhead_duplicates_point");
   const promisedItemCount = getPromisedItemCount(headline);
   if (promisedItemCount && promisedItemCount !== points.length) violations.push("headline_count_mismatch");
   if (points.some((point) => genericPointPattern.test(point))) violations.push("generic_point");
@@ -63,9 +64,9 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
   const headline = candidates.find((line) => isValidHeadline(line, options.product))
     || "Сначала проверь способ применения";
   const rawSubhead = normalizeRepairLine(contentScript.subhead);
-  const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead)
+  const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead) && !points.some((point) => hasSameMeaning(rawSubhead, point))
     ? rawSubhead
-    : points.find((point) => !hasSameMeaning(headline, point)) || "";
+    : "";
   return { ...contentScript, headline, subhead, points };
 }
 

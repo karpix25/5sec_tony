@@ -55,7 +55,7 @@ test("visible text repair always returns a valid headline", () => {
   }, { fallbackHeadlines: ["Скрабы не лечат гусиную кожу"] });
 
   assert.equal(repaired.headline, "Скрабы не лечат гусиную кожу");
-  assert.equal(repaired.subhead, "Первый полезный факт");
+  assert.equal(repaired.subhead, "");
   assert.deepEqual(repaired.points, ["Первый полезный факт"]);
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
@@ -180,6 +180,19 @@ test("visible text contract counts promises written as Russian words", () => {
 
   assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_count_mismatch"));
   assert.notEqual(repairVisibleTextContract(contentScript).headline, contentScript.headline);
+});
+
+test("visible text contract removes a subhead repeated in the points", () => {
+  const contentScript = {
+    headline: "Стянутость после умывания",
+    subhead: "Мелкие сеточки заметнее к вечеру",
+    points: ["Мелкие сеточки заметнее к вечеру", "Тусклый цвет лица"]
+  };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("subhead_duplicates_point"));
+  const repaired = repairVisibleTextContract(contentScript);
+  assert.equal(repaired.subhead, "");
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
 test("visible text contract rejects clipped and artificial number openings", () => {
