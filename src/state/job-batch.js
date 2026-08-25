@@ -1,5 +1,6 @@
 import { createGenerationJob } from "../domain/generation.js";
 import { pickNextDesignReference } from "../domain/references.js";
+import { createTopicClusterPlan } from "../domain/topic-clusters.js";
 
 export function createGenerationJobBatch({ context, existingJobs, count, products = [], rotateReferences = true }) {
   const jobs = [];
@@ -20,7 +21,16 @@ export function createGenerationJobBatch({ context, existingJobs, count, product
       reference,
       existingJobs: [...existingJobs, ...jobs]
     });
-    jobs.push(job);
+    const topicCluster = createTopicClusterPlan({
+      project: context.project,
+      product,
+      existingJobs: [...existingJobs, ...jobs]
+    }).selected;
+    jobs.push(topicCluster ? {
+      ...job,
+      topicCluster,
+      diversitySlot: { ...job.diversitySlot, topicCluster }
+    } : job);
   }
   return jobs;
 }

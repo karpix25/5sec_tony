@@ -19,14 +19,17 @@ const clusterRules = [
   { id: "info-noise", label: "поиск актуальной информации", pattern: /информац|устар|шум|форум|блог|путевод|данн|актуаль/i }
 ];
 
-export function createTopicClusterPlan({ project, product, existingJobs = [] } = {}) {
+export function createTopicClusterPlan({ project, product, existingJobs = [], reservedCluster = null } = {}) {
   const clusters = buildTopicClusters(product, project);
   const recentJobs = selectRecentJobs(existingJobs, maxRecentJobs);
   const scored = clusters
     .map((cluster, index) => scoreCluster(cluster, recentJobs, index, product?.id))
     .sort((left, right) => right.score - left.score);
+  const reserved = reservedCluster?.id
+    ? scored.find((cluster) => cluster.id === reservedCluster.id) || null
+    : null;
   return {
-    selected: scored[0] || null,
+    selected: reserved || scored[0] || null,
     available: scored.slice(0, maxClusters),
     recentClusterIds: recentJobs.map((job) => classifyTopicCluster(job, clusters)).filter(Boolean)
   };

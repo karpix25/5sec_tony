@@ -22,7 +22,12 @@ export async function generateServerAiBrief({ origin, project, product, referenc
     const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
     const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs });
-    const topicClusterPlan = createTopicClusterPlan({ project, product, existingJobs: attemptExistingJobs });
+    const topicClusterPlan = createTopicClusterPlan({
+      project,
+      product,
+      existingJobs: attemptExistingJobs,
+      reservedCluster: slot.topicCluster
+    });
     const brief = await requestServerAiBrief(origin, {
       project,
       product,

@@ -272,3 +272,41 @@ test("server brief sends selected topic cluster to the ai departments", async ()
     globalThis.fetch = previousFetch;
   }
 });
+
+test("server brief keeps the topic cluster reserved by its batch", async () => {
+  const previousFetch = globalThis.fetch;
+  const product = createTravelProduct();
+  const reservedCluster = createTopicClusterPlan({ product }).available[2];
+  let sentCluster = null;
+  globalThis.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    sentCluster = body.topicCluster;
+    return {
+      ok: true,
+      json: async () => ({
+        draft: {
+          topicCluster: body.topicCluster,
+          creativeBrief: { topic: body.topicCluster.label, formatIntent: "checklist" },
+          hook: "Короткий заголовок для теста",
+          contentScript: { headline: "Короткий заголовок для теста", subhead: "", points: ["Пункт"] }
+        }
+      })
+    };
+  };
+
+  try {
+    const brief = await generateServerAiBrief({
+      origin: "http://127.0.0.1:4173",
+      project: { id: "ppm", projectTheme: "Рекомендации о туризме" },
+      product,
+      reference: { id: "ref", type: "design" },
+      existingJobs: [],
+      diversitySlot: { id: "reserved-slot", topicCluster: reservedCluster }
+    });
+
+    assert.equal(sentCluster.id, reservedCluster.id);
+    assert.equal(brief.topicCluster.id, reservedCluster.id);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});

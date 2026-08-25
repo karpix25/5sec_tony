@@ -44,7 +44,12 @@ export async function generateAiBrief({ project, product, reference, existingJob
 }
 
 async function requestAiBrief({ project, product, preparedReference, activeDesignReference, existingJobs, slot }) {
-  const topicClusterPlan = createTopicClusterPlan({ project, product, existingJobs });
+  const topicClusterPlan = createTopicClusterPlan({
+    project,
+    product,
+    existingJobs,
+    reservedCluster: slot.topicCluster
+  });
   const response = await fetch("/api/generation/brief", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
