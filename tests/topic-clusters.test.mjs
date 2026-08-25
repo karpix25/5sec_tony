@@ -204,6 +204,7 @@ test("cosmetic clusters exclude diagnoses and systemic skin causes", () => {
           adjacentHelpfulTopics: [
             "что такое гиперкератоз",
             "влияние питания и образа жизни на кожу",
+            "как стресс и недосып отражаются на лице",
             "комфорт кожи после душа"
           ]
         }
@@ -212,7 +213,7 @@ test("cosmetic clusters exclude diagnoses and systemic skin causes", () => {
   });
 
   const topics = plan.available.map((cluster) => cluster.label).join(" ");
-  assert.doesNotMatch(topics, /гиперкерат|питани|образ.{0,12}жизн/i);
+  assert.doesNotMatch(topics, /гиперкерат|питани|образ.{0,12}жизн|стресс|недосып/i);
   assert.match(topics, /очищ|комфорт|уход/i);
 });
 
