@@ -102,6 +102,18 @@ test("claim contract rejects invented dental damage mechanisms", () => {
   assert.deepEqual(getUnsupportedClaimViolations(repairUnsupportedClaims(content, dentalProduct), dentalProduct), []);
 });
 
+test("claim contract rejects violent dental hooks and invented friction", () => {
+  const content = {
+    headline: "Брекеты: как не убить эмаль",
+    points: ["Абразивные пасты создают лишнее трение у металла"]
+  };
+
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Зубная паста" } }), [
+    "headline:unsupported_physical_damage",
+    "points[0]:unsupported_physical_damage"
+  ]);
+});
+
 test("claim contract rejects invented microdamage and absolute causes", () => {
   const content = {
     headline: "Волосы ломаются при расчесывании",
