@@ -176,6 +176,11 @@ test("cosmetic advice cannot invent mechanisms for external factors", () => {
   assert.ok(violations.includes("points[1]:unsupported_external_causal_mechanism"));
 });
 
+test("cosmetic copy cannot assert an unsupported cause with iz-za", () => {
+  const content = { headline: "Из-за воды в кране", points: [] };
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Масло для волос" } }), ["headline:unsupported_causal_certainty"]);
+});
+
 test("claim contract rejects an unsupported body damage metaphor", () => {
   const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
 
