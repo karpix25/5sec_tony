@@ -7,6 +7,8 @@ const weakHeadlineShellPattern = /^(?:почему\s+|скрип\s+|не\s+пр�
 const headlineJargonPattern = /эргономик|оптимизац|(?:^|\s)функционал(?:\s|$)|синерг|ресурс(?:ы|ами)?\s+организма/i;
 const orphanMeasurementPattern = /(?:^|\s)(?:мг|мл|кг|г|%)(?=\s|$|[.,;:])/i;
 const supportedMeasurementPattern = /\d+(?:[.,]\d+)?\s*(?:мг|мл|кг|г|%)(?:\s|$)/i;
+const promisedItemCountPattern = /\b([2-9])\s+(?:способ|совет|причин|шаг|правил|ошиб|привыч|факт|признак|вариант)[а-яё]*/i;
+const genericPointPattern = /^(?:смотрите на состав|сверяйте обещания|оценивайте комфорт|следуйте инструкции)(?:\s|$)/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
 export function getVisibleTextContractViolations({ contentScript = {}, product = {} } = {}) {
@@ -31,6 +33,9 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (hasAdjacentDuplicateWords(headline)) violations.push("headline_duplicate_word");
   if (/[,;:—–-]$/.test(headline) || incompleteHeadlineEndingPattern.test(lastHeadlineWord(headline))) violations.push("headline_incomplete");
   if (subhead && hasSameMeaning(headline, subhead)) violations.push("subhead_duplicates_headline");
+  const promisedItemCount = getPromisedItemCount(headline);
+  if (promisedItemCount && promisedItemCount !== points.length) violations.push("headline_count_mismatch");
+  if (points.some((point) => genericPointPattern.test(point))) violations.push("generic_point");
   if ([headline, subhead, ...points].some((line) => /\uFFFD/.test(line))) violations.push("replacement_character");
   if ([headline, subhead, ...points].some((line) => forbiddenVisiblePattern.test(line))) violations.push("forbidden_visible_copy");
   if ([headline, subhead, ...points].some(hasOrphanMeasurement)) violations.push("orphan_measurement");
@@ -38,7 +43,11 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
 }
 
 export function repairVisibleTextContract(contentScript = {}, options = {}) {
-  const sourceHeadline = normalizeRepairLine(contentScript.headline);
+  const points = getScriptPoints(contentScript)
+    .map(normalizePointText)
+    .map(normalizeRepairLine)
+    .filter((line) => line && !genericPointPattern.test(line) && !forbiddenVisiblePattern.test(line) && !hasOrphanMeasurement(line));
+  const sourceHeadline = removeMismatchedCountPromise(normalizeRepairLine(contentScript.headline), points.length);
   const fallbackHeadlines = Array.isArray(options.fallbackHeadlines) ? options.fallbackHeadlines : [];
   const [sourceCandidate, ...sourceClauses] = createHeadlineCandidates(sourceHeadline);
   const candidates = [
@@ -50,10 +59,6 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
     .filter((line) => line && !looksLikeProductDump(line, options.product) && !forbiddenVisiblePattern.test(line));
   const headline = candidates.find((line) => isValidHeadline(line, options.product))
     || "Сначала проверь способ применения";
-  const points = getScriptPoints(contentScript)
-    .map(normalizePointText)
-    .map(normalizeRepairLine)
-    .filter((line) => line && !forbiddenVisiblePattern.test(line) && !hasOrphanMeasurement(line));
   const rawSubhead = normalizeRepairLine(contentScript.subhead);
   const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead)
     ? rawSubhead
@@ -193,6 +198,20 @@ function lastHeadlineWord(value) {
 
 function hasOrphanMeasurement(value) {
   return orphanMeasurementPattern.test(String(value || "")) && !supportedMeasurementPattern.test(String(value || ""));
+}
+
+function getPromisedItemCount(value) {
+  const match = String(value || "").match(promisedItemCountPattern);
+  return match ? Number(match[1]) : 0;
+}
+
+function removeMismatchedCountPromise(value, pointCount) {
+  const promised = getPromisedItemCount(value);
+  if (!promised || promised === pointCount) return value;
+  return normalizeRepairLine(String(value).replace(
+    new RegExp(`(?:[?!.,:;—–-]\\s*)?\\b${promised}\\s+(?:способ|совет|причин|шаг|правил|ошиб|привыч|факт|признак|вариант)[а-яё]*.*$`, "i"),
+    ""
+  ));
 }
 
 function hasBrokenHeadlineStart(value) {

@@ -27,13 +27,6 @@ const strictWellnessClaims = new Set([
   "effect"
 ]);
 
-const safeFallbackPoints = [
-  "Смотрите на состав и способ применения",
-  "Сверяйте обещания с описанием продукта",
-  "Оценивайте комфорт в привычном сценарии",
-  "Следуйте инструкции на упаковке"
-];
-
 export const claimEvidenceRules = [
   "Факты, причины, механизмы и эффекты можно брать только из исходных полей product: name, description, offer, components, facts и allowed.",
   "safeFacts и allowedClaims в productPassport помогают искать формулировки, но не разрешают новый claim, которого нет в исходном product.",
@@ -80,7 +73,7 @@ export function repairUnsupportedClaims(contentScript = {}, context = {}) {
     context.productPassport?.allowedClaims
   ]);
   const productName = normalizeForMatch(context.product?.name);
-  const candidates = uniqueLines([...passportLines, ...safeFallbackPoints])
+  const candidates = uniqueLines(passportLines)
     .filter((line) => normalizeForMatch(line) !== productName)
     .filter((line) => isEditorialTopicEligible({ text: line, project: context.project, product: context.product }))
     .filter((line) => line.length >= 18 && line.length <= 120);
@@ -97,9 +90,11 @@ export function repairUnsupportedClaims(contentScript = {}, context = {}) {
         return candidate;
       }
     }
-    return safeFallbackPoints.find((line) => !used.has(normalizeForMatch(line))) || safeFallbackPoints[0];
+    return "";
   };
-  const points = asPointLines(contentScript.points).map((point) => lineHasUnsupportedClaim(point, context) ? nextCandidate() : point);
+  const points = asPointLines(contentScript.points)
+    .map((point) => lineHasUnsupportedClaim(point, context) ? nextCandidate() : point)
+    .filter(Boolean);
   return {
     ...contentScript,
     headline: lineHasUnsupportedClaim(contentScript.headline, context) ? "" : contentScript.headline,

@@ -104,7 +104,6 @@ export async function createCreativeTeamImagePromptPackage({ token, model, callO
     instruction: imagePromptEngineerInstruction(body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief)
   });
 }
-
 export function humanizeTextInstruction(body) {
   return JSON.stringify({
     task: "Перепиши финальный текст инфографики человеческим массовым языком перед генерацией картинки.",
@@ -120,6 +119,7 @@ export function humanizeTextInstruction(body) {
       "Все поля headline, subhead, points, cta и disclaimer пиши только на русском; английские слова и латиницу переводи на русский, кроме официальных названий брендов и сервисов.",
       "CTA не нужен: верни cta пустой строкой и убери любые 'узнайте', 'сохраните', 'закажите', 'в описании', 'в профиле' из текста.",
       "Оставь 4-6 самых сильных смысловых фраз: достаточно плотных, чтобы читать дольше 5 секунд, но без длинной таблицы или рекламного каталога.",
+      "Если headline обещает конкретное число советов, способов, причин или шагов, число должно точно совпадать с количеством points.", "Не используй пустые заглушки вроде 'смотрите на состав', 'сверяйте обещания', 'оценивайте комфорт' или 'следуйте инструкции'. Вместо них дай конкретный факт, пример или бытовое действие по теме.",
       humanizedPointRule,
       "Headline: 3–6 слов, максимум 34 символа. Это законченная естественная фраза, которая целиком помещается в две крупные строки. Если исходный headline длиннее — перепиши его целиком, а не обрезай.",
       "Прочитай headline вслух. Если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.",
@@ -147,7 +147,6 @@ export function humanizeTextInstruction(body) {
     restrictions: { project: body.project?.restrictions || body.project?.contentRestrictions || "", productForbidden: body.product?.forbidden || [] }
   });
 }
-
 async function runRole({ token, model, callOpenRouter, parseJsonDraft, instruction, imageUrls = [] }) {
   const userContent = imageUrls.length
     ? [{ type: "text", text: instruction }, ...imageUrls.map((url) => ({ type: "image_url", image_url: { url } }))]

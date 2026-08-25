@@ -157,6 +157,20 @@ test("visible text contract removes internal production directions", () => {
   assert.deepEqual(repairVisibleTextContract(contentScript).points, ["Проверьте привычный рацион"]);
 });
 
+test("visible text contract rejects filler points and mismatched numbered promises", () => {
+  const contentScript = {
+    headline: "Пьешь воду через силу? 4 способа",
+    points: ["Продукт содержит натуральную мяту", "Смотрите на состав и способ применения"]
+  };
+
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_count_mismatch"));
+  assert.ok(getVisibleTextContractViolations({ contentScript }).includes("generic_point"));
+  const repaired = repairVisibleTextContract(contentScript);
+  assert.equal(repaired.headline, "Пьешь воду через силу");
+  assert.deepEqual(repaired.points, ["Продукт содержит натуральную мяту"]);
+  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+});
+
 test("visible text contract rejects clipped and artificial number openings", () => {
   for (const headline of ["ки в сочетании ухода", "Почему 16 лет в лаборатории"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_broken_start"));

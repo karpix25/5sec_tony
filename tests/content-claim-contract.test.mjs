@@ -32,7 +32,7 @@ test("claim contract rejects medical mechanisms invented from an adjacent topic"
     "points[1]:unsupported_effect"
   ]);
   const repaired = repairUnsupportedClaims(content, context);
-  assert.equal(repaired.points[2], "Легкий крем быстро впитывается");
+  assert.ok(repaired.points.includes("Легкий крем быстро впитывается"));
   assert.deepEqual(getUnsupportedClaimViolations(repaired, context), []);
 });
 
@@ -259,6 +259,18 @@ test("claim repair skips packaging and certificates for a non-operational produc
   }, context);
 
   assert.deepEqual(repaired.points, ["Продукт содержит натуральный ароматизатор мяты"]);
+});
+
+test("claim repair drops unsafe points instead of inserting editorial filler", () => {
+  const repaired = repairUnsupportedClaims({
+    headline: "Четыре обещания про добавку",
+    points: ["Хлорофилл очищает организм", "Хлорофилл повышает энергию"]
+  }, {
+    product: { name: "Жидкий хлорофилл" },
+    productPassport: { category: "БАД" }
+  });
+
+  assert.deepEqual(repaired.points, []);
 });
 
 test("adjacent pet advice cannot invent a physical cause", () => {
