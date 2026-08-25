@@ -171,6 +171,25 @@ test("non-travel products never receive travel topic clusters", () => {
   assert.ok(plan.available.every((cluster) => !clusterRulesForTest.has(cluster.id)));
 });
 
+test("country of manufacture does not turn cosmetics into travel content", () => {
+  const plan = createTopicClusterPlan({
+    project: { projectTheme: "уход за кожей" },
+    product: {
+      id: "spf-cream",
+      facts: ["Страна производства — Россия"],
+      aiPassport: {
+        contentTerritory: {
+          productWorld: "ежедневный уход за кожей",
+          adjacentHelpfulTopics: ["сочетание крема с другими этапами ухода"]
+        }
+      }
+    }
+  });
+
+  assert.ok(plan.available.length > 0);
+  assert.ok(plan.available.every((cluster) => !clusterRulesForTest.has(cluster.id)));
+});
+
 test("cosmetic clusters exclude diagnoses and systemic skin causes", () => {
   const plan = createTopicClusterPlan({
     product: {

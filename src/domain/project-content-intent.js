@@ -8,7 +8,7 @@ export function isTravelContentProject(project, product) {
     product?.offer,
     intentListText(product?.facts)
   ].join(" "));
-  return /туризм|турист|путеше|поездк|стран|достопримеч|культурн|маршрут|локаци|местн|отдых|travel/.test(source);
+  return /туризм|турист|путешеств|поездк|достопримеч|маршрут|travel/.test(source);
 }
 
 export function isPaymentProject(project, product) {
