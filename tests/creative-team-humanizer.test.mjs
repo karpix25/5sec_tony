@@ -60,7 +60,7 @@ test("creative team humanizer proofreads repaired medical causes without stoppin
     model: "writer",
     body: { product: { name: "Крем для век", description: "Легкий крем с пептидами", facts: ["Быстро впитывается"] } },
     draft: {
-      productPassport: { contentTerritory: { adjacentHelpfulTopics: ["Гаджеты и мимика глаз"] } },
+      productPassport: { category: "уход за кожей" },
       contentScript: { headline: "Лицо устает к обеду", points: ["Быстро впитывается"] }
     },
     callOpenRouter: async (_token, _model, messages) => {

@@ -48,17 +48,14 @@ test("product AI passport is semantic and drops visual identity", () => {
   assert.equal(Object.hasOwn(passport, "visualIdentity"), false);
 });
 
-test("generation passport requires a broad product world", () => {
+test("generation passport requires current fact fields", () => {
   assert.equal(hasGenerationReadyProductPassport(product.aiPassport), false);
   assert.equal(hasGenerationReadyProductPassport({
-    version: "product-passport-v2",
+    version: "product-passport-v3",
     productName: "Шампунь",
     safeFacts: ["мягко очищает волосы"],
-    contentTerritory: {
-      productWorld: "уход за волосами и кожей головы",
-      directProductTopics: ["очищение волос"],
-      adjacentHelpfulTopics: ["укладка и привычки ухода"]
-    }
+    category: "уход за волосами",
+    coreUseCases: ["очищение волос"]
   }), true);
 });
 

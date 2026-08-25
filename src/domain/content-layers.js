@@ -105,13 +105,7 @@ function getLayerSubject(project, product, existingJobs) {
 function getPassportLayerSubjects(product = {}, project = {}) {
   if (!hasGenerationReadyProductPassport(product.aiPassport)) return [];
   const passport = normalizeProductAiPassport(product.aiPassport);
-  const territory = passport.contentTerritory || {};
   return [
-    territory.habitsAndMistakes,
-    territory.guidesAndRecommendations,
-    territory.adjacentHelpfulTopics,
-    territory.lifestyleContexts,
-    territory.directProductTopics,
     passport.painSituations,
     passport.desires,
     passport.coreUseCases,

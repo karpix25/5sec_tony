@@ -49,19 +49,11 @@ test("wellness batch rotates product pains across content layers", () => {
   assert.equal(new Set(compositionModes).size, 3);
 });
 
-test("batch reserves different topic clusters before concurrent briefs run", () => {
+test("batch does not reserve editorial topics before AI builds a fresh map", () => {
   const project = projects.find((item) => item.id === "supplements");
   const product = {
     ...products.find((item) => item.id === "magnesium"),
-    aiPassport: {
-      version: "product-passport-v2",
-      productName: "Магний",
-      contentTerritory: {
-        productWorld: "вечерний ритуал",
-        directProductTopics: ["привычки перед сном"],
-        adjacentHelpfulTopics: ["вечер без телефона", "спокойное начало дня"]
-      }
-    }
+    aiPassport: { version: "product-passport-v3", productName: "Магний", category: "БАД", coreUseCases: ["вечерний ритуал"] }
   };
   const jobs = createGenerationJobBatch({
     context: {
@@ -76,8 +68,8 @@ test("batch reserves different topic clusters before concurrent briefs run", () 
     count: 2
   });
 
-  assert.equal(new Set(jobs.map((job) => job.topicCluster?.id)).size, 2);
-  assert.deepEqual(jobs.map((job) => job.diversitySlot.topicCluster), jobs.map((job) => job.topicCluster));
+  assert.ok(jobs.every((job) => !Object.hasOwn(job, "topicCluster")));
+  assert.ok(jobs.every((job) => !Object.hasOwn(job.diversitySlot, "topicCluster")));
 });
 
 test("batch generation distributes jobs across project products", () => {

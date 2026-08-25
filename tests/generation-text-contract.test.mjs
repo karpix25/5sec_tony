@@ -19,12 +19,12 @@ test("AI generation repairs an oversized headline instead of stopping", () => {
         subhead: "",
         points: []
       },
-      topicCluster: { id: "daily-routine", label: "ежедневная привычка" }
+      topicSelection: { id: "daily-routine", theme: "ежедневная привычка" }
     }
   });
 
   assert.equal(job.title, "Мята меняет привычный вкус");
-  assert.equal(job.topicCluster.id, "daily-routine");
+  assert.equal(job.topicSelection.id, "daily-routine");
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: job.finalContent }), []);
 });
 

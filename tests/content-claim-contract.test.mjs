@@ -10,8 +10,7 @@ const context = {
   },
   productPassport: {
     safeFacts: ["Содержит три пептида"],
-    allowedClaims: ["Помогает поддерживать тонус кожи"],
-    contentTerritory: { adjacentHelpfulTopics: ["Влияние гаджетов на мимику глаз"] }
+    allowedClaims: ["Помогает поддерживать тонус кожи"]
   }
 };
 

@@ -52,7 +52,7 @@ export function createRejectedBriefJob(brief, freshness) {
     semanticKey: brief.semanticKey || brief.diversitySlot?.id || "",
     contentLayerId: brief.contentLayerId || brief.diversitySlot?.contentLayer?.id || "",
     diversitySlot: brief.diversitySlot || null,
-    topicCluster: brief.topicCluster || null,
+    topicSelection: brief.topicSelection || null,
     hookIntelligence: { hookType: "rejected-duplicate" }
   };
 }
@@ -86,7 +86,7 @@ function createFreshHeadlineFallback(brief, rejectedJobs) {
     if (statement) return statement[0].toLocaleUpperCase("ru-RU") + statement.slice(1);
   }
   const plan = brief.finalContent || brief.contentScript || brief.plan || brief.aiPlan || {};
-  const candidates = [brief.creativeBrief?.hookPromise, plan.subhead, ...(Array.isArray(plan.points) ? plan.points : []), brief.topic];
+  const candidates = [brief.creativeBrief?.hookPromise, plan.subhead, ...(Array.isArray(plan.points) ? plan.points : []), brief.topic].filter(Boolean);
   for (const candidate of candidates) {
     const repaired = repairVisibleTextContract({ headline: candidate, points: [] }).headline;
     if (repaired === "Сначала проверь способ применения" || repaired === headline) continue;

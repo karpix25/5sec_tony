@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ensureGenerationPreflight } from "../scripts/generation-preflight.mjs";
 
-test("generation preflight refreshes legacy passports without product world", async () => {
+test("generation preflight refreshes legacy fact passports", async () => {
   let state = {
     projects: [{
       id: "brand",
@@ -17,14 +17,11 @@ test("generation preflight refreshes legacy passports without product world", as
     audioLibrary: [{ id: "audio", fileData: "https://cdn.example.com/audio.mp3" }]
   };
   const passport = {
-    version: "product-passport-v2",
+    version: "product-passport-v3",
     productName: "Шампунь",
     safeFacts: ["очищает волосы"],
-    contentTerritory: {
-      productWorld: "уход за волосами и кожей головы",
-      directProductTopics: ["очищение волос"],
-      adjacentHelpfulTopics: ["укладка и привычки ухода"]
-    }
+    category: "уход за волосами",
+    coreUseCases: ["очищение волос"]
   };
   const result = await ensureGenerationPreflight({
     selection: { projectId: "brand", productId: "shampoo", referenceId: "design" },
@@ -37,5 +34,5 @@ test("generation preflight refreshes legacy passports without product world", as
   });
 
   assert.equal(result.createdProductPassports, 1);
-  assert.equal(state.products[0].aiPassport.contentTerritory.productWorld, passport.contentTerritory.productWorld);
+  assert.equal(state.products[0].aiPassport.category, passport.category);
 });

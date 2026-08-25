@@ -17,7 +17,6 @@ export function normalizeProductAiPassport(passport = null) {
     safeFacts: asArray(source.safeFacts),
     allowedClaims: asArray(source.allowedClaims),
     forbiddenClaims: asArray(source.forbiddenClaims),
-    contentTerritory: asObject(source.contentTerritory),
     productVisibilityRules: asObject(source.productVisibilityRules),
     tone: source.tone || "",
     openQuestions: asArray(source.openQuestions),
@@ -58,14 +57,14 @@ export function hasUsefulProductPassport(passport) {
 
 export function hasGenerationReadyProductPassport(passport) {
   const normalized = normalizeProductAiPassport(passport);
-  const territory = normalized.contentTerritory || {};
   return hasUsefulProductPassport(normalized)
     && normalized.version === productPassportVersion
-    && Boolean(territory.productWorld)
-    && Array.isArray(territory.directProductTopics)
-    && territory.directProductTopics.length > 0
-    && Array.isArray(territory.adjacentHelpfulTopics)
-    && territory.adjacentHelpfulTopics.length > 0;
+    && Boolean(
+      normalized.category
+      || normalized.plainDescription
+      || normalized.coreUseCases?.length
+      || normalized.safeFacts?.length
+    );
 }
 
 export function hasUsefulDesignAnalysis(analysis) {

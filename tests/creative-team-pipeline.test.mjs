@@ -301,9 +301,8 @@ test("creative team retries a malformed role JSON draft before failing the brief
     "Конечно, вот черновик без JSON",
     { productPassport: { productName: "Шиммер", safeFacts: ["косметический продукт"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "checklist_cards", structureName: "Checklist" } },
-    { attentionMap: { scrollStopperAngles: [{ angle: "Патчи скатываются" }] } },
+    { attentionMap: { topicMap: [{ id: "patches", theme: "Патчи скатываются", situation: "Утром все идет не по плану", productRelation: "Тема связана с привычкой наносить патчи" }] } },
     { creativeBrief: { topic: "Почему патчи скатываются", formatIntent: "saveable_note", productBridge: "шиммер уместен как мягкий косметический контекст" } },
-    { hookSet: [{ hook: "Патчи скатываются не просто так" }], recommendedHook: "Патчи скатываются не просто так" },
     { contentScript: { headline: "Патчи скатываются не просто так", subhead: "Причина часто в слое ухода", points: ["Крем оставляет пленку", "Консилер снижает сцепление", "Кожа слишком влажная", "Патч не успевает лечь"] } },
     { formatCompliance: { formatMatched: true, issues: [], fixedContentScript: {}, finalRules: [] } },
     { visualBrief: { mainVisualObject: "гелевые патчи", productUsage: "small_signal" } },
@@ -325,7 +324,7 @@ test("creative team retries a malformed role JSON draft before failing the brief
   });
 
   assert.equal(draft.productPassport.productName, "Шиммер");
-  assert.equal(systemPrompts.length, 11);
+  assert.equal(systemPrompts.length, 10);
   assert.match(systemPrompts[1], /Предыдущий ответ был отклонен/);
 });
 
@@ -333,9 +332,8 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   const responses = [
     { productPassport: { productName: "Магний", safeFacts: ["вечерний формат"], forbiddenClaims: ["лечит сон"] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", structureName: "Рейтинг привычек", layoutSlots: [{ id: "item", role: "rank_card", textCapacity: "short" }] } },
-    { attentionMap: { scrollStopperAngles: [{ angle: "Срыв вечерней рутины" }] } },
+    { attentionMap: { topicMap: [{ id: "evening", theme: "Вечерняя рутина", situation: "Вечером не остается сил на привычный ритуал", productRelation: "Тема связана с вечерним форматом продукта" }] } },
     { creativeBrief: { topic: "Почему вечерняя рутина срывается", formatIntent: "saveable_note", productBridge: "продукт уместен как часть рутины" } },
-    { hookSet: [{ hook: "Вечерний ритуал срывается не случайно" }], recommendedHook: "Вечерний ритуал срывается не случайно" },
     { contentScript: { headline: "Ритуал срывается вечером", subhead: "Причина часто в ожиданиях", points: ["Сначала уберите шум", "Проверьте привычку"] } },
     { formatCompliance: { formatMatched: false, issues: ["Нужно больше rank cards"], fixedContentScript: { headline: "ТОП вечерних сбоев", subhead: "Ритуалы | проверь привычки", points: ["1: Шум", "2: Экран", "3: Кофе", "4: Поздний ужин", "5: Свет", "6: Стресс", "7: Режим", "8: Телефон"] }, finalRules: [] } },
     { visualBrief: { mainVisualObject: "вечерняя полка", productUsage: "small_signal" } },
@@ -361,12 +359,14 @@ test("creative team brief runner executes role chain and flattens legacy fields"
     }
   });
 
-  assert.equal(calls.length, 10);
+  assert.equal(calls.length, 9);
   const passportPrompt = JSON.parse(calls[0].content);
   assert.equal(draft.productPassport.productName, "Магний");
   assert.equal(draft.designFormatBrief.formatType, "ranking_leaderboard");
-  assert.equal(draft.topic, "Почему вечерняя рутина срывается");
-  assert.equal(draft.hook, "Вечерний ритуал срывается не случайно");
+  assert.equal(draft.topic, "Вечерняя рутина");
+  assert.deepEqual(draft.topicSelection, { id: "evening", theme: "Вечерняя рутина", situation: "Вечером не остается сил на привычный ритуал", productRelation: "Тема связана с вечерним форматом продукта" });
+  assert.equal(draft.hook, "ТОП вечерних сбоев");
+  assert.equal(Object.hasOwn(draft, "hookSet"), false);
   assert.equal(draft.plan.headline, "ТОП вечерних сбоев");
   assert.equal(draft.contentScript.points.length, 8);
   assert.equal(draft.formatCompliance.formatMatched, false);
@@ -378,10 +378,10 @@ test("creative team brief runner executes role chain and flattens legacy fields"
   assert.match(calls[1].content[0].text, /edge pressure/);
   assert.match(calls[1].content[0].text, /x=150\.\.830, y=360\.\.1300/);
   assert.equal(calls[1].content[1].image_url.url, "https://studio.example.com/api/reference-assets/design-1");
-  assert.match(calls[5].content, /ranking_leaderboard/);
-  assert.match(calls[6].content, /format compliance editor/);
-  assert.match(calls[9].content, /ТОП вечерних сбоев/);
-  const imagePromptInstruction = JSON.parse(calls[9].content);
+  assert.match(calls[4].content, /ranking_leaderboard/);
+  assert.match(calls[5].content, /format compliance editor/);
+  assert.match(calls[8].content, /ТОП вечерних сбоев/);
+  const imagePromptInstruction = JSON.parse(calls[8].content);
   assert.match(imagePromptInstruction.rules.join(" "), /все заголовки, карточки, подписи, легенды и служебные ярлыки замени русским текстом/);
   assert.match(imagePromptInstruction.rules.join(" "), /role=safe_zone/);
   assert.match(imagePromptInstruction.rules.join(" "), /служебная 9:16 маска размещения/);
@@ -407,9 +407,8 @@ test("creative team runner records leaderboard text contract issues without writ
   const responses = [
     { productPassport: { productName: "Хлорофилл", safeFacts: ["напиток"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", textContract: { preferredItems: 10 }, structureName: "Top chart" } },
-    { attentionMap: { scrollStopperAngles: [{ angle: "Усталость днем" }] } },
+    { attentionMap: { topicMap: [{ id: "ritual", theme: "Вечерний ритуал", situation: "День заканчивается без паузы", productRelation: "Тема связана с вечерним форматом продукта" }] } },
     { creativeBrief: { topic: "Усталость или сигнал организма", formatIntent: "saveable_note", productBridge: "мягкий wellness-сигнал" } },
-    { hookSet: [{ hook: "Усталость не всегда про сон" }], recommendedHook: "Усталость не всегда про сон" },
     { contentScript: { headline: "Усталость или сигнал организма?", subhead: "5 маркеров, что пора пересмотреть привычки", points: ["Кожа стала тусклой", "Энергия падает к 16:00", "Трудности с концентрацией", "Сложно пить воду", "Тяжелый подъем"] } },
     { formatCompliance: { formatMatched: true, issues: [], fixedContentScript: {}, finalRules: [] } },
     { visualBrief: { mainVisualObject: "top chart", productUsage: "small_signal" } },
@@ -432,9 +431,9 @@ test("creative team runner records leaderboard text contract issues without writ
   assert.match(draft.contentScript.subhead, /5 маркеров/i);
   assert.equal(draft.contentScript.points.length, 5);
   assert.deepEqual(draft.textContractViolations, ["headline_not_top_chart", "subhead_old_count", "not_enough_rank_items"]);
-  assert.match(calls[7].content, /Усталость или сигнал организма/);
-  assert.match(calls[9].content, /Усталость или сигнал организма/);
-  assert.match(calls[9].content, /5 маркеров/i);
+  assert.match(calls[6].content, /Усталость или сигнал организма/);
+  assert.match(calls[8].content, /Усталость или сигнал организма/);
+  assert.match(calls[8].content, /5 маркеров/i);
   assert.match(draft.safetyReview.finalWarnings.join(" "), /Design text contract still has violations/);
 });
 
@@ -442,9 +441,8 @@ test("creative team runner records leaderboard contract issues after safety edit
   const responses = [
     { productPassport: { productName: "Хлорофилл", safeFacts: ["напиток"], forbiddenClaims: [] } },
     { designFormatBrief: { formatType: "ranking_leaderboard", textContract: { preferredItems: 12 }, structureName: "Top chart" } },
-    { attentionMap: { scrollStopperAngles: [{ angle: "Усталость днем" }] } },
+    { attentionMap: { topicMap: [{ id: "ritual", theme: "Вечерний ритуал", situation: "День заканчивается без паузы", productRelation: "Тема связана с вечерним форматом продукта" }] } },
     { creativeBrief: { topic: "Усталость или сигнал организма", formatIntent: "saveable_note", productBridge: "мягкий wellness-сигнал" } },
-    { hookSet: [{ hook: "Усталость не всегда про сон" }], recommendedHook: "Усталость не всегда про сон" },
     { contentScript: { headline: "ТОП 12 сигналов", subhead: "Маркеры дня | проверь привычки", points: ["1: Вода", "2: Сон", "3: Свет", "4: Экран", "5: Завтрак", "6: Движение", "7: Режим", "8: Фокус", "9: Пауза", "10: Вкус", "11: Комфорт", "12: Ритуал"] } },
     { formatCompliance: { formatMatched: true, issues: [], fixedContentScript: {}, finalRules: [] } },
     { visualBrief: { mainVisualObject: "top chart", productUsage: "small_signal" } },
@@ -468,5 +466,5 @@ test("creative team runner records leaderboard contract issues after safety edit
   assert.equal(draft.safetyReview.fixedContentScript.headline, "12 привычек, крадущих энергию");
   assert.deepEqual(draft.textContractViolations, ["headline_not_top_chart"]);
   assert.match(draft.safetyReview.finalWarnings.join(" "), /Design text contract still has violations/);
-  assert.match(calls[9].content, /12 привычек, крадущих энергию/);
+  assert.match(calls[8].content, /12 привычек, крадущих энергию/);
 });

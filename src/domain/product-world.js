@@ -1,12 +1,9 @@
-export const productPassportVersion = "product-passport-v2";
+export const productPassportVersion = "product-passport-v3";
 
 export const productWorldRules = [
-  "Определи productWorld: более широкую человеческую область вокруг товара, а не его прямую функцию.",
-  "Заполни contentTerritory как редакционную карту, а не список готовых заголовков.",
-  "Дай 3-5 directProductTopics, 6-10 adjacentHelpfulTopics, 4-8 guidesAndRecommendations, 4-8 habitsAndMistakes и 3-6 lifestyleContexts.",
-  "Смежные территории выводи из категории, задач аудитории и реальных сценариев использования: советы, гайды, ошибки, привычки, выбор, сезонность и образ жизни.",
-  "Не своди все темы к одному очевидному свойству товара и не повторяй одну мысль разными словами.",
-  "Не придумывай свойства товара: productWorld расширяет темы контента, но safeFacts и allowedClaims остаются только из входных данных."
+  "Паспорт хранит только устойчивые факты о продукте: категорию, понятное описание, аудиторию, сценарии, боли, желания, возражения и безопасные факты.",
+  "Не создавай карту тем, варианты заголовков, редакционные углы или список тем в паспорте: они выбираются заново для каждой генерации.",
+  "Не придумывай свойства товара: safeFacts и allowedClaims остаются только из входных данных."
 ];
 
 export function createProductPassportShape() {
@@ -23,15 +20,6 @@ export function createProductPassportShape() {
     safeFacts: [],
     allowedClaims: [],
     forbiddenClaims: [],
-    contentTerritory: {
-      productWorld: "",
-      directProductTopics: [],
-      adjacentHelpfulTopics: [],
-      guidesAndRecommendations: [],
-      habitsAndMistakes: [],
-      lifestyleContexts: [],
-      unsafeTopics: []
-    },
     productVisibilityRules: { showProductWhen: [], avoidProductWhen: [] },
     tone: "",
     openQuestions: []

@@ -111,7 +111,7 @@ async function generateBrief(request, response) {
     });
     const humanizedDraft = await humanizeCreativeTeamDraft({
       token,
-      body: { ...bodyWithReferenceImages, attentionFrame: draft.attentionFrame },
+      body: { ...bodyWithReferenceImages, attentionFrame: draft.attentionFrame, topicSelection: draft.topicSelection },
       draft,
       model: writingModel,
       callOpenRouter: callBriefOpenRouter,

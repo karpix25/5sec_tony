@@ -1,4 +1,4 @@
-const operationalSideTopicPattern = /упаковк|мембран|вскрыт|доставк|получени[ея]\s+заказ|маркетплейс|сертификат|сгр|документ(?:ы|ов)|производств(?:о|а)\s+в\s+(?:рф|росси)|произведен[а-яё]*\s+в\s+(?:рф|росси)|сделан[а-яё]*\s+в\s+(?:рф|росси)/i;
+const operationalSideTopicPattern = /упаковк|мембран|вскрыт|доставк|получени[ея]\s+заказ|маркетплейс|сертификат|сгр|документ(?:ы|ов)|сумк|чемодан|производств(?:о|а)\s+в\s+(?:рф|росси)|произведен[а-яё]*\s+в\s+(?:рф|росси)|сделан[а-яё]*\s+в\s+(?:рф|росси)/i;
 const wellnessContextPattern = /бад|wellness|нутрицевт|хлорофилл|добавк/i;
 const unsafeWellnessTopicPattern = /детокс|токсин|похуд|микробиом|кишеч|жкт|вздут|пищевар|аппетит|самочувств|кож|запах|дезодор|иммун|окислительн|клет|кислород|митохондр|организм/i;
 const cosmeticContextPattern = /космет|уход.{0,16}кож|кож.{0,16}уход|гель.{0,12}душ|скраб|крем|сыворот|дезодорант/i;
@@ -27,7 +27,6 @@ function getProductCategoryContext(project, product) {
     product.description,
     passport.category,
     passport.plainDescription,
-    passport.contentTerritory?.productWorld,
     project.niche,
     project.projectTheme
   ].filter(Boolean).join(" ");

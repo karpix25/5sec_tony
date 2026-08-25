@@ -48,14 +48,11 @@ function createState() {
   const product = {
     ...products.find((item) => item.projectId === project.id),
     aiPassport: {
-      version: "product-passport-v2",
+      version: "product-passport-v3",
       productName: "Тестовый продукт",
       safeFacts: ["Факт"],
-      contentTerritory: {
-        productWorld: "тестовая категория",
-        directProductTopics: ["прямая тема"],
-        adjacentHelpfulTopics: ["смежная тема"]
-      }
+      category: "тестовая категория",
+      coreUseCases: ["прямая тема"]
     }
   };
   return {

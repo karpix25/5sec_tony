@@ -3,23 +3,24 @@ import { stripUnicodeReplacementCharacters } from "./text-integrity.js";
 const creativeTeamPayloadDataImagePattern = /^data:image\/(?:png|jpe?g|webp);base64,/i;
 
 export function createCreativeTeamPayload(body = {}) {
-  const reference = compactReference(body.reference);
-  const includeProductReferences = body.productVisibilityDecision
-    ? body.productVisibilityDecision.shouldPassProductRefs === true
+  const source = { ...body };
+  delete source.topicCluster;
+  delete source.topicClusterPlan;
+  const reference = compactReference(source.reference);
+  const includeProductReferences = source.productVisibilityDecision
+    ? source.productVisibilityDecision.shouldPassProductRefs === true
     : true;
   return {
-    ...body,
-    project: compactProject(body.project),
-    product: compactProduct(body.product, { includeReferences: includeProductReferences }),
+    ...source,
+    project: compactProject(source.project),
+    product: compactProduct(source.product, { includeReferences: includeProductReferences }),
     reference,
-    activeDesignReference: compactActiveDesignReference(body.activeDesignReference || reference),
-    layoutContentPlan: sanitizeValue(body.layoutContentPlan || null),
-    existingJobs: sanitizeValue(Array.isArray(body.existingJobs) ? body.existingJobs : []),
-    recentAttentionFrames: sanitizeValue(Array.isArray(body.recentAttentionFrames) ? body.recentAttentionFrames : []),
-    availableAvatarEmotions: sanitizeValue(body.availableAvatarEmotions || []),
-    diversitySlot: sanitizeValue(body.diversitySlot || null),
-    topicCluster: sanitizeValue(body.topicCluster || null),
-    topicClusterPlan: sanitizeValue(body.topicClusterPlan || null)
+    activeDesignReference: compactActiveDesignReference(source.activeDesignReference || reference),
+    layoutContentPlan: sanitizeValue(source.layoutContentPlan || null),
+    existingJobs: sanitizeValue(Array.isArray(source.existingJobs) ? source.existingJobs : []),
+    recentAttentionFrames: sanitizeValue(Array.isArray(source.recentAttentionFrames) ? source.recentAttentionFrames : []),
+    availableAvatarEmotions: sanitizeValue(source.availableAvatarEmotions || []),
+    diversitySlot: sanitizeValue(source.diversitySlot || null)
   };
 }
 

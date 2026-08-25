@@ -4,7 +4,7 @@ import { createProductPassportInput } from "../src/domain/product-passport-input
 import { getDesignTextContractViolations } from "../src/domain/design-text-contract.js";
 import { formatCurrentDatePrompt } from "../src/domain/current-date-context.js";
 import { clickbaitHeadlineRules, hookPayoffRules, simpleAudienceLanguageRules, viralReelsHookRules } from "../src/domain/headline-style-contract.js";
-import { hasUsefulDesignAnalysis, hasUsefulProductPassport, normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
+import { hasGenerationReadyProductPassport, hasUsefulDesignAnalysis, normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { socialSafeZonePixelRules } from "../src/domain/social-safe-zone-contract.js";
 import { ruTextEditorialRules } from "../src/domain/ru-text-guidance.js";
 import { getImagePromptProductTextRules } from "../src/domain/language-policy.js";
@@ -14,6 +14,7 @@ import { attentionFrameInstruction, selectAttentionFrame } from "../src/domain/a
 import { createProductPassportShape, productWorldRules } from "../src/domain/product-world.js";
 import { editorialTopicRules } from "../src/domain/editorial-topic-policy.js";
 import { claimEvidenceRules, getClaimEvidence } from "../src/domain/content-claim-contract.js";
+import { selectTopicSelection } from "../src/domain/topic-selection.js";
 const commonRoleRules = [
   "Ты часть креативной команды для коротких вертикальных соцсетей: Reels, TikTok, Shorts.",
   ...ruTextEditorialRules,
@@ -57,7 +58,7 @@ const designReferenceFidelityRules = [
 export async function runCreativeTeamBrief({ token, body, model, referenceModel, callOpenRouter, parseJsonDraft, deferImagePromptPackage = false }) {
   body = createCreativeTeamPayload(body);
   const attentionFrame = selectAttentionFrame({ recentFrames: body.recentAttentionFrames, existingJobs: body.existingJobs });
-  const productPassport = hasUsefulProductPassport(body.productPassport || body.product?.aiPassport)
+  const productPassport = hasGenerationReadyProductPassport(body.productPassport || body.product?.aiPassport)
     ? { productPassport: normalizeProductAiPassport(body.productPassport || body.product.aiPassport) }
     : await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: productPassportInstruction(body) });
   const designFormatBrief = hasUsefulDesignAnalysis(body.designAnalysis || body.activeDesignReference?.designAnalysis || body.reference?.designAnalysis)
@@ -65,15 +66,16 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
     : await runRole({ token, model: referenceModel || model, callOpenRouter, parseJsonDraft, instruction: designFormatBriefInstruction(body, productPassport), imageUrls: body.designReferenceImageUrls });
   const normalizedDesignFormatBrief = resolveDesignFormatBrief(designFormatBrief.designFormatBrief || designFormatBrief, body);
   const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport, designFormatBrief, attentionFrame) });
-  const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(body, productPassport, attentionMap, designFormatBrief, attentionFrame) });
-  const hookSet = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: hookProducerInstruction(body, productPassport, creativeBrief, attentionFrame) });
-  const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, designFormatBrief, attentionFrame) });
+  const topicSelection = selectTopicSelection({ topicMap: attentionMap.attentionMap || attentionMap, project: body.project, product: body.product, existingJobs: body.existingJobs });
+  const selectedBody = { ...body, topicSelection, diversitySlot: { id: body.diversitySlot?.id || "", format: body.diversitySlot?.format || "" } };
+  const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(selectedBody, productPassport, attentionMap, designFormatBrief, attentionFrame) });
+  const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(selectedBody, productPassport, creativeBrief, designFormatBrief, attentionFrame) });
   const formatCompliance = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: formatComplianceInstruction({ commonRules: commonRoleRules, productPassport, creativeBrief, contentScript, designFormatBrief }) });
   const complianceScript = getCompliantContentScript(contentScript, formatCompliance);
   const contractViolations = getDesignTextContractViolations({ contentScript: complianceScript, designFormatBrief: normalizedDesignFormatBrief });
   const compliantScript = complianceScript;
-  const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(body, productPassport, creativeBrief, compliantScript, designFormatBrief) });
-  const safetyReview = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: safetyEditorInstruction(body, productPassport, creativeBrief, compliantScript, visualBrief) });
+  const visualBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: artDirectorInstruction(selectedBody, productPassport, creativeBrief, compliantScript, designFormatBrief) });
+  const safetyReview = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: safetyEditorInstruction(selectedBody, productPassport, creativeBrief, compliantScript, visualBrief) });
   const safetyScript = getSafetyFixedContentScript(compliantScript, safetyReview);
   const safetyContractViolations = getDesignTextContractViolations({ contentScript: safetyScript, designFormatBrief: normalizedDesignFormatBrief });
   const finalScript = safetyScript;
@@ -85,7 +87,7 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
         model,
         callOpenRouter,
         parseJsonDraft,
-        body,
+        body: selectedBody,
         productPassport,
         creativeBrief,
         contentScript: finalScript,
@@ -93,7 +95,7 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
         safetyReview: finalSafetyReview,
         designFormatBrief
       });
-  return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, creativeBrief, hookSet, contentScript: finalScript, formatCompliance, textContractViolations: [...new Set([...contractViolations, ...safetyContractViolations])], visualBrief, safetyReview: finalSafetyReview, imagePromptPackage, body, attentionFrame });
+  return flattenCreativeTeamDraft({ productPassport, designFormatBrief, attentionMap, topicSelection, creativeBrief, contentScript: finalScript, formatCompliance, textContractViolations: [...new Set([...contractViolations, ...safetyContractViolations])], visualBrief, safetyReview: finalSafetyReview, imagePromptPackage, body: selectedBody, attentionFrame });
 }
 export async function createCreativeTeamImagePromptPackage({ token, model, callOpenRouter, parseJsonDraft, body, productPassport, creativeBrief, contentScript, visualBrief, safetyReview, designFormatBrief }) {
   return runRole({
@@ -112,6 +114,7 @@ export function humanizeTextInstruction(body) {
     output: { headline: "сильный заголовок, 3–6 слов и максимум 34 символа; законченная естественная фраза", subhead: "одна простая строка, почему это знакомо в жизни", points: ["4-6 смысловых блоков, каждый 6-14 слов: мини-заголовок + короткое объяснение"], attentionReview: { contextClearIn2Seconds: true, plainLanguage: true, painSpecific: true, soundsNatural: true, productConnectionClear: true, headlineComplete: true, spellingChecked: true, topicIsUseful: true, reason: "" }, cta: "всегда пустая строка", disclaimer: "всегда пустая строка; нижние защитные подписи, футеры и сноски запрещены" },
     rules: [
       "Сохрани исходный смысл и сценарий; не меняй тему на другую.",
+      "topicSelection — граница смысла. Не подменяй ее другой темой, даже если новая формулировка кажется громче.",
       ...(body.finalProofreadRequired ? ["Это отдельная финальная корректура. Не копируй опечатки и обрубки из анкеты или предыдущего текста: исправь пропущенные и переставленные буквы, окончания, согласование и начало каждой строки, сохранив смысл и подтвержденные факты."] : []),
       "Если previousHeadlineViolations не пуст, предыдущий заголовок отклонен. Исправь все перечисленные нарушения, а не возвращай ту же фразу.",
       "Если contentClaimViolations не пуст, предыдущий текст содержит неподтвержденные утверждения. Удали их или замени только фактами из claimEvidence.",
@@ -123,6 +126,7 @@ export function humanizeTextInstruction(body) {
       humanizedPointRule,
       "Headline: 3–6 слов, максимум 34 символа. Это законченная естественная фраза, которая целиком помещается в две крупные строки. Если исходный headline длиннее — перепиши его целиком, а не обрезай.",
       "Прочитай headline вслух. Если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.",
+      "Собери headline как одну короткую разговорную фразу про наблюдаемую ситуацию. Не склеивай две мысли, не используй метафоры и искусственные обороты.",
       "Запрещено обрезать исходную фразу до первых слов, копировать нумерованный список свойств или писать конструкции вроде 'Заблуждение про 1. 6.'. Создай новую законченную фразу.",
       "Исправь все опечатки из исходной анкеты. Перед ответом отдельно вычитай каждое русское слово в headline, subhead и points.",
       attentionFrameInstruction(body.attentionFrame),
@@ -140,6 +144,7 @@ export function humanizeTextInstruction(body) {
     ],
     project: body.project,
     product: body.product,
+    topicSelection: body.topicSelection || null,
     basePlan: body.plan,
     brief: body.brief,
     claimEvidence: body.claimEvidence || getClaimEvidence({ product: body.product, productPassport: body.brief?.productPassport }),
@@ -248,16 +253,14 @@ function designFormatBriefInstruction(body, productPassport) {
 
 function attentionMapInstruction(body, productPassport, designFormatBrief, attentionFrame) {
   return JSON.stringify(basePayload(
-    "На основе productPassport найди сильные углы внимания для соцсетей.",
+    "Создай свежую карту смежных тем для одного продукта.",
     "Ты audience strategist для коротких соцсетей.",
-    { attentionMap: { attentionFrame, primaryAudienceTensions: [], scrollStopperAngles: [{ angle: "", whyItHooks: "", viewerEmotion: "", safeProductBridge: "", riskLevel: "low|medium|high" }], contentQuestions: [], anglesToAvoid: [] } },
+    { attentionMap: { attentionFrame, topicMap: [{ id: "", theme: "", situation: "", productRelation: "" }], primaryAudienceTensions: [], anglesToAvoid: [] } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), "Думай моментами узнавания: боль, ошибка, риск, желание, сомнение, бытовая ситуация или проверка внутри основной задачи продукта.", "Механику внимания выбирай из текущей темы, productWorld и projectContext, а не из готовой формулы.", "Каждый angle пригоден для одного короткого ролика или инфографики.", "Работай внутри selectedTopicCluster: это главный тематический коридор текущей генерации.", "Чередуй прямые темы, гайды, советы, ошибки, привычки и смежные жизненные ситуации из contentTerritory.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии; выводи углы из паспорта продукта и контекста бренда."],
+      rules: [attentionFrameInstruction(attentionFrame), "Верни 6-8 разных тем: прямые сценарии продукта, ошибки применения, привычки, выбор, простые гайды и близкие жизненные ситуации.", "theme — короткая тема, не готовый headline и не вопрос. situation — одна узнаваемая бытовая ситуация. productRelation — одно ясное предложение, почему эта тема естественно связана с задачей продукта.", "Не подменяй товар чужой категорией: не добавляй сумки, поездки, доставку, упаковку, документы или другие случайные сюжеты, если они не относятся к продукту напрямую.", "Не придумывай лечение, диагнозы, причины для здоровья, эффекты или свойства продукта.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии: выводи карту из фактов продукта и контекста бренда."],
       productPassport,
       projectContext: body.project,
       designFormatBrief,
-      selectedTopicCluster: body.topicCluster || null,
-      topicClusterPlan: body.topicClusterPlan || null,
       recentJobs: (body.existingJobs || []).slice(0, 30)
     }
   ));
@@ -265,14 +268,12 @@ function attentionMapInstruction(body, productPassport, designFormatBrief, atten
 
 function creativeBriefInstruction(body, productPassport, attentionMap, designFormatBrief, attentionFrame) {
   return JSON.stringify(basePayload(
-    "Выбери один лучший angle и преврати его в креативную идею для одного вертикального поста 9:16.",
+    "Преврати выбранную тему в креативную идею для одного вертикального поста 9:16.",
     "Ты creative director.",
     { creativeBrief: { topic: "", coreIdea: "", hookPromise: "", viewerTakeaway: "", productBridge: "", whyNow: "", avatarEmotionName: "", avoidRepeating: [], formatIntent: "checklist|comparison|myth_vs_reality|mistake_check|mini_diagnostic|saveable_note" } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), "Идея понятна за 1 секунду.", "Выбери один angle, затем адаптируй пост сразу под дизайн-референс.", "Тема обязана раскрывать selectedTopicCluster, а не самый драматичный старый угол из истории.", "Позиционирование, аудитория, тон и сценарии бренда из projectContext должны менять угол даже у товаров одной категории.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", "Если productVisibilityDecision активен, учитывай product reference как реальный объект в кадре; если нет — не строь идею вокруг упаковки.", "Если avatarSafeZone активен, оставь место под будущий видео-аватар.", "avatarEmotionName выбирай только точным значением name из availableAvatarEmotions. Не придумывай эмоции. Если ни одна не подходит — верни пустую строку.", "Если designFormatBrief задает сильную структуру, выбирай идею, которая естественно ложится в эту структуру.", `Допустимые форматы: ${modernFormatOptions}.`],
-      mandatorySlot: body.diversitySlot,
-      selectedTopicCluster: body.topicCluster || null,
-      topicClusterPlan: body.topicClusterPlan || null,
+      rules: [attentionFrameInstruction(attentionFrame), "Идея понятна за 1 секунду.", "Тема обязана раскрывать topicSelection. Не заменяй ее другой, более драматичной темой.", "Позиционирование, аудитория, тон и сценарии бренда из projectContext должны менять угол даже у товаров одной категории.", "Есть конфликт или полезная проверка.", "Есть самостоятельная польза без покупки.", "Есть мягкий мост к продукту.", "Не повторяй recentJobs и не нарушай forbiddenClaims.", "Если productVisibilityDecision активен, учитывай product reference как реальный объект в кадре; если нет — не строь идею вокруг упаковки.", "Если avatarSafeZone активен, оставь место под будущий видео-аватар.", "avatarEmotionName выбирай только точным значением name из availableAvatarEmotions. Не придумывай эмоции. Если ни одна не подходит — верни пустую строку.", "Если designFormatBrief задает сильную структуру, выбирай идею, которая естественно ложится в эту структуру.", `Допустимые форматы: ${modernFormatOptions}.`],
+      topicSelection: body.topicSelection,
       availableAvatarEmotions: body.availableAvatarEmotions || [],
       productPassport,
       projectContext: body.project,
@@ -285,52 +286,18 @@ function creativeBriefInstruction(body, productPassport, attentionMap, designFor
   ));
 }
 
-function hookProducerInstruction(body, productPassport, creativeBrief, attentionFrame) {
-  return JSON.stringify(basePayload(
-    "Создай 5 вариантов хука для creativeBrief и выбери лучший.",
-    "Ты hook producer для Reels/TikTok/Shorts.",
-    { hookSet: [{ hook: "", mechanism: "specific_contradiction|named_mistake|quick_diagnostic|saveable_guide|unexpected_observation", payoffQuestion: "", whyItWorks: "", riskNote: "" }], recommendedHook: "", recommendedPayoffQuestion: "" },
-    {
-      rules: [
-        attentionFrameInstruction(attentionFrame),
-        "Все 5 вариантов должны использовать разные механики и начинаться с разных слов.",
-        "Не более одного варианта может быть вопросом; ни один вариант не начинается со слова «почему».",
-        "Строй хук из пользы продукта, бытовой ситуации, проверки, ошибки, ритуала или смежного совета вокруг продукта.",
-        "Не делай хук и headline про бренд, название продукта, SKU или упаковку; бренд может остаться только внутренним контекстом.",
-        "Хук короткий: лучше до 12 слов, максимум 14 слов.",
-        "Хук конкретный и понятный без расшифровки.",
-        "Для каждого hook заполни payoffQuestion: какой вопрос или обещание обязан закрыть будущий сценарий.",
-        ...clickbaitHeadlineRules,
-        ...simpleAudienceLanguageRules,
-        ...viralReelsHookRules,
-        "Не используй мутные формулы вроде 'главная ошибка' или 'одна привычка', если не называешь конкретику.",
-        "Не выбирай recommendedHook, если он звучит как тема статьи, а не как первая фраза Reels.",
-        "Выбирай recommendedHook по конкретике, свежести, ясному конфликту и сильному payoff, а не по громкости.",
-        "recommendedPayoffQuestion должен совпадать с payoffQuestion выбранного recommendedHook.",
-        "Хук может быть острым, но не должен лгать, пугать без причины или обещать гарантированный результат."
-      ],
-      productPassport,
-      projectContext: body.project,
-      creativeBrief,
-      selectedTopicCluster: body.topicCluster || null,
-      recentJobs: (body.existingJobs || []).slice(0, 30)
-    }
-  ));
-}
-
-function scriptwriterInstruction(body, productPassport, creativeBrief, hookSet, designFormatBrief, attentionFrame) {
+function scriptwriterInstruction(body, productPassport, creativeBrief, designFormatBrief, attentionFrame) {
   return JSON.stringify(basePayload(
     "Напиши финальный смысловой сценарий для одного экрана.",
     "Ты social scriptwriter и редактор инфографик.",
     { contentScript: { headline: "", subhead: "", points: [], attentionFrame, invisibleNotes: { hookPayoff: "", productBridge: "", claimSafety: "", whatNotToShow: [] } } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), "Headline: 3–6 слов, максимум 34 символа. Он должен звучать естественно и целиком помещаться в две крупные строки. Если recommendedHook длиннее — перепиши его целиком без потери смысла; не обрезай готовую фразу по словам.", "Не выходи из безопасной зоны ради механического сохранения hook: смысл сохраняется через полную переформулировку.", "Прочитай headline вслух: если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: добавляет новую причину или деталь конфликта, а не повторяет headline.", "Первые 1-2 points закрывают recommendedPayoffQuestion выбранного hookSet.", "Каждый point добавляет новый факт, причину, наблюдение или действие; не пересказывай соседний point другими словами.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Чередуй ритм: короткий тезис, конкретное объяснение, практический вывод. Не начинай все points одинаково.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в исходном product.", ...claimEvidenceRules, "Все видимые слова на русском, кроме официальных названий брендов."],
+      rules: [attentionFrameInstruction(attentionFrame), "topicSelection задает смысл. Напиши headline сам, не копируй тему дословно и не меняй ее на другую.", "Headline: 3–6 слов, максимум 34 символа. Одна законченная разговорная фраза про наблюдаемую ситуацию; без двух склеенных мыслей, метафор и рекламных оборотов.", "Прочитай headline вслух: если так не говорят в обычной жизни или слышна заготовка маркетолога — перепиши проще.", ...clickbaitHeadlineRules, ...simpleAudienceLanguageRules, ...viralReelsHookRules, ...hookPayoffRules, "Subhead одна короткая строка: добавляет новую причину или деталь конфликта, а не повторяет headline.", "Первые 1-2 points сразу раскрывают выбранную тему.", "Каждый point добавляет новый факт, причину, наблюдение или действие; не пересказывай соседний point другими словами.", "Каждый point: короткая бытовая причина + что это значит для зрителя. Не пиши только термин.", "Обычно 4-6 блоков; если designFormatBrief.formatType=ranking_leaderboard, сделай 8-12 коротких ранжированных пунктов под повторяемые rank cards.", "Подгони текст под textContract и layoutSlots из designFormatBrief.", "Если формат ranking_leaderboard, headline должен быть TOP/ТОП-формой, subhead должен быть legend/source strip, points должны быть короткими ranked items, а не обычным списком советов.", "Не переноси старые числа и формулы из темы, если они не совпадают с количеством rank cards: например '5 маркеров' нельзя оставлять для TOP 10/12.", "Не превышай textCapacity слотов: короткие подписи, числа и rank-card фразы должны быть компактными.", "Без CTA, футера, дисклеймера и сносок на изображении.", "Без claims, которых нет в исходном product.", ...claimEvidenceRules, "Все видимые слова на русском, кроме официальных названий брендов."],
       productPassport,
       projectContext: body.project,
       creativeBrief,
-      hookSet,
       designFormatBrief,
-      selectedTopicCluster: body.topicCluster || null
+      topicSelection: body.topicSelection
     }
   ));
 }
@@ -346,7 +313,7 @@ function artDirectorInstruction(body, productPassport, creativeBrief, contentScr
       creativeBrief,
       contentScript,
       designFormatBrief,
-      selectedTopicCluster: body.topicCluster || null,
+      topicSelection: body.topicSelection,
       designReference: body.activeDesignReference || body.reference,
       layoutContentPlan: body.layoutContentPlan
     }
@@ -384,7 +351,7 @@ function imagePromptEngineerInstruction(body, productPassport, creativeBrief, co
       contentScript: safetyReview?.safetyReview?.fixedContentScript?.headline ? safetyReview.safetyReview.fixedContentScript : contentScript,
       visualBrief: Object.keys(safetyReview?.safetyReview?.fixedVisualBrief || {}).length ? safetyReview.safetyReview.fixedVisualBrief : visualBrief,
       designFormatBrief,
-      selectedTopicCluster: body.topicCluster || null,
+      topicSelection: body.topicSelection,
       designReference: body.activeDesignReference || body.reference,
       productVisibilityDecision: body.productVisibilityDecision,
       avatarSafeZone: body.avatarSafeZone
@@ -397,7 +364,6 @@ function flattenCreativeTeamDraft(parts) {
   const designFormatBrief = resolveDesignFormatBrief(parts.designFormatBrief.designFormatBrief || parts.designFormatBrief, parts.body);
   const attentionMap = parts.attentionMap.attentionMap || parts.attentionMap;
   const creativeBrief = parts.creativeBrief.creativeBrief || parts.creativeBrief;
-  const hookPayload = normalizeHookPayload(parts.hookSet);
   const contentScript = parts.contentScript.contentScript || parts.contentScript;
   const visualBrief = parts.visualBrief.visualBrief || parts.visualBrief;
   const safetyReview = parts.safetyReview.safetyReview || parts.safetyReview;
@@ -413,10 +379,8 @@ function flattenCreativeTeamDraft(parts) {
     designFormatBrief,
     attentionMap,
     attentionFrame: parts.attentionFrame || attentionMap.attentionFrame || "",
+    topicSelection: parts.topicSelection,
     creativeBrief,
-    hookSet: hookPayload.hookSet,
-    recommendedHook: hookPayload.recommendedHook,
-    recommendedPayoffQuestion: hookPayload.recommendedPayoffQuestion,
     contentScript: finalScript,
     visualBrief: Object.keys(outputSafetyReview?.fixedVisualBrief || {}).length ? outputSafetyReview.fixedVisualBrief : visualBrief,
     formatCompliance: parts.formatCompliance.formatCompliance || parts.formatCompliance,
@@ -426,18 +390,16 @@ function flattenCreativeTeamDraft(parts) {
     productVisibilityDecision: parts.body.productVisibilityDecision || null,
     avatarEmotionName: creativeBrief.avatarEmotionName || "",
     availableAvatarEmotions: parts.body.availableAvatarEmotions || [],
-    topicCluster: parts.body.topicCluster || null,
-    topicClusterPlan: parts.body.topicClusterPlan || null,
     qaReview: outputSafetyReview,
     imagePromptContract: imagePromptPackage.promptContract || imagePromptPackage.contract || null,
-    semanticKey: parts.body.diversitySlot?.id || creativeBrief.topic || "",
-    topic: parts.body.diversitySlot?.lockTopic ? parts.body.diversitySlot.topic : creativeBrief.topic,
-    hook: hookPayload.recommendedHook,
+    semanticKey: parts.topicSelection?.id || creativeBrief.topic || "",
+    topic: parts.topicSelection?.theme || creativeBrief.topic,
+    hook: finalScript.headline || "",
     format: designFormatBrief.formatType || creativeBrief.formatIntent,
     pointCount: String((finalScript.points || []).length || 5),
     visualObject: visualBrief.mainVisualObject || "",
     cta: "",
-    sourceHook: hookPayload.recommendedHook,
+    sourceHook: finalScript.headline || "",
     productFact: passport.safeFacts?.[0] || "",
     productPositiveBridge: creativeBrief.productBridge || finalScript.invisibleNotes?.productBridge || "",
     plan: { headline: finalScript.headline, subhead: finalScript.subhead, points: finalScript.points || [], disclaimer: "" },
@@ -485,14 +447,5 @@ function withFinalContentScript(safetyReview, finalScript, safetyContractViolati
       ...review,
       finalWarnings: [...(review.finalWarnings || []), `Design text contract still has violations: ${safetyContractViolations.join(", ")}.`]
     }
-  };
-}
-
-function normalizeHookPayload(payload) {
-  const source = payload.hookSet ? payload : payload.hookSet || {};
-  return {
-    hookSet: Array.isArray(source.hookSet) ? source.hookSet : [],
-    recommendedHook: source.recommendedHook || source.hookSet?.[0]?.hook || "",
-    recommendedPayoffQuestion: source.recommendedPayoffQuestion || source.hookSet?.[0]?.payoffQuestion || ""
   };
 }

@@ -51,20 +51,20 @@ test("ai brief freshness rejects another headline starting with why", () => {
   assert.match(result.reasons.join(" "), /повторяет начало недавнего заголовка: почему/);
 });
 
-test("rejected briefs reserve their slot and topic cluster for the next retry", () => {
+test("rejected briefs keep the selected topic for the next retry", () => {
   const brief = {
     topic: "Ваш крем не работает",
     aiPlan: { headline: "Ваш крем не работает" },
     semanticKey: "expectation-gap",
     contentLayerId: "daily-habit",
     diversitySlot: { id: "expectation-gap", contentLayer: { id: "daily-habit" } },
-    topicCluster: { id: "layering", label: "порядок нанесения" }
+    topicSelection: { id: "layering", theme: "порядок нанесения" }
   };
   const rejected = createRejectedBriefJob(brief, assessAiBriefFreshness(brief, [{ title: "Почему ваш крем не работает" }]));
 
   assert.equal(rejected.semanticKey, "expectation-gap");
   assert.equal(rejected.contentLayerId, "daily-habit");
-  assert.equal(rejected.topicCluster.id, "layering");
+  assert.equal(rejected.topicSelection.id, "layering");
 });
 
 test("freshness fallback returns a result without another repeated why opening", () => {

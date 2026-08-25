@@ -28,14 +28,11 @@ test("ready passport keeps layer subjects clean and product scoped", () => {
     name: "Масло для волос",
     pains: ["несколько кпель на вю длину"],
     aiPassport: {
-      version: "product-passport-v2",
+      version: "product-passport-v3",
       productName: "Масло для волос",
-      contentTerritory: {
-        productWorld: "уход за волосами",
-        habitsAndMistakes: ["Слишком много масла на корнях"],
-        directProductTopics: ["Дозировка масла без жирности"],
-        adjacentHelpfulTopics: ["Подготовка волос к горячей укладке"]
-      }
+      category: "уход за волосами",
+      painSituations: ["Слишком много масла на корнях"],
+      coreUseCases: ["Подготовка волос к горячей укладке"]
     }
   };
   const first = createContentLayer({ project: projects[0], product, existingJobs: [] });

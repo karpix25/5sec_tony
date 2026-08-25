@@ -1,6 +1,5 @@
 import { createContentSlot, createRecentJobDigest } from "../domain/content-rotation.js";
 import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
-import { createTopicClusterPlan } from "../domain/topic-clusters.js";
 import { createAvatarEmotionPromptContext } from "../domain/avatar-emotion.js";
 import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
 import {
@@ -44,12 +43,6 @@ export async function generateAiBrief({ project, product, reference, existingJob
 }
 
 async function requestAiBrief({ project, product, preparedReference, activeDesignReference, existingJobs, slot }) {
-  const topicClusterPlan = createTopicClusterPlan({
-    project,
-    product,
-    existingJobs,
-    reservedCluster: slot.topicCluster
-  });
   const response = await fetch("/api/generation/brief", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -59,8 +52,6 @@ async function requestAiBrief({ project, product, preparedReference, activeDesig
       reference: preparedReference,
       activeDesignReference,
       layoutContentPlan: createLayoutContentPlan(preparedReference),
-      topicClusterPlan,
-      topicCluster: topicClusterPlan.selected,
       existingJobs: createRecentJobDigest(existingJobs),
       availableAvatarEmotions: createAvatarEmotionPromptContext(project),
       diversitySlot: slot

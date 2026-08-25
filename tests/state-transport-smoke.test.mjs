@@ -233,7 +233,7 @@ function createTerminalJob(status) {
     creativeBrief: { topic: "heavy creative", huge: "x".repeat(8000) },
     diversitySlot: {
       contentLayer: { id: "layer-1", subject: "subject", huge: "x".repeat(8000) },
-      topicCluster: { id: "cluster-1", label: "cluster", huge: "x".repeat(8000) }
+      topicSelection: { id: "topic-1", theme: "topic", huge: "x".repeat(8000) }
     },
     hookIntelligence: { hookType: "heavy hook", huge: "x".repeat(8000) },
     layoutContentPlan: { layoutType: "heavy layout", huge: "x".repeat(8000) },
