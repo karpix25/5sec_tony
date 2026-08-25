@@ -84,6 +84,11 @@ test("another supported effect does not authorize an unsupported harm claim", ()
   assert.deepEqual(getUnsupportedClaimViolations(content, { product }), ["headline:unsupported_effect"]);
 });
 
+test("cosmetic copy cannot personify a product as stealing comfort", () => {
+  const content = { headline: "Ваш крем крадет комфорт летом", points: [] };
+  assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Крем для лица" } }), ["headline:unsupported_effect"]);
+});
+
 test("claim contract rejects invented dental damage mechanisms", () => {
   const content = {
     headline: "Скрип зубов — это микроцарапины",

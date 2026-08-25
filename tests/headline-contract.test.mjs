@@ -223,11 +223,19 @@ test("visible text contract catches a synonym-heavy subhead repeat", () => {
 });
 
 test("visible text contract rejects clipped and artificial number openings", () => {
-  for (const headline of ["ки в сочетании ухода", "Почему 16 лет в лаборатории"]) {
+  for (const headline of ["ки в сочетании ухода", "Почему 16 лет в лаборатории", "Комфорта на реальных людях"]) {
     assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_broken_start"));
   }
   assert.ok(!getVisibleTextContractViolations({ contentScript: { headline: "С 16 лет меняется уход" } }).includes("headline_broken_start"));
   assert.ok(getVisibleTextContractViolations({ contentScript: { headline: "Уход начинается вечером", subhead: "ек, которые мешают комфорту" } }).includes("broken_line_start"));
+});
+
+test("visible text repair turns a long how-to topic into a scoped question", () => {
+  const repaired = repairVisibleTextContract({ headline: "", points: [] }, {
+    fallbackHeadlines: ["Как правильно переводить кошку на новый рацион"]
+  });
+
+  assert.equal(repaired.headline, "Переводить кошку на новый рацион?");
 });
 
 test("visible text repair prefers a natural fallback over a clipped headline", () => {

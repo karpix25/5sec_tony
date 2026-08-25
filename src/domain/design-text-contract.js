@@ -13,7 +13,7 @@ const genericPointPattern = /(?:^|[—–,:;]\s*)(?:смотрите на сос
 const abstractBenefitHeadlinePattern = /^(?:комфорт|уверенность|забота|свежесть|баланс|гармония|л[её]гкость)\s+(?:в|для|на)\s+(?:движени|кажд|повседнев|ритм|жизн|рутин|уход)/i;
 const drySpecificationHeadlinePattern = /(?:толщин|объ[её]м|вес|длин|размер|содержание)[а-яё]*\s+(?:издели[а-яё]*\s+)?(?:составля|равн|весит|содержит|имеет)[а-яё]*\s+\d/i;
 const bareInstructionHeadlinePattern = /^[А-ЯЁ][а-яё-]{2,}(?:ть|ться)\s+[^?!]+$/;
-const signalListPromisePattern = /(?:признак|сигнал)[а-яё]*/i;
+const focusedListPromisePattern = /(?:признак|сигнал|схем|шаг|переход)[а-яё]*/i;
 const productFeaturePointPattern = /^(?:содержит|формула|в\s+составе)(?:\s|$)|(?:^|\s)(?:в\s+составе|благодаря|помогает|поддерживает|обеспечивает)(?:\s|$)/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
@@ -50,7 +50,7 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   const promisedItemCount = getPromisedItemCount(headline);
   if (promisedItemCount && promisedItemCount !== points.length) violations.push("headline_count_mismatch");
   if (points.some((point) => genericPointPattern.test(point))) violations.push("generic_point");
-  if (signalListPromisePattern.test(`${headline} ${subhead}`) && points.some((point) => productFeaturePointPattern.test(point))) violations.push("point_breaks_list_promise");
+  if (focusedListPromisePattern.test(`${headline} ${subhead}`) && points.some((point) => productFeaturePointPattern.test(point))) violations.push("point_breaks_list_promise");
   if ([headline, subhead, ...points].some((line) => /\uFFFD/.test(line))) violations.push("replacement_character");
   if ([headline, subhead, ...points].some((line) => forbiddenVisiblePattern.test(line))) violations.push("forbidden_visible_copy");
   if ([headline, subhead, ...points].some(hasOrphanMeasurement)) violations.push("orphan_measurement");
@@ -62,7 +62,7 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
     .map(normalizePointText)
     .map(normalizeRepairLine)
     .filter((line) => line && !genericPointPattern.test(line) && !forbiddenVisiblePattern.test(line) && !hasOrphanMeasurement(line));
-  if (signalListPromisePattern.test(`${contentScript.headline || ""} ${contentScript.subhead || ""}`)) {
+  if (focusedListPromisePattern.test(`${contentScript.headline || ""} ${contentScript.subhead || ""}`)) {
     points = points.filter((line) => !productFeaturePointPattern.test(line));
   }
   const sourceHeadline = removeMismatchedCountPromise(normalizeRepairLine(contentScript.headline), points.length);
@@ -179,7 +179,16 @@ function createHeadlineCandidates(value) {
   const compactClauses = clauses
     .map((clause) => normalizeRepairLine(clause.replace(/^(?:продукт|средство|формула)\s+(?:содержит|включает)\s+/i, "")))
     .filter(Boolean);
-  return [...new Set([headline, ...clauses, ...shortClauses, ...compactClauses])];
+  const directQuestion = normalizeRepairLine(headline.replace(/^Как\s+(?:правильно\s+)?/i, ""));
+  const directMeaning = normalizeRepairLine(headline.replace(/^Что\s+значит\s+/i, ""));
+  return [...new Set([
+    headline,
+    ...(directQuestion !== headline ? [`${directQuestion}?`] : []),
+    ...(directMeaning !== headline ? [directMeaning] : []),
+    ...clauses,
+    ...shortClauses,
+    ...compactClauses
+  ])];
 }
 
 function looksLikeProductDump(value, product = {}) {
@@ -236,6 +245,7 @@ function hasBrokenHeadlineStart(value) {
   const text = normalizeVisibleLine(value);
   if (/^почему\s+\d+(?:[.,]\d+)?\s+(?:лет|год|дн|час)/i.test(text)) return true;
   if (/^(?:нехватки|недостатка|ошибок|признаков|маркеров|вещей|способов)(?:\s|$)/i.test(text)) return true;
+  if (/^(?:комфорта|ухода|увлажнения|защиты|питания|состава|качества)\s+(?:на|для|в|при|после|до)(?:\s|$)/i.test(text)) return true;
   return hasBrokenLineStart(text);
 }
 
