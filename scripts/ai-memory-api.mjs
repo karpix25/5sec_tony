@@ -130,11 +130,11 @@ function productContentDirectionsInstruction(body) {
   });
 }
 
-function isSafeContentDirection(item, body) {
-  const text = [item?.title || item?.label, item?.relation || item?.description].filter(Boolean).join(". ");
-  return Boolean(text)
-    && isEditorialTopicEligible({ text, project: body.project, product: body.product })
-    && !getUnsupportedClaimViolations({ headline: text }, {
+export function isSafeContentDirection(item, body) {
+  const title = String(item?.title || item?.label || "").trim();
+  return Boolean(title)
+    && isEditorialTopicEligible({ text: title, project: body.project, product: body.product })
+    && !getUnsupportedClaimViolations({ headline: title }, {
       project: body.project,
       product: body.product,
       productPassport: body.product?.aiPassport

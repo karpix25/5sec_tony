@@ -10,6 +10,7 @@ import {
 } from "../src/domain/product-content-directions.js";
 import { createProductEntity } from "../src/state/factories.js";
 import { renderProductSettings } from "../src/ui/product.js";
+import { isSafeContentDirection } from "../scripts/ai-memory-api.mjs";
 
 const project = { id: "project-1", projectTheme: "Уход за кожей", references: [] };
 const product = {
@@ -33,6 +34,22 @@ test("content directions normalize from saved JSON and keep the direct product l
   assert.equal(directions.items[0].kind, "direct");
   assert.deepEqual(getEnabledContentDirections(product).map((item) => item.id), ["direct-product", "sleep-hygiene", "daily-care"]);
   assert.equal(normalizeProductContentDirections(null), null);
+});
+
+test("direction validation checks the topic title without rejecting its rationale", () => {
+  const wellnessProduct = {
+    id: "product-wellness",
+    projectId: "project-wellness",
+    name: "Жидкий хлорофилл",
+    description: "Жидкая добавка с мятой"
+  };
+  const item = {
+    id: "smart-shopping",
+    title: "Как выбирать качественные добавки",
+    relation: "Решает проблему недоверия к товарам на маркетплейсах."
+  };
+
+  assert.equal(isSafeContentDirection(item, { project: {}, product: wellnessProduct }), true);
 });
 
 test("direction rotation uses the product roughly every third post", () => {
