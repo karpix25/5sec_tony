@@ -65,7 +65,8 @@ export function createSelectionJobBatch(state, context, count, options = {}) {
     count: availability.safeCount,
     products: options.distributeProducts ? getProductsForProject(state.products, availability.project.id) : [],
     existingJobs: availability.projectJobs,
-    rotateReferences: options.rotateReferences !== false
+    rotateReferences: options.rotateReferences !== false,
+    contentDirectionIds: options.contentDirectionIds
   });
 }
 

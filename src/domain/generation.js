@@ -29,6 +29,7 @@ import { getProductReferenceTransferInstruction } from "./product-reference-tran
 import { createProductVisibilityDecision } from "./product-visibility-decision.js";
 import { createPromptContract } from "./prompt-contract.js";
 import { createGenerationAiTrace } from "./generation-ai-trace.js";
+import { pickContentDirection } from "./product-content-directions.js";
 import { getGenerationInputReferences, getGenerationInputUrls } from "./generation-input-references.js";
 import { repairVisibleTextContract } from "./design-text-contract.js";
 import {
@@ -262,9 +263,15 @@ function cleanDesignReferenceText(value) {
 
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const aiDepartmentMode = hasAiDepartmentBrief(generationBrief);
-  const slot = generationBrief.diversitySlot
-    ? refreshContentSlotLayer(generationBrief.diversitySlot, { project, product, existingJobs })
-    : createContentSlot({ project, product, existingJobs });
+  const baseSlot = generationBrief.diversitySlot
+    ? refreshContentSlotLayer(generationBrief.diversitySlot, { project, product, existingJobs, contentDirectionIds: generationBrief.contentDirectionIds })
+    : createContentSlot({ project, product, existingJobs, contentDirectionIds: generationBrief.contentDirectionIds });
+  const contentDirection = generationBrief.contentDirection
+    || baseSlot.contentDirection
+    || pickContentDirection({ product, existingJobs, requestedIds: generationBrief.contentDirectionIds });
+  const slot = contentDirection && !baseSlot.contentDirection
+    ? { ...baseSlot, contentDirection }
+    : baseSlot;
   const topicCandidate = !aiDepartmentMode && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
     ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
     : null;
@@ -374,6 +381,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     diversitySlot: slot,
     contentLayer: slot.contentLayer || generationBrief.contentLayer || null,
     contentLayerId: slot.contentLayer?.id || generationBrief.contentLayerId || "",
+    contentDirection: contentDirection || null,
     compositionMode: generationBrief.compositionMode || pickCompositionMode({
       format: format || meaning?.format || slot.format || pickFormat(project, reference),
       existingJobs

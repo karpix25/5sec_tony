@@ -13,13 +13,13 @@ import { normalizeAiBrief } from "../src/domain/ai-brief-normalizer.js";
 
 const maxBriefAttempts = 3;
 
-export async function generateServerAiBrief({ origin, project, product, reference, character, existingJobs, diversitySlot }) {
+export async function generateServerAiBrief({ origin, project, product, reference, character, existingJobs, diversitySlot, contentDirectionIds = [] }) {
   const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
   const rejectedJobs = [];
   let fallbackBrief = null;
   for (let attempt = 0; attempt < maxBriefAttempts; attempt += 1) {
     const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
-    const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
+    const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs, contentDirectionIds });
     const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs });
     const brief = await requestServerAiBrief(origin, {
       project,
@@ -28,7 +28,8 @@ export async function generateServerAiBrief({ origin, project, product, referenc
       productVisibilityDecision,
       avatarSafeZone,
       existingJobs: attemptExistingJobs,
-      slot
+      slot,
+      contentDirection: slot.contentDirection || null
     });
     const freshness = slot.lockTopic ? { ok: true, reasons: [] } : assessAiBriefFreshness(brief, attemptExistingJobs);
     if (freshness.ok) return brief;
@@ -39,7 +40,7 @@ export async function generateServerAiBrief({ origin, project, product, referenc
   throw new Error("AI-бриф не подготовился");
 }
 
-async function requestServerAiBrief(origin, { project, product, reference, productVisibilityDecision, avatarSafeZone, existingJobs, slot }) {
+async function requestServerAiBrief(origin, { project, product, reference, productVisibilityDecision, avatarSafeZone, existingJobs, slot, contentDirection }) {
   const payload = await postJson(origin, "/api/generation/brief", createCreativeTeamPayload({
     project,
     product,
@@ -52,7 +53,8 @@ async function requestServerAiBrief(origin, { project, product, reference, produ
     avatarSafeZone,
     availableAvatarEmotions: createAvatarEmotionPromptContext(project),
     existingJobs: createRecentJobDigest(existingJobs),
-    diversitySlot: slot
+    diversitySlot: slot,
+    contentDirection
   }));
   return normalizeAiBrief(payload.draft || {}, slot);
 }

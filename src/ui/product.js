@@ -6,6 +6,7 @@ import { uploadProductReferenceAsset } from "../services/product-reference-asset
 import { getOperationForTarget, getOperationsForScope } from "../state/operation-status.js";
 import { getOperationLabel, isUiOperationBusy, renderOperationStatus } from "./operation-status-view.js";
 import { readImageFileAsOptimizedDataUrl } from "./form-data.js";
+import { renderProductContentDirections } from "./product-content-directions.js";
 
 export function renderProductSettings({ product, operations = {} }) {
   const productCount = Number(product?.projectProductCount || 1);
@@ -33,6 +34,7 @@ export function renderProductSettings({ product, operations = {} }) {
             ${productBriefField("name", "input", product.name, true)}
           </section>
           ${renderProductBriefFields(product)}
+          ${renderProductContentDirections(product)}
           <div class="form-actions">
             <button class="danger-btn" id="open-delete-product-modal" type="button" ${canDeleteProduct ? "" : `disabled title="${escapeHtml(isBusy ? "Дождитесь завершения операции" : "Нельзя удалить единственный продукт в проекте")}"`}>Удалить продукт</button>
           </div>

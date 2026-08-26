@@ -1,4 +1,5 @@
 import { noAvatarCharacterId } from "./avatar-selection.js";
+import { normalizeDirectionIds } from "./product-content-directions.js";
 
 const maxGenerationBatchCount = 10;
 
@@ -29,7 +30,8 @@ export function normalizeGenerationSelection(selection = {}) {
     referenceId: selection.referenceId || "",
     characterId: selection.characterId || noAvatarCharacterId,
     audioId: selection.audioId || "",
-    freePrompt: selection.freePrompt || ""
+    freePrompt: selection.freePrompt || "",
+    contentDirectionIds: normalizeDirectionIds(selection.contentDirectionIds)
   };
 }
 

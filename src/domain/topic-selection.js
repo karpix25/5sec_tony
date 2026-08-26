@@ -52,6 +52,7 @@ function normalizeCandidate(value) {
     theme,
     situation,
     productRelation,
+    directionId: clean(source.directionId || source.contentDirectionId),
     audienceSegment: clean(source.audienceSegment).slice(0, 100),
     awarenessStage: normalizeChoice(source.awarenessStage, awarenessStages),
     contentGoal: normalizeChoice(source.contentGoal, contentGoals),

@@ -5,6 +5,7 @@ import { getLiveProductDraft, mergeAnalyzedProductDraft } from "./product-analys
 import { analyzeProductPhotos, getProductPhotoPayloads, productPayloadFromDraft, productReferencesFromImages } from "./product-ai.js";
 import { closeDeleteProductModal, getProductReferencePayload, openDeleteProductModal } from "./product.js";
 import { uploadProductReferenceAssets } from "../services/product-reference-assets.js";
+import { syncProductContentDirections } from "./product-content-directions.js";
 
 export function bindProductEvents(root, store) {
   root.querySelector("#open-product-modal")?.addEventListener("click", () => openProductModalWhenReady(root, store));
@@ -30,6 +31,9 @@ export function bindProductEvents(root, store) {
   root.querySelector("#product-reference-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     runProductReferenceCreate(root, store, event.currentTarget);
+  });
+  root.querySelectorAll("[data-content-direction-toggle]").forEach((input) => {
+    input.addEventListener("change", () => syncProductContentDirections(root));
   });
   root.querySelectorAll("[data-delete-product]").forEach((button) => {
     button.addEventListener("click", () => deleteProduct(root, store, button));

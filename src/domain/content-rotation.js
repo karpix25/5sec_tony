@@ -1,5 +1,6 @@
 import { scenarioPatterns } from "./creative-patterns.js";
 import { createContentLayer } from "./content-layers.js";
+import { pickContentDirection } from "./product-content-directions.js";
 
 const genericSlots = scenarioPatterns.map((pattern) => ({
   id: pattern.id,
@@ -11,17 +12,17 @@ const genericSlots = scenarioPatterns.map((pattern) => ({
   meaningPatternId: pattern.id
 }));
 
-export function createContentSlot({ project, product, existingJobs = [] }) {
+export function createContentSlot({ project, product, existingJobs = [], contentDirectionIds = [] }) {
   const slots = pickContentSlots(project, product);
   const used = new Set(existingJobs.map((job) => job.semanticKey || classifyJob(job, slots)));
   const slot = slots.find((item) => !used.has(item.id)) || slots[existingJobs.length % slots.length];
-  return enrichSlotWithLayer(slot, { project, product, existingJobs });
+  return enrichSlotWithLayer(slot, { project, product, existingJobs, contentDirectionIds });
 }
 
-export function refreshContentSlotLayer(slot, { project, product, existingJobs = [] }) {
+export function refreshContentSlotLayer(slot, { project, product, existingJobs = [], contentDirectionIds = [] }) {
   if (slot?.lockTopic) return slot;
   const baseSlot = pickContentSlots(project, product).find((item) => item.id === slot?.id) || slot;
-  return enrichSlotWithLayer(baseSlot, { project, product, existingJobs });
+  return enrichSlotWithLayer(baseSlot, { project, product, existingJobs, contentDirectionIds, preservedDirection: slot?.contentDirection });
 }
 
 function pickContentSlots(project, product) {
@@ -37,6 +38,7 @@ export function createRecentJobDigest(existingJobs = []) {
     format: job.format || "",
     contentLayerId: job.contentLayerId || job.diversitySlot?.contentLayer?.id || "",
     contentLayerSubject: job.diversitySlot?.contentLayer?.subject || "",
+    contentDirectionId: job.diversitySlot?.contentDirection?.id || "",
     hookType: job.hookIntelligence?.hookType || "",
     attentionFrame: job.attentionFrame || "",
     layoutType: job.layoutContentPlan?.layoutType || ""
@@ -51,11 +53,13 @@ export function selectRecentJobs(existingJobs = [], limit = existingJobs.length)
     .map(({ job }) => job);
 }
 
-function enrichSlotWithLayer(slot, { project, product, existingJobs }) {
+function enrichSlotWithLayer(slot, { project, product, existingJobs, contentDirectionIds = [], preservedDirection = null }) {
   const contentLayer = createContentLayer({ project, product: product || getJobProductFallback(project), existingJobs });
+  const contentDirection = preservedDirection || pickContentDirection({ product, existingJobs, requestedIds: contentDirectionIds });
   return {
     ...slot,
     contentLayer,
+    contentDirection,
     angle: `${slot.angle}; ${contentLayer.label}`,
     topic: "",
     hook: ""

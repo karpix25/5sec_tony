@@ -3,6 +3,8 @@ import { getDesignReferences } from "../domain/references.js";
 import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
 import { getContext } from "../state/store.js";
 import { createServerGenerationBatch } from "../services/generation-batches.js";
+import { getEnabledContentDirections } from "../domain/product-content-directions.js";
+import { getSelectedContentDirectionIds } from "./product-content-directions.js";
 
 export function renderStudioPanel(state, context) {
   return `
@@ -110,13 +112,19 @@ function shouldDistributeProducts(root) {
 
 function createGenerationSelection(store, root) {
   const state = store.getState();
+  const product = state.products.find((item) => item.id === state.selectedProductId);
+  const directionControls = root.querySelectorAll("[data-content-direction-toggle]");
+  const contentDirectionIds = directionControls.length
+    ? getSelectedContentDirectionIds(root)
+    : getEnabledContentDirections(product).map((item) => item.id);
   return {
     projectId: state.selectedProjectId || "",
     productId: state.selectedProductId || "",
     referenceId: readVisibleControlValue(root, "#reference-select", state.selectedReferenceId),
     characterId: readVisibleControlValue(root, "#character-select", state.selectedCharacterId || noAvatarCharacterId),
     audioId: readVisibleControlValue(root, "#audio-select", state.selectedAudioId),
-    freePrompt: state.freePrompt || ""
+    freePrompt: state.freePrompt || "",
+    contentDirectionIds
   };
 }
 

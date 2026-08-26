@@ -50,7 +50,11 @@ export function createJobActions({ getState, setState, getProject }) {
       const selectionSnapshot = normalizeGenerationSelection(selection);
       const context = getSelectionSnapshotContext(state, selectionSnapshot, getProject);
       const availability = getSelectionJobBatchAvailability(state, context, safeCount);
-      const reservedJobs = createSelectionJobBatch(state, context, safeCount, { distributeProducts, rotateReferences: false })
+      const reservedJobs = createSelectionJobBatch(state, context, safeCount, {
+        distributeProducts,
+        rotateReferences: false,
+        contentDirectionIds: selectionSnapshot.contentDirectionIds
+      })
         .map((job, index) => createPendingGenerationJobWithStartedAt(job, index, safeCount, {
           serverBatchId,
           selectionSnapshot,

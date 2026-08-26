@@ -35,6 +35,7 @@ export function normalizeAiBrief(draft = {}, diversitySlot = {}) {
     layoutContentPlan: cleanDraft.layoutContentPlan || cleanSlot.layoutContentPlan || {},
     creativeQuality: cleanDraft.qualityChecks || cleanDraft.creativeQuality || {},
     productPassport: cleanDraft.productPassport || null,
+    contentDirection: cleanDraft.contentDirection || cleanSlot.contentDirection || null,
     designFormatBrief: cleanDraft.designFormatBrief || cleanDraft.designAnalysis || null,
     attentionMap: cleanDraft.attentionMap || null,
     attentionFrame: cleanDraft.attentionFrame || cleanDraft.attentionMap?.attentionFrame || "",

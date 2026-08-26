@@ -155,7 +155,8 @@ test("generation start sends a clamped backend batch request and switches to que
       referenceId: project.references[0].id,
       characterId: "__no_avatar__",
       audioId: "",
-      freePrompt: ""
+      freePrompt: "",
+      contentDirectionIds: []
     });
     assert.deepEqual(calls, [
       ["createPendingServerGenerationBatch", 10, false, "batch-test-1", [

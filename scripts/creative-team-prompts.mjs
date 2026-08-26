@@ -276,12 +276,13 @@ function attentionMapInstruction(body, productPassport, designFormatBrief, atten
   return JSON.stringify(basePayload(
     "Создай свежую карту смежных тем для одного продукта.",
     "Ты audience strategist для коротких соцсетей.",
-    { attentionMap: { attentionFrame, topicMap: [{ id: "", theme: "", situation: "", productRelation: "", audienceSegment: "", awarenessStage: "recognition|problem|need|solution|choice|objection|conversion", contentGoal: "reach|save|follow|compare|lead", evidenceIds: [] }], primaryAudienceTensions: [], anglesToAvoid: [] } },
+      { attentionMap: { attentionFrame, topicMap: [{ id: "", directionId: "", theme: "", situation: "", productRelation: "", audienceSegment: "", awarenessStage: "recognition|problem|need|solution|choice|objection|conversion", contentGoal: "reach|save|follow|compare|lead", evidenceIds: [] }], primaryAudienceTensions: [], anglesToAvoid: [] } },
     {
-      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "Верни 6-8 разных тем: прямые сценарии продукта, ошибки применения, привычки, выбор, простые гайды и близкие жизненные ситуации.", "theme — короткая тема, не готовый headline и не вопрос. situation — одна узнаваемая бытовая ситуация. productRelation — одно ясное предложение, почему эта тема естественно связана с задачей продукта.", "Не подменяй товар чужой категорией: не добавляй сумки, поездки, доставку, упаковку, документы или другие случайные сюжеты, если они не относятся к продукту напрямую.", "Не придумывай лечение, диагнозы, причины для здоровья, эффекты или свойства продукта.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии: выводи карту из фактов продукта и контекста бренда.", ...(previousTopicMapFeedback.length ? ["Предыдущая карта отклонена. Исправь все причины ниже и не повторяй эти углы."] : [])],
+      rules: [attentionFrameInstruction(attentionFrame), ...operatorProductContextRules, "Верни 6-8 разных тем: прямые сценарии продукта, ошибки применения, привычки, выбор, простые гайды и близкие жизненные ситуации.", "theme — короткая тема, не готовый headline и не вопрос. situation — одна узнаваемая бытовая ситуация. productRelation — одно ясное предложение, почему эта тема естественно связана с задачей продукта.", "Не подменяй товар чужой категорией: не добавляй сумки, поездки, доставку, упаковку, документы или другие случайные сюжеты, если они не относятся к продукту напрямую.", "Не придумывай лечение, диагнозы, причины для здоровья, эффекты или свойства продукта.", "Не повторяй recentJobs и не используй частые старые углы.", "CTA, призывы купить, сохранить, перейти в профиль или читать описание здесь запрещены.", "Не используй зашитые сценарии: выводи карту из фактов продукта и контекста бренда.", body.contentDirection ? `Работай только внутри направления «${body.contentDirection.title}». Не подменяй его другой темой. Укажи его id в directionId каждой теме.` : "", ...(previousTopicMapFeedback.length ? ["Предыдущая карта отклонена. Исправь все причины ниже и не повторяй эти углы."] : [])],
       productPassport,
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,
+      contentDirection: body.contentDirection || null,
       designFormatBrief,
       recentJobs: (body.existingJobs || []).slice(0, 30),
       previousTopicMapFeedback
@@ -301,6 +302,7 @@ function creativeBriefInstruction(body, productPassport, attentionMap, designFor
       productPassport,
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,
+      contentDirection: body.contentDirection || null,
       attentionMap,
       designFormatBrief,
       productVisibilityDecision: body.productVisibilityDecision,
@@ -320,6 +322,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, designFor
       productPassport,
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,
+      contentDirection: body.contentDirection || null,
       creativeBrief,
       designFormatBrief,
       topicSelection: body.topicSelection
@@ -408,6 +411,7 @@ function flattenCreativeTeamDraft(parts) {
     attentionMap,
     attentionFrame: parts.attentionFrame || attentionMap.attentionFrame || "",
     topicSelection: parts.topicSelection,
+    contentDirection: parts.body.contentDirection || null,
     creativeBrief,
     contentScript: finalScript,
     visualBrief: Object.keys(outputSafetyReview?.fixedVisualBrief || {}).length ? outputSafetyReview.fixedVisualBrief : visualBrief,

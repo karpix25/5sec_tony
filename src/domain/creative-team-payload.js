@@ -20,7 +20,9 @@ export function createCreativeTeamPayload(body = {}) {
     existingJobs: sanitizeValue(Array.isArray(source.existingJobs) ? source.existingJobs : []),
     recentAttentionFrames: sanitizeValue(Array.isArray(source.recentAttentionFrames) ? source.recentAttentionFrames : []),
     availableAvatarEmotions: sanitizeValue(source.availableAvatarEmotions || []),
-    diversitySlot: sanitizeValue(source.diversitySlot || null)
+    diversitySlot: sanitizeValue(source.diversitySlot || null),
+    contentDirection: sanitizeValue(source.contentDirection || null),
+    contentDirectionIds: sanitizeValue(source.contentDirectionIds || [])
   };
 }
 

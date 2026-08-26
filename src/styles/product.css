@@ -81,6 +81,39 @@
   gap: var(--space-3);
 }
 
+.content-direction-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.content-direction-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  padding: var(--space-2);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(216, 208, 194, 0.82);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.content-direction-item input {
+  margin-top: 3px;
+  accent-color: var(--color-accent);
+}
+
+.content-direction-item strong,
+.content-direction-item small {
+  display: block;
+}
+
+.content-direction-item small {
+  margin-top: 3px;
+  color: var(--color-muted);
+  line-height: 1.35;
+}
+
 .product-editor {
   padding: 0;
   background: transparent;

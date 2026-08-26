@@ -1,7 +1,11 @@
 import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../src/domain/ai-artifacts.js";
 import { createDesignReferenceAnalysisInput } from "../src/domain/design-reference-analysis-input.js";
 import { createProductPassportInput } from "../src/domain/product-passport-input.js";
+import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { createProductPassportShape, productWorldRules } from "../src/domain/product-world.js";
+import { isEditorialTopicEligible } from "../src/domain/editorial-topic-policy.js";
+import { getUnsupportedClaimViolations } from "../src/domain/content-claim-contract.js";
+import { normalizeProductContentDirections } from "../src/domain/product-content-directions.js";
 import { callOpenRouter } from "./openrouter-api.mjs";
 import { parseJsonDraft } from "./openrouter-response.mjs";
 import { resolveImageInputUrls } from "./reference-assets.mjs";
@@ -13,10 +17,35 @@ export async function handleAiMemoryApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/products/passport") {
     return createProductPassport(request, response);
   }
+  if (request.method === "POST" && url.pathname === "/api/products/content-directions") {
+    return createProductContentDirections(request, response);
+  }
   if (request.method === "POST" && url.pathname === "/api/design-references/analyze") {
     return analyzeDesignReference(request, response);
   }
   return false;
+}
+
+async function createProductContentDirections(request, response) {
+  try {
+    const token = process.env.OPENROUTER_API_KEY;
+    if (!token) return sendJson(response, 500, { error: "OPENROUTER_API_KEY is not configured" });
+    const body = await readJson(request);
+    const content = await callOpenRouter(token, writingModel, [
+      { role: "system", content: "Ты senior audience strategist и редактор коротких соцсетей. Пиши по-русски. Верни только JSON без markdown." },
+      { role: "user", content: productContentDirectionsInstruction(body) }
+    ]);
+    const parsed = parseJsonDraft(content);
+    const source = parsed.contentDirections || parsed;
+    const safeItems = (Array.isArray(source.items) ? source.items : []).filter((item) => isSafeContentDirection(item, body));
+    const contentDirections = normalizeProductContentDirections({ ...source, items: safeItems });
+    if (!contentDirections || contentDirections.items.length < 4) {
+      throw new Error("AI не создал достаточно релевантных направлений для продукта");
+    }
+    return sendJson(response, 200, { contentDirections });
+  } catch (error) {
+    return sendJson(response, 502, { error: error.message || "Не удалось рассчитать направления продукта" });
+  }
 }
 
 async function createProductPassport(request, response) {
@@ -71,6 +100,45 @@ export function productPassportInstruction(body) {
     },
     product: input.product
   });
+}
+
+function productContentDirectionsInstruction(body) {
+  const compact = createCreativeTeamPayload({ project: body.project, product: body.product });
+  return JSON.stringify({
+    task: "Создай 5–6 направлений контента для одного продукта.",
+    role: "Ты редактор смыслов для коротких постов и каруселей.",
+    output: {
+      contentDirections: {
+        items: [
+          { id: "короткий-id", title: "Короткое название направления", relation: "Почему оно связано с задачей продукта.", kind: "adjacent" }
+        ]
+      }
+    },
+    rules: [
+      "Направление — это смысловая территория, а не готовый заголовок и не конкретный пост.",
+      "Название должно быть коротким, понятным и без метафор.",
+      "Каждое направление должно естественно вытекать из продукта, его аудитории и жизненной ситуации.",
+      "Используй смежные темы: привычки, ошибки, выбор, режим, бытовые ситуации, простые советы и проверяемые факты.",
+      "Не добавляй случайные темы, которые не помогают решить основную задачу продукта.",
+      "Не придумывай медицинские, финансовые или юридические обещания, причины, эффекты, цифры и свойства.",
+      "Не добавляй название бренда, CTA или призыв к покупке.",
+      "Не создавай направление «сам продукт»: оно добавляется системой отдельно.",
+      ...productWorldRules
+    ],
+    project: compact.project,
+    product: compact.product
+  });
+}
+
+function isSafeContentDirection(item, body) {
+  const text = [item?.title || item?.label, item?.relation || item?.description].filter(Boolean).join(". ");
+  return Boolean(text)
+    && isEditorialTopicEligible({ text, project: body.project, product: body.product })
+    && !getUnsupportedClaimViolations({ headline: text }, {
+      project: body.project,
+      product: body.product,
+      productPassport: body.product?.aiPassport
+    }).length;
 }
 
 export { createProductPassportInput };

@@ -3,6 +3,11 @@ export async function refreshProductPassport({ project, product }) {
   return payload.passport || {};
 }
 
+export async function refreshProductContentDirections({ project, product }) {
+  const payload = await postJson("/api/products/content-directions", { project, product });
+  return payload.contentDirections || null;
+}
+
 export async function refreshDesignAnalysis({ reference }) {
   const payload = await postJson("/api/design-references/analyze", { reference });
   return payload.designAnalysis || {};

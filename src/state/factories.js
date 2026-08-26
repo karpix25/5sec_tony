@@ -3,6 +3,7 @@ import { normalizeCtaOverlay } from "../domain/cta-overlay.js";
 import { normalizeProjectAutomation } from "../domain/project-automation.js";
 import { normalizeProductInFramePercent } from "../domain/product-visual-policy.js";
 import { normalizeDesignAnalysis, normalizeProductAiPassport } from "../domain/ai-artifacts.js";
+import { normalizeProductContentDirections } from "../domain/product-content-directions.js";
 import { normalizeProjectDailyUsage } from "../domain/daily-usage.js";
 import { ensureRussianImageTextRestriction } from "../domain/language-policy.js";
 
@@ -73,6 +74,7 @@ export function createProductEntity(projectId, name, payload = {}) {
     facts: asList(payload.facts || ""),
     forbidden: asList(payload.forbidden || "нельзя обещать недоказанный результат"),
     aiPassport: normalizeProductAiPassport(payload.aiPassport),
+    contentDirections: normalizeProductContentDirections(payload.contentDirections),
     references: payload.references || []
   };
 }
@@ -207,6 +209,7 @@ export function ensureProductAssets(product) {
     facts: asList(product.facts || ""),
     forbidden: asList(product.forbidden || "нельзя обещать недоказанный результат"),
     aiPassport: normalizeProductAiPassport(product.aiPassport),
+    contentDirections: normalizeProductContentDirections(product.contentDirections || product.extra?.contentDirections),
     references: product.references || []
   };
 }

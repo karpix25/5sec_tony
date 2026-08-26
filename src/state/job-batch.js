@@ -1,7 +1,7 @@
 import { createGenerationJob } from "../domain/generation.js";
 import { pickNextDesignReference } from "../domain/references.js";
 
-export function createGenerationJobBatch({ context, existingJobs, count, products = [], rotateReferences = true }) {
+export function createGenerationJobBatch({ context, existingJobs, count, products = [], rotateReferences = true, contentDirectionIds = [] }) {
   const jobs = [];
   const batchProducts = getBatchProducts(products, context.product);
   for (let index = 0; index < count; index += 1) {
@@ -18,6 +18,10 @@ export function createGenerationJobBatch({ context, existingJobs, count, product
       ...context,
       product,
       reference,
+      generationBrief: {
+        ...context.generationBrief,
+        contentDirectionIds: product.id === context.product?.id ? contentDirectionIds : []
+      },
       existingJobs: [...existingJobs, ...jobs]
     });
     jobs.push(job);
