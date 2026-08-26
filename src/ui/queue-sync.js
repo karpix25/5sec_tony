@@ -4,6 +4,7 @@ import { syncRunningImageJobs } from "./job-runner.js";
 const queueSyncTerminalStatuses = new Set(["done", "review", "failed"]);
 const queueSyncTerminalQueueStatuses = new Set(["completed", "failed"]);
 const queueSyncActiveStatuses = new Set(["queued", "running"]);
+const queueSyncStageOrder = new Map([["brief", 0], ["image", 1], ["assembly", 2], ["export", 3]]);
 const queueSyncStatusTimeoutMs = 5000;
 
 export function startQueueStatusSync(store, options = {}) {
@@ -101,7 +102,29 @@ function shouldApplyRemoteJob(job, currentJob) {
   if (!currentJob) return false;
   if (currentJob.diskStatus !== "uploading" && queueSyncTerminalStatuses.has(currentJob.status) && !queueSyncTerminalStatuses.has(job?.status)) return false;
   if (queueSyncTerminalStatuses.has(job?.status)) return true;
-  return Boolean(job?.imageUrl || job?.imageData || job?.finalVideoUrl || job?.serverJobAcceptedAt || job?.imageTaskId);
+  return Boolean(job?.imageUrl || job?.imageData || job?.finalVideoUrl || job?.serverJobAcceptedAt || job?.imageTaskId)
+    || hasForwardQueueProgress(job, currentJob);
+}
+
+function hasForwardQueueProgress(job, currentJob) {
+  const remoteQueueStatus = String(job?.queueStatus || "");
+  const currentQueueStatus = String(currentJob?.queueStatus || "");
+  const remoteIsActive = queueSyncActiveStatuses.has(String(job?.status || "")) || remoteQueueStatus === "retrying";
+  const currentIsActive = queueSyncActiveStatuses.has(String(currentJob?.status || ""));
+  if (!remoteIsActive || !currentIsActive) return false;
+  if (remoteQueueStatus === "retrying") return true;
+  if (job?.status === "running" && currentJob?.status === "queued") return true;
+  if (queueStatusRank(remoteQueueStatus) > queueStatusRank(currentQueueStatus)) return true;
+  if (stageRank(job?.stage) > stageRank(currentJob?.stage)) return true;
+  return Number(job?.progress || 0) > Number(currentJob?.progress || 0);
+}
+
+function queueStatusRank(status) {
+  return { queued: 0, retrying: 1, running: 2 }[status] ?? -1;
+}
+
+function stageRank(stage) {
+  return queueSyncStageOrder.get(String(stage || "")) ?? -1;
 }
 
 function getJobStatusWithTimeout(jobId, timeoutMs) {

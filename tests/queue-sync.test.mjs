@@ -42,6 +42,76 @@ test("queue sync merges completed server jobs without loading full state", async
   }
 });
 
+test("queue sync merges brief worker progress before server job handshake", async () => {
+  const originalFetch = globalThis.fetch;
+  const localJob = {
+    id: "job-brief-started",
+    status: "queued",
+    stage: "brief",
+    progress: 0,
+    queueStatus: "queued",
+    isBriefPlaceholder: true
+  };
+  const store = createTestStore({ jobs: [localJob] });
+
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "/api/jobs/status?jobId=job-brief-started");
+    return jsonResponse({
+      job: {
+        ...localJob,
+        status: "running",
+        queueStatus: "running",
+        progress: 3,
+        failMsg: "Готовим AI-бриф..."
+      }
+    });
+  };
+
+  try {
+    const updates = await refreshQueueFromRemoteState(store);
+
+    assert.equal(updates.length, 1);
+    assert.equal(store.state.jobs[0].status, "running");
+    assert.equal(store.state.jobs[0].queueStatus, "running");
+    assert.equal(store.state.jobs[0].progress, 3);
+    assert.equal(store.state.jobs[0].failMsg, "Готовим AI-бриф...");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("queue sync does not apply stale brief progress over a later image stage", async () => {
+  const originalFetch = globalThis.fetch;
+  const localJob = {
+    id: "job-brief-stale",
+    status: "running",
+    stage: "image",
+    progress: 72,
+    queueStatus: "running",
+    serverJobAcceptedAt: "2026-06-30T12:57:25.569Z"
+  };
+  const store = createTestStore({ jobs: [localJob] });
+
+  globalThis.fetch = async () => jsonResponse({
+    job: {
+      ...localJob,
+      stage: "brief",
+      progress: 3,
+      serverJobAcceptedAt: ""
+    }
+  });
+
+  try {
+    const updates = await refreshQueueFromRemoteState(store);
+
+    assert.deepEqual(updates, []);
+    assert.equal(store.state.jobs[0].stage, "image");
+    assert.equal(store.state.jobs[0].progress, 72);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("queue sync keeps polling completed jobs while Yandex Disk upload is pending", async () => {
   const originalFetch = globalThis.fetch;
   const localJob = {
