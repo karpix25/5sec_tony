@@ -112,6 +112,36 @@ test("creative team humanizer keeps a clear adjacent topic without forcing the p
   assert.doesNotMatch(draft.contentScript.headline, /сыворотка/i);
 });
 
+test("creative team humanizer replaces a headline that drifted outside the selected direction", async () => {
+  const calls = [];
+  const draft = await humanizeCreativeTeamDraft({
+    token: "token",
+    model: "writer",
+    body: {
+      contentDirection: { id: "care-habits", title: "Привычки ухода", relation: "Связь с ежедневным уходом." },
+      topicSelection: {
+        directionId: "care-habits",
+        theme: "Привычки ухода",
+        situation: "Средство заканчивается в самый неудобный момент",
+        productRelation: "Тема помогает выстроить ежедневный уход"
+      }
+    },
+    draft: { contentScript: { headline: "Скрип: что проверить", points: ["Проверка перед выбором"] } },
+    callOpenRouter: async (_token, _model, messages) => {
+      calls.push(messages[1].content);
+      return JSON.stringify(calls.length === 1
+        ? { headline: "Скрип: что проверить", points: ["Проверка перед выбором"] }
+        : { headline: "Ежедневный уход без пропусков", points: ["Меняйте средство вовремя", "Держите запас дома"] });
+    },
+    parseJsonDraft: JSON.parse
+  });
+
+  assert.equal(calls.length, 3);
+  assert.match(calls[0], /Привычки ухода/);
+  assert.match(calls[0], /Средство заканчивается/);
+  assert.equal(draft.contentScript.headline, "Ежедневный уход без пропусков");
+});
+
 test("creative team humanizer proofreads repaired medical causes without stopping generation", async () => {
   const calls = [];
   const draft = await humanizeCreativeTeamDraft({

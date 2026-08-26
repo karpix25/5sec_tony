@@ -1,4 +1,4 @@
-import { createContentSlot, createRecentJobDigest } from "../domain/content-rotation.js";
+import { createContentSlot, createGenerationHistory, createRecentJobDigest } from "../domain/content-rotation.js";
 import { createLayoutContentPlan } from "../domain/layout-content-planner.js";
 import { createAvatarEmotionPromptContext } from "../domain/avatar-emotion.js";
 import { createCreativeTeamPayload } from "../domain/creative-team-payload.js";
@@ -16,11 +16,12 @@ const maxBriefAiAttempts = 3;
 export async function generateAiBrief({ project, product, reference, existingJobs, diversitySlot }) {
   const preparedReference = await ensureReferenceAssetUrl(reference);
   const activeDesignReference = createDesignReferenceDigest(preparedReference);
+  const generationHistory = createGenerationHistory(existingJobs, { product });
   const rejectedJobs = [];
   let fallbackBrief = null;
 
   for (let attempt = 0; attempt < maxBriefAiAttempts; attempt += 1) {
-    const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
+    const attemptExistingJobs = [...generationHistory, ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs });
     const brief = await requestAiBrief({
       project,
@@ -52,7 +53,7 @@ async function requestAiBrief({ project, product, preparedReference, activeDesig
       reference: preparedReference,
       activeDesignReference,
       layoutContentPlan: createLayoutContentPlan(preparedReference),
-      existingJobs: createRecentJobDigest(existingJobs),
+      existingJobs: createRecentJobDigest(existingJobs, { product }),
       availableAvatarEmotions: createAvatarEmotionPromptContext(project),
       diversitySlot: slot
     }))

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createContentSlot } from "../src/domain/content-rotation.js";
+import { createContentSlot, createGenerationHistory, createRecentJobDigest } from "../src/domain/content-rotation.js";
 import {
   directProductContentDirection,
   getEnabledContentDirections,
@@ -94,4 +94,37 @@ test("product settings show a calculate action for legacy products and checkboxe
 test("content slot carries the selected direction into generation", () => {
   const slot = createContentSlot({ project, product, existingJobs: [], contentDirectionIds: ["daily-care"] });
   assert.equal(slot.contentDirection.id, "daily-care");
+});
+
+test("generation history ignores legacy and other-product jobs for configured products", () => {
+  const current = {
+    productId: product.id,
+    title: "Ежедневный уход без пропусков",
+    diversitySlot: { contentDirection: { id: "daily-care" } }
+  };
+  const history = createGenerationHistory([
+    { productId: product.id, title: "Старый заголовок без направления" },
+    { title: "Старая задача без продукта" },
+    current,
+    { productId: "other-product", title: "Другой продукт", diversitySlot: { contentDirection: { id: "daily-care" } } }
+  ], { product });
+
+  assert.deepEqual(history, [current]);
+  assert.deepEqual(createRecentJobDigest([
+    { productId: product.id, title: "Старый заголовок без направления" },
+    { title: "Старая задача без продукта" },
+    current
+  ], { product }), [{
+    title: current.title,
+    topic: "",
+    semanticKey: "",
+    meaningPatternId: "",
+    format: "",
+    contentLayerId: "",
+    contentLayerSubject: "",
+    contentDirectionId: "daily-care",
+    hookType: "",
+    attentionFrame: "",
+    layoutType: ""
+  }]);
 });

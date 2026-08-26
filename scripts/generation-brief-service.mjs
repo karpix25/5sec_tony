@@ -1,4 +1,4 @@
-import { createContentSlot, createRecentJobDigest } from "../src/domain/content-rotation.js";
+import { createContentSlot, createGenerationHistory, createRecentJobDigest } from "../src/domain/content-rotation.js";
 import { createLayoutContentPlan } from "../src/domain/layout-content-planner.js";
 import { createCreativeTeamPayload } from "../src/domain/creative-team-payload.js";
 import { createAvatarReservedZone } from "../src/domain/avatar-overlay-zone.js";
@@ -15,10 +15,11 @@ const maxBriefAttempts = 3;
 
 export async function generateServerAiBrief({ origin, project, product, reference, character, existingJobs, diversitySlot, contentDirectionIds = [] }) {
   const avatarSafeZone = createAvatarReservedZone({ character, ctaOverlay: project?.ctaOverlay });
+  const generationHistory = createGenerationHistory(existingJobs, { product });
   const rejectedJobs = [];
   let fallbackBrief = null;
   for (let attempt = 0; attempt < maxBriefAttempts; attempt += 1) {
-    const attemptExistingJobs = [...(existingJobs || []), ...rejectedJobs];
+    const attemptExistingJobs = [...generationHistory, ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs, contentDirectionIds });
     const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs });
     const brief = await requestServerAiBrief(origin, {
@@ -52,7 +53,7 @@ async function requestServerAiBrief(origin, { project, product, reference, produ
     productVisibilityDecision,
     avatarSafeZone,
     availableAvatarEmotions: createAvatarEmotionPromptContext(project),
-    existingJobs: createRecentJobDigest(existingJobs),
+    existingJobs: createRecentJobDigest(existingJobs, { product }),
     diversitySlot: slot,
     contentDirection
   }));

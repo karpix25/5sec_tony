@@ -2,7 +2,7 @@ import { normalizeProjectDailyUsage } from "./daily-usage.js";
 import { generationStages } from "./entities.js";
 import { noAvatarCharacterId } from "./avatar-selection.js";
 import { resolveAvatarEmotionSelection } from "./avatar-emotion.js";
-import { createContentSlot, refreshContentSlotLayer } from "./content-rotation.js";
+import { createContentSlot, createGenerationHistory, refreshContentSlotLayer } from "./content-rotation.js";
 import { getCompositionInstruction, pickCompositionMode } from "./composition-modes.js";
 import { getContentLayerInstruction } from "./content-layers.js";
 import { createMeaningBrief, createUniversalSemanticPlan, scoreMeaningBrief } from "./meaning-engine.js";
@@ -180,6 +180,7 @@ export function createGenerationJob({ project, product, reference, character, au
   const rawBrief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   const suppliedContent = generationBrief?.contentScript || generationBrief?.plan || generationBrief?.aiPlan;
   const finalContent = repairVisibleTextContract(suppliedContent || rawBrief.finalContent, {
+    product,
     fallbackHeadlines: [rawBrief.creativeBrief?.hookPromise, rawBrief.hook, rawBrief.topic]
   });
   const brief = { ...rawBrief, hook: finalContent.headline, finalContent, aiPlan: finalContent, contentScript: finalContent };
@@ -263,17 +264,18 @@ function cleanDesignReferenceText(value) {
 
 export function createAutoGenerationBrief({ project, product, reference, generationBrief = {}, existingJobs = [] }) {
   const aiDepartmentMode = hasAiDepartmentBrief(generationBrief);
+  const generationHistory = createGenerationHistory(existingJobs, { product });
   const baseSlot = generationBrief.diversitySlot
-    ? refreshContentSlotLayer(generationBrief.diversitySlot, { project, product, existingJobs, contentDirectionIds: generationBrief.contentDirectionIds })
-    : createContentSlot({ project, product, existingJobs, contentDirectionIds: generationBrief.contentDirectionIds });
+    ? refreshContentSlotLayer(generationBrief.diversitySlot, { project, product, existingJobs: generationHistory, contentDirectionIds: generationBrief.contentDirectionIds })
+    : createContentSlot({ project, product, existingJobs: generationHistory, contentDirectionIds: generationBrief.contentDirectionIds });
   const contentDirection = generationBrief.contentDirection
     || baseSlot.contentDirection
-    || pickContentDirection({ product, existingJobs, requestedIds: generationBrief.contentDirectionIds });
+    || pickContentDirection({ product, existingJobs: generationHistory, requestedIds: generationBrief.contentDirectionIds });
   const slot = contentDirection && !baseSlot.contentDirection
     ? { ...baseSlot, contentDirection }
     : baseSlot;
   const topicCandidate = !aiDepartmentMode && !slot.lockTopic && !generationBrief.hook && !isPaymentProject(project, product)
-    ? pickTopicCandidate({ project, product, existingJobs, insightMap: generationBrief.productInsightMap })
+    ? pickTopicCandidate({ project, product, existingJobs: generationHistory, insightMap: generationBrief.productInsightMap })
     : null;
   const topicCandidatePlan = !generationBrief.aiPlan && topicCandidate
     ? createTopicCandidatePlan({ project, product, candidate: topicCandidate })
@@ -286,7 +288,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     candidateTopic: topicCandidate?.topic,
     lockedTopic,
     slot,
-    existingJobs
+    existingJobs: generationHistory
   });
   const generationSeed = {
     ...generationBrief,
@@ -301,17 +303,17 @@ export function createAutoGenerationBrief({ project, product, reference, generat
   const aiContent = aiDepartmentMode ? getAiDepartmentContent(generationBrief) : null;
   const meaning = aiDepartmentMode
     ? null
-    : createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs });
-  const scenario = generationBrief.topic ? "" : pickNextScenario({ project, product, existingJobs });
+    : createMeaningBrief({ project, product, reference, generationBrief: generationSeed, existingJobs: generationHistory });
+  const scenario = generationBrief.topic ? "" : pickNextScenario({ project, product, existingJobs: generationHistory });
   const desire = firstLine(project.audienceDesires) || product.offer || product.name;
   const fact = firstListItem(product.facts) || product.description || project.projectTheme;
   const topic = aiDepartmentMode
     ? generationSeed.topic
     : generationSeed.topic || meaning.topic || slot.topic || scenario || project.projectTheme || `${product.name}: полезная инфографика`;
-  const paymentHook = isPaymentProject(project, product) ? buildAutoHook({ project, product, topic, fact, desire, existingJobs }) : "";
+  const paymentHook = isPaymentProject(project, product) ? buildAutoHook({ project, product, topic, fact, desire, existingJobs: generationHistory }) : "";
   const hook = aiDepartmentMode
     ? generationSeed.hook
-    : generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs });
+    : generationSeed.hook || paymentHook || meaning.hook || slot.hook || buildAutoHook({ project, product, topic, fact, desire, existingJobs: generationHistory });
   const hookPointCount = getHookPointCount(hook);
   const profile = buildProductProfile({ project, product, insightMap: generationBrief.productInsightMap });
   const hookIntelligence = createHookIntelligence(hook);
@@ -323,7 +325,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     || generationBrief.productVisibilityDecision?.mode
     || generationBrief.productVisualMode
     || creativeTeamVisualMode
-    || resolveProductVisualMode({ project, product, generationBrief: { ...generationSeed, topic, hook }, existingJobs });
+    || resolveProductVisualMode({ project, product, generationBrief: { ...generationSeed, topic, hook }, existingJobs: generationHistory });
   const productVisibilityDecision = createProductVisibilityDecision({
     project,
     product,
@@ -334,7 +336,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
       productVisualMode: requestedProductVisualMode,
       productVisibilityDecision: generationBrief.productVisibilityDecision
     },
-    existingJobs
+    existingJobs: generationHistory
   });
   const productVisualMode = productVisibilityDecision.productVisualMode || requestedProductVisualMode;
   const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap, productVisualMode };
@@ -345,7 +347,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
         finalContent: aiContent,
         creativeQuality: generationBrief.creativeQuality || generationBrief.qualityChecks || {}
       }
-    : createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs, brief: editorialBrief });
+    : createCuriosityContentPlan({ project, product, layoutPlan: layoutContentPlan, hookIntelligence, existingJobs: generationHistory, brief: editorialBrief });
   const creativeQuality = editorial.creativeQuality;
   const brief = {
     topic,
@@ -384,7 +386,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
     contentDirection: contentDirection || null,
     compositionMode: generationBrief.compositionMode || pickCompositionMode({
       format: format || meaning?.format || slot.format || pickFormat(project, reference),
-      existingJobs
+      existingJobs: generationHistory
     }),
     productInsightMap: profile.insightMap,
     aiPlan: editorial.finalContent,
@@ -427,7 +429,6 @@ export function getLimitState(project) {
   const percent = Math.max(daily.percent, total.percent);
   return { remaining, percent, isNearLimit: percent >= 80, daily, total };
 }
-
 function getSingleLimitState(limitValue, usedValue) {
   const limit = Math.max(1, Number(limitValue || 0));
   const used = Math.max(0, Number(usedValue || 0));

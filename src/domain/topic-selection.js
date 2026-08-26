@@ -7,20 +7,20 @@ const minimumEligibleTopicCount = 4;
 const awarenessStages = new Set(["recognition", "problem", "need", "solution", "choice", "objection", "conversion"]);
 const contentGoals = new Set(["reach", "save", "follow", "compare", "lead"]);
 
-export function selectTopicSelection({ topicMap, project = {}, product = {}, existingJobs = [], random = Math.random } = {}) {
-  const { eligible } = assessTopicMapQuality({ topicMap, project, product });
+export function selectTopicSelection({ topicMap, project = {}, product = {}, existingJobs = [], contentDirection = null, random = Math.random } = {}) {
+  const { eligible } = assessTopicMapQuality({ topicMap, project, product, contentDirection });
   const recentSignatures = selectRecentJobs(existingJobs, 30)
     .map((job) => buildTopicSimilarityKey([job.topicSelection?.theme, job.topic, job.title, job.creativeBrief?.topic]));
   const fresh = eligible.filter((candidate) => !recentSignatures.some((recent) => isSimilarTopicSignature(candidate.signature, recent)));
   const picked = pickOne(fresh.length ? fresh : eligible, random);
-  return picked || createFallbackTopic(product);
+  return picked || createFallbackTopic(product, contentDirection);
 }
 
-export function assessTopicMapQuality({ topicMap, project = {}, product = {} } = {}) {
+export function assessTopicMapQuality({ topicMap, project = {}, product = {}, contentDirection = null } = {}) {
   const source = Array.isArray(topicMap) ? topicMap : topicMap?.topicMap || [];
   const candidates = readCandidates(topicMap);
   const rejected = candidates
-    .map((candidate) => ({ candidate, reasons: getCandidateRejectionReasons(candidate, { project, product }) }))
+    .map((candidate) => ({ candidate, reasons: getCandidateRejectionReasons(candidate, { project, product, contentDirection }) }))
     .filter(({ reasons }) => reasons.length);
   const eligible = candidates.filter((candidate) => !rejected.some(({ candidate: rejectedCandidate }) => rejectedCandidate === candidate));
   const feedback = [
@@ -61,9 +61,11 @@ function normalizeCandidate(value) {
   };
 }
 
-function getCandidateRejectionReasons(candidate, { project, product }) {
+function getCandidateRejectionReasons(candidate, { project, product, contentDirection }) {
   const text = [candidate.theme, candidate.situation, candidate.productRelation].filter(Boolean).join(". ");
   const reasons = [];
+  const expectedDirectionId = clean(contentDirection?.id);
+  if (expectedDirectionId && candidate.directionId !== expectedDirectionId) reasons.push("тема вне выбранного направления");
   if (!isEditorialTopicEligible({ text, project, product })) reasons.push("тема уводит от основной задачи продукта или затрагивает запрещённый угол");
   if (getUnsupportedClaimViolations({ headline: text }, { project, product, productPassport: product.aiPassport }).length) reasons.push("есть медицинское или неподтверждённое утверждение");
   return reasons;
@@ -78,9 +80,31 @@ function pickOne(items, random) {
   return withoutSignature(items[index]);
 }
 
-function createFallbackTopic(product) {
+function createFallbackTopic(product, contentDirection) {
   const theme = clean(product.name || product.description) || "Тема продукта";
-  return { id: "product-context", theme, situation: "", productRelation: "прямая тема продукта", fallback: true };
+  return {
+    id: "product-context",
+    theme,
+    situation: "",
+    productRelation: contentDirection?.relation || "прямая тема продукта",
+    directionId: clean(contentDirection?.id),
+    fallback: true
+  };
+}
+
+export function getTopicAlignmentViolations({ contentScript = {}, topicSelection = null, contentDirection = null } = {}) {
+  const expectedDirectionId = clean(contentDirection?.id);
+  if (!topicSelection && !expectedDirectionId) return [];
+  if (expectedDirectionId && clean(topicSelection?.directionId) !== expectedDirectionId) return ["topic_direction_mismatch"];
+
+  const topicText = [topicSelection?.theme, topicSelection?.situation, topicSelection?.productRelation].filter(Boolean).join(" ");
+  const scriptText = [contentScript.headline, contentScript.subhead, ...(Array.isArray(contentScript.points) ? contentScript.points : [])]
+    .filter(Boolean)
+    .join(" ");
+  if (!topicText || !scriptText) return [];
+  return isSimilarTopicSignature(buildTopicSimilarityKey([topicText]), buildTopicSimilarityKey([scriptText]))
+    ? []
+    : ["content_topic_mismatch"];
 }
 
 function withoutSignature({ signature, ...topic }) {

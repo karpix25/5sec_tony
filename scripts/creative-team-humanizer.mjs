@@ -2,6 +2,7 @@ import { normalizeHumanizedLine, normalizeHumanizedPlan } from "../src/domain/te
 import { getVisibleTextContractViolations, repairVisibleTextContract } from "../src/domain/design-text-contract.js";
 import { humanizeTextInstruction } from "./creative-team-prompts.mjs";
 import { getClaimEvidence, getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
+import { getTopicAlignmentViolations } from "../src/domain/topic-selection.js";
 
 export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, model, callOpenRouter, parseJsonDraft }) {
   let currentDraft = draft;
@@ -20,12 +21,18 @@ export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, 
       currentDraft = withHumanizedPlan(currentDraft, plan, parsed.attentionReview);
       const violations = getVisibleTextContractViolations({ contentScript: plan, product: body.product });
       const contentClaimViolations = getUnsupportedClaimViolations(plan, claimContext);
-      const valid = !violations.length && !contentClaimViolations.length;
+      const topicAlignmentViolations = getTopicAlignmentViolations({
+        contentScript: plan,
+        topicSelection: body.topicSelection || currentDraft.topicSelection,
+        contentDirection: body.contentDirection || currentDraft.contentDirection
+      });
+      const valid = !violations.length && !contentClaimViolations.length && !topicAlignmentViolations.length;
       if (valid && (proofreadRequested || attempt === 2)) return currentDraft;
       body = {
         ...body,
         headlineViolations: violations,
         contentClaimViolations,
+        topicAlignmentViolations,
         finalProofreadRequired: valid
       };
       proofreadRequested = valid;
@@ -42,6 +49,11 @@ function repairDraft(draft, plan, body = {}) {
   const violations = getVisibleTextContractViolations({ contentScript: plan, product: body.product });
   const claimContext = { project: body.project, product: body.product, productPassport: draft.productPassport || body.product?.aiPassport };
   const safePlan = repairUnsupportedClaims(plan, claimContext);
+  const topicAlignmentViolations = getTopicAlignmentViolations({
+    contentScript: safePlan,
+    topicSelection: body.topicSelection || draft.topicSelection,
+    contentDirection: body.contentDirection || draft.contentDirection
+  });
   const fallbackHeadlines = [
     body.topicSelection?.situation,
     body.topicSelection?.theme,
@@ -52,13 +64,13 @@ function repairDraft(draft, plan, body = {}) {
     draft.creativeBrief?.topic
   ]
     .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
-  const repairedPlan = repairVisibleTextContract(safePlan, {
+  const repairedPlan = repairVisibleTextContract(topicAlignmentViolations.length ? { ...safePlan, headline: "" } : safePlan, {
     product: body.product,
     fallbackHeadlines
   });
   return {
     ...withHumanizedPlan(draft, repairedPlan),
-    textContractRecovery: { used: violations.length > 0, violations }
+    textContractRecovery: { used: violations.length > 0 || topicAlignmentViolations.length > 0, violations: [...violations, ...topicAlignmentViolations] }
   };
 }
 

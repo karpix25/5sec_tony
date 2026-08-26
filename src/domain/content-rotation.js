@@ -1,6 +1,6 @@
 import { scenarioPatterns } from "./creative-patterns.js";
 import { createContentLayer } from "./content-layers.js";
-import { pickContentDirection } from "./product-content-directions.js";
+import { getProductContentDirections, pickContentDirection } from "./product-content-directions.js";
 
 const genericSlots = scenarioPatterns.map((pattern) => ({
   id: pattern.id,
@@ -29,8 +29,14 @@ function pickContentSlots(project, product) {
   return genericSlots;
 }
 
-export function createRecentJobDigest(existingJobs = []) {
-  return selectRecentJobs(existingJobs, 30).map((job) => ({
+export function createGenerationHistory(existingJobs = [], { product = {}, productId = product?.id || "" } = {}) {
+  const sameProduct = existingJobs.filter((job) => !productId || job.productId === productId);
+  if (!getProductContentDirections(product)) return sameProduct;
+  return sameProduct.filter((job) => Boolean(getJobContentDirectionId(job)));
+}
+
+export function createRecentJobDigest(existingJobs = [], options = {}) {
+  return selectRecentJobs(createGenerationHistory(existingJobs, options), 30).map((job) => ({
     title: job.title || "",
     topic: job.topic || "",
     semanticKey: job.semanticKey || "",
@@ -43,6 +49,12 @@ export function createRecentJobDigest(existingJobs = []) {
     attentionFrame: job.attentionFrame || "",
     layoutType: job.layoutContentPlan?.layoutType || ""
   }));
+}
+
+export function getJobContentDirectionId(job = {}) {
+  return job.diversitySlot?.contentDirection?.id
+    || job.contentDirection?.id
+    || "";
 }
 
 export function selectRecentJobs(existingJobs = [], limit = existingJobs.length) {

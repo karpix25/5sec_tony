@@ -262,11 +262,11 @@ async function createApprovedTopicMap({ token, model, callOpenRouter, parseJsonD
   for (let attempt = 0; attempt < maxTopicMapAttempts; attempt += 1) {
     const attentionMap = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: attentionMapInstruction(body, productPassport, designFormatBrief, attentionFrame, previousTopicMapFeedback) });
     const topicMap = attentionMap.attentionMap || attentionMap;
-    const quality = assessTopicMapQuality({ topicMap, project: body.project, product: body.product });
-    const topicSelection = selectTopicSelection({ topicMap, project: body.project, product: body.product, existingJobs: body.existingJobs });
+    const quality = assessTopicMapQuality({ topicMap, project: body.project, product: body.product, contentDirection: body.contentDirection });
+    const topicSelection = selectTopicSelection({ topicMap, project: body.project, product: body.product, existingJobs: body.existingJobs, contentDirection: body.contentDirection });
     if (!quality.needsRetry) return { attentionMap, topicSelection };
     if (attempt === maxTopicMapAttempts - 1) {
-      return { attentionMap, topicSelection: selectTopicSelection({ topicMap: [], project: body.project, product: body.product, existingJobs: body.existingJobs }) };
+      return { attentionMap, topicSelection: selectTopicSelection({ topicMap: [], project: body.project, product: body.product, existingJobs: body.existingJobs, contentDirection: body.contentDirection }) };
     }
     previousTopicMapFeedback = quality.feedback;
   }
@@ -359,6 +359,8 @@ function safetyEditorInstruction(body, productPassport, creativeBrief, contentSc
       productPassport,
       operatorProductContext: body.operatorProductContext,
       claimEvidence: getClaimEvidence({ product: body.product, productPassport: productPassport.productPassport || productPassport }),
+      topicSelection: body.topicSelection || null,
+      contentDirection: body.contentDirection || null,
       creativeBrief,
       contentScript,
       visualBrief,

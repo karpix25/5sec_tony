@@ -8,6 +8,7 @@ import { validateHeadlineSafety } from "../src/domain/attention-frame.js";
 import { readJsonRequest } from "./request-body.mjs";
 import { reviewRenderedImageText } from "../src/domain/image-text-contract.js";
 import { getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
+import { getTopicAlignmentViolations } from "../src/domain/topic-selection.js";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
 const writingModel = "google/gemini-3.1-flash-lite";
@@ -140,6 +141,11 @@ function repairCreativeTeamText(draft = {}, body = {}) {
   const contentScript = draft.contentScript || draft.plan || draft.aiPlan || {};
   const claimContext = { project: body.project, product: body.product, productPassport: draft.productPassport || body.product?.aiPassport };
   const claimSafeContent = repairUnsupportedClaims(contentScript, claimContext);
+  const topicAlignmentViolations = getTopicAlignmentViolations({
+    contentScript: claimSafeContent,
+    topicSelection: draft.topicSelection,
+    contentDirection: body.contentDirection || draft.contentDirection
+  });
   const violations = getVisibleTextContractViolations({ contentScript: claimSafeContent, product: body.product });
   const fallbackHeadlines = [
     draft.topicSelection?.situation,
@@ -151,7 +157,7 @@ function repairCreativeTeamText(draft = {}, body = {}) {
     draft.creativeBrief?.topic
   ]
     .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
-  const repaired = repairVisibleTextContract(claimSafeContent, {
+  const repaired = repairVisibleTextContract(topicAlignmentViolations.length ? { ...claimSafeContent, headline: "" } : claimSafeContent, {
     product: body.product,
     fallbackHeadlines
   });
@@ -161,7 +167,9 @@ function repairCreativeTeamText(draft = {}, body = {}) {
     contentScript: repaired,
     plan: repaired,
     aiPlan: repaired,
-    textContractRecovery: violations.length ? { used: true, violations } : draft.textContractRecovery
+    textContractRecovery: violations.length || topicAlignmentViolations.length
+      ? { used: true, violations: [...violations, ...topicAlignmentViolations] }
+      : draft.textContractRecovery
   };
 }
 

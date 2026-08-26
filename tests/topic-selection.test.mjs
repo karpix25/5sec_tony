@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assessTopicMapQuality, selectTopicSelection } from "../src/domain/topic-selection.js";
+import { assessTopicMapQuality, getTopicAlignmentViolations, selectTopicSelection } from "../src/domain/topic-selection.js";
 
 const pads = {
   id: "pads",
@@ -72,6 +72,7 @@ test("topic selection rejects unsupported claims and always returns a fallback",
     theme: "Прокладки",
     situation: "",
     productRelation: "прямая тема продукта",
+    directionId: "",
     fallback: true
   });
 });
@@ -138,4 +139,36 @@ test("topic selection keeps editorial matrix metadata without affecting dedupe",
   assert.equal(topic.awarenessStage, "choice");
   assert.equal(topic.contentGoal, "compare");
   assert.deepEqual(topic.evidenceIds, ["fact-period-use", "fact-material"]);
+});
+
+test("topic selection rejects candidates outside the selected content direction", () => {
+  const topic = selectTopicSelection({
+    product: pads,
+    contentDirection: { id: "care-habits", title: "Привычки ухода", relation: "Связь с ежедневным уходом." },
+    topicMap: { topicMap: [
+      { id: "wrong", directionId: "myths", theme: "Мифы о средстве", situation: "Популярный совет не помогает", productRelation: "Тема связана с использованием средства" },
+      { id: "right", directionId: "care-habits", theme: "Привычка менять средство вовремя", situation: "Средство заканчивается в самый неудобный момент", productRelation: "Тема помогает выстроить понятный ежедневный уход" }
+    ] },
+    random: () => 0
+  });
+
+  assert.equal(topic.id, "right");
+  assert.equal(topic.directionId, "care-habits");
+});
+
+test("topic alignment catches a final script that drifted from the selected topic", () => {
+  assert.deepEqual(getTopicAlignmentViolations({
+    contentDirection: { id: "care-habits" },
+    topicSelection: {
+      directionId: "care-habits",
+      theme: "Привычки ухода",
+      situation: "Средство заканчивается в самый неудобный момент",
+      productRelation: "Тема помогает выстроить ежедневный уход"
+    },
+    contentScript: {
+      headline: "Скрип: что проверить",
+      subhead: "Проверка перед выбором",
+      points: ["Посмотрите на упаковку"]
+    }
+  }), ["content_topic_mismatch"]);
 });
