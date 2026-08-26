@@ -1,6 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compactStateForPendingRemoteSave } from "../src/state/pending-remote-save-state.js";
+import { compactStateForPendingRemoteSave, prepareStateForRemoteSave } from "../src/state/pending-remote-save-state.js";
+
+test("remote save keeps only pending reservations when jobs did not change", () => {
+  const prepared = prepareStateForRemoteSave({
+    projects: [{ id: "project-1" }],
+    jobs: [
+      { id: "old-job", status: "done" },
+      { id: "pending-job", serverOwned: true, isBriefPlaceholder: true, serverReservationStatus: "requested" }
+    ]
+  });
+
+  assert.equal(prepared.preserveJobs, true);
+  assert.deepEqual(prepared.state.jobs.map((job) => job.id), ["pending-job"]);
+  assert.equal(prepared.state.jobs[0].isBriefPlaceholder, true);
+  assert.equal(prepared.state.jobs[0].serverReservationStatus, "requested");
+});
+
+test("remote save keeps the full job list when jobs changed", () => {
+  const prepared = prepareStateForRemoteSave({
+    jobs: [{ id: "job-1", prompt: "legacy job prompt" }]
+  }, ["jobs"]);
+
+  assert.equal(prepared.preserveJobs, false);
+  assert.equal(prepared.state.jobs[0].prompt, "legacy job prompt");
+});
 
 test("pending remote save drops heavy generated job payloads", () => {
   const state = {

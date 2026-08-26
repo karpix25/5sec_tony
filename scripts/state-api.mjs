@@ -117,8 +117,11 @@ async function handleSaveState(request, response, url, deps) {
       return sendJson(response, 400, { error: "state object is required" });
     }
     const result = await writeWithConflictCheck(body, deps, async (tx, { currentUpdatedAt }) => {
-      const nextState = normalizeStateJobIds(body.state);
       const currentState = await loadCurrentState(tx.query, deps, appStateKey, { compactJobs: true });
+      const incomingState = normalizeStateJobIds(body.state);
+      const nextState = body.preserveJobs === true
+        ? mergePreservedJobs(currentState, incomingState)
+        : incomingState;
       const projectDeletionConflict = getUnexpectedProjectDeletionConflict(currentState, nextState);
       if (projectDeletionConflict) {
         return {
@@ -175,6 +178,16 @@ async function handleSaveState(request, response, url, deps) {
   } catch (error) {
     return sendJson(response, 500, { error: error.message || "Не удалось сохранить состояние в Postgres" });
   }
+}
+
+function mergePreservedJobs(currentState, incomingState) {
+  const currentJobs = Array.isArray(currentState?.jobs) ? currentState.jobs : [];
+  const incomingJobs = Array.isArray(incomingState?.jobs) ? incomingState.jobs : [];
+  const incomingIds = new Set(incomingJobs.map((job) => job?.id).filter(Boolean));
+  return {
+    ...incomingState,
+    jobs: [...incomingJobs, ...currentJobs.filter((job) => !incomingIds.has(job?.id))]
+  };
 }
 
 function compactStateForParity(state) {

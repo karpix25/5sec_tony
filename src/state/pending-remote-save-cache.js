@@ -1,6 +1,5 @@
 import { readJsonStorage, removeJsonStorage, writeJsonStorage } from "../storage/json-storage.js";
-import { compactStateForLocalCache } from "./local-cache-state.js";
-import { compactStateForPendingRemoteSave } from "./pending-remote-save-state.js";
+import { compactStateForPendingRemoteSave, prepareStateForRemoteSave } from "./pending-remote-save-state.js";
 
 export function readPendingRemoteSave(storageKey, storageVersion, normalize) {
   const pending = readJsonStorage(storageKey, {
@@ -8,10 +7,11 @@ export function readPendingRemoteSave(storageKey, storageVersion, normalize) {
     version: storageVersion
   });
   if (!isPendingRemoteSave(pending)) return null;
+  const compacted = compactPendingRemoteSave(pending);
   return {
-    baseUpdatedAt: pending.baseUpdatedAt || "",
-    changedKeys: Array.isArray(pending.changedKeys) ? pending.changedKeys : [],
-    state: typeof normalize === "function" ? normalize(pending.state) : pending.state
+    baseUpdatedAt: compacted.baseUpdatedAt || "",
+    changedKeys: Array.isArray(compacted.changedKeys) ? compacted.changedKeys : [],
+    state: typeof normalize === "function" ? normalize(compacted.state) : compacted.state
   };
 }
 
@@ -32,9 +32,10 @@ export function clearPendingRemoteSave(storageKey) {
 
 function compactPendingRemoteSave(pending) {
   if (!isPendingRemoteSave(pending)) return pending;
+  const prepared = prepareStateForRemoteSave(pending.state, pending.changedKeys);
   return {
     ...pending,
-    state: compactStateForPendingRemoteSave(compactStateForLocalCache(pending.state))
+    state: compactStateForPendingRemoteSave(prepared.state)
   };
 }
 

@@ -1,4 +1,5 @@
 import { fetchJsonWithRetry } from "./sync-fetch.js";
+import { prepareStateForRemoteSave } from "../state/pending-remote-save-state.js";
 
 export async function loadRemoteState() {
   const { response, payload } = await fetchJsonWithRetry("/api/state", {
@@ -57,10 +58,16 @@ export class StateSyncConflictError extends Error {
 
 export async function saveRemoteState(state, baseUpdatedAt = "", options = {}) {
   const changedKeys = Array.isArray(options.changedKeys) ? options.changedKeys : [];
+  const prepared = prepareStateForRemoteSave(state, changedKeys);
   const { response, payload } = await fetchJsonWithRetry("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ state, baseUpdatedAt, changedKeys }),
+    body: JSON.stringify({
+      state: prepared.state,
+      baseUpdatedAt,
+      changedKeys,
+      preserveJobs: prepared.preserveJobs
+    }),
     timeoutMs: 60000,
     attempts: 1
   });

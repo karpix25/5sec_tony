@@ -1,3 +1,5 @@
+import { compactStateForLocalCache } from "./local-cache-state.js";
+
 const heavyPendingJobFields = [
   "prompt",
   "promptContract",
@@ -10,12 +12,44 @@ const heavyPendingJobFields = [
   "qaReview"
 ];
 
+const pendingReservationStatuses = new Set(["requested", "failed"]);
+
+export function prepareStateForRemoteSave(state, changedKeys = []) {
+  const jobsChanged = Array.isArray(changedKeys) && changedKeys.includes("jobs");
+  const compacted = compactStateForLocalCache(state);
+  if (jobsChanged) {
+    return {
+      state: {
+        ...compacted,
+        jobs: Array.isArray(state?.jobs) ? state.jobs : []
+      },
+      preserveJobs: false
+    };
+  }
+
+  const pendingJobs = (state?.jobs || []).filter(isPendingReservation);
+  return {
+    state: {
+      ...compacted,
+      jobs: pendingJobs
+    },
+    preserveJobs: true
+  };
+}
+
 export function compactStateForPendingRemoteSave(state) {
   if (!state || typeof state !== "object") return state;
   return {
     ...state,
     jobs: (state.jobs || []).map(compactPendingJob)
   };
+}
+
+function isPendingReservation(job) {
+  return Boolean(job?.id)
+    && job.isBriefPlaceholder === true
+    && (job.status === "failed"
+      || (job.serverOwned === true && pendingReservationStatuses.has(job.serverReservationStatus)));
 }
 
 function compactPendingJob(job) {

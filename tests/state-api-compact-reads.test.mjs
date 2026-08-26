@@ -34,6 +34,42 @@ test("state save uses compact job reads for conflict and parity checks", async (
   assert.deepEqual(saveOptions, [{ preserveCatalog: true }]);
 });
 
+test("state save can preserve database jobs when client sends only pending reservations", async () => {
+  const savedStates = [];
+  const currentState = {
+    projects: [{ id: "project-1" }],
+    products: [{ id: "product-1", projectId: "project-1" }],
+    jobs: [{ id: "old-job", status: "done" }]
+  };
+  const incomingState = {
+    ...currentState,
+    jobs: [{ id: "pending-job", status: "running", isBriefPlaceholder: true }]
+  };
+  let storedState = currentState;
+  const response = createJsonResponse();
+  const handle = createStateApiHandler({
+    isPostgresConfigured: () => true,
+    loadNormalizedState: async () => storedState,
+    saveNormalizedState: async (_query, _key, nextState) => {
+      savedStates.push(nextState);
+      storedState = nextState;
+      return nextState;
+    },
+    touchAppStateMetadata: async () => ({ rows: [{ updated_at: "t1" }] }),
+    loadAppStateMetadata: async () => ({ updatedAt: "t1" }),
+    withPostgresTransaction: async (callback) => callback({ query: async () => ({ rows: [{ updated_at: "t0" }] }) })
+  });
+
+  await handle(
+    createJsonRequest("POST", { state: incomingState, baseUpdatedAt: "t0", preserveJobs: true }),
+    response,
+    new URL("http://localhost/api/state")
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(savedStates[0].jobs.map((job) => job.id), ["pending-job", "old-job"]);
+});
+
 test("state api bootstrap skips all jobs while keeping the catalog", async () => {
   const loadOptions = [];
   const response = createJsonResponse();

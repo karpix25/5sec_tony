@@ -11,6 +11,8 @@ export function readJsonRequest(request, { limitBytes = 1024 * 1024, tooLargeMes
         rejectedForSize = true;
         const error = new Error(tooLargeMessage);
         error.code = "REQUEST_BODY_TOO_LARGE";
+        error.requestBytes = total;
+        error.limitBytes = limitBytes;
         reject(error);
         request.resume?.();
         return;
