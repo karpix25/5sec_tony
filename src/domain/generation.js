@@ -180,7 +180,7 @@ export function createGenerationJob({ project, product, reference, character, au
   const rawBrief = createAutoGenerationBrief({ project, product, reference, generationBrief, existingJobs });
   const suppliedContent = generationBrief?.contentScript || generationBrief?.plan || generationBrief?.aiPlan;
   const finalContent = repairVisibleTextContract(suppliedContent || rawBrief.finalContent, {
-    product,
+    product, contentDirection: rawBrief.contentDirection,
     fallbackHeadlines: [rawBrief.creativeBrief?.hookPromise, rawBrief.hook, rawBrief.topic]
   });
   const brief = { ...rawBrief, hook: finalContent.headline, finalContent, aiPlan: finalContent, contentScript: finalContent };

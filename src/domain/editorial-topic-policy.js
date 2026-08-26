@@ -11,13 +11,24 @@ export const editorialTopicRules = [
   "Перед выбором темы сформулируй одним предложением ее связь с основной задачей продукта. Если связь натянутая, выбери другой угол."
 ];
 
-export function isEditorialTopicEligible({ text, project = {}, product = {} } = {}) {
+export function isEditorialTopicEligible({ text, project = {}, product = {}, contentDirection = null } = {}) {
   const topic = String(text || "");
   const context = getProductCategoryContext(project, product);
   if (wellnessContextPattern.test(context) && unsafeWellnessTopicPattern.test(topic)) return false;
   if (cosmeticContextPattern.test(context) && unsafeCosmeticTopicPattern.test(topic)) return false;
   if (!operationalSideTopicPattern.test(topic)) return true;
+  if (contentDirection?.kind === "custom") return true;
   return operationalSideTopicPattern.test(getOperationalCategoryContext(project, product));
+}
+
+export function isContentDirectionTopicEligible({ text, contentDirection = null } = {}) {
+  if (!contentDirection) return true;
+  if (!operationalSideTopicPattern.test(String(text || ""))) return true;
+  return contentDirection?.kind === "custom";
+}
+
+export function hasOperationalTopic(text) {
+  return operationalSideTopicPattern.test(String(text || ""));
 }
 
 function getOperationalCategoryContext(project, product) {

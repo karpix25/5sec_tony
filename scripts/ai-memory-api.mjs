@@ -133,7 +133,7 @@ function productContentDirectionsInstruction(body) {
 export function isSafeContentDirection(item, body) {
   const title = String(item?.title || item?.label || "").trim();
   return Boolean(title)
-    && isEditorialTopicEligible({ text: title, project: body.project, product: body.product })
+    && isEditorialTopicEligible({ text: `${title} ${item?.relation || item?.description || ""}`, project: body.project, product: body.product })
     && !getUnsupportedClaimViolations({ headline: title }, {
       project: body.project,
       product: body.product,

@@ -1,9 +1,12 @@
+import { hasOperationalTopic } from "./editorial-topic-policy.js";
+
 const maxContentDirections = 7;
+const maxCustomContentDirections = 12;
 
 export const directProductContentDirection = {
   id: "direct-product",
   title: "Сам продукт и его применение",
-  relation: "Прямой контент о продукте, его составе, применении и выборе.",
+  relation: "Прямой контент о продукте, его составе, применении и пользовательском опыте.",
   kind: "direct",
   enabled: true
 };
@@ -11,18 +14,21 @@ export const directProductContentDirection = {
 export function normalizeProductContentDirections(value) {
   const source = parseObject(value);
   const rawItems = Array.isArray(source.items) ? source.items : [];
-  if (!rawItems.length) return null;
+  const rawCustomItems = Array.isArray(source.customItems) ? source.customItems : [];
+  if (!rawItems.length && !rawCustomItems.length) return null;
 
   const items = dedupeDirections(rawItems)
     .filter((item) => item.id !== directProductContentDirection.id)
     .slice(0, maxContentDirections - 1);
+  const customItems = dedupeCustomDirections(rawCustomItems).slice(0, maxCustomContentDirections);
   return {
-    version: 1,
+    version: 2,
     generatedAt: clean(source.generatedAt),
     items: [
       { ...directProductContentDirection, enabled: readEnabled(rawItems, directProductContentDirection.id) },
       ...items
-    ]
+    ],
+    customItems
   };
 }
 
@@ -34,10 +40,17 @@ export function preserveContentDirectionSelection(current, next) {
   const previous = normalizeProductContentDirections(current);
   const replacement = normalizeProductContentDirections(next);
   if (!replacement || !previous) return replacement;
-  const enabledById = new Map(previous.items.map((item) => [item.id, item.enabled !== false]));
+  const enabledById = new Map([...previous.items, ...previous.customItems].map((item) => [item.id, item.enabled !== false]));
+  const customItems = dedupeCustomDirections([
+    ...(replacement.customItems || []),
+    ...(previous.customItems || [])
+  ]);
   return normalizeProductContentDirections({
     ...replacement,
     items: replacement.items.map((item) => enabledById.has(item.id)
+      ? { ...item, enabled: enabledById.get(item.id) }
+      : item),
+    customItems: customItems.map((item) => enabledById.has(item.id)
       ? { ...item, enabled: enabledById.get(item.id) }
       : item)
   });
@@ -47,7 +60,8 @@ export function getEnabledContentDirections(product = {}, requestedIds = []) {
   const directions = getProductContentDirections(product);
   if (!directions) return [];
   const requested = new Set(normalizeDirectionIds(requestedIds));
-  return directions.items.filter((item) => item.enabled && (!requested.size || requested.has(item.id)));
+  return [...directions.items, ...directions.customItems]
+    .filter((item) => item.enabled && (!requested.size || requested.has(item.id)));
 }
 
 export function pickContentDirection({ product = {}, existingJobs = [], requestedIds = [] } = {}) {
@@ -75,7 +89,8 @@ export function pickContentDirection({ product = {}, existingJobs = [], requeste
 
 export function normalizeDirectionIds(value) {
   const source = Array.isArray(value) ? value : String(value || "").split(",");
-  return [...new Set(source.map((item) => clean(item)).filter(Boolean))].slice(0, maxContentDirections);
+  return [...new Set(source.map((item) => clean(item)).filter(Boolean))]
+    .slice(0, maxContentDirections + maxCustomContentDirections);
 }
 
 function dedupeDirections(items) {
@@ -90,18 +105,51 @@ function dedupeDirections(items) {
     });
 }
 
+function dedupeCustomDirections(items) {
+  const seen = new Set();
+  return items
+    .map((item) => normalizeCustomDirection(item))
+    .filter(Boolean)
+    .filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+}
+
 function normalizeDirection(item = {}) {
-  const title = clean(item.title || item.label);
+  const source = item && typeof item === "object" ? item : {};
+  const title = clean(source.title || source.label);
   if (!title || title.length > 90) return null;
-  const id = clean(item.id).toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "");
+  if (hasOperationalTopic(`${title} ${source.relation || source.description || ""}`)) return null;
+  const id = clean(source.id).toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "");
   if (!id) return null;
   return {
     id,
     title,
-    relation: clean(item.relation || item.description).slice(0, 180),
+    relation: clean(source.relation || source.description).slice(0, 180),
     kind: "adjacent",
-    enabled: item.enabled !== false
+    enabled: source.enabled !== false
   };
+}
+
+function normalizeCustomDirection(item = {}) {
+  const source = item && typeof item === "object" ? item : {};
+  const title = clean(typeof item === "string" ? item : source.title || source.label);
+  if (!title || title.length > 100) return null;
+  const id = normalizeId(typeof item === "string" ? "" : source.id) || `custom-${normalizeId(title)}`;
+  if (!id || id === "custom-") return null;
+  return {
+    id,
+    title,
+    relation: (clean(typeof item === "object" ? source.relation : "") || "Тема добавлена оператором.").slice(0, 180),
+    kind: "custom",
+    enabled: typeof item === "object" ? source.enabled !== false : true
+  };
+}
+
+function normalizeId(value) {
+  return clean(value).toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "");
 }
 
 function readEnabled(items, id) {

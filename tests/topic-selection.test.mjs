@@ -156,6 +156,35 @@ test("topic selection rejects candidates outside the selected content direction"
   assert.equal(topic.directionId, "care-habits");
 });
 
+test("direct product direction rejects packaging topics", () => {
+  const topic = selectTopicSelection({
+    product: pads,
+    contentDirection: { id: "direct-product", kind: "direct", title: "Сам продукт и его применение" },
+    topicMap: {
+      topicMap: [
+        { id: "package", directionId: "direct-product", theme: "Как проверить упаковку", situation: "Страшно купить подделку", productRelation: "Упаковка помогает проверить товар" },
+        { id: "use", directionId: "direct-product", theme: "Как использовать средство", situation: "Нужно пользоваться средством в обычный день", productRelation: "Тема связана с применением продукта" }
+      ]
+    },
+    random: () => 0
+  });
+
+  assert.equal(topic.id, "use");
+});
+
+test("an explicitly entered custom direction may mention packaging", () => {
+  const topic = selectTopicSelection({
+    product: pads,
+    contentDirection: { id: "custom-proverka-upakovki", kind: "custom", title: "Проверка упаковки" },
+    topicMap: {
+      topicMap: [{ id: "package", directionId: "custom-proverka-upakovki", theme: "Как проверить упаковку", situation: "Страшно купить подделку", productRelation: "Оператор выбрал тему проверки упаковки" }]
+    },
+    random: () => 0
+  });
+
+  assert.equal(topic.id, "package");
+});
+
 test("topic alignment catches a final script that drifted from the selected topic", () => {
   assert.deepEqual(getTopicAlignmentViolations({
     contentDirection: { id: "care-habits" },
@@ -170,5 +199,5 @@ test("topic alignment catches a final script that drifted from the selected topi
       subhead: "Проверка перед выбором",
       points: ["Посмотрите на упаковку"]
     }
-  }), ["content_topic_mismatch"]);
+  }), ["content_direction_topic_mismatch", "content_topic_mismatch"]);
 });

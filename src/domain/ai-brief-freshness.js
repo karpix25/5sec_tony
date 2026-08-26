@@ -1,5 +1,6 @@
 import { selectRecentJobs } from "./content-rotation.js";
 import { repairVisibleTextContract } from "./design-text-contract.js";
+import { isContentDirectionTopicEligible } from "./editorial-topic-policy.js";
 
 const freshnessStopWords = new Set([
   "а", "без", "бы", "в", "вам", "ваш", "ваша", "ваше", "ваши", "все", "для",
@@ -79,16 +80,21 @@ export function createFreshnessFallbackBrief(brief, rejectedJobs = []) {
 
 function createFreshHeadlineFallback(brief, rejectedJobs) {
   const headline = getBriefTitle(brief);
+  const contentDirection = brief.contentDirection || brief.diversitySlot?.contentDirection;
   const repeatedOpenings = getRejectedHeadlineOpenings(rejectedJobs);
   if (!repeatedOpenings.length) return "";
   if (repeatedOpenings.includes("почему") && /^почему\s+/i.test(headline)) {
     const statement = headline.replace(/^почему\s+/i, "").trim();
-    if (statement) return statement[0].toLocaleUpperCase("ru-RU") + statement.slice(1);
+    if (statement && isContentDirectionTopicEligible({ text: statement, contentDirection })) {
+      return statement[0].toLocaleUpperCase("ru-RU") + statement.slice(1);
+    }
   }
   const plan = brief.finalContent || brief.contentScript || brief.plan || brief.aiPlan || {};
-  const candidates = [brief.creativeBrief?.hookPromise, plan.subhead, ...(Array.isArray(plan.points) ? plan.points : []), brief.topic].filter(Boolean);
+  const candidates = [brief.creativeBrief?.hookPromise, plan.subhead, ...(Array.isArray(plan.points) ? plan.points : []), brief.topic]
+    .filter(Boolean)
+    .filter((candidate) => isContentDirectionTopicEligible({ text: candidate, contentDirection }));
   for (const candidate of candidates) {
-    const repaired = repairVisibleTextContract({ headline: candidate, points: [] }).headline;
+    const repaired = repairVisibleTextContract({ headline: candidate, points: [] }, { contentDirection }).headline;
     if (repaired === "Сначала проверь способ применения" || repaired === headline) continue;
     if (!repeatedOpenings.includes(getHeadlineOpening(repaired))) return repaired;
   }

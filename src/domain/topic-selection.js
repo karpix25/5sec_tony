@@ -1,5 +1,5 @@
 import { getUnsupportedClaimViolations } from "./content-claim-contract.js";
-import { isEditorialTopicEligible } from "./editorial-topic-policy.js";
+import { isContentDirectionTopicEligible, isEditorialTopicEligible } from "./editorial-topic-policy.js";
 import { selectRecentJobs } from "./content-rotation.js";
 import { buildTopicSimilarityKey, isSimilarTopicSignature } from "./topic-similarity.js";
 
@@ -66,7 +66,10 @@ function getCandidateRejectionReasons(candidate, { project, product, contentDire
   const reasons = [];
   const expectedDirectionId = clean(contentDirection?.id);
   if (expectedDirectionId && candidate.directionId !== expectedDirectionId) reasons.push("тема вне выбранного направления");
-  if (!isEditorialTopicEligible({ text, project, product })) reasons.push("тема уводит от основной задачи продукта или затрагивает запрещённый угол");
+  if (!isEditorialTopicEligible({ text, project, product, contentDirection })
+    || !isContentDirectionTopicEligible({ text, contentDirection })) {
+    reasons.push("тема уводит от основной задачи продукта или затрагивает запрещённый угол");
+  }
   if (getUnsupportedClaimViolations({ headline: text }, { project, product, productPassport: product.aiPassport }).length) reasons.push("есть медицинское или неподтверждённое утверждение");
   return reasons;
 }
@@ -81,9 +84,9 @@ function pickOne(items, random) {
 }
 
 function createFallbackTopic(product, contentDirection) {
-  const theme = clean(product.name || product.description) || "Тема продукта";
+  const theme = clean(contentDirection?.title || product.name || product.description) || "Тема продукта";
   return {
-    id: "product-context",
+    id: contentDirection?.kind === "custom" ? clean(contentDirection.id) || "custom-topic" : "product-context",
     theme,
     situation: "",
     productRelation: contentDirection?.relation || "прямая тема продукта",
@@ -101,10 +104,15 @@ export function getTopicAlignmentViolations({ contentScript = {}, topicSelection
   const scriptText = [contentScript.headline, contentScript.subhead, ...(Array.isArray(contentScript.points) ? contentScript.points : [])]
     .filter(Boolean)
     .join(" ");
-  if (!topicText || !scriptText) return [];
-  return isSimilarTopicSignature(buildTopicSimilarityKey([topicText]), buildTopicSimilarityKey([scriptText]))
+  const violations = isContentDirectionTopicEligible({ text: scriptText, contentDirection })
     ? []
-    : ["content_topic_mismatch"];
+    : ["content_direction_topic_mismatch"];
+  if (!scriptText) return [];
+  if (!topicText) return violations;
+  if (!isSimilarTopicSignature(buildTopicSimilarityKey([topicText]), buildTopicSimilarityKey([scriptText]))) {
+    violations.push("content_topic_mismatch");
+  }
+  return violations;
 }
 
 function withoutSignature({ signature, ...topic }) {

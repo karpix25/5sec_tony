@@ -114,6 +114,29 @@
   line-height: 1.35;
 }
 
+.content-direction-group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.content-direction-custom {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.content-direction-custom > span {
+  display: grid;
+  gap: 3px;
+}
+
+.content-direction-custom small {
+  color: var(--color-muted);
+}
+
+.content-direction-custom textarea {
+  min-height: 76px;
+}
+
 .product-editor {
   padding: 0;
   background: transparent;

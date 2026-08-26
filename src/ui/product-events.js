@@ -35,6 +35,7 @@ export function bindProductEvents(root, store) {
   root.querySelectorAll("[data-content-direction-toggle]").forEach((input) => {
     input.addEventListener("change", () => syncProductContentDirections(root));
   });
+  root.querySelector("[data-custom-content-directions]")?.addEventListener("input", () => syncProductContentDirections(root));
   root.querySelectorAll("[data-delete-product]").forEach((button) => {
     button.addEventListener("click", () => deleteProduct(root, store, button));
   });

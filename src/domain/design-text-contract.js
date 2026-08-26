@@ -1,3 +1,5 @@
+import { isContentDirectionTopicEligible } from "./editorial-topic-policy.js";
+
 const oldCountPattern = /(^|\s)[3-7]\s*(маркер|признак|пункт|симптом|ошиб|вещ|привыч|сигнал)/i;
 const topHeadlinePattern = /^(top|топ)(\s|\d|$)/i;
 const incompleteHeadlineEndingPattern = /^(а|и|но|если|когда|который|которая|которые|которое|потому|что|как|почему|это|плохой|плохая|плохое)$/i;
@@ -67,7 +69,8 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
   let points = getScriptPoints(contentScript)
     .map(normalizePointText)
     .map(normalizeRepairLine)
-    .filter((line) => line && !genericPointPattern.test(line) && !forbiddenVisiblePattern.test(line) && !hasOrphanMeasurement(line));
+    .filter((line) => line && !genericPointPattern.test(line) && !forbiddenVisiblePattern.test(line) && !hasOrphanMeasurement(line))
+    .filter((line) => isContentDirectionTopicEligible({ text: line, contentDirection: options.contentDirection }));
   if (focusedListPromisePattern.test(`${contentScript.headline || ""} ${contentScript.subhead || ""}`)) {
     points = points.filter((line) => !productFeaturePointPattern.test(line));
   }
@@ -81,7 +84,8 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
     ...[contentScript.subhead, ...getScriptPoints(contentScript).map(normalizePointText)].flatMap(createHeadlineCandidates)
   ]
     .filter((line) => line && !looksLikeProductDump(line, options.product) && !forbiddenVisiblePattern.test(line));
-  const headline = candidates.find((line) => isValidHeadline(line, options.product))
+  const directionCandidates = candidates.filter((line) => isContentDirectionTopicEligible({ text: line, contentDirection: options.contentDirection }));
+  const headline = directionCandidates.find((line) => isValidHeadline(line, options.product))
     || createProductFallbackHeadline(options.product, sourceHeadline);
   const rawSubhead = normalizeRepairLine(contentScript.subhead);
   const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead) && !points.some((point) => hasSameMeaning(rawSubhead, point))

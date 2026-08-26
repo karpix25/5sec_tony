@@ -85,6 +85,20 @@ test("visible text repair takes a natural sentence from the creative hook", () =
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
+test("visible text repair removes packaging copy outside an explicit packaging direction", () => {
+  const repaired = repairVisibleTextContract({
+    headline: "Как проверить упаковку",
+    points: ["Проверьте мембрану перед покупкой", "Используйте средство по инструкции"]
+  }, {
+    product: { name: "Зубная паста" },
+    contentDirection: { id: "direct-product", kind: "direct" },
+    fallbackHeadlines: ["Как использовать пасту каждый день"]
+  });
+
+  assert.equal(repaired.headline, "Как использовать пасту каждый день");
+  assert.deepEqual(repaired.points, ["Используйте средство по инструкции"]);
+});
+
 test("visible text repair shortens a natural point instead of using a generic fallback", () => {
   const repaired = repairVisibleTextContract({
     headline: "Шампунь",

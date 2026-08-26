@@ -2,6 +2,7 @@ import { normalizeHumanizedLine, normalizeHumanizedPlan } from "../src/domain/te
 import { getVisibleTextContractViolations, repairVisibleTextContract } from "../src/domain/design-text-contract.js";
 import { humanizeTextInstruction } from "./creative-team-prompts.mjs";
 import { getClaimEvidence, getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
+import { isContentDirectionTopicEligible } from "../src/domain/editorial-topic-policy.js";
 import { getTopicAlignmentViolations } from "../src/domain/topic-selection.js";
 
 export async function humanizeCreativeTeamDraft({ token, body = {}, draft = {}, model, callOpenRouter, parseJsonDraft }) {
@@ -54,6 +55,7 @@ function repairDraft(draft, plan, body = {}) {
     topicSelection: body.topicSelection || draft.topicSelection,
     contentDirection: body.contentDirection || draft.contentDirection
   });
+  const contentDirection = body.contentDirection || draft.contentDirection;
   const fallbackHeadlines = [
     body.topicSelection?.situation,
     body.topicSelection?.theme,
@@ -63,9 +65,11 @@ function repairDraft(draft, plan, body = {}) {
     draft.topic,
     draft.creativeBrief?.topic
   ]
-    .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
+    .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length)
+    .filter((headline) => isContentDirectionTopicEligible({ text: headline, contentDirection }));
   const repairedPlan = repairVisibleTextContract(topicAlignmentViolations.length ? { ...safePlan, headline: "" } : safePlan, {
     product: body.product,
+    contentDirection,
     fallbackHeadlines
   });
   return {

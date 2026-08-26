@@ -36,6 +36,18 @@ test("content directions normalize from saved JSON and keep the direct product l
   assert.equal(normalizeProductContentDirections(null), null);
 });
 
+test("legacy packaging directions are removed from the AI direction set", () => {
+  const directions = normalizeProductContentDirections({
+    items: [
+      directProductContentDirection,
+      { id: "quality-standards", title: "Критерии выбора БАД", relation: "Проверка упаковки и документов перед покупкой" },
+      { id: "daily-care", title: "Ежедневный уход", relation: "Связано с понятной рутиной." }
+    ]
+  });
+
+  assert.deepEqual(directions.items.map((item) => item.id), ["direct-product", "daily-care"]);
+});
+
 test("direction validation checks the topic title without rejecting its rationale", () => {
   const wellnessProduct = {
     id: "product-wellness",
@@ -46,7 +58,7 @@ test("direction validation checks the topic title without rejecting its rational
   const item = {
     id: "smart-shopping",
     title: "Как выбирать качественные добавки",
-    relation: "Решает проблему недоверия к товарам на маркетплейсах."
+    relation: "Решает проблему недоверия к качеству товара."
   };
 
   assert.equal(isSafeContentDirection(item, { project: {}, product: wellnessProduct }), true);
@@ -99,6 +111,20 @@ test("refresh keeps operator enabled states and product entities preserve direct
   assert.deepEqual(entity.contentDirections.items.map((item) => item.id), ["direct-product", "sleep-hygiene", "new-direction"]);
 });
 
+test("custom directions stay in the same rotation pool after an AI refresh", () => {
+  const current = normalizeProductContentDirections({
+    items: [{ ...directProductContentDirection, enabled: true }],
+    customItems: [{ title: "Питание перед тренировкой", enabled: false }]
+  });
+  const refreshed = preserveContentDirectionSelection(current, {
+    items: [{ id: "new-direction", title: "Простые привычки", relation: "Связано с рутиной." }]
+  });
+
+  assert.deepEqual(refreshed.customItems.map((item) => item.title), ["Питание перед тренировкой"]);
+  assert.equal(refreshed.customItems[0].enabled, false);
+  assert.deepEqual(getEnabledContentDirections({ contentDirections: refreshed }).map((item) => item.id), ["direct-product", "new-direction"]);
+});
+
 test("product settings show a calculate action for legacy products and checkboxes for configured ones", () => {
   const legacyHtml = renderProductSettings({ product: { ...product, contentDirections: null } });
   const configuredHtml = renderProductSettings({ product });
@@ -106,6 +132,7 @@ test("product settings show a calculate action for legacy products and checkboxe
   assert.match(legacyHtml, /data-refresh-product-directions/);
   assert.match(configuredHtml, /data-content-direction-toggle="sleep-hygiene"/);
   assert.match(configuredHtml, /name="contentDirections"/);
+  assert.match(configuredHtml, /data-custom-content-directions/);
 });
 
 test("content slot carries the selected direction into generation", () => {

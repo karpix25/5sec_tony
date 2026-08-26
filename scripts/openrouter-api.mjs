@@ -8,6 +8,7 @@ import { validateHeadlineSafety } from "../src/domain/attention-frame.js";
 import { readJsonRequest } from "./request-body.mjs";
 import { reviewRenderedImageText } from "../src/domain/image-text-contract.js";
 import { getUnsupportedClaimViolations, repairUnsupportedClaims } from "../src/domain/content-claim-contract.js";
+import { isContentDirectionTopicEligible } from "../src/domain/editorial-topic-policy.js";
 import { getTopicAlignmentViolations } from "../src/domain/topic-selection.js";
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const visionModel = "qwen/qwen3.5-9b";
@@ -146,6 +147,7 @@ function repairCreativeTeamText(draft = {}, body = {}) {
     topicSelection: draft.topicSelection,
     contentDirection: body.contentDirection || draft.contentDirection
   });
+  const contentDirection = body.contentDirection || draft.contentDirection;
   const violations = getVisibleTextContractViolations({ contentScript: claimSafeContent, product: body.product });
   const fallbackHeadlines = [
     draft.topicSelection?.situation,
@@ -156,9 +158,11 @@ function repairCreativeTeamText(draft = {}, body = {}) {
     draft.topic,
     draft.creativeBrief?.topic
   ]
-    .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length);
+    .filter((headline) => !getUnsupportedClaimViolations({ headline }, claimContext).length)
+    .filter((headline) => isContentDirectionTopicEligible({ text: headline, contentDirection }));
   const repaired = repairVisibleTextContract(topicAlignmentViolations.length ? { ...claimSafeContent, headline: "" } : claimSafeContent, {
     product: body.product,
+    contentDirection,
     fallbackHeadlines
   });
   return {
