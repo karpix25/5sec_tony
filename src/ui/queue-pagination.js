@@ -22,9 +22,15 @@ export function renderQueuePaginationError(message) {
 export function createQueuePagination({ loadPage = loadRemoteJobsPage, onChange = () => {} } = {}) {
   let snapshot = createSnapshot();
   let requestId = 0;
+  const localJobIds = new Set();
 
   return {
-    getState: () => snapshot,
+    getState: () => ({ ...snapshot, localJobIds: [...localJobIds] }),
+    trackLocalJobs(jobs = []) {
+      jobs.forEach((job) => {
+        if (job?.id) localJobIds.add(job.id);
+      });
+    },
     ensure(context, filter) {
       const key = getQueuePageKey(context, filter);
       if (snapshot.key === key) return;
@@ -71,6 +77,7 @@ export function createQueuePagination({ loadPage = loadRemoteJobsPage, onChange 
         loading: false,
         error: ""
       };
+      pageResult.jobs.forEach((job) => localJobIds.delete(job?.id));
       onChange();
     } catch (error) {
       if (currentRequest !== requestId) return;

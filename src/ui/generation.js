@@ -1,17 +1,21 @@
 import { escapeHtml } from "./infographic.js";
 import { getDesignReferences } from "../domain/references.js";
 import { getCharacterSelectOptions, isNoAvatarCharacterId, noAvatarCharacterId } from "../domain/avatar-selection.js";
-import { getContext } from "../state/store.js";
+import { getSelectionJobBatchAvailability } from "../state/store-context.js";
 import { createServerGenerationBatch } from "../services/generation-batches.js";
 import { getEnabledContentDirections } from "../domain/product-content-directions.js";
 import { getSelectedContentDirectionIds } from "./product-content-directions.js";
 
 export function renderStudioPanel(state, context) {
+  const availability = getGenerationAvailability(state, context);
+  const launchMessage = availability.reason
+    ? `Нельзя запустить: ${availability.reason}`
+    : "AI-команда соберет паспорт продукта, угол внимания, сценарий и короткий промпт для картинки.";
   return `
     <section class="embedded-panel studio-panel">
       <div class="panel-head">
         <div><span class="eyebrow">Автогенерация</span><h2>Генерация инфографики</h2></div>
-        <button id="create-job" class="primary-btn" type="button">Запустить</button>
+        <button id="create-job" class="primary-btn" type="button" ${availability.safeCount < 1 ? "disabled" : ""}>Запустить</button>
       </div>
       <div class="studio-layout">
         <div class="controls generation-controls">
@@ -19,7 +23,7 @@ export function renderStudioPanel(state, context) {
           ${renderCharacterSelect(context)}
           ${renderAudioSelect(context)}
           <div id="creative-team-status" class="auto-generation-note">
-            AI-команда соберет паспорт продукта, угол внимания, сценарий и короткий промпт для картинки.
+            ${escapeHtml(launchMessage)}
           </div>
           <label class="stacked-field">
             <span>Количество</span>
@@ -35,7 +39,12 @@ export function renderStudioPanel(state, context) {
   `;
 }
 
-export function bindGenerationPanelEvents(root, store) {
+function getGenerationAvailability(state, context) {
+  if (!Array.isArray(state?.jobs)) return { safeCount: 1, reason: "" };
+  return getSelectionJobBatchAvailability(state, context, 1);
+}
+
+export function bindGenerationPanelEvents(root, store, options = {}) {
   root.querySelector("#create-job")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     if (button?.dataset?.busy === "true") return;
@@ -55,6 +64,7 @@ export function bindGenerationPanelEvents(root, store) {
         distributeProducts,
         selection
       });
+      options.pagination?.trackLocalJobs?.(reservation.jobs);
       if (reservation.accepted === false) {
         store.selectProjectTab("queue");
         if (status) status.textContent = `${reservation.reason || "Очередь не создала задачи"}. Генерация не запущена.`;

@@ -277,6 +277,24 @@ test("generation panel allows selecting no-avatar mode", () => {
   assert.doesNotMatch(html, /Эти настройки работают и в режиме без аватара/);
 });
 
+test("generation panel explains when an active reservation blocks a launch", () => {
+  const project = { ...projects[0], projectLimit: 1, usedTotal: 0 };
+  const html = renderStudioPanel({
+    jobs: [{ id: "active-job", projectId: project.id, status: "running" }]
+  }, {
+    project,
+    product: products[0],
+    reference: project.references[0],
+    character: null,
+    audioLibrary: [],
+    audio: null,
+    generationBrief: {}
+  });
+
+  assert.match(html, /id="create-job"[^>]*disabled/);
+  assert.match(html, /Нельзя запустить: Лимит проекта исчерпан/);
+});
+
 test("generation operation panels hide provider and task identifiers", () => {
   const project = projects[2];
   const html = [

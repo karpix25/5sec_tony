@@ -1,7 +1,52 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bindQueuePanelEvents, updateQueuePanel } from "../src/ui/queue.js";
+import { bindQueuePanelEvents, renderQueuePanel, updateQueuePanel } from "../src/ui/queue.js";
 import { FakeElement } from "./helpers/fake-ui-dom.mjs";
+
+test("queue pagination keeps a just-created local job visible", () => {
+  const project = { id: "project-1" };
+  const localJob = {
+    id: "local-job",
+    projectId: project.id,
+    productId: "product-1",
+    status: "failed",
+    stage: "brief",
+    title: "Запуск не принят",
+    failMsg: "Лимит проекта исчерпан"
+  };
+  const remoteJob = {
+    id: "remote-job",
+    projectId: project.id,
+    productId: "product-1",
+    status: "running",
+    stage: "image",
+    title: "Удалённая задача"
+  };
+  const pagination = {
+    ensure() {},
+    getState() {
+      return {
+        key: "project-1:product-1:current",
+        filter: "current",
+        jobs: [remoteJob],
+        localJobIds: [localJob.id],
+        total: 1,
+        page: 1,
+        loading: false,
+        error: ""
+      };
+    }
+  };
+
+  const html = renderQueuePanel({
+    queueProductFilter: "current",
+    products: [{ id: "product-1", name: "Продукт" }],
+    jobs: [localJob]
+  }, { project, product: { id: "product-1", name: "Продукт" } }, { pagination });
+
+  assert.match(html, /Запуск не принят/);
+  assert.match(html, /Удалённая задача/);
+});
 
 test("queue delete buttons bind once and rebind after partial list rerender", () => {
   const root = new FakeElement();

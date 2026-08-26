@@ -17,13 +17,14 @@ test("remote save keeps only pending reservations when jobs did not change", () 
   assert.equal(prepared.state.jobs[0].serverReservationStatus, "requested");
 });
 
-test("remote save keeps the full job list when jobs changed", () => {
+test("remote save keeps a compact job list when jobs changed", () => {
   const prepared = prepareStateForRemoteSave({
     jobs: [{ id: "job-1", prompt: "legacy job prompt" }]
   }, ["jobs"]);
 
   assert.equal(prepared.preserveJobs, false);
-  assert.equal(prepared.state.jobs[0].prompt, "legacy job prompt");
+  assert.equal(prepared.state.jobs[0].prompt, undefined);
+  assert.equal(prepared.state.jobs[0].id, "job-1");
 });
 
 test("pending remote save drops heavy generated job payloads", () => {

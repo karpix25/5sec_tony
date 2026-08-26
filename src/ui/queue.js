@@ -5,6 +5,7 @@ import { escapeHtml } from "./infographic.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 import { renderJobAiTrace } from "./job-ai-trace.js";
 import { renderQueuePagination, renderQueuePaginationError } from "./queue-pagination.js";
+import { getTrackedLocalQueueJobs, mergeQueueJobs } from "./queue-local-jobs.js";
 
 const queueStageLabels = {
   brief: "Готовим идею",
@@ -75,11 +76,11 @@ function renderQueueFilterButton(value, label, selected) {
 
 function renderQueueList(state, context, paginationState) {
   if (paginationState?.key) {
-    if (paginationState.error) return renderQueuePaginationError(paginationState.error);
-    if (paginationState.loading && !paginationState.jobs) return "<p class='empty'>Загрузка истории генераций…</p>";
-    const jobs = paginationState.jobs || [];
-    return `${renderQueueJobs(jobs, state)}${renderQueuePagination(paginationState)}`
-      || `<p class='empty'>${escapeHtml(getEmptyQueueMessage(state, context))}</p>`;
+    const localJobs = getTrackedLocalQueueJobs(state, context, paginationState);
+    if (paginationState.error) return `${renderQueueJobs(localJobs, state)}${renderQueuePaginationError(paginationState.error)}`;
+    if (paginationState.loading && !paginationState.jobs) return `${renderQueueJobs(localJobs, state)}<p class='empty'>Загрузка истории генераций…</p>`;
+    const jobs = mergeQueueJobs(paginationState.jobs || [], localJobs);
+    return renderQueueJobs(jobs, state) + renderQueuePagination(paginationState) || `<p class='empty'>${escapeHtml(getEmptyQueueMessage(state, context))}</p>`;
   }
   const projectJobs = getVisibleQueueJobs(state, context);
   return renderQueueJobs(projectJobs, state) || `<p class='empty'>${escapeHtml(getEmptyQueueMessage(state, context))}</p>`;

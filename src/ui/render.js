@@ -208,7 +208,7 @@ function bindEvents(root, store, options = {}) {
   root.querySelector("#reference-select")?.addEventListener("change", (event) => store.selectReference(event.target.value));
   root.querySelector("#character-select")?.addEventListener("change", (event) => store.selectCharacter(event.target.value));
   root.querySelector("#audio-select")?.addEventListener("change", (event) => store.selectAudio(event.target.value));
-  bindGenerationPanelEvents(root, store);
+  bindGenerationPanelEvents(root, store, options);
   bindProjectAutomationControls(root, store);
   root.querySelector("#open-project-modal")?.addEventListener("click", () => openProjectModal(root));
   root.querySelector("#open-delete-project-modal")?.addEventListener("click", () => openDeleteProjectModal(root));

@@ -21,7 +21,7 @@ export function prepareStateForRemoteSave(state, changedKeys = []) {
     return {
       state: {
         ...compacted,
-        jobs: Array.isArray(state?.jobs) ? state.jobs : []
+        jobs: Array.isArray(compacted.jobs) ? compacted.jobs : []
       },
       preserveJobs: false
     };

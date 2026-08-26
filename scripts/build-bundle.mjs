@@ -174,6 +174,7 @@ const files = [
   "src/ui/project-automation-controls.js",
   "src/ui/research.js",
   "src/ui/queue-pagination.js",
+  "src/ui/queue-local-jobs.js",
   "src/ui/queue.js",
   "src/ui/yandex-folder-picker.js",
   "src/ui/url-navigation.js",

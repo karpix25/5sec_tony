@@ -15,6 +15,8 @@ test("queue pagination loads 15 jobs and keeps project counters", async () => {
   });
   const context = { project: { id: "project-1" }, product: { id: "product-1" } };
 
+  pagination.trackLocalJobs([{ id: "local-job" }]);
+  assert.deepEqual(pagination.getState().localJobIds, ["local-job"]);
   pagination.ensure(context, "current");
   await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -24,4 +26,5 @@ test("queue pagination loads 15 jobs and keeps project counters", async () => {
   assert.ok(calls.some(({ filters }) => filters.productId === "product-1"));
   assert.ok(calls.some(({ filters }) => !filters.productId));
   assert.ok(changes > 0);
+  assert.deepEqual(pagination.getState().localJobIds, ["local-job"]);
 });
