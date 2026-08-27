@@ -9,6 +9,7 @@ const maxFolderDepth = 6;
 const defaultFolderCount = 120;
 const folderPageSize = 200;
 const folderRequestTimeoutMs = 20000;
+const yandexUploadTimeoutMs = 120000;
 const folderFields = "_embedded.items.name,_embedded.items.path,_embedded.items.type,_embedded.limit,_embedded.offset,_embedded.total,path,name,type";
 const publishedResourceFields = "path,public_url,name,type";
 const uploadedResourceFields = "path,name,type,size,public_url";
@@ -140,7 +141,8 @@ async function ensureYandexFolder(token, folder) {
     await withYandexDiskRetry(async () => {
       const result = await fetch(`${yandexApiUrl}?path=${encodeURIComponent(current)}`, {
         method: "PUT",
-        headers: { Authorization: getYandexAuthHeader(token) }
+        headers: { Authorization: getYandexAuthHeader(token) },
+        signal: AbortSignal.timeout(folderRequestTimeoutMs)
       });
       if (result.ok || result.status === 409) return;
       const payload = await result.json().catch(() => ({}));
@@ -168,7 +170,8 @@ async function getYandexResource(token, path, options = {}) {
 async function getUploadUrl(token, path) {
   return await withYandexDiskRetry(async () => {
     const result = await fetch(`${yandexApiUrl}/upload?path=${encodeURIComponent(path)}&overwrite=true`, {
-      headers: { Authorization: getYandexAuthHeader(token) }
+      headers: { Authorization: getYandexAuthHeader(token) },
+      signal: AbortSignal.timeout(yandexUploadTimeoutMs)
     });
     const payload = await result.json().catch(() => ({}));
     if (!result.ok) throw createYandexHttpError(result.status, payload, "Яндекс.Диск не вернул upload URL");
@@ -180,7 +183,11 @@ async function getUploadUrl(token, path) {
 async function uploadYandexDiskResource(token, path, bytes) {
   await withYandexDiskRetry(async () => {
     const uploadUrl = await getUploadUrl(token, path);
-    const upload = await fetch(uploadUrl, { method: "PUT", body: bytes });
+    const upload = await fetch(uploadUrl, {
+      method: "PUT",
+      body: bytes,
+      signal: AbortSignal.timeout(yandexUploadTimeoutMs)
+    });
     if (!upload.ok) throw createYandexDiskError(`Яндекс.Диск не принял файл: ${upload.status}`, { status: upload.status });
   });
 }
@@ -229,7 +236,8 @@ async function publishYandexResource(token, path) {
   await withYandexDiskRetry(async () => {
     const result = await fetch(`${yandexApiUrl}/publish?path=${encodeURIComponent(path)}`, {
       method: "PUT",
-      headers: { Authorization: getYandexAuthHeader(token) }
+      headers: { Authorization: getYandexAuthHeader(token) },
+      signal: AbortSignal.timeout(folderRequestTimeoutMs)
     });
     if (result.ok || result.status === 409) return;
     const payload = await result.json().catch(() => ({}));
@@ -253,7 +261,8 @@ async function getYandexPublishedResource(token, path) {
     fields: publishedResourceFields
   });
   const result = await fetch(`${yandexApiUrl}?${params}`, {
-    headers: { Authorization: getYandexAuthHeader(token) }
+    headers: { Authorization: getYandexAuthHeader(token) },
+    signal: AbortSignal.timeout(folderRequestTimeoutMs)
   });
   const payload = await result.json().catch(() => ({}));
   if (!result.ok) throw createYandexHttpError(result.status, payload, `Не удалось получить публичную ссылку Яндекс.Диска: ${path}`);
@@ -269,7 +278,7 @@ async function readSourceBytes(source) {
   const value = String(source || "");
   if (value.startsWith("data:")) return dataUrlToBuffer(value);
   if (/^https?:\/\//i.test(value)) {
-    const result = await fetch(value);
+    const result = await fetch(value, { signal: AbortSignal.timeout(yandexUploadTimeoutMs) });
     if (!result.ok) throw new Error(`Не удалось скачать файл для Яндекс.Диска: ${result.status}`);
     return Buffer.from(await result.arrayBuffer());
   }

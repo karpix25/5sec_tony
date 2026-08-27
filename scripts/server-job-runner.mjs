@@ -430,11 +430,12 @@ function addTerminalTimestamp(payload) {
   return payload;
 }
 
-async function postServerJson(origin, path, body) {
+async function postServerJson(origin, path, body, options = {}) {
   const timer = logger.time("http:post", { path, body });
   const response = await fetch(`${origin}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(Number(options.timeoutMs || 120000)),
     body: JSON.stringify(body)
   });
   try {
@@ -452,7 +453,7 @@ async function postServerJsonWithRetry(origin, path, body, options = {}) {
   let lastError;
   for (let attempt = 0; attempt <= delaysMs.length; attempt += 1) {
     try {
-      return await postServerJson(origin, path, body);
+      return await postServerJson(origin, path, body, options);
     } catch (error) {
       lastError = error;
       if (attempt >= delaysMs.length || options.shouldRetry?.(error) === false) throw error;
@@ -481,7 +482,6 @@ async function getServerJson(origin, path) {
     throw error;
   }
 }
-
 function getYandexUploadRetryDelaysMs() {
   const configured = String(process.env.YANDEX_UPLOAD_RETRY_DELAYS_MS || "").trim();
   if (!configured) return defaultYandexUploadRetryDelaysMs;

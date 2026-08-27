@@ -5,7 +5,7 @@ import { escapeHtml } from "./infographic.js";
 import { renderPreviewTrigger } from "./preview-modal.js";
 import { renderJobAiTrace } from "./job-ai-trace.js";
 import { renderQueuePagination, renderQueuePaginationError } from "./queue-pagination.js";
-import { getTrackedLocalQueueJobs, mergeQueueJobs } from "./queue-local-jobs.js";
+import { getVisibleLocalQueueJobs, mergeQueueJobs } from "./queue-local-jobs.js";
 
 const queueStageLabels = {
   brief: "Готовим идею",
@@ -76,7 +76,7 @@ function renderQueueFilterButton(value, label, selected) {
 
 function renderQueueList(state, context, paginationState) {
   if (paginationState?.key) {
-    const localJobs = getTrackedLocalQueueJobs(state, context, paginationState);
+    const localJobs = getVisibleLocalQueueJobs(state, context, paginationState);
     if (paginationState.error) return `${renderQueueJobs(localJobs, state)}${renderQueuePaginationError(paginationState.error)}`;
     if (paginationState.loading && !paginationState.jobs) return `${renderQueueJobs(localJobs, state)}<p class='empty'>Загрузка истории генераций…</p>`;
     const jobs = mergeQueueJobs(paginationState.jobs || [], localJobs);

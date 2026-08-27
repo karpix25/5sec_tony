@@ -48,6 +48,40 @@ test("queue pagination keeps a just-created local job visible", () => {
   assert.match(html, /Удалённая задача/);
 });
 
+test("queue keeps active jobs visible even when they are outside the loaded page", () => {
+  const activeJob = {
+    id: "active-job",
+    projectId: "project-1",
+    productId: "product-1",
+    status: "running",
+    queueStatus: "running",
+    title: "Активная генерация"
+  };
+  const pagination = {
+    ensure() {},
+    getState() {
+      return {
+        key: "project-1:product-1:current",
+        filter: "current",
+        jobs: [],
+        localJobIds: [],
+        total: 15,
+        page: 1,
+        loading: false,
+        error: ""
+      };
+    }
+  };
+
+  const html = renderQueuePanel({
+    queueProductFilter: "current",
+    products: [{ id: "product-1", name: "Продукт" }],
+    jobs: [activeJob]
+  }, { project: { id: "project-1" }, product: { id: "product-1", name: "Продукт" } }, { pagination });
+
+  assert.match(html, /Активная генерация/);
+});
+
 test("queue delete buttons bind once and rebind after partial list rerender", () => {
   const root = new FakeElement();
   const panel = new FakeElement({ className: "queue-panel" });
