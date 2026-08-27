@@ -172,3 +172,14 @@ test("generation history ignores legacy and other-product jobs for configured pr
     layoutType: ""
   }]);
 });
+
+test("generation history keeps jobs whose direction is stored in topic selection", () => {
+  const current = {
+    productId: product.id,
+    title: "Тема из выбранного направления",
+    topicSelection: { directionId: "daily-care", theme: "Тема из выбранного направления" }
+  };
+
+  assert.deepEqual(createGenerationHistory([current], { product }), [current]);
+  assert.equal(createRecentJobDigest([current], { product })[0].contentDirectionId, "daily-care");
+});

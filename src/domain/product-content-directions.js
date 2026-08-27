@@ -72,7 +72,7 @@ export function pickContentDirection({ product = {}, existingJobs = [], requeste
   const recent = existingJobs
     .filter((job) => !product.id || job.productId === product.id)
     .map((job, index) => ({
-      id: job.diversitySlot?.contentDirection?.id || job.contentDirection?.id || "",
+      id: job.diversitySlot?.contentDirection?.id || job.contentDirection?.id || job.topicSelection?.directionId || "",
       createdAt: Date.parse(job.createdAt || "") || 0,
       index
     }))

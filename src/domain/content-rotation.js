@@ -44,7 +44,7 @@ export function createRecentJobDigest(existingJobs = [], options = {}) {
     format: job.format || "",
     contentLayerId: job.contentLayerId || job.diversitySlot?.contentLayer?.id || "",
     contentLayerSubject: job.diversitySlot?.contentLayer?.subject || "",
-    contentDirectionId: job.diversitySlot?.contentDirection?.id || "",
+    contentDirectionId: getJobContentDirectionId(job),
     hookType: job.hookIntelligence?.hookType || "",
     attentionFrame: job.attentionFrame || "",
     layoutType: job.layoutContentPlan?.layoutType || ""
@@ -54,6 +54,7 @@ export function createRecentJobDigest(existingJobs = [], options = {}) {
 export function getJobContentDirectionId(job = {}) {
   return job.diversitySlot?.contentDirection?.id
     || job.contentDirection?.id
+    || job.topicSelection?.directionId
     || "";
 }
 
