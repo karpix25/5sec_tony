@@ -81,12 +81,12 @@ export function repairVisibleTextContract(contentScript = {}, options = {}) {
     ...fallbackHeadlines.flatMap(createHeadlineCandidates),
     sourceCandidate,
     ...sourceClauses,
-    ...[contentScript.subhead, ...getScriptPoints(contentScript).map(normalizePointText)].flatMap(createHeadlineCandidates)
+    ...[contentScript.subhead, ...points].flatMap(createHeadlineCandidates)
   ]
     .filter((line) => line && !looksLikeProductDump(line, options.product) && !forbiddenVisiblePattern.test(line));
   const directionCandidates = candidates.filter((line) => isContentDirectionTopicEligible({ text: line, contentDirection: options.contentDirection }));
-  const headline = directionCandidates.find((line) => isValidHeadline(line, options.product))
-    || createProductFallbackHeadline(options.product, sourceHeadline);
+  const headline = directionCandidates.find((line) => isValidHeadline(line, options.product));
+  if (!headline) throw createHeadlineRepairError(sourceHeadline, options.product);
   const rawSubhead = normalizeRepairLine(contentScript.subhead);
   const subhead = rawSubhead && !looksLikeProductDump(rawSubhead) && !forbiddenVisiblePattern.test(rawSubhead) && !hasSameMeaning(headline, rawSubhead) && !points.some((point) => hasSameMeaning(rawSubhead, point))
     ? rawSubhead
@@ -159,7 +159,7 @@ function normalizeRepairLine(value) {
   let clean = normalizeVisibleLine(value)
     .replace(/\uFFFD/g, "")
     .replace(/^[3-7]\s*(?:маркер[а-яё]*|признак[а-яё]*|пункт[а-яё]*|симптом[а-яё]*|ошиб[а-яё]*|вещ[а-яё]*|привыч[а-яё]*|сигнал[а-яё]*)\s*,?\s*(?:что\s+про|которые|что|про)?\s*/i, "")
-    .replace(/^[\s:—–-]+|[.!?\s]+$/g, "")
+    .replace(/^[\s:—–-]+|[.\s]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
   if (isAllCapsHeadline(clean)) clean = clean.toLocaleLowerCase("ru-RU");
@@ -175,20 +175,11 @@ function isValidHeadline(value, product) {
   return !getVisibleTextContractViolations({ contentScript: { headline: value }, product }).length;
 }
 
-function createProductFallbackHeadline(product = {}, sourceHeadline = "") {
-  const fallbackSource = product.name || (!looksLikeProductDump(sourceHeadline) ? sourceHeadline : "");
-  const words = normalizeVisibleLine(fallbackSource)
-    .replace(/[«»"'()]/g, " ")
-    .split(/\s+/)
-    .map(normalizeVisibleWord)
-    .filter(Boolean);
-  const subject = words.find((word) => word.length >= 4
-    && !/^(?:для|при|или|без|под|над|между)$/i.test(word)
-    && !/(?:ый|ий|ой|ая|яя|ое|ее|ые|ие|ого|его|ому|ему|ую|юю|ым|им|ых|их)$/i.test(word));
-  if (!subject) return "Продукт: что проверить";
-  const label = subject[0].toLocaleUpperCase("ru-RU") + subject.slice(1);
-  const candidate = `${label}: что проверить`;
-  return isValidHeadline(candidate, product) ? candidate : "Продукт: что проверить";
+function createHeadlineRepairError(sourceHeadline, product) {
+  const error = new Error("Не удалось исправить заголовок по выбранной теме. Изображение не создаём.");
+  error.code = "headline_repair_failed";
+  error.violations = getVisibleTextContractViolations({ contentScript: { headline: sourceHeadline }, product });
+  return error;
 }
 
 function createHeadlineCandidates(value) {

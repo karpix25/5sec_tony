@@ -60,20 +60,20 @@ test("visible text repair always returns a valid headline", () => {
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
-test("visible text repair has a deterministic last resort", () => {
-  const repaired = repairVisibleTextContract({ headline: "Шампунь", points: [] });
-
-  assert.equal(repaired.headline, "Шампунь: что проверить");
-  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+test("visible text repair stops instead of inventing a product headline", () => {
+  assert.throws(
+    () => repairVisibleTextContract({ headline: "Шампунь", points: [] }),
+    { code: "headline_repair_failed" }
+  );
 });
 
-test("visible text repair never clips a numbered product dump into a headline", () => {
-  const repaired = repairVisibleTextContract({
-    headline: "Заблуждение про 1. снижение веса 2. очищение организма 3. повышение выносливости"
-  });
-
-  assert.equal(repaired.headline, "Продукт: что проверить");
-  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+test("visible text repair rejects a numbered product dump without a fallback", () => {
+  assert.throws(
+    () => repairVisibleTextContract({
+      headline: "Заблуждение про 1. снижение веса 2. очищение организма 3. повышение выносливости"
+    }),
+    { code: "headline_repair_failed" }
+  );
 });
 
 test("visible text repair takes a natural sentence from the creative hook", () => {
@@ -118,13 +118,13 @@ test("visible text repair can build a headline from a structured point", () => {
   assert.equal(repaired.headline, "Мята меняет вкус напитка");
 });
 
-test("visible text repair uses the product in its last-resort headline", () => {
-  const repaired = repairVisibleTextContract({ headline: "Шампунь", points: [] }, {
-    product: { name: "Увлажняющий солнцезащитный крем для лица" }
-  });
-
-  assert.equal(repaired.headline, "Крем: что проверить");
-  assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
+test("visible text repair does not use the product as a generic headline", () => {
+  assert.throws(
+    () => repairVisibleTextContract({ headline: "Шампунь", points: [] }, {
+      product: { name: "Увлажняющий солнцезащитный крем для лица" }
+    }),
+    { code: "headline_repair_failed" }
+  );
 });
 
 test("visible text contract rejects broken numbered headline fragments", () => {
@@ -180,7 +180,10 @@ test("visible text contract rejects a headline without context", () => {
   const contentScript = { headline: "Не спеши с выбором вслепую", points: [] };
 
   assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_context_missing"));
-  assert.equal(repairVisibleTextContract(contentScript, { product: { name: "Пептидная сыворотка" } }).headline, "Сыворотка: что проверить");
+  assert.throws(
+    () => repairVisibleTextContract(contentScript, { product: { name: "Пептидная сыворотка" } }),
+    { code: "headline_repair_failed" }
+  );
 });
 
 test("visible text repair capitalizes a lowercase headline", () => {
@@ -227,14 +230,14 @@ test("visible text contract rejects filler points and mismatched numbered promis
   assert.deepEqual(getVisibleTextContractViolations({ contentScript: repaired }), []);
 });
 
-test("visible text contract counts promises written as Russian words", () => {
+test("visible text contract stops when a mismatched list has no usable headline", () => {
   const contentScript = {
     headline: "Три ошибки в выборе одежды",
     points: ["Первая ошибка", "Вторая ошибка", "Третья ошибка", "Лишний рекламный пункт"]
   };
 
   assert.ok(getVisibleTextContractViolations({ contentScript }).includes("headline_count_mismatch"));
-  assert.notEqual(repairVisibleTextContract(contentScript).headline, contentScript.headline);
+  assert.throws(() => repairVisibleTextContract(contentScript), { code: "headline_repair_failed" });
 });
 
 test("visible text contract removes a subhead repeated in the points", () => {

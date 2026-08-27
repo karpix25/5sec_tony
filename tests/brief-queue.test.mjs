@@ -240,8 +240,8 @@ test("brief processor retries dispatch after brief was persisted", async () => {
   const deps = createStateDeps(state, {
     generateServerAiBrief: async () => ({
       topic: "Повторная тема",
-      hook: "Повторный хук",
-      aiPlan: { headline: "Повторный хук", subhead: "", points: ["Пункт"] }
+      hook: "Повторная тема для проверки",
+      aiPlan: { headline: "Повторная тема для проверки", subhead: "", points: ["Пункт"] }
     }),
     postServerJob: async () => {
       dispatchAttempts += 1;

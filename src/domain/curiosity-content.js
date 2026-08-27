@@ -94,13 +94,13 @@ function createFinalContent({ project, product, brief, productFact, curiosityAng
     : createFallbackPoints({ productFact, curiosityAngle, layoutPlan });
   const layoutPoints = expandPointsForLayout(uniquePoints(points), { productFact, curiosityAngle, layoutPlan });
   return sanitizeVisibleContent({
-    headline: cleanHeadline(aiPlan.headline || brief.hook, productFact, curiosityAngle),
+    headline: cleanHeadline(aiPlan.headline || brief.hook, productFact, curiosityAngle, brief, project),
     subhead: cleanSentence(aiPlan.subhead || curiosityAngle.conflict),
     points: fitPointCount(layoutPoints, brief.pointCount),
     disclaimer: "",
     layoutType: layoutPlan?.layoutType || "",
     curiosityAngle
-  }, { project, product, productFact, curiosityAngle, productVisualMode: brief.productVisualMode });
+  }, { project, product, brief, productFact, curiosityAngle, productVisualMode: brief.productVisualMode });
 }
 
 function normalizeAiPlan(plan) {
@@ -152,16 +152,33 @@ function expandPointsForLayout(points, { productFact, curiosityAngle, layoutPlan
   ]);
 }
 
-function cleanHeadline(value, productFact, angle) {
+function cleanHeadline(value, productFact, angle, brief, project) {
   const source = cleanSentence(value).replace(/\bn\b/gi, "5").replace(/\([^)]*\)/g, "").trim();
-  if (isGoodHeadline(source)) return limitWords(source, 8);
-  return limitWords(buildFallbackHeadline(productFact, angle), 8);
+  if (isGoodHeadline(source)) return finalizeHeadline(source);
+  return finalizeHeadline(buildContextHeadline({ source, productFact, angle, brief, project }));
 }
 
-function buildFallbackHeadline(fact, angle) {
-  const subject = firstStrongPhrase([fact.situation, fact.fact, fact.action]);
-  if (subject) return subject;
-  return angle.question;
+function buildContextHeadline({ source, productFact, angle, brief, project }) {
+  const subjects = [
+    project?.projectTheme,
+    brief?.diversitySlot?.contentLayer?.subject,
+    brief?.topic,
+    source
+  ].map(compactHeadlineSubject).filter(Boolean);
+  const shortSubject = subjects
+    .filter((item) => item.split(/\s+/).length <= 2)
+    .sort((left, right) => right.split(/\s+/).length - left.split(/\s+/).length)[0];
+  if (shortSubject) {
+    const subjectVariants = [shortSubject, shortSubject.split(/\s+/).at(-1)];
+    return subjectVariants
+      .map((subject) => `${subject}: что важно`)
+      .find((item) => item.length <= 34) || `${shortSubject}: что важно`;
+  }
+
+  const candidate = subjects.concat([productFact.action, angle.question])
+    .map(compactHeadlineSubject)
+    .find((item) => isGoodHeadline(finalizeHeadline(item)));
+  return candidate || "";
 }
 
 function buildQuestion(fact) {
@@ -186,14 +203,22 @@ function pickConcrete(items, productName) {
     || "одна проверяемая деталь меняет итог";
 }
 
-function firstStrongPhrase(items) {
-  return items
-    .map(cleanSentence)
-    .find((item) => item.length >= 12 && !isVague(item));
+function isGoodHeadline(value) {
+  const wordCount = value.split(/\s+/).filter(Boolean).length;
+  return value.length >= 12 && value.length <= 34 && wordCount >= 3 && wordCount <= 6
+    && !/полезный разбор|давать всякие|интересные факты|рекомендации|5 моментов|5 вещей|причин проверить это заранее|проверить это заранее|красных флагов|вы узнаете это состояние/i.test(value);
 }
 
-function isGoodHeadline(value) {
-  return value.length >= 12 && !/полезный разбор|давать всякие|интересные факты|рекомендации|5 моментов|5 вещей|причин проверить это заранее|проверить это заранее|красных флагов|вы узнаете это состояние/i.test(value);
+function finalizeHeadline(value) {
+  const headline = limitWords(value, 6);
+  if (headline.split(/\s+/).filter(Boolean).length === 3 && !/[?!:—–-]/.test(headline)) return `${headline}?`;
+  return headline;
+}
+
+function compactHeadlineSubject(value) {
+  const clean = cleanSentence(value);
+  const words = clean.split(/\s+/).filter(Boolean);
+  return words.length > 6 ? words.slice(0, 3).join(" ") : clean;
 }
 
 function isVague(value) {
@@ -225,7 +250,13 @@ function sanitizeVisibleContent(content, context) {
 function sanitizeHeadline(value, context) {
   const clean = sanitizeVisiblePoint(value, context);
   if (/(на|про|о)\s+непонятн|:\s*непонятн/i.test(clean)) {
-    return limitWords(buildFallbackHeadline(context.productFact, context.curiosityAngle), 8);
+    return finalizeHeadline(buildContextHeadline({
+      source: "",
+      productFact: context.productFact,
+      angle: context.curiosityAngle,
+      brief: context.brief,
+      project: context.project
+    }));
   }
   return clean;
 }

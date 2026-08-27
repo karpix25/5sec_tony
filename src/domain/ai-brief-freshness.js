@@ -94,7 +94,12 @@ function createFreshHeadlineFallback(brief, rejectedJobs) {
     .filter(Boolean)
     .filter((candidate) => isContentDirectionTopicEligible({ text: candidate, contentDirection }));
   for (const candidate of candidates) {
-    const repaired = repairVisibleTextContract({ headline: candidate, points: [] }, { contentDirection }).headline;
+    let repaired = "";
+    try {
+      repaired = repairVisibleTextContract({ headline: candidate, points: [] }, { contentDirection }).headline;
+    } catch {
+      continue;
+    }
     if (repaired === "Сначала проверь способ применения" || repaired === headline) continue;
     if (!repeatedOpenings.includes(getHeadlineOpening(repaired))) return repaired;
   }
