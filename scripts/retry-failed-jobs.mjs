@@ -44,8 +44,7 @@ export async function retryFailedJobs(scope, deps) {
          and queue_name = 'generation'
          and (status = 'failed' or queue_status = 'failed')
          and coalesce(extra->>'serverReservationStatus', '') <> 'failed'
-         and coalesce(extra->>'isBriefPlaceholder', 'false') <> 'true'
-         and ($3 = '' or extra->>'serverBatchId' = $3)
+       and ($3 = '' or extra->>'serverBatchId' = $3)
          and (cardinality($5::text[]) = 0 or id = any($5::text[]))
          and coalesce((extra->>'manualRetryCount')::int, 0) < $4
        order by updated_at asc

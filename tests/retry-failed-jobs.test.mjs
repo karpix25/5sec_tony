@@ -43,6 +43,28 @@ test("retry failed jobs does nothing after the manual retry limit", async () => 
   assert.equal(dispatched, 0);
 });
 
+test("retry failed brief placeholders after a rejected AI brief", async () => {
+  const row = { ...failedRow("job-brief", "batch-brief"), stage: "brief", extra: {
+    serverBatchId: "batch-brief",
+    serverOwned: true,
+    isBriefPlaceholder: true,
+    failMsg: "Тема не прошла проверку"
+  } };
+  const dispatched = [];
+  const result = await retryFailedJobs({ projectId: "project-1", batchId: "batch-brief" }, {
+    maxManualRetries: 3,
+    withTransaction: async (callback) => callback({ query: async (text, params = []) => {
+      if (/select \* from studio_jobs/i.test(text)) return { rows: [row] };
+      return { rows: [] };
+    }}),
+    dispatch: async (job) => { dispatched.push(job.id); return { enqueued: true }; }
+  });
+
+  assert.equal(result.matched, 1);
+  assert.deepEqual(dispatched, ["job-brief"]);
+  assert.equal(result.jobs[0].queueStatus, "queued");
+});
+
 test("retry API rejects missing project and queue-disabled requests", async () => {
   const handle = createRetryFailedJobsApiHandler({ isPostgresConfigured: () => true, shouldUseBullMq: () => false });
   assert.equal((await call(handle, { })).status, 503);
