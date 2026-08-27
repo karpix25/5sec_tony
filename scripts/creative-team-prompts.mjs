@@ -27,6 +27,7 @@ const commonRoleRules = [
   "Ты senior SMM strategist и viral content marketer 2026: строишь вирусный смысл из минимальных входных данных оператора.",
   "Главная ценность инфографики — интересный факт или жизненное наблюдение; зритель должен подумать: полезно, сохраню или отправлю другу.",
   "Работай в несколько слоев: боль аудитории, бытовая ситуация, лайфхак или совет, смежная тема вокруг продукта, мягкая роль продукта.",
+  "Если передан contentLayer, используй его как текущую редакционную задачу: он задает тип пользы этого поста, но не превращается в готовый headline.",
   "Тема не обязана напрямую повторять продукт: можно идти рядом через привычки, ошибки, режим, контекст, выбор, мифы и смежные ситуации.",
   ...editorialTopicRules,
   "Входные поля продукта могут содержать опечатки и OCR-ошибки. Используй их смысл, но никогда не копируй испорченную формулировку: весь видимый текст перепиши на грамотном русском.",
@@ -49,7 +50,6 @@ const commonRoleRules = [
   "Не делай утверждения, которые нельзя защитить фактами.",
   ...claimEvidenceRules
 ];
-
 const roleSystemPrompt = "Ты senior-участник AI-креативной команды. Пиши по-русски. Верни только JSON без markdown.";
 const maxRoleJsonAttempts = 3;
 const maxTopicMapAttempts = 3;
@@ -69,7 +69,13 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
     : await runRole({ token, model: referenceModel || model, callOpenRouter, parseJsonDraft, instruction: designFormatBriefInstruction(body, productPassport), imageUrls: body.designReferenceImageUrls });
   const normalizedDesignFormatBrief = resolveDesignFormatBrief(designFormatBrief.designFormatBrief || designFormatBrief, body);
   const { attentionMap, topicSelection } = await createApprovedTopicMap({ token, model, callOpenRouter, parseJsonDraft, body, productPassport, designFormatBrief, attentionFrame });
-  const selectedBody = { ...body, topicSelection, diversitySlot: { id: body.diversitySlot?.id || "", format: body.diversitySlot?.format || "" } };
+  const selectedBody = {
+    ...body,
+    topicSelection,
+    diversitySlot: body.diversitySlot
+      ? { ...body.diversitySlot, id: body.diversitySlot.id || "", format: body.diversitySlot.format || "" }
+      : { id: "", format: "" }
+  };
   const creativeBrief = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: creativeBriefInstruction(selectedBody, productPassport, attentionMap, designFormatBrief, attentionFrame) });
   const contentScript = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: scriptwriterInstruction(selectedBody, productPassport, creativeBrief, designFormatBrief, attentionFrame) });
   const formatCompliance = await runRole({ token, model, callOpenRouter, parseJsonDraft, instruction: formatComplianceInstruction({ commonRules: commonRoleRules, productPassport, operatorProductContext: body.operatorProductContext, creativeBrief, contentScript, designFormatBrief }) });
@@ -81,6 +87,11 @@ export async function runCreativeTeamBrief({ token, body, model, referenceModel,
   const safetyScript = getSafetyFixedContentScript(compliantScript, safetyReview);
   const safetyContractViolations = getDesignTextContractViolations({ contentScript: safetyScript, designFormatBrief: normalizedDesignFormatBrief });
   const finalScript = safetyScript;
+  if (!finalScript?.headline || !Array.isArray(finalScript.points) || !finalScript.points.length) {
+    const error = new Error("AI-команда не вернула содержательный сценарий. Изображение не создаём.");
+    error.code = "creative_text_empty";
+    throw error;
+  }
   const finalSafetyReview = withFinalContentScript(safetyReview, finalScript, safetyContractViolations);
   const imagePromptPackage = deferImagePromptPackage
     ? {}
@@ -266,7 +277,10 @@ async function createApprovedTopicMap({ token, model, callOpenRouter, parseJsonD
     const topicSelection = selectTopicSelection({ topicMap, project: body.project, product: body.product, existingJobs: body.existingJobs, contentDirection: body.contentDirection });
     if (!quality.needsRetry) return { attentionMap, topicSelection };
     if (attempt === maxTopicMapAttempts - 1) {
-      return { attentionMap, topicSelection: selectTopicSelection({ topicMap: [], project: body.project, product: body.product, existingJobs: body.existingJobs, contentDirection: body.contentDirection }) };
+      const error = new Error("AI-команда не создала конкретную тему в выбранном направлении. Генерация остановлена до создания изображения.");
+      error.code = "topic_map_rejected";
+      error.details = quality.feedback;
+      throw error;
     }
     previousTopicMapFeedback = quality.feedback;
   }
@@ -283,6 +297,7 @@ function attentionMapInstruction(body, productPassport, designFormatBrief, atten
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,
       contentDirection: body.contentDirection || null,
+      contentLayer: body.diversitySlot?.contentLayer || body.contentLayer || null,
       designFormatBrief,
       recentJobs: (body.existingJobs || []).slice(0, 30),
       previousTopicMapFeedback
@@ -303,6 +318,7 @@ function creativeBriefInstruction(body, productPassport, attentionMap, designFor
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,
       contentDirection: body.contentDirection || null,
+      contentLayer: body.diversitySlot?.contentLayer || body.contentLayer || null,
       attentionMap,
       designFormatBrief,
       productVisibilityDecision: body.productVisibilityDecision,
@@ -323,6 +339,7 @@ function scriptwriterInstruction(body, productPassport, creativeBrief, designFor
       operatorProductContext: body.operatorProductContext,
       projectContext: body.project,
       contentDirection: body.contentDirection || null,
+      contentLayer: body.diversitySlot?.contentLayer || body.contentLayer || null,
       creativeBrief,
       designFormatBrief,
       topicSelection: body.topicSelection
@@ -443,8 +460,7 @@ function flattenCreativeTeamDraft(parts) {
 
 function resolveDesignFormatBrief(designFormatBrief = {}, body = {}) {
   const formatSignals = [designFormatBrief.formatType, body.reference?.layoutType, body.activeDesignReference?.layoutType, body.diversitySlot?.format];
-  if (formatSignals.includes("ranking_leaderboard")) return { ...designFormatBrief, formatType: "ranking_leaderboard" };
-  return designFormatBrief;
+  return formatSignals.includes("ranking_leaderboard") ? { ...designFormatBrief, formatType: "ranking_leaderboard" } : designFormatBrief;
 }
 
 function getCompliantContentScript(contentScript, formatCompliance) {
@@ -459,7 +475,6 @@ function getCompliantContentScript(contentScript, formatCompliance) {
     points: Array.isArray(fixed.points) && fixed.points.length ? fixed.points : baseScript.points || []
   };
 }
-
 function getSafetyFixedContentScript(contentScript, safetyReview) {
   const review = safetyReview.safetyReview || safetyReview || {};
   const fixed = review.fixedContentScript || {};
@@ -473,7 +488,6 @@ function getSafetyFixedContentScript(contentScript, safetyReview) {
 }
 
 function withFinalContentScript(safetyReview, finalScript, safetyContractViolations) {
-  void finalScript;
   if (!safetyContractViolations.length) return safetyReview;
   const review = safetyReview.safetyReview || safetyReview || {};
   return {

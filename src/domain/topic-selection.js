@@ -11,8 +11,11 @@ export function selectTopicSelection({ topicMap, project = {}, product = {}, exi
   const { eligible } = assessTopicMapQuality({ topicMap, project, product, contentDirection });
   const recentSignatures = selectRecentJobs(existingJobs, 30)
     .map((job) => buildTopicSimilarityKey([job.topicSelection?.theme, job.topic, job.title, job.creativeBrief?.topic]));
+  const recentHardBlock = recentSignatures.slice(0, 2);
   const fresh = eligible.filter((candidate) => !recentSignatures.some((recent) => isSimilarTopicSignature(candidate.signature, recent)));
-  const picked = pickOne(fresh.length ? fresh : eligible, random);
+  const notRepeatedImmediately = eligible.filter((candidate) => !recentHardBlock.some((recent) => isSimilarTopicSignature(candidate.signature, recent)));
+  const pool = fresh.length ? fresh : notRepeatedImmediately.length ? notRepeatedImmediately : eligible;
+  const picked = pickOne(pool, random);
   return picked || createFallbackTopic(product, contentDirection);
 }
 
@@ -70,7 +73,12 @@ function getCandidateRejectionReasons(candidate, { project, product, contentDire
     || !isContentDirectionTopicEligible({ text, contentDirection })) {
     reasons.push("тема уводит от основной задачи продукта или затрагивает запрещённый угол");
   }
-  if (getUnsupportedClaimViolations({ headline: text }, { project, product, productPassport: product.aiPassport }).length) reasons.push("есть медицинское или неподтверждённое утверждение");
+  const topicText = [candidate.theme, candidate.situation, candidate.productRelation].filter(Boolean).join(". ");
+  if (getUnsupportedClaimViolations(
+    { headline: topicText },
+    { project, product, productPassport: product.aiPassport },
+    { scope: "topic" }
+  ).length) reasons.push("есть медицинское или неподтверждённое утверждение");
   return reasons;
 }
 

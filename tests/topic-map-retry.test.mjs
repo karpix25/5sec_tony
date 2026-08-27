@@ -5,7 +5,7 @@ import { runCreativeTeamBrief } from "../scripts/creative-team-prompts.mjs";
 test("creative team regenerates an invalid topic map with concrete feedback", async () => {
   const responses = [
     { attentionMap: { topicMap: [
-      { id: "swelling", theme: "Утренние отёки", situation: "Лицо выглядит припухшим", productRelation: "Добавка помогает убрать отёки" },
+      { id: "swelling", theme: "Утренние отёки", situation: "Лицо выглядит припухшим", productRelation: "Добавка лечит отёки" },
       { id: "digest", theme: "Тяжесть после еды", situation: "После ужина нет комфорта", productRelation: "Напиток помогает пищеварению" },
       { id: "detox", theme: "Детокс на каждый день", situation: "Хочется очистить организм", productRelation: "Хлорофилл выводит токсины" },
       { id: "skin", theme: "Сияние кожи", situation: "Кожа выглядит тусклой", productRelation: "Напиток улучшает кожу" }
@@ -43,6 +43,7 @@ test("creative team regenerates an invalid topic map with concrete feedback", as
         aiPassport: { version: "product-passport-v3", productName: "Жидкий хлорофилл", category: "БАД", plainDescription: "Напиток для ежедневного ритуала" }
       },
       designAnalysis: { formatType: "checklist_cards", structureName: "Карточки" },
+      diversitySlot: { id: "daily-hack", format: "checklist", contentLayer: { id: "daily-hack", label: "бытовой лайфхак", subject: "стакан воды" } },
       existingJobs: []
     }
   });
@@ -58,12 +59,13 @@ test("creative team regenerates an invalid topic map with concrete feedback", as
   assert.deepEqual(draft.topicSelection.evidenceIds, ["water-ritual"]);
   const creativePrompt = calls.find((instruction) => instruction.task === "Преврати выбранную тему в креативную идею для одного вертикального поста 9:16.");
   assert.equal(creativePrompt.topicSelection.audienceSegment, "человек с хаотичной рутиной");
+  assert.equal(creativePrompt.contentLayer.id, "daily-hack");
   assert.match(creativePrompt.rules.join(" "), /audienceSegment, awarenessStage, contentGoal и evidenceIds/);
 });
 
-test("creative team uses the direct product fallback after three rejected maps", async () => {
+test("creative team stops instead of creating a generic fallback after three rejected maps", async () => {
   const rejectedMap = { attentionMap: { topicMap: [
-    { id: "swelling", theme: "Утренние отёки", situation: "Лицо выглядит припухшим", productRelation: "Добавка помогает убрать отёки" }
+    { id: "swelling", theme: "Утренние отёки", situation: "Лицо выглядит припухшим", productRelation: "Добавка лечит отёки" }
   ] } };
   const responses = [
     rejectedMap,
@@ -77,24 +79,24 @@ test("creative team uses the direct product fallback after three rejected maps",
   ];
   const calls = [];
 
-  const draft = await runCreativeTeamBrief({
-    token: "token",
-    model: "test-model",
-    callOpenRouter: async (_token, _model, messages) => {
-      calls.push(JSON.parse(messages[1].content));
-      return JSON.stringify(responses.shift());
-    },
-    parseJsonDraft: JSON.parse,
-    deferImagePromptPackage: true,
-    body: {
-      project: { name: "БАДы", niche: "БАДы" },
-      product: { name: "Жидкий хлорофилл", description: "Напиток с хлорофиллом для ежедневного ритуала", aiPassport: { version: "product-passport-v3", productName: "Жидкий хлорофилл", category: "БАД" } },
-      designAnalysis: { formatType: "checklist_cards", structureName: "Карточки" },
-      existingJobs: []
-    }
-  });
-
+  await assert.rejects(
+    runCreativeTeamBrief({
+      token: "token",
+      model: "test-model",
+      callOpenRouter: async (_token, _model, messages) => {
+        calls.push(JSON.parse(messages[1].content));
+        return JSON.stringify(responses.shift());
+      },
+      parseJsonDraft: JSON.parse,
+      deferImagePromptPackage: true,
+      body: {
+        project: { name: "БАДы", niche: "БАДы" },
+        product: { name: "Жидкий хлорофилл", description: "Напиток с хлорофиллом для ежедневного ритуала", aiPassport: { version: "product-passport-v3", productName: "Жидкий хлорофилл", category: "БАД" } },
+        designAnalysis: { formatType: "checklist_cards", structureName: "Карточки" },
+        existingJobs: []
+      }
+    }),
+    (error) => error.code === "topic_map_rejected"
+  );
   assert.equal(calls.filter((instruction) => instruction.task === "Создай свежую карту смежных тем для одного продукта.").length, 3);
-  assert.equal(draft.topicSelection.fallback, true);
-  assert.equal(draft.topicSelection.theme, "Жидкий хлорофилл");
 });

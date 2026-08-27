@@ -127,7 +127,7 @@ test("dental products cannot invent systemic microbiome effects", () => {
   };
   const content = {
     headline: "Микробы во рту влияют на тело",
-    subhead: "Чистка меняет ваше самочувствие",
+    subhead: "Паста меняет ваше самочувствие",
     points: [
       "Рот — главные ворота для бактерий",
       "Паста снижает бактериальную нагрузку"
@@ -201,7 +201,6 @@ test("claim contract rejects invented skin explanations and product forms", () =
     points: ["Жидкий концентрат комфортно усваивается"]
   }, { product: { name: "Жидкий хлорофилл" } }), [
     "headline:unsupported_product_form",
-    "points[0]:unsupported_wellness_mechanism",
     "points[0]:unsupported_product_form"
   ]);
 });
@@ -227,7 +226,6 @@ test("claim contract rejects an unsupported body damage metaphor", () => {
   const content = { headline: "Организм ржавеет изнутри", points: ["Добавьте напиток в воду"] };
 
   assert.deepEqual(getUnsupportedClaimViolations(content, { product: { name: "Жидкий хлорофилл" } }), [
-    "headline:unsupported_wellness_mechanism",
     "headline:unsupported_physical_damage"
   ]);
 });
@@ -249,9 +247,7 @@ test("wellness source claims do not authorize detox and internal deodorant copy"
   };
 
   assert.deepEqual(getUnsupportedClaimViolations(content, wellness), [
-    "headline:unsupported_wellness_mechanism",
     "points[0]:unsupported_detox_or_weight",
-    "points[0]:unsupported_wellness_mechanism",
     "points[0]:unsupported_causal_certainty",
     "points[1]:unsupported_wellness_mechanism",
     "points[1]:unsupported_effect"
@@ -300,8 +296,7 @@ test("wellness copy cannot invent brain and habit mechanisms", () => {
   };
 
   const violations = getUnsupportedClaimViolations(content, wellness);
-  assert.ok(violations.includes("headline:unsupported_wellness_mechanism"));
-  assert.ok(violations.includes("points[0]:unsupported_wellness_mechanism"));
+  assert.equal(violations.some((violation) => violation.includes("unsupported_wellness_mechanism")), false);
   assert.ok(violations.includes("points[1]:unsupported_causal_certainty"));
 });
 
@@ -319,8 +314,6 @@ test("wellness copy cannot revive digestion and internal freshness angles", () =
   };
 
   const violations = getUnsupportedClaimViolations(content, wellness);
-  assert.ok(violations.includes("headline:unsupported_wellness_mechanism"));
-  assert.ok(violations.includes("points[0]:unsupported_wellness_mechanism"));
   assert.ok(violations.includes("points[1]:unsupported_wellness_mechanism"));
 });
 

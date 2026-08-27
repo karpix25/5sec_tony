@@ -57,6 +57,26 @@ test("topic selection skips a recent duplicate before choosing randomly", () => 
   assert.equal(topic.id, "comfort");
 });
 
+test("topic selection prevents a third consecutive copy when another angle exists", () => {
+  const repeatedTheme = "Дни, когда все раздражает";
+  const topic = selectTopicSelection({
+    product: pads,
+    existingJobs: [
+      { createdAt: "2026-08-26T02:00:00.000Z", topicSelection: { theme: repeatedTheme } },
+      { createdAt: "2026-08-26T01:00:00.000Z", topicSelection: { theme: repeatedTheme } }
+    ],
+    topicMap: {
+      topicMap: [
+        { id: "repeat", theme: repeatedTheme, situation: "Обычные дела даются тяжелее", productRelation: "Это знакомая ситуация во время менструации" },
+        { id: "comfort", theme: "Как пережить первый день", situation: "Хочется отменить планы", productRelation: "Это бытовая тема во время менструации" }
+      ]
+    },
+    random: () => 0
+  });
+
+  assert.equal(topic.id, "comfort");
+});
+
 test("topic selection rejects unsupported claims and always returns a fallback", () => {
   const topic = selectTopicSelection({
     product: pads,
@@ -99,20 +119,20 @@ test("topic selection rejects cosmetic treatment angles before the script stage"
   assert.equal(topic.id, "shower");
 });
 
-test("topic map quality asks for a retry when wellness angles are medical", () => {
+test("topic map keeps adjacent wellness angles but retries explicit treatment claims", () => {
   const quality = assessTopicMapQuality({
     project: { niche: "БАДы" },
     product: { name: "Жидкий хлорофилл", description: "Добавка для ежедневного ритуала" },
     topicMap: {
       topicMap: [
-        { id: "swelling", theme: "Утренние отёки", situation: "Лицо выглядит припухшим", productRelation: "Добавка помогает убрать отёки" },
+        { id: "swelling", theme: "Утренние отёки", situation: "Лицо выглядит припухшим", productRelation: "Добавка лечит отёки" },
         { id: "digestion", theme: "Тяжесть после еды", situation: "После ужина нет комфорта", productRelation: "Хлорофилл помогает пищеварению" }
       ]
     }
   });
 
   assert.equal(quality.needsRetry, true);
-  assert.equal(quality.eligible.length, 0);
+  assert.equal(quality.eligible.length, 1);
   assert.match(quality.feedback.join(" "), /Утренние отёки/);
   assert.match(quality.feedback.join(" "), /медицинское или неподтверждённое/);
 });

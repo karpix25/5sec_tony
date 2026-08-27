@@ -1,12 +1,19 @@
 import { isEditorialTopicEligible } from "./editorial-topic-policy.js";
 
+const wellnessTerms = "(?:организм|клет|мозг|нервн|памят|концентрац|жкт|кишеч|вздут|пищевар|аппетит|самочувств|усваива|водн.{0,16}баланс|адаптац|накопительн|тяжест.{0,20}(?:еды|живот)|маскир.{0,16}запах|дезодор|запах|свежест|внутренн|энерги|тонус|иммун|кислород|митохондр|микробиом)";
+const wellnessActions = "(?:поддерж|улучш|нормализ|усваива|стимулир|влияет|восстанав|помога|повыш|нейтрализ|дезодор|избав|убира|убрат|меня|требу|нужн|говор|указыв|связан|заметн|работа|действ|очищ)";
+const productCue = "(?:хлорофилл|добавк|продукт|напиток|формул|средств|концентрат|паста|крем|сыворот)";
+const wellnessMechanismPattern = new RegExp(`${productCue}.{0,48}${wellnessActions}.{0,48}${wellnessTerms}|${wellnessTerms}.{0,48}${wellnessActions}.{0,48}${productCue}`, "iu");
+const unsafeSourceWellnessPattern = new RegExp(`(?:помога|способств|поддерж|улучш|нормализ|повыш).{0,48}(?:аппетит|самочувств|иммун|запах|внутренн|детокс|токсин|жкт|пищевар|организм|микробиом|энерги|тонус)`, "iu");
+const topicRepairableClaimIds = new Set(["detox_or_weight", "wellness_mechanism", "effect"]);
+
 const unsupportedClaimPatterns = [
   ["medical_treatment", /(?<!не )(?<![а-яё])леч(?:ит|ат|ить|ение|ебн|ащ)|терап|диагноз|лекарств/iu],
   ["medical_mechanism", /кровообращ|микроциркуля|лимф|гормон|инсулин|холестерин|давлени|метабол|обмен веществ|нагрузк.{0,24}(?:сустав|шею|спин|мышц)/iu],
   ["disease_or_pathogen", /воспален|инфекц|бактери|микроб|вирус|грибок|грибк|паразит/iu],
   ["skin_harm_or_treatment", /(?:кожа|кожу).{0,20}(?:горит|травм|раздраж|воспал|аллерг|зуд|жжен|покраснен)|(?:аллерг|раздраж|воспал|зуд|жжен|покраснен)|(?:травмиру|провоциру|вызыва).{0,24}(?:кож|аллерг|раздраж|воспал|зуд|жжен|покраснен)|успокаива.{0,16}кож/iu],
   ["detox_or_weight", /токсин|детокс|очища.{0,12}организм|сжига.{0,12}жир|похуд/iu],
-  ["wellness_mechanism", /организм|клет|мозг|нервн|памят|концентрац|жкт|кишеч|вздут|пищевар|аппетит|самочувств|усваива|водн.{0,16}баланс|адаптац|накопительн|тяжест.{0,20}(?:еды|живот)|маскир.{0,16}запах|дезодор(?:ир|ант.{0,16}не\s+справл)|запах.{0,16}(?:тела|изнутри|изо рта)|свежест.{0,16}изнутри|внутренн.{0,16}(?:состояни|свежест|чистот)|энерги|тонус|иммун|кислород|митохондр|долгосрочн.{0,16}поддерж/iu],
+  ["wellness_mechanism", wellnessMechanismPattern],
   ["therapeutic_effect", /мышц.{0,20}(?:не\s+отдых|напряж|зажим)|(?:снима|устраня|разгоня|возвращ).{0,24}(?:зажим|напряж|тяжест|л[её]гкост)|помога.{0,28}(?:расслаб|восстанов)|подогрев.{0,40}(?:расслаб|восстанов)|глубок.{0,16}расслаб|эффективн.{0,16}восстанов/iu],
   ["invented_comparison", /(?:один|1).{0,16}вместо.{0,16}(?:двух|тр[её]х|четыр[её]х|пяти|шести|\d+)|заменя.{0,18}(?:гору|несколько|много|пять|четыре|три|\d+)/iu],
   ["physical_damage", /микротрещ|микроцарап|микроразрыв|разрыв.{0,12}кутик|уби(?:ть|ва[а-яё]*).{0,16}(?:эмал|кож|волос|зуб)|созда[а-яё]*.{0,16}трени|царап|стира.{0,16}эмал|истонч|шероховат|наждач|поврежд|ржаве|пятн.{0,20}раствор|растворя.{0,20}(?:пятн|нал[её]т)/iu],
@@ -61,14 +68,14 @@ export function getClaimEvidence({ product = {}, productPassport = {} } = {}) {
   return evidence.filter((line) => !lineHasStrictClaim(line));
 }
 
-export function getUnsupportedClaimViolations(contentScript = {}, context = {}) {
+export function getUnsupportedClaimViolations(contentScript = {}, context = {}, { scope = "visible" } = {}) {
   const evidenceText = normalizeForMatch(getClaimEvidence(context).join(" "));
-  const strictClaims = isSensitiveConsumerHealthContext(context) ? strictWellnessClaims : new Set();
   return getVisibleLines(contentScript).flatMap(({ field, text }) => unsupportedClaimPatterns
     .filter(([id, pattern]) => {
+      if (scope === "topic" && topicRepairableClaimIds.has(id)) return false;
       const claims = getClaimMatches(text, pattern);
       const supported = new Set(getClaimMatches(evidenceText, pattern, true));
-      return claims.length > 0 && (strictClaims.has(id) || claims.some((claim) => !supported.has(claim)));
+      return claims.length > 0 && claims.some((claim) => !supported.has(claim));
     })
     .map(([id]) => `${field}:unsupported_${id}`));
 }
@@ -158,7 +165,10 @@ function getClaimMatches(value, pattern, excludeNegated = false) {
 
 function lineHasStrictClaim(value) {
   const normalized = normalizeForMatch(value);
-  return unsupportedClaimPatterns.some(([id, pattern]) => strictWellnessClaims.has(id) && pattern.test(normalized));
+  return unsupportedClaimPatterns.some(([id, pattern]) => {
+    if (id === "wellness_mechanism") return unsafeSourceWellnessPattern.test(normalized);
+    return strictWellnessClaims.has(id) && pattern.test(normalized);
+  });
 }
 
 function isSensitiveConsumerHealthContext({ project = {}, product = {}, productPassport = {} } = {}) {
