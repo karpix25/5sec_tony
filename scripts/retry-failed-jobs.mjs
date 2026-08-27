@@ -3,7 +3,7 @@ import { dispatchJobToQueue, shouldUseBullMq } from "./job-queue-dispatcher.mjs"
 import { lockAppStateMutation } from "./app-state-advisory-lock.mjs";
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
 import { ensureJobQueueSchema } from "./job-queue-schema.mjs";
-import { getBriefQueueName } from "./brief-queue.mjs";
+import { enqueueBriefJob, getBriefQueueName } from "./brief-queue.mjs";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
 const defaultMaxManualRetries = 3;
@@ -13,8 +13,11 @@ export function createRetryFailedJobsApiHandler(deps = {}) {
     isConfigured: deps.isPostgresConfigured || isPostgresConfigured,
     withTransaction: deps.withPostgresTransaction || withPostgresTransaction,
     dispatch: deps.dispatchJobToQueue || dispatchJobToQueue,
+    enqueueBrief: deps.enqueueBriefJob || enqueueBriefJob,
     canUseQueue: deps.shouldUseBullMq || shouldUseBullMq,
-    maxManualRetries: Math.max(1, Number(deps.maxManualRetries || defaultMaxManualRetries))
+    maxManualRetries: Math.max(1, Number(deps.maxManualRetries || defaultMaxManualRetries)),
+    env: deps.env || process.env,
+    origin: deps.origin || getInternalServerOrigin(deps.env || process.env)
   };
   return async function handleRetryFailedJobsApi(request, response, url) {
     if (request.method !== "POST" || url.pathname !== "/api/jobs/retry-failed") return false;
@@ -35,6 +38,7 @@ export function createRetryFailedJobsApiHandler(deps = {}) {
 export const handleRetryFailedJobsApi = createRetryFailedJobsApiHandler();
 
 export async function retryFailedJobs(scope, deps) {
+  const enqueueBrief = deps.enqueueBrief || deps.enqueueBriefJob || enqueueBriefJob;
   const queued = await deps.withTransaction(async (tx) => {
     await ensureJobQueueSchema(tx.query);
     await lockAppStateMutation(tx.query, appStateKey, scope.projectId);
@@ -111,7 +115,9 @@ export async function retryFailedJobs(scope, deps) {
 
   const dispatched = [];
   for (const job of queued) {
-    const dispatch = await deps.dispatch(job);
+    const dispatch = job.queueName === getBriefQueueName(deps.env)
+      ? await enqueueBrief(job, { batchId: scope.batchId || job.serverBatchId, origin: deps.origin }, { env: deps.env })
+      : await deps.dispatch(job);
     dispatched.push({ id: job.id, enqueued: dispatch?.enqueued !== false, existing: Boolean(dispatch?.existing) });
   }
   return {
@@ -174,5 +180,9 @@ function sendJson(response, status, payload) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(payload));
   return true;
+}
+
+function getInternalServerOrigin(env = process.env) {
+  return env.INTERNAL_SERVER_ORIGIN || `http://127.0.0.1:${env.PORT || 4173}`;
 }
 import { readJsonRequest } from "./request-body.mjs";

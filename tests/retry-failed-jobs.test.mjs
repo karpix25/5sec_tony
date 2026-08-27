@@ -53,15 +53,17 @@ test("retry failed brief placeholders after a rejected AI brief", async () => {
   const dispatched = [];
   const result = await retryFailedJobs({ projectId: "project-1", batchId: "batch-brief" }, {
     maxManualRetries: 3,
+    origin: "http://127.0.0.1:4173",
     withTransaction: async (callback) => callback({ query: async (text, params = []) => {
       if (/select \* from studio_jobs/i.test(text)) return { rows: [row] };
       return { rows: [] };
     }}),
+    enqueueBriefJob: async (job, metadata) => { dispatched.push({ id: job.id, metadata }); return { enqueued: true }; },
     dispatch: async (job) => { dispatched.push(job.id); return { enqueued: true }; }
   });
 
   assert.equal(result.matched, 1);
-  assert.deepEqual(dispatched, ["job-brief"]);
+  assert.deepEqual(dispatched, [{ id: "job-brief", metadata: { batchId: "batch-brief", origin: "http://127.0.0.1:4173" } }]);
   assert.equal(result.jobs[0].queueStatus, "queued");
 });
 
