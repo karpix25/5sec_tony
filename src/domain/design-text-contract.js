@@ -15,11 +15,18 @@ const promisedItemCountValues = { "2": 2, два: 2, две: 2, "3": 3, три: 
 const genericPointPattern = /(?:^|[—–,:;]\s*)(?:смотрите на состав|сверяйте обещания|оценивайте комфорт|проверьте комфорт|следуйте инструкции)(?:\s|$)/i;
 const abstractBenefitHeadlinePattern = /^(?:комфорт|уверенность|забота|свежесть|баланс|гармония|л[её]гкость)\s+(?:в|для|на)\s+(?:движени|кажд|повседнев|ритм|жизн|рутин|уход)/i;
 const drySpecificationHeadlinePattern = /(?:толщин|объ[её]м|вес|длин|размер|содержание)[а-яё]*\s+(?:издели[а-яё]*\s+)?(?:составля|равн|весит|содержит|имеет)[а-яё]*\s+\d/i;
-const bareInstructionHeadlinePattern = /^[А-ЯЁ][а-яё-]{2,}(?:ть|ться)\s+[^?!]+$/;
+const bareInstructionHeadlinePattern = /^(?![А-ЯЁ][а-яё-]*(?:ость|ность)(?=\s|$|[?!.,]))[А-ЯЁ][а-яё-]{2,}(?:ть|ться)\s+[^?!]+$/;
 const focusedListPromisePattern = /(?:признак|сигнал|схем|шаг|переход)[а-яё]*/i;
 const productFeaturePointPattern = /^(?:содержит|формула|в\s+составе)(?:\s|$)|(?:^|\s)(?:в\s+составе|благодаря|помогает|поддерживает|обеспечивает)(?:\s|$)/i;
 const genericFallbackHeadlinePattern = /^сначала\s+проверь\s+способ\s+применения$/i;
 const contextFreeHeadlinePattern = /^(?:не\s+спеши\s+с\s+выбором(?:\s+вслепую)?|выбирай\s+с\s+умом|сделай\s+правильный\s+выбор|не\s+ошибись\s+с\s+выбором|пора\s+менять\s+привычки|всё\s+дело\s+в\s+привычке)$/i;
+const staleHeadlinePattern = /^(?:последующ[а-яё-]*|следующ[а-яё-]*|текущ[а-яё-]*)(?=\s|$|[?!.,:—–-])|(?:разбираемся|что\s+важно(?:\s+знать)?|что\s+проверить)(?:\s|$)|:\s*что\s+(?:важно|проверить)(?=\s|$|[?!.,:—–-])/i;
+const headlineGerundPattern = /(?:^|[^а-яё])(?:сравнивая|используя|выбирая|проверяя|учитывая|начиная|заканчивая|меняя|добавляя|убирая|исключая|ориентируясь|опираясь|сочетая|нанося|смывая|выпивая|читая|делая|сравнив|выбрав|проверив)(?=$|[^а-яё])/i;
+const punchyActionHeadlinePattern = /^как\s+[а-яё-]+(?:ть|ться)\s+[а-яё-]+(?:\s+[а-яё-]+)?[?!]?$/i;
+const punchyPairHeadlinePattern = /^[а-яё-]+\s+(?:и|или)\s+[а-яё-]+(?:\s+[а-яё-]+)?[?!]?$/i;
+const shortPunchyQuestionPattern = /^[^\s?!]+\s+[^\s?!]+\?$/i;
+const genericPunchyPairPattern = /^(?:миф|факт|ошибка|совет)\s+(?:и|или)\s+/i;
+const genericPunchyActionPattern = /^как\s+(?:помочь\s+питомцу|выбрать\s+(?:продукт|товар|средство)|проверить\s+(?:продукт|товар|средство))$/i;
 const validShortHeadlineStarts = new Set(["а", "в", "и", "к", "о", "с", "у", "я", "мы", "ты", "вы", "он", "не", "на", "по", "за", "из", "до", "но", "ии", "ai", "qr"]);
 
 export function getVisibleTextContractViolations({ contentScript = {}, product = {} } = {}) {
@@ -31,13 +38,14 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
 
   if (!headline) violations.push("headline_empty");
   if (headline.length > 34) violations.push("headline_too_long");
-  if (headlineWords.length < 3) violations.push("headline_too_few_words");
+  if (headlineWords.length < 3 && !isShortPunchyQuestion(headline)) violations.push("headline_too_few_words");
   if (headlineWords.length > 6) violations.push("headline_too_many_words");
   if (/^[а-яё]/.test(headline)) violations.push("headline_lowercase_start");
   if (isAllCapsHeadline(headline)) violations.push("headline_all_caps");
   if (looksLikeProductDump(headline, product)) violations.push("headline_product_dump");
   if (numberedHeadlineFragmentPattern.test(headline)) violations.push("headline_numbered_fragment");
   if (weakHeadlineShellPattern.test(headline)) violations.push("headline_weak_shell");
+  if ((staleHeadlinePattern.test(headline) || headlineGerundPattern.test(headline) || genericPunchyActionPattern.test(headline) || genericPunchyPairPattern.test(headline)) && !violations.includes("headline_weak_shell")) violations.push("headline_weak_shell");
   if (metaphorHeadlinePattern.test(headline)) violations.push("headline_ambiguous");
   if (abstractBenefitHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
   if (drySpecificationHeadlinePattern.test(headline)) violations.push("headline_weak_shell");
@@ -48,6 +56,7 @@ export function getVisibleTextContractViolations({ contentScript = {}, product =
   if (headlineWords.length === 3
     && !/[?!:—–-]/.test(headline)
     && !/(?:^|\s)(?:не|без|зря|слишком|даже|уже|снова|вместо|против|до|после|через|из)(?:\s|$)/i.test(headline)
+    && !isPunchyHeadlineShape(headline)
     && !violations.includes("headline_weak_shell")) violations.push("headline_weak_shell");
   if (hasBrokenHeadlineStart(headline)) violations.push("headline_broken_start");
   if ([subhead, ...points].some(hasBrokenLineStart)) violations.push("broken_line_start");
@@ -125,6 +134,10 @@ export function hasDesignTextContractViolations(payload = {}) {
   return getDesignTextContractViolations(payload).length > 0;
 }
 
+export function isGenericProductDescriptor(value) {
+  return /^(?:вечерн(?:ий|его|ем|яя|ее|ие|их|ими)|утренн(?:ий|его|ем|яя|ее|ие|их|ими)|дневн(?:ой|ого|ом|ая|ое|ые|ых|ыми))$/i.test(String(value || ""));
+}
+
 function getScriptPoints(contentScript) {
   return Array.isArray(contentScript?.points) ? contentScript.points.filter(Boolean) : [];
 }
@@ -175,6 +188,15 @@ function isValidHeadline(value, product) {
   return !getVisibleTextContractViolations({ contentScript: { headline: value }, product }).length;
 }
 
+function isPunchyHeadlineShape(value) {
+  return punchyActionHeadlinePattern.test(value)
+    || (punchyPairHeadlinePattern.test(value) && !genericPunchyPairPattern.test(value));
+}
+
+function isShortPunchyQuestion(value) {
+  return shortPunchyQuestionPattern.test(value) && !/^(?:это|этот|эта|эти)\s+/i.test(value);
+}
+
 function createHeadlineRepairError(sourceHeadline, product) {
   const error = new Error("Не удалось исправить заголовок по выбранной теме. Изображение не создаём.");
   error.code = "headline_repair_failed";
@@ -218,7 +240,7 @@ function looksLikeProductDump(value, product = {}) {
 function looksLikeProductNameLine(value, product) {
   const productWords = [product?.name, product?.aiPassport?.productName]
     .flatMap((name) => normalizeVisibleMeaningKey(name).split(" "))
-    .filter((word) => word.length > 4);
+    .filter((word) => word.length > 4 && !isGenericProductDescriptor(word));
   const headline = normalizeVisibleMeaningKey(value);
   const headlineWords = headline.split(" ").filter(Boolean);
   if (!productWords.some((word) => headlineWords.includes(word)) || headlineWords.length > 4) return false;

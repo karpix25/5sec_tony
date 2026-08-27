@@ -12,6 +12,9 @@ test("headline style contract asks for honest clickbait and simple language", ()
   assert.match(instruction, /уровень 5 класса/i);
   assert.match(instruction, /без выдуманных фактов/i);
   assert.match(instruction, /слишком поздно|зря|перед покупкой/i);
+  assert.match(instruction, /Сонливость и вздутие живота/);
+  assert.match(instruction, /Как вернуть лёгкость/);
+  assert.match(instruction, /деепричастн.*оборот/);
 });
 
 test("image prompt carries clickbait headline and plain-language rules", () => {

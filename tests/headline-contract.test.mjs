@@ -158,6 +158,15 @@ test("visible text contract rejects generic and broken editorial shells", () => 
   }
 });
 
+test("visible text contract accepts punchy headline shapes and rejects formal framing", () => {
+  for (const headline of ["Сонливость и вздутие живота", "Как вернуть лёгкость", "Тяжело уснуть?"]) {
+    assert.deepEqual(getVisibleTextContractViolations({ contentScript: { headline } }), []);
+  }
+  for (const headline of ["Последующая сонливость или вздутие", "Разбираемся, что мешает пищеварению", "Тяжело уснуть: что важно", "Проверяя состав, легко ошибиться"]) {
+    assert.ok(getVisibleTextContractViolations({ contentScript: { headline } }).includes("headline_weak_shell"));
+  }
+});
+
 test("visible text contract requires literal headlines instead of metaphors", () => {
   for (const headline of [
     "Список дел перед сном крадет ваш отдых",

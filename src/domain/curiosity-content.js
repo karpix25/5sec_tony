@@ -2,6 +2,7 @@ import { validateCreativeBrief } from "./creative-quality-validator.js";
 import { getProductContentFocus } from "./product-content-focus.js";
 import { buildProductProfile } from "./product-profile.js";
 import { formatHeadlineStyleInstruction } from "./headline-style-contract.js";
+import { getVisibleTextContractViolations, isGenericProductDescriptor } from "./design-text-contract.js";
 
 export function createCuriosityContentPlan({ project, product, brief, layoutPlan, hookIntelligence, existingJobs = [] }) {
   const productFact = createProductFact({ project, product, brief });
@@ -93,14 +94,15 @@ function createFinalContent({ project, product, brief, productFact, curiosityAng
     ? aiPlan.points
     : createFallbackPoints({ productFact, curiosityAngle, layoutPlan });
   const layoutPoints = expandPointsForLayout(uniquePoints(points), { productFact, curiosityAngle, layoutPlan });
+  const sourceHeadline = aiPlan.headline || brief.hook;
   return sanitizeVisibleContent({
-    headline: cleanHeadline(aiPlan.headline || brief.hook, productFact, curiosityAngle, brief, project),
+    headline: cleanHeadline(sourceHeadline, productFact, curiosityAngle, brief, project),
     subhead: cleanSentence(aiPlan.subhead || curiosityAngle.conflict),
     points: fitPointCount(layoutPoints, brief.pointCount),
     disclaimer: "",
     layoutType: layoutPlan?.layoutType || "",
     curiosityAngle
-  }, { project, product, brief, productFact, curiosityAngle, productVisualMode: brief.productVisualMode });
+  }, { project, product, brief, productFact, curiosityAngle, sourceHeadline, productVisualMode: brief.productVisualMode });
 }
 
 function normalizeAiPlan(plan) {
@@ -169,10 +171,10 @@ function buildContextHeadline({ source, productFact, angle, brief, project }) {
     .filter((item) => item.split(/\s+/).length <= 2)
     .sort((left, right) => right.split(/\s+/).length - left.split(/\s+/).length)[0];
   if (shortSubject) {
-    const subjectVariants = [shortSubject, shortSubject.split(/\s+/).at(-1)];
+    const subjectVariants = [`${shortSubject}?`];
     return subjectVariants
-      .map((subject) => `${subject}: что важно`)
-      .find((item) => item.length <= 34) || `${shortSubject}: что важно`;
+      .map(finalizeHeadline)
+      .find((item) => isGoodHeadline(item)) || "";
   }
 
   const candidate = subjects.concat([productFact.action, angle.question])
@@ -204,15 +206,15 @@ function pickConcrete(items, productName) {
 }
 
 function isGoodHeadline(value) {
-  const wordCount = value.split(/\s+/).filter(Boolean).length;
-  return value.length >= 12 && value.length <= 34 && wordCount >= 3 && wordCount <= 6
-    && !/полезный разбор|давать всякие|интересные факты|рекомендации|5 моментов|5 вещей|причин проверить это заранее|проверить это заранее|красных флагов|вы узнаете это состояние/i.test(value);
+  const headline = finalizeHeadline(value);
+  return !getVisibleTextContractViolations({ contentScript: { headline } }).length;
 }
 
 function finalizeHeadline(value) {
   const headline = limitWords(value, 6);
-  if (headline.split(/\s+/).filter(Boolean).length === 3 && !/[?!:—–-]/.test(headline)) return `${headline}?`;
-  return headline;
+  const normalized = headline && headline[0].toLocaleUpperCase("ru-RU") + headline.slice(1);
+  if (normalized.split(/\s+/).filter(Boolean).length === 3 && !/[?!:—–-]/.test(normalized)) return `${normalized}?`;
+  return normalized;
 }
 
 function compactHeadlineSubject(value) {
@@ -238,11 +240,12 @@ function uniquePoints(points) {
 function sanitizeVisibleContent(content, context) {
   const points = (content.points || []).map((point) => sanitizeVisiblePoint(point, context));
   const cleanPoints = ensureMinimumVisiblePoints(uniquePoints(points), context);
+  const sourceHeadline = context.sourceHeadline || content.headline;
   const headline = sanitizeHeadline(content.headline, context);
   return {
     ...content,
     headline,
-    subhead: sanitizeSubhead(content.subhead, { ...context, headline, points: cleanPoints }),
+    subhead: sanitizeSubhead(content.subhead, { ...context, headline, sourceHeadline, points: cleanPoints }),
     points: cleanPoints
   };
 }
@@ -269,7 +272,7 @@ function sanitizeVisiblePoint(value, context) {
 
 function sanitizeSubhead(value, context) {
   const clean = sanitizeVisiblePoint(value, context);
-  if (isDuplicateVisibleLine(clean, context.headline)) {
+  if ([context.headline, context.sourceHeadline].some((headline) => isDuplicateVisibleLine(clean, headline))) {
     return context.points.find((point) => !isDuplicateVisibleLine(point, context.headline)) || safeVisibleReplacement(context);
   }
   return clean;
@@ -287,7 +290,7 @@ function sanitizeNoPackageProductText(value, { productVisualMode, project, produ
   const productTerms = [project?.name, product?.name, product?.components]
     .flatMap((item) => String(item || "").split(/\s+|\+/))
     .map((item) => item.trim())
-    .filter((item) => item.length >= 4);
+    .filter((item) => item.length >= 4 && !isGenericProductDescriptor(item));
   const pattern = productTerms.length ? new RegExp(productTerms.map(escapeRegExp).join("|"), "gi") : null;
   const withoutProduct = pattern ? value.replace(pattern, "").replace(/\s{2,}/g, " ").trim() : value;
   if (/упаков|этикет|флакон|бутыл|баноч|банка|sku|packshot|bottle|package|label|jar/i.test(withoutProduct)) {
