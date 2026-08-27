@@ -176,6 +176,20 @@ test("topic selection rejects candidates outside the selected content direction"
   assert.equal(topic.directionId, "care-habits");
 });
 
+test("topic selection assigns the selected direction when the model omits its id", () => {
+  const topic = selectTopicSelection({
+    product: { ...pads, name: "Зубная паста", description: "Средство для ежедневной чистки зубов" },
+    contentDirection: { id: "direct-product", kind: "direct", title: "Сам продукт и его применение" },
+    topicMap: { topicMap: [
+      { id: "use", theme: "Как чистить зубы без спешки", situation: "Утром хочется быстро закончить уход", productRelation: "Паста нужна для ежедневной чистки зубов" }
+    ] },
+    random: () => 0
+  });
+
+  assert.equal(topic.id, "use");
+  assert.equal(topic.directionId, "direct-product");
+});
+
 test("direct product direction rejects packaging topics", () => {
   const topic = selectTopicSelection({
     product: pads,

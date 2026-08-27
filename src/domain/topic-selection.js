@@ -21,7 +21,7 @@ export function selectTopicSelection({ topicMap, project = {}, product = {}, exi
 
 export function assessTopicMapQuality({ topicMap, project = {}, product = {}, contentDirection = null } = {}) {
   const source = Array.isArray(topicMap) ? topicMap : topicMap?.topicMap || [];
-  const candidates = readCandidates(topicMap);
+  const candidates = readCandidates(topicMap, contentDirection);
   const rejected = candidates
     .map((candidate) => ({ candidate, reasons: getCandidateRejectionReasons(candidate, { project, product, contentDirection }) }))
     .filter(({ reasons }) => reasons.length);
@@ -34,17 +34,17 @@ export function assessTopicMapQuality({ topicMap, project = {}, product = {}, co
   return { eligible, needsRetry: eligible.length < minimumEligibleTopicCount, feedback };
 }
 
-function readCandidates(topicMap = {}) {
+function readCandidates(topicMap = {}, contentDirection = null) {
   const source = Array.isArray(topicMap) ? topicMap : topicMap.topicMap || [];
   const unique = new Map();
   for (const item of source) {
-    const candidate = normalizeCandidate(item);
+    const candidate = normalizeCandidate(item, contentDirection);
     if (candidate && !unique.has(candidate.signature.text)) unique.set(candidate.signature.text, candidate);
   }
   return [...unique.values()];
 }
 
-function normalizeCandidate(value) {
+function normalizeCandidate(value, contentDirection = null) {
   const source = value && typeof value === "object" ? value : {};
   const theme = clean(source.theme || source.topic);
   const situation = clean(source.situation);
@@ -55,7 +55,7 @@ function normalizeCandidate(value) {
     theme,
     situation,
     productRelation,
-    directionId: clean(source.directionId || source.contentDirectionId),
+    directionId: clean(source.directionId || source.contentDirectionId) || clean(contentDirection?.id),
     audienceSegment: clean(source.audienceSegment).slice(0, 100),
     awarenessStage: normalizeChoice(source.awarenessStage, awarenessStages),
     contentGoal: normalizeChoice(source.contentGoal, contentGoals),
