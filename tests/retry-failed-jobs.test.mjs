@@ -44,7 +44,7 @@ test("retry failed jobs does nothing after the manual retry limit", async () => 
 });
 
 test("retry failed brief placeholders after a rejected AI brief", async () => {
-  const row = { ...failedRow("job-brief", "batch-brief"), stage: "brief", extra: {
+  const row = { ...failedRow("job-brief", "batch-brief"), stage: "brief", queue_name: "generation-brief-v2", extra: {
     serverBatchId: "batch-brief",
     serverOwned: true,
     isBriefPlaceholder: true,

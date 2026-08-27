@@ -3,6 +3,7 @@ import { dispatchJobToQueue, shouldUseBullMq } from "./job-queue-dispatcher.mjs"
 import { lockAppStateMutation } from "./app-state-advisory-lock.mjs";
 import { isPostgresConfigured, withPostgresTransaction } from "./postgres-client.mjs";
 import { ensureJobQueueSchema } from "./job-queue-schema.mjs";
+import { getBriefQueueName } from "./brief-queue.mjs";
 
 const appStateKey = process.env.APP_STATE_KEY || "default";
 const defaultMaxManualRetries = 3;
@@ -41,15 +42,15 @@ export async function retryFailedJobs(scope, deps) {
       `select * from studio_jobs
        where app_state_key = $1
          and project_id = $2
-         and queue_name = 'generation'
+         and (queue_name = 'generation' or queue_name = $5)
          and (status = 'failed' or queue_status = 'failed')
          and coalesce(extra->>'serverReservationStatus', '') <> 'failed'
-       and ($3 = '' or extra->>'serverBatchId' = $3)
-         and (cardinality($5::text[]) = 0 or id = any($5::text[]))
+         and ($3 = '' or extra->>'serverBatchId' = $3)
+         and (cardinality($6::text[]) = 0 or id = any($6::text[]))
          and coalesce((extra->>'manualRetryCount')::int, 0) < $4
        order by updated_at asc
        for update`,
-      [appStateKey, scope.projectId, scope.batchId, deps.maxManualRetries, scope.jobIds]
+      [appStateKey, scope.projectId, scope.batchId, deps.maxManualRetries, getBriefQueueName(), scope.jobIds]
     );
     const now = new Date().toISOString();
     const jobs = [];
