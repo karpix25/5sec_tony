@@ -336,7 +336,7 @@ export function createAutoGenerationBrief({ project, product, reference, generat
       productVisualMode: requestedProductVisualMode,
       productVisibilityDecision: generationBrief.productVisibilityDecision
     },
-    existingJobs: generationHistory
+    existingJobs: generationHistory, contentDirection
   });
   const productVisualMode = productVisibilityDecision.productVisualMode || requestedProductVisualMode;
   const editorialBrief = { ...generationSeed, topic, hook, format, semanticKey, productInsightMap: profile.insightMap, productVisualMode };

@@ -64,6 +64,10 @@ export function getEnabledContentDirections(product = {}, requestedIds = []) {
     .filter((item) => item.enabled && (!requested.size || requested.has(item.id)));
 }
 
+export function isAdjacentContentDirection(direction = {}) {
+  return Boolean(direction?.kind && direction.kind !== "direct");
+}
+
 export function pickContentDirection({ product = {}, existingJobs = [], requestedIds = [] } = {}) {
   const enabled = getEnabledContentDirections(product, requestedIds);
   if (!enabled.length) return null;

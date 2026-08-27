@@ -21,7 +21,7 @@ export async function generateServerAiBrief({ origin, project, product, referenc
   for (let attempt = 0; attempt < maxBriefAttempts; attempt += 1) {
     const attemptExistingJobs = [...generationHistory, ...rejectedJobs];
     const slot = diversitySlot || createContentSlot({ project, product, existingJobs: attemptExistingJobs, contentDirectionIds });
-    const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs });
+    const productVisibilityDecision = createProductVisibilityDecision({ project, product, existingJobs: attemptExistingJobs, contentDirection: slot.contentDirection });
     const brief = await requestServerAiBrief(origin, {
       project,
       product,

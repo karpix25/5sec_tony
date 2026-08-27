@@ -4,6 +4,7 @@ import { createContentSlot, createGenerationHistory, createRecentJobDigest } fro
 import {
   directProductContentDirection,
   getEnabledContentDirections,
+  isAdjacentContentDirection,
   normalizeProductContentDirections,
   pickContentDirection,
   preserveContentDirectionSelection
@@ -34,6 +35,12 @@ test("content directions normalize from saved JSON and keep the direct product l
   assert.equal(directions.items[0].kind, "direct");
   assert.deepEqual(getEnabledContentDirections(product).map((item) => item.id), ["direct-product", "sleep-hygiene", "daily-care"]);
   assert.equal(normalizeProductContentDirections(null), null);
+});
+
+test("only the direct lane is allowed to show the product", () => {
+  assert.equal(isAdjacentContentDirection(directProductContentDirection), false);
+  assert.equal(isAdjacentContentDirection({ kind: "adjacent" }), true);
+  assert.equal(isAdjacentContentDirection({ kind: "custom" }), true);
 });
 
 test("legacy packaging directions are removed from the AI direction set", () => {

@@ -44,6 +44,35 @@ test("no-package jobs do not pass product references and use a clean positive vi
   assert.doesNotMatch(job.prompt, /Хлорофилл|Флакон|хлорофилл, мята|generic bottle|packshot/i);
 });
 
+test("adjacent directions suppress product visuals even when the project prefers packshots", () => {
+  const job = createGenerationJob({
+    project: { ...project, productInFramePercent: 100 },
+    product,
+    reference,
+    generationBrief: {
+      contentDirection: {
+        id: "daily-care",
+        title: "Ежедневные привычки",
+        relation: "Полезные действия в обычной жизни.",
+        kind: "adjacent"
+      },
+      topic: "Как не забывать пить воду в течение дня",
+      contentScript: {
+        headline: "Вода в течение дня",
+        subhead: "Простая привычка без напоминаний",
+        points: ["Держите воду рядом", "Пейте небольшими порциями"]
+      },
+      visualBrief: { productUsage: "exact_product" },
+      creativeQuality: { curiosityScore: 8, warnings: [] }
+    }
+  });
+
+  assert.equal(job.productVisualMode, "no-package");
+  assert.equal(job.productVisibilityDecision.shouldPassProductRefs, false);
+  assert.equal(job.inputRefs.some((item) => item.role === "product"), false);
+  assert.match(job.prompt, /РЕЖИМ NO-PACKAGE/);
+});
+
 test("project percentage is clamped and product references are required for exact product mode", () => {
   assert.equal(normalizeProductInFramePercent("-10"), 0);
   assert.equal(normalizeProductInFramePercent("140"), 100);

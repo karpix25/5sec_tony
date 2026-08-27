@@ -115,6 +115,14 @@ test("creative team image prompt rules preserve product package labels", () => {
   assert.doesNotMatch(source, /Весь видимый текст строго на русском/);
 });
 
+test("creative team keeps adjacent topics useful without turning them into product posts", () => {
+  const source = readFileSync(new URL("../scripts/creative-team-prompts.mjs", import.meta.url), "utf8");
+
+  assert.match(source, /если contentDirection\.kind не 'direct'/);
+  assert.match(source, /самостоятельную полезную тему для жизни аудитории/);
+  assert.match(source, /headline, subhead, points и главном визуале не упоминай и не показывай продукт/);
+});
+
 test("image render prompt preserves product package labels", () => {
   const prompt = buildImageRenderPrompt({
     strategy: { productName: "YOUR GUMMIE", productBridge: "контекст продукта", visualObject: "упаковка" },

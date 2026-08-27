@@ -1,10 +1,13 @@
 import { hasProductVisualReference, resolveProductVisualMode } from "./product-visual-policy.js";
+import { isAdjacentContentDirection } from "./product-content-directions.js";
 
-export function createProductVisibilityDecision({ project, product, generationBrief = {}, existingJobs = [] } = {}) {
-  const requestedProductVisualMode = generationBrief.productVisualMode
-    || generationBrief.productVisibilityDecision?.productVisualMode
-    || generationBrief.productVisibilityDecision?.mode
-    || resolveProductVisualMode({ project, product, generationBrief, existingJobs });
+export function createProductVisibilityDecision({ project, product, generationBrief = {}, existingJobs = [], contentDirection = null } = {}) {
+  const requestedProductVisualMode = isAdjacentContentDirection(contentDirection)
+    ? "no-package"
+    : generationBrief.productVisualMode
+      || generationBrief.productVisibilityDecision?.productVisualMode
+      || generationBrief.productVisibilityDecision?.mode
+      || resolveProductVisualMode({ project, product, generationBrief, existingJobs });
   const hasRefs = hasProductVisualReference(product);
   const productVisualMode = requestedProductVisualMode === "exact-product" && !hasRefs
     ? "no-package"
