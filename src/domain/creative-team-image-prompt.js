@@ -11,10 +11,7 @@ export function buildCreativeTeamImagePrompt(brief = {}, { freePrompt, avatarRes
   const packagePrompt = brief.imagePromptPackage?.prompt || "";
   if (!packagePrompt) return "";
   const productVisualMode = brief.productVisibilityDecision?.productVisualMode || brief.productVisualMode || getCreativeTeamProductVisualMode(brief);
-  const content = normalizeCreativePromptContent(brief.contentScript || brief.finalContent || brief.aiPlan || {}, {
-    productVisualMode,
-    productPassport: brief.productPassport
-  });
+  const content = normalizeCreativePromptContent(brief.contentScript || brief.finalContent || brief.aiPlan || {});
   const safePromptContract = promptContract ? sanitizePromptContract(promptContract, content) : null;
   const format = brief.designFormatBrief || {};
   const formatType = getEffectiveFormatType({ brief, format });
@@ -195,28 +192,22 @@ function formatContentPoint(point) {
     .join(": ");
 }
 
-function normalizeCreativePromptContent(content = {}, { productVisualMode, productPassport } = {}) {
-  const headline = cleanCreativeContentLine(content.headline, { productVisualMode, productPassport });
+function normalizeCreativePromptContent(content = {}) {
+  const headline = cleanCreativeContentLine(content.headline);
   const points = Array.isArray(content.points)
-    ? content.points.map((point) => cleanCreativeContentLine(formatContentPoint(point), { productVisualMode, productPassport })).filter(Boolean)
+    ? content.points.map((point) => cleanCreativeContentLine(formatContentPoint(point))).filter(Boolean)
     : [];
-  const rawSubhead = cleanCreativeContentLine(content.subhead, { productVisualMode, productPassport });
+  const rawSubhead = cleanCreativeContentLine(content.subhead);
   const subhead = isDuplicateCreativeLine(rawSubhead, headline)
     ? points.find((point) => !isDuplicateCreativeLine(point, headline)) || ""
     : rawSubhead;
   return { ...content, headline, subhead, points };
 }
 
-function cleanCreativeContentLine(value, { productVisualMode, productPassport } = {}) {
+function cleanCreativeContentLine(value) {
   const clean = String(value || "").replace(/\s+/g, " ").trim();
   if (isDisclaimerCreativeLine(clean)) return "";
-  if (productVisualMode !== "no-package") return clean;
-  const productName = productPassport?.productName || productPassport?.name || "";
-  const terms = String(productName).split(/\s+|\+/).filter((item) => item.length >= 4);
-  const productPattern = terms.length ? new RegExp(terms.map(escapeCreativeRegExp).join("|"), "gi") : null;
-  const withoutProduct = productPattern ? clean.replace(productPattern, "").replace(/\s{2,}/g, " ").trim() : clean;
-  if (/упаков|этикет|флакон|бутыл|баноч|банка|sku|packshot|bottle|package|label|jar/i.test(withoutProduct)) return "";
-  return withoutProduct.replace(/\b[A-Z]{3,}\b/g, "").replace(/\s{2,}/g, " ").trim();
+  return clean;
 }
 
 function isDisclaimerCreativeLine(value = "") {

@@ -46,8 +46,8 @@ test("no-package prompt keeps product references out of the visible scene", () =
     },
     contentScript: {
       headline: "ТОП 5 привычек",
-      subhead: "Полезная инфографика",
-      points: ["Хлорофилл SONRE на столе", "Бутылка рядом с водой", "Проверь режим"]
+      subhead: "Полезный ритуал на каждый день",
+      points: ["Пить воду утром", "Держать режим", "Проверить привычку"]
     }
   });
 

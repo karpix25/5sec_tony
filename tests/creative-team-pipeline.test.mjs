@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildImagePrompt, createAutoGenerationBrief } from "../src/domain/generation.js";
+import { buildCreativeTeamImagePrompt } from "../src/domain/creative-team-image-prompt.js";
 import { projects, products } from "../src/domain/entities.js";
 import { runCreativeTeamBrief } from "../scripts/creative-team-prompts.mjs";
 import { parseJsonDraft } from "../scripts/openrouter-response.mjs";
@@ -264,8 +265,8 @@ test("no-package creative team prompt removes product names and packaging cues",
       designFormatBrief: { formatType: "ranking_leaderboard" },
       contentScript: {
         headline: "ТОП 10 привычек",
-        subhead: "ТОП 10 привычек",
-        points: ["Хлорофилл SONRE: приятный ритуал", "Бутылка на столе", "Вода утром"]
+        subhead: "Полезный ритуал на каждый день",
+        points: ["Пить воду утром", "Держать режим", "Ставить напоминание"]
       },
       imagePromptPackage: {
         provider: "gpt-image-2",
@@ -280,6 +281,23 @@ test("no-package creative team prompt removes product names and packaging cues",
   assert.match(prompt, /нижний правый угол работает как чистое негативное пространство/);
   assert.doesNotMatch(prompt, /SONRE|Хлорофилл|chlorophyll|Show SONRE|Бутылка на столе/i);
   assert.doesNotMatch(prompt, /Подзаголовок: ТОП 10 привычек/);
+});
+
+test("no-package mode preserves the LLM editorial text contract", () => {
+  const prompt = buildCreativeTeamImagePrompt({
+    productVisualMode: "no-package",
+    productPassport: { productName: "Маска для волос Molecular" },
+    imagePromptPackage: { prompt: "Create vertical 9:16 infographic." },
+    contentScript: {
+      headline: "Волосы ломаются после мытья",
+      subhead: "Три привычки, которые портят структуру",
+      points: ["Расчесывание мокрых прядей"]
+    }
+  });
+
+  assert.match(prompt, /Заголовок: Волосы ломаются после мытья/);
+  assert.match(prompt, /Подзаголовок: Три привычки, которые портят структуру/);
+  assert.doesNotMatch(prompt, /Заголовок: ы ломаются после мытья/);
 });
 
 test("creative team prompt removes visible medicine disclaimers", () => {
